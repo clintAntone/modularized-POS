@@ -23,7 +23,13 @@ const mapDbBranch = (db: any): Branch => ({
     closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
     owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
       ? JSON.parse(db[DB_COLUMNS.OWNERS])
-      : (db[DB_COLUMNS.OWNERS] || [])
+      : (db[DB_COLUMNS.OWNERS] || []),
+    groupLevy: (() => {
+        const raw = db[DB_COLUMNS.GROUP_LEVY];
+        if (!raw) return null;
+        try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
+    })(),
+    refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
 });
 
 const mapDbEmployee = (db: any): Employee => ({

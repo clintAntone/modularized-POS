@@ -6,7 +6,7 @@ import { getTrueDate } from '../../../lib/time';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import * as XLSX from 'xlsx';
-import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, Paperclip, Send, XCircle, RotateCcw } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, Paperclip, Send, XCircle, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type SubmissionStatus = 'submitted' | 'approved' | 'rejected' | null;
 
@@ -42,8 +42,11 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
   const [adjReceiptFile, setAdjReceiptFile] = useState<File | null>(null);
   const [isSavingAdj, setIsSavingAdj] = useState(false);
+  const [adjError, setAdjError] = useState<string | null>(null);
   const [submission, setSubmission] = useState<RemittanceSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
 
   const now = getTrueDate();
 
@@ -78,6 +81,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
   const handleSubmitRemittance = async (periodLabel: string) => {
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const { data, error } = await supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
@@ -93,8 +97,9 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       setSubmission({ id: data.id, status: 'submitted', reviewNote: null, submittedAt: data.submitted_at });
       localStorage.setItem(`remittance_submitted_${branch.id}`, periodLabel);
       playSound('success');
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[Remittance] Submit failed:', err);
+      setSubmitError(err?.message || 'Failed to submit. Please try again.');
       playSound('warning');
     } finally {
       setIsSubmitting(false);
@@ -106,18 +111,23 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (!adjForm.description.trim() || isNaN(raw) || raw === 0) return;
     const amt = adjFormMode === 'deduct' ? -Math.abs(raw) : Math.abs(raw);
     setIsSavingAdj(true);
+    setAdjError(null);
     try {
-      // Upload receipt if provided
+      // Upload receipt if provided — failure is non-blocking, save continues without image
       let receiptImageUrl: string | null = null;
       if (adjReceiptFile) {
-        const ext = adjReceiptFile.name.split('.').pop();
-        const path = `remittance_receipts/${branch.id}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('receipts')
-          .upload(path, adjReceiptFile, { upsert: false });
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path);
-        receiptImageUrl = urlData.publicUrl;
+        try {
+          const ext = adjReceiptFile.name.split('.').pop();
+          const path = `remittance_receipts/${branch.id}/${Date.now()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('receipts')
+            .upload(path, adjReceiptFile, { upsert: false });
+          if (uploadError) throw uploadError;
+          const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path);
+          receiptImageUrl = urlData.publicUrl;
+        } catch (uploadErr) {
+          console.warn('[Remittance] Receipt upload failed, saving without image:', uploadErr);
+        }
       }
 
       const { data, error } = await supabase
@@ -140,8 +150,9 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       setAdjReceiptFile(null);
       setAdjFormKey(null);
       playSound('success');
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[Remittance] Failed to save adjustment:', err);
+      setAdjError(err?.message || 'Failed to save. Please try again.');
       playSound('warning');
     } finally {
       setIsSavingAdj(false);
@@ -159,16 +170,18 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     }
   };
 
-  // Only the most recent completed period
-  const currentGroup = useMemo(() => {
+  // All completed periods sorted most-recent first
+  const allGroups = useMemo(() => {
     const groups: Record<string, { label: string; weekEnd: Date; aggregate: any }> = {};
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     salesReports
       .filter(r => r.branchId === branch.id)
       .forEach(report => {
         const date = parseDate(report.reportDate);
         const { label, weekStart, weekEnd } = getWeekRange(date, branch);
-        if (weekEnd > now) return;
+        const weekEndDate = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
+        if (weekEndDate > todayDate) return;
         const key = weekStart.getTime().toString();
 
         if (!groups[key]) {
@@ -191,17 +204,42 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         if (!report.isValidated) agg.isValidated = false;
       });
 
-    const sorted = Object.keys(groups)
-      .sort((a, b) => Number(b) - Number(a));
-
-    if (sorted.length === 0) return null;
-    const key = sorted[0];
-    return { label: groups[key].label, aggregate: groups[key].aggregate };
+    return Object.keys(groups)
+      .sort((a, b) => Number(b) - Number(a))
+      .map(key => ({ key, label: groups[key].label, aggregate: groups[key].aggregate }));
   }, [salesReports, branch.id]);
+
+  // Default to latest period; keep selection in sync when data loads
+  const currentGroup = useMemo(() => {
+    if (allGroups.length === 0) return null;
+    const match = selectedPeriodKey ? allGroups.find(g => g.key === selectedPeriodKey) : null;
+    return match ?? allGroups[0];
+  }, [allGroups, selectedPeriodKey]);
+
+  const currentPeriodIndex = useMemo(
+    () => allGroups.findIndex(g => g.key === currentGroup?.key),
+    [allGroups, currentGroup]
+  );
 
   useEffect(() => {
     if (currentGroup) fetchSubmission(currentGroup.label);
   }, [currentGroup?.label, branch.id]);
+
+  // Realtime: reflect approval/rejection immediately without page refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel(`remittance_submission_branch_${branch.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: DB_TABLES.REMITTANCE_SUBMISSIONS,
+        filter: `branch_id=eq.${branch.id}`
+      }, payload => {
+        const row = payload.new as any;
+        if (!row?.id) return;
+        setSubmission({ id: row.id, status: row.status, reviewNote: row.review_note, submittedAt: row.submitted_at });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [branch.id]);
 
   const handleExportExcel = () => {
     if (!currentGroup) return;
@@ -218,7 +256,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       'Net ROI': agg.netRoi, Adjustments: totalAdj, 'Adjusted ROI': adjustedRoi,
       Validated: agg.isValidated ? 'YES' : 'NO',
     };
-    owners.forEach((o: any) => { row[`${o.name} (${o.percentage}%)`] = adjustedRoi * (o.percentage / 100); });
+    if (levy) row[`${levy.name} (${levy.percentage}% Levy)`] = -levyCut;
+    owners.forEach((o: any) => { row[`${o.name} (${o.percentage}%)`] = distributableRoi * (o.percentage / 100); });
     if (rowAdj.length > 0) row['Adjustment Details'] = rowAdj.map(a => `${a.description}: ${a.amount >= 0 ? '+' : ''}${a.amount}`).join(' | ');
     const ws = XLSX.utils.json_to_sheet([row]);
     const wb = XLSX.utils.book_new();
@@ -240,9 +279,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
   const agg = currentGroup.aggregate;
   const owners: any[] = branch.owners || [];
+  const levy = branch.groupLevy || null;
   const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
   const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalAdj;
+  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+  const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
   const formKey = currentGroup.label;
 
@@ -250,30 +292,63 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     <div className="space-y-4 animate-in fade-in duration-700 pb-20">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 bg-white px-6 py-5 rounded-[28px] border border-slate-100 shadow-sm">
-        <div>
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Current Period</p>
-          <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">{currentGroup.label}</h3>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100">
-              {agg.isValidated
-                ? <CheckCircle className="w-3 h-3 text-slate-500" />
-                : <Clock className="w-3 h-3 text-slate-400" />
-              }
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
-                {agg.isValidated ? 'Validated' : 'Pending'}
-              </span>
+      <div className="bg-white px-6 py-5 rounded-[28px] border border-slate-100 shadow-sm space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+              {currentPeriodIndex === 0 ? 'Current Period' : `Period — ${currentPeriodIndex} week${currentPeriodIndex !== 1 ? 's' : ''} ago`}
+            </p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">{currentGroup.label}</h3>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100">
+                {agg.isValidated
+                  ? <CheckCircle className="w-3 h-3 text-slate-500" />
+                  : <Clock className="w-3 h-3 text-slate-400" />
+                }
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                  {agg.isValidated ? 'Validated' : 'Pending'}
+                </span>
+              </div>
             </div>
+            <p className="text-[10px] font-bold text-slate-400 mt-0.5">{agg.reportCount} day{agg.reportCount !== 1 ? 's' : ''} · {branch.name.replace('BRANCH - ', '')}</p>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">{agg.reportCount} day{agg.reportCount !== 1 ? 's' : ''} · {branch.name.replace('BRANCH - ', '')}</p>
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 h-10 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all shadow active:scale-95 shrink-0"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
         </div>
-        <button
-          onClick={handleExportExcel}
-          className="flex items-center gap-2 px-4 h-10 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all shadow active:scale-95 shrink-0"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span className="hidden sm:inline">Export</span>
-        </button>
+
+        {/* Period navigation */}
+        {allGroups.length > 1 && (
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+            <button
+              onClick={() => { setSelectedPeriodKey(allGroups[currentPeriodIndex - 1].key); setSubmission(null); setAdjFormKey(null); playSound('click'); }}
+              disabled={currentPeriodIndex === 0}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-widest disabled:opacity-30 hover:bg-slate-100 transition-colors active:scale-95"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Newer
+            </button>
+            <div className="flex gap-1 flex-1 justify-center">
+              {allGroups.map((g, i) => (
+                <button
+                  key={g.key}
+                  onClick={() => { setSelectedPeriodKey(g.key); setSubmission(null); setAdjFormKey(null); playSound('click'); }}
+                  className={`w-2 h-2 rounded-full transition-all ${i === currentPeriodIndex ? 'bg-slate-900 w-4' : 'bg-slate-300 hover:bg-slate-400'}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => { setSelectedPeriodKey(allGroups[currentPeriodIndex + 1].key); setSubmission(null); setAdjFormKey(null); playSound('click'); }}
+              disabled={currentPeriodIndex === allGroups.length - 1}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-widest disabled:opacity-30 hover:bg-slate-100 transition-colors active:scale-95"
+            >
+              Older <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main card */}
@@ -294,13 +369,34 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           )}
         </div>
 
+        {/* ── Group levy ── */}
+        {levy && (
+          <div className="space-y-2">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Group Levy</p>
+            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3.5">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-[11px] font-black text-indigo-600 shrink-0">🏦</div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black text-indigo-800 uppercase tracking-tight leading-none truncate">{levy.name}</p>
+                  <p className="text-[9px] font-bold text-indigo-400 mt-0.5">{levy.percentage}% of adjusted ROI</p>
+                </div>
+              </div>
+              <span className="text-[18px] font-black tabular-nums shrink-0 text-indigo-700">
+                −{fmt(levyCut)}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* ── Owner cuts ── */}
         {owners.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner Cut</p>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              Owner Cut{levy ? ` (of ${fmt(distributableRoi)} after levy)` : ''}
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {owners.map((owner: any, oIdx: number) => {
-                const share = adjustedRoi * (owner.percentage / 100);
+                const share = distributableRoi * (owner.percentage / 100);
                 return (
                   <div key={oIdx} className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3.5">
                     <div className="flex items-center gap-3 min-w-0">
@@ -343,8 +439,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         {/* Divider */}
         <div className="h-px bg-slate-100" />
 
-        {/* ── Add / Deduct buttons ── */}
-        {adjFormKey !== formKey && (
+        {/* ── Add / Deduct buttons — only for current period ── */}
+        {adjFormKey !== formKey && currentPeriodIndex === 0 && (
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); }}
@@ -429,7 +525,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                     {adjReceiptFile ? (
                       <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight truncate block">{adjReceiptFile.name}</span>
                     ) : (
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attach Receipt (required)</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attach Receipt (optional)</span>
                     )}
                   </div>
                   {adjReceiptFile && (
@@ -440,9 +536,14 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   <input type="file" accept="image/*,application/pdf" className="hidden"
                     onChange={e => setAdjReceiptFile(e.target.files?.[0] ?? null)} />
                 </label>
+                {adjError && (
+                  <p className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+                    {adjError}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => { setAdjFormKey(null); setAdjReceiptFile(null); }}
+                    onClick={() => { setAdjFormKey(null); setAdjReceiptFile(null); setAdjError(null); }}
                     className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
                   >
                     Cancel
@@ -466,10 +567,10 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </p>
         )}
 
-        {/* ── Submit remittance ── */}
-        <div className="h-px bg-slate-100" />
+        {/* ── Submit remittance — only for current period ── */}
+        {currentPeriodIndex === 0 && <div className="h-px bg-slate-100" />}
 
-        {(!submission || submission.status === 'rejected') && (
+        {currentPeriodIndex === 0 && (!submission || submission.status === 'rejected') && (
           <div className="space-y-2">
             {submission?.status === 'rejected' && (
               <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3">
@@ -479,9 +580,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   {submission.reviewNote && (
                     <p className="text-[10px] font-bold text-rose-500 mt-0.5">{submission.reviewNote}</p>
                   )}
+                  <p className="text-[9px] font-bold text-rose-400 mt-1">Review your figures and resubmit when ready.</p>
                 </div>
               </div>
             )}
+            {submitError && (
+              <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3">
+                <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] font-bold text-rose-600">{submitError}</p>
+              </div>
+            )}
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">
+              Once submitted, the administrator will review and approve or reject this remittance.
+            </p>
             <button
               onClick={() => handleSubmitRemittance(currentGroup.label)}
               disabled={isSubmitting}
@@ -499,22 +610,24 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </div>
         )}
 
-        {submission?.status === 'submitted' && (
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4">
-            <Clock className="w-5 h-5 text-slate-400 shrink-0" />
+        {currentPeriodIndex === 0 && submission?.status === 'submitted' && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-4">
+            <Clock className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
-              <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Submitted — Awaiting Review</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Your remittance is pending superadmin approval.</p>
+              <p className="text-[11px] font-black text-amber-800 uppercase tracking-tight">Submitted — Awaiting Admin Review</p>
+              <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">
+                You'll be notified once the administrator approves or rejects this remittance.
+              </p>
             </div>
           </div>
         )}
 
         {submission?.status === 'approved' && (
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4">
-            <CheckCircle className="w-5 h-5 text-slate-600 shrink-0" />
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-4">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
-              <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Approved</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Remittance confirmed by admin.</p>
+              <p className="text-[11px] font-black text-emerald-800 uppercase tracking-tight">Remittance Approved</p>
+              <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">This period has been confirmed by the administrator.</p>
             </div>
           </div>
         )}

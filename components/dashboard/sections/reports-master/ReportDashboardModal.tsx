@@ -221,7 +221,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             : `${t.paymentMethod || 'CASH'} (${t.paymentStatus || 'PAID'})`;
 
           return [
-            new Date(t.timestamp.replace(/(\+00:00|Z)$/, "")).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(t.timestamp)),
             (t.clientName || '').toUpperCase(),
             (t.serviceName || '').toUpperCase(),
             `PHP ${netTotal.toLocaleString()}`,
@@ -842,13 +842,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
                                     {(() => {
                                       // Treat the timestamp as Philippine time
-                                      const date = new Date(e.timestamp.replace(/(\+00:00|Z)$/, ""));
-                                      return date.toLocaleTimeString('en-US', {
+                                      const date = new Date(e.timestamp);
+                                      return new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'Asia/Manila',
                                         hour: '2-digit',
                                         minute: '2-digit',
-                                        second: undefined, // remove if you don't want seconds
                                         hour12: true
-                                      });
+                                      }).format(date);
                                     })()}
                                   </p>
                                 </div>
@@ -871,7 +871,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                 <div className="overflow-hidden">
                                   <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none mb-1.5">{e.name}</p>
                                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
-                                    {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))}
                                   </p>
                                 </div>
                               </div>
@@ -902,13 +902,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
                                     {(() => {
                                       // Treat the timestamp as Philippine time
-                                      const date = new Date(e.timestamp.replace(/(\+00:00|Z)$/, ""));
-                                      return date.toLocaleTimeString('en-US', {
+                                      const date = new Date(e.timestamp);
+                                      return new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'Asia/Manila',
                                         hour: '2-digit',
                                         minute: '2-digit',
-                                        second: undefined, // remove if you don't want seconds
                                         hour12: true
-                                      });
+                                      }).format(date);
                                     })()}
                                   </p>
                                 </div>
@@ -1028,7 +1028,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   return (
                       <tr key={t.id} className="break-inside-avoid">
                         <td className="border border-slate-200 px-2 py-1.5 tabular-nums">
-                          {new Date(t.timestamp.replace(/(\+00:00|Z)$/, "")).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                          {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(t.timestamp))}
                         </td>
                         <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{t.clientName}</td>
                         <td className="border border-slate-200 px-2 py-1.5 uppercase leading-tight">{t.serviceName}</td>

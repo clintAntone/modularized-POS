@@ -448,25 +448,41 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       const lastName = editingEmployee.lastName?.trim().toUpperCase();
       const cleanName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim().toUpperCase();
       
-      // 0. DUPLICATION CHECK (Branch-Level)
-      const isDuplicate = employees.some(e => {
-        if (editingEmployee.id && e.id === editingEmployee.id) return false;
-        if (e.branchId !== branch.id) return false;
-        if (!e.isActive) return false;
+      // 0. DUPLICATION CHECK (Network-Wide — only for new staff, not edits)
+      if (!editingEmployee.id) {
+        const matchInBranch = employees.some(e => {
+          if (!e.isActive) return false;
+          if (e.branchId !== branch.id) return false;
+          const existingFullName = e.firstName && e.lastName
+            ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase()
+            : (e.name || '').toUpperCase();
+          return existingFullName === cleanName;
+        });
 
-        const existingFullName = e.firstName && e.lastName 
-          ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase() 
-          : (e.name || '').toUpperCase();
+        if (matchInBranch) {
+          playSound('warning');
+          showToast('DUPLICATE IDENTITY: Staff already registered in this branch.', 'error');
+          setIsSyncing(false);
+          if (onSyncStatusChange) onSyncStatusChange(false);
+          return;
+        }
 
-        return existingFullName === cleanName;
-      });
+        const matchInOtherBranch = employees.find(e => {
+          if (!e.isActive) return false;
+          if (e.branchId === branch.id) return false;
+          const existingFullName = e.firstName && e.lastName
+            ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase()
+            : (e.name || '').toUpperCase();
+          return existingFullName === cleanName;
+        });
 
-      if (isDuplicate) {
-        playSound('warning');
-        showToast('DUPLICATE IDENTITY: Staff already registered in this branch.', 'error');
-        setIsSyncing(false);
-        if (onSyncStatusChange) onSyncStatusChange(false);
-        return;
+        if (matchInOtherBranch) {
+          playSound('warning');
+          showToast('STAFF EXISTS IN NETWORK: Use "Enroll Reliever" to assign them here.', 'error');
+          setIsSyncing(false);
+          if (onSyncStatusChange) onSyncStatusChange(false);
+          return;
+        }
       }
 
       let profileUrl = editingEmployee.profile || '';

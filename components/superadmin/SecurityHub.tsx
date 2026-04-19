@@ -19,20 +19,41 @@ export const SecurityHub: React.FC = () => {
 
     setIsForceLoggingOut(true);
     try {
-      const { data: configData } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*').eq(DB_COLUMNS.KEY, 'force_logout_registry').single();
+      const now = Date.now();
+
+      // 1. Stamp refresh_signal on ALL branches — branches table has Realtime enabled,
+      //    so every connected client receives the update immediately via the existing subscription.
+      const { data: allBranches, error: fetchErr } = await supabase
+        .from(DB_TABLES.BRANCHES)
+        .select('id');
+      if (fetchErr) throw fetchErr;
+
+      if (allBranches && allBranches.length > 0) {
+        const { error: updateErr } = await supabase
+          .from(DB_TABLES.BRANCHES)
+          .update({ [DB_COLUMNS.REFRESH_SIGNAL]: now })
+          .in(DB_COLUMNS.ID, allBranches.map((b: any) => b.id));
+        if (updateErr) throw updateErr;
+      }
+
+      // 2. Also write to system_config as a fallback for portal/superadmin users
+      //    who may have branch-restricted views or no branch assigned.
+      const { data: configData } = await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .select('value')
+        .eq(DB_COLUMNS.KEY, 'force_logout_registry')
+        .single();
       let registry: Record<string, number> = {};
       if (configData) {
         try { registry = JSON.parse(configData.value); } catch {}
       }
-      registry['GLOBAL'] = Date.now();
-      
-      const { error } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert({
+      registry['GLOBAL'] = now;
+      await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert({
         [DB_COLUMNS.KEY]: 'force_logout_registry',
         [DB_COLUMNS.VALUE]: JSON.stringify(registry)
       }, { onConflict: DB_COLUMNS.KEY });
-      
-      if (error) throw error;
 
+      // 3. Audit log
       await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
         [DB_COLUMNS.BRANCH_ID]: null,
         [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),

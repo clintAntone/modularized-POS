@@ -81,16 +81,27 @@ const App: React.FC = () => {
     return null;
   }, [auth.user?.employeeId, currentBranch?.manager, employees]);
 
-  // FORCE LOGOUT WATCHER: Monitor branch-level and global session invalidation
+  // FORCE LOGOUT WATCHER — primary path: refresh_signal on branches (realtime-backed)
+  // Branches table has Realtime enabled, so this fires within seconds of the admin triggering it.
+  useEffect(() => {
+    if (!auth.user || !branches.length) return;
+    const sessionStart = auth.user.sessionStart;
+    const hit = branches.find(b => b.refreshSignal && b.refreshSignal > sessionStart);
+    if (hit) {
+      console.log("⚠️ Security: Remote session termination via refresh_signal.");
+      handleLogout();
+    }
+  }, [branches, auth.user, handleLogout]);
+
+  // FORCE LOGOUT WATCHER — fallback path: system_config registry (polled every 15 s)
+  // Covers portal/superadmin users whose branch scope may be empty or restricted.
   useEffect(() => {
     if (auth.user) {
       const globalForceTime = forceLogoutRegistry['GLOBAL'] || 0;
       const branchForceTime = auth.user.branchId ? (forceLogoutRegistry[auth.user.branchId] || 0) : 0;
-
       const latestForceTime = Math.max(globalForceTime, branchForceTime);
-
       if (latestForceTime > auth.user.sessionStart) {
-        console.log("⚠️ Security: Remote session termination triggered by SuperAdmin.");
+        console.log("⚠️ Security: Remote session termination via registry fallback.");
         handleLogout();
       }
     }

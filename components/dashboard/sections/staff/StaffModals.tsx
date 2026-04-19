@@ -508,33 +508,52 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   </div>
 
                   {/* Duplicate Warning */}
-                  {(() => {
+                  {!props.editingEmployee.id && (() => {
                     const firstName = props.editingEmployee.firstName?.trim().toUpperCase();
                     const lastName = props.editingEmployee.lastName?.trim().toUpperCase();
                     const cleanName = `${firstName || ''} ${props.editingEmployee.middleName?.trim().toUpperCase() ? props.editingEmployee.middleName.trim().toUpperCase() + ' ' : ''}${lastName || ''}`.trim().toUpperCase();
-                    
+
                     if (!firstName || !lastName) return null;
 
-                    const isDuplicate = (props as any).allEmployees?.some((e: any) => {
-                      if (props.editingEmployee.id && e.id === props.editingEmployee.id) return false;
-                      if (e.branchId !== (props as any).branchId) return false;
+                    const allEmployees = (props as any).allEmployees as any[] | undefined;
+                    const branchId = (props as any).branchId as string;
+
+                    const sameBranch = allEmployees?.some((e: any) => {
                       if (!e.isActive) return false;
-
-                      const existingFullName = e.firstName && e.lastName 
-                        ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase() 
+                      if (e.branchId !== branchId) return false;
+                      const n = e.firstName && e.lastName
+                        ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase()
                         : (e.name || '').toUpperCase();
-
-                      return existingFullName === cleanName;
+                      return n === cleanName;
                     });
 
-                    if (isDuplicate) {
+                    if (sameBranch) {
                       return (
                         <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
-                          <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest">Potential Duplicate Detected in this Branch</p>
+                          <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"></div>
+                          <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest">Duplicate Detected — Already Registered in this Branch</p>
                         </div>
                       );
                     }
+
+                    const otherBranch = allEmployees?.find((e: any) => {
+                      if (!e.isActive) return false;
+                      if (e.branchId === branchId) return false;
+                      const n = e.firstName && e.lastName
+                        ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase()
+                        : (e.name || '').toUpperCase();
+                      return n === cleanName;
+                    });
+
+                    if (otherBranch) {
+                      return (
+                        <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
+                          <p className="text-[8px] font-bold text-amber-700 uppercase tracking-widest">Staff Exists in Network — Use "Enroll Reliever" Instead</p>
+                        </div>
+                      );
+                    }
+
                     return null;
                   })()}
 

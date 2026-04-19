@@ -240,7 +240,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         [DB_COLUMNS.ENABLE_SHIFT_TRACKING]: updated.enableShiftTracking,
         [DB_COLUMNS.OPENING_TIME]: updated.openingTime,
         [DB_COLUMNS.CLOSING_TIME]: updated.closingTime,
-        [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || [])
+        [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || []),
+        [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null
       });
 
       // Handle Manager Role Persistence

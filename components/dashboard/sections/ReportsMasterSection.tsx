@@ -198,13 +198,9 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       const target = aggregated[key];
       target.grossSales += r.grossSales;
       target.totalStaffPay += r.totalStaffPay;
-      
-      const rExpenses = (r.expenseData || []).reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
-      const rVault = (r.vaultData || []).reduce((sum: number, v: any) => sum + (Number(v.amount) || 0), 0);
-      
-      target.totalExpenses += rExpenses;
-      target.totalVaultProvision += rVault;
-      target.netRoi += (r.grossSales - r.totalStaffPay - rExpenses - rVault);
+      target.totalExpenses += r.totalExpenses;
+      target.totalVaultProvision += r.totalVaultProvision;
+      target.netRoi += r.netRoi;
 
       // Aggregate detailed data
       target.sessionData = [...(target.sessionData || []), ...(r.sessionData || [])];

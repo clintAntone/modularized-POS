@@ -46,6 +46,8 @@ export interface Branch {
   openingTime?: string;
   closingTime?: string;
   owners?: { name: string; percentage: number }[];
+  groupLevy?: { name: string; percentage: number } | null;
+  refreshSignal?: number | null;
 }
 
 export interface Service {

@@ -49,6 +49,8 @@ export const DB_COLUMNS = {
   OPENING_TIME: 'opening_time',
   CLOSING_TIME: 'closing_time',
   OWNERS: 'owners',
+  GROUP_LEVY: 'group_levy',
+  REFRESH_SIGNAL: 'refresh_signal',
 
   // Transactions
   CLIENT_NAME: 'client_name',

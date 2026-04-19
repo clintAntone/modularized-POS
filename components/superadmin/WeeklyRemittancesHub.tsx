@@ -6,7 +6,7 @@ import { getTrueDate } from '../../lib/time';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import * as XLSX from 'xlsx';
-import { FileSpreadsheet, CheckCircle, Circle, ChevronDown, CalendarDays, Paperclip, XCircle, Send } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle, Circle, ChevronDown, CalendarDays, Paperclip, XCircle, Send, Plus, Minus, Trash2 } from 'lucide-react';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface WeeklyRemittancesHubProps {
@@ -47,6 +47,15 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [rejectFormKey, setRejectFormKey] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
+  const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
+  const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct'>('add');
+  const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
+  const [isSavingAdj, setIsSavingAdj] = useState(false);
+
+  const mapSubmission = (r: any): RemittanceSubmission => ({
+    id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
+    status: r.status, reviewNote: r.review_note, submittedAt: r.submitted_at
+  });
 
   useEffect(() => {
     supabase
@@ -66,11 +75,25 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       .select('*')
       .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
       .then(({ data }) => {
-        if (data) setSubmissions(data.map(r => ({
-          id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
-          status: r.status, reviewNote: r.review_note, submittedAt: r.submitted_at
-        })));
+        if (data) setSubmissions(data.map(mapSubmission));
       });
+
+    // Realtime: update submission list whenever a branch submits or a review is saved
+    const channel = supabase
+      .channel('remittance_submissions_superadmin')
+      .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.REMITTANCE_SUBMISSIONS }, payload => {
+        const row = payload.new as any;
+        if (!row?.id) return;
+        const updated = mapSubmission(row);
+        setSubmissions(prev => {
+          const exists = prev.some(s => s.id === updated.id);
+          if (exists) return prev.map(s => s.id === updated.id ? updated : s);
+          return [updated, ...prev];
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleReview = async (submissionId: string, branchId: string, periodLabel: string, status: 'approved' | 'rejected', note?: string) => {
@@ -106,16 +129,51 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     }
   };
 
+  const handleAddAdjustment = async (branchId: string, periodLabel: string) => {
+    const raw = parseFloat(adjForm.amount);
+    if (!adjForm.description.trim() || isNaN(raw) || raw === 0) return;
+    const amt = adjFormMode === 'deduct' ? -Math.abs(raw) : Math.abs(raw);
+    setIsSavingAdj(true);
+    try {
+      const { data, error } = await supabase
+        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+        .insert({
+          branch_id: branchId,
+          period_label: periodLabel,
+          description: adjForm.description.trim().toUpperCase(),
+          amount: amt,
+          receipt_image: null,
+        })
+        .select().single();
+      if (error) throw error;
+      setAdjustments(prev => [...prev, {
+        id: data.id, branchId: data.branch_id, periodLabel: data.period_label,
+        description: data.description, amount: Number(data.amount),
+        receiptImage: null, createdAt: data.created_at,
+      }]);
+      setAdjForm({ description: '', amount: '' });
+      setAdjFormKey(null);
+      playSound('success');
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsSavingAdj(false);
+    }
+  };
+
   const allGroupedReports = useMemo(() => {
     const groups: Record<string, { label: string; weekEnd: Date; branchAggregates: Record<string, any> }> = {};
     const now = getTrueDate();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     salesReports.forEach(report => {
       const branch = branches.find(b => b.id === report.branchId);
       if (!branch) return;
       const date = parseDate(report.reportDate);
       const { label, weekStart, weekEnd } = getWeekRange(date, branch);
-      if (weekEnd > now) return;
+      const weekEndDate = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
+      if (weekEndDate > todayDate) return;
       const key = weekStart.getTime().toString();
 
       if (!groups[key]) groups[key] = { label, weekEnd, branchAggregates: {} };
@@ -123,6 +181,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       if (!groups[key].branchAggregates[report.branchId]) {
         groups[key].branchAggregates[report.branchId] = {
           branchId: report.branchId, branchName: branch.name, owners: branch.owners || [],
+          groupLevy: branch.groupLevy || null,
           grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0,
           isValidated: true, reportIds: []
         };
@@ -202,6 +261,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
         const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
         const adjustedRoi = report.netRoi + totalAdj;
+        const levy = report.groupLevy as { name: string; percentage: number } | null;
+        const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+        const distributableRoi = adjustedRoi - levyCut;
         const row: any = {
           'Period': group.label, 'Branch': report.branchName,
           'Gross Sales': report.grossSales, 'Salary': report.totalStaffPay,
@@ -209,7 +271,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           'Net ROI': report.netRoi, 'Adjustments': totalAdj, 'Adjusted ROI': adjustedRoi,
           'Validated': report.isValidated ? 'YES' : 'NO'
         };
-        report.owners.forEach((o: any) => { row[`${o.name} (${o.percentage}%)`] = adjustedRoi * (o.percentage / 100); });
+        if (levy) row[`${levy.name} (${levy.percentage}% Levy)`] = -levyCut;
+        report.owners.forEach((o: any) => { row[`${o.name} (${o.percentage}%)`] = distributableRoi * (o.percentage / 100); });
         if (rowAdj.length > 0) row['Adjustment Details'] = rowAdj.map(a => `${a.description}: ${a.amount >= 0 ? '+' : ''}${a.amount}`).join(' | ');
         data.push(row);
       });
@@ -296,17 +359,26 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               </div>
 
               {/* Branch cards */}
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {group.reports.map((report: any) => {
                   const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
                   const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
                   const adjustedRoi = report.netRoi + totalAdj;
+                  const levy = report.groupLevy as { name: string; percentage: number } | null;
+                  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+                  const distributableRoi = adjustedRoi - levyCut;
                   const hasAdj = rowAdj.length > 0;
-                  const formKey = `${report.branchId}::${group.label}`;
                   const isLoading = loadingBranchIds.has(report.branchId);
+                  const sub = submissions.find(s => s.branchId === report.branchId && s.periodLabel === group.label);
+                  const rKey = `${report.branchId}::${group.label}`;
 
                   return (
-                    <div key={report.branchId} className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+                    <div key={report.branchId} className={`bg-white rounded-[28px] shadow-sm overflow-hidden border ${
+                      sub?.status === 'submitted' ? 'border-amber-300' :
+                      sub?.status === 'approved'  ? 'border-emerald-300' :
+                      sub?.status === 'rejected'  ? 'border-rose-300' :
+                      'border-slate-100'
+                    }`}>
 
                       {/* Card header */}
                       <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
@@ -340,6 +412,84 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </button>
                       </div>
 
+                      {/* ── Submission Ribbon ── */}
+                      {!sub && (
+                        <div className="flex items-center gap-2.5 px-6 py-2.5 bg-slate-50 border-b border-slate-100">
+                          <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Remittance not yet submitted</span>
+                        </div>
+                      )}
+
+                      {sub?.status === 'submitted' && (
+                        <div className="border-b border-amber-200 bg-amber-50">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-3">
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              <Send className="w-4 h-4 text-amber-600 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest leading-none">Remittance Submitted</p>
+                                <p className="text-[9px] font-bold text-amber-600 mt-0.5">
+                                  {new Date(sub.submittedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                </p>
+                              </div>
+                            </div>
+                            {rejectFormKey === rKey ? (
+                              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                <input
+                                  type="text"
+                                  value={rejectNote}
+                                  onChange={e => setRejectNote(e.target.value)}
+                                  placeholder="Reason for rejection (required)"
+                                  autoFocus
+                                  className="flex-1 sm:w-48 bg-white border border-amber-200 px-3 py-2 rounded-xl text-[11px] font-bold outline-none focus:border-amber-400"
+                                />
+                                <button
+                                  onClick={() => { setRejectFormKey(null); setRejectNote(''); }}
+                                  className="h-9 px-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest shrink-0">
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected', rejectNote)}
+                                  disabled={isReviewing || !rejectNote.trim()}
+                                  className="h-9 px-4 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-40 shrink-0">
+                                  {isReviewing ? '…' : 'Confirm Reject'}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  onClick={() => { setRejectFormKey(rKey); setRejectNote(''); }}
+                                  className="flex items-center gap-1.5 h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all hover:bg-rose-50">
+                                  <XCircle className="w-3.5 h-3.5" /> Reject
+                                </button>
+                                <button
+                                  onClick={() => handleReview(sub.id, report.branchId, group.label, 'approved')}
+                                  disabled={isReviewing}
+                                  className="flex items-center gap-1.5 h-9 px-4 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-amber-700">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Approve
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {sub?.status === 'approved' && (
+                        <div className="flex items-center gap-2.5 px-6 py-2.5 bg-emerald-50 border-b border-emerald-200">
+                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Remittance Approved</span>
+                        </div>
+                      )}
+
+                      {sub?.status === 'rejected' && (
+                        <div className="flex items-center gap-2.5 px-6 py-2.5 bg-rose-50 border-b border-rose-200">
+                          <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Remittance Rejected</span>
+                            {sub.reviewNote && <span className="text-[9px] font-bold text-rose-400 ml-2">— {sub.reviewNote}</span>}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-5 sm:p-6 space-y-5">
 
                         {/* Adjusted ROI — hero */}
@@ -358,7 +508,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </div>
 
                         {/* Financial breakdown */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           {[
                             { label: 'Gross Sales', value: report.grossSales, prefix: '' },
                             { label: 'Salary',      value: report.totalStaffPay, prefix: '−' },
@@ -372,13 +522,31 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           ))}
                         </div>
 
+                        {/* Group levy */}
+                        {levy && (
+                          <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-7 h-7 rounded-xl bg-indigo-100 flex items-center justify-center text-[10px] font-black text-indigo-600 shrink-0">🏦</div>
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-black text-indigo-800 uppercase tracking-tight leading-none truncate">{levy.name}</p>
+                                <p className="text-[9px] font-bold text-indigo-400 mt-0.5">{levy.percentage}% group levy</p>
+                              </div>
+                            </div>
+                            <span className="text-base font-black tabular-nums shrink-0 text-indigo-700">
+                              −{fmt(levyCut)}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Owner distribution */}
                         {report.owners.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner Cut</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                              Owner Cut{levy ? ` (of ${fmt(distributableRoi)} after levy)` : ''}
+                            </p>
+                            <div className="grid grid-cols-1 gap-2">
                               {report.owners.map((owner: any, oIdx: number) => {
-                                const share = adjustedRoi * (owner.percentage / 100);
+                                const share = distributableRoi * (owner.percentage / 100);
                                 return (
                                   <div key={oIdx} className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3">
                                     <div className="flex items-center gap-3 min-w-0">
@@ -401,7 +569,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               <div className="flex items-center justify-between px-4 py-2">
                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Distributed</span>
                                 <span className="text-[11px] font-black tabular-nums text-slate-600">
-                                  {fmt(report.owners.reduce((s: number, o: any) => s + adjustedRoi * (o.percentage / 100), 0))}
+                                  {fmt(report.owners.reduce((s: number, o: any) => s + distributableRoi * (o.percentage / 100), 0))}
                                 </span>
                               </div>
                             )}
@@ -413,113 +581,103 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           </p>
                         )}
 
-                        {/* Adjustments — read-only, click row to view receipt */}
-                        {rowAdj.length > 0 && (
-                          <>
-                            <div className="h-px bg-slate-100" />
-                            <div className="space-y-1.5">
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Adjustments</p>
-                              {rowAdj.map(adj => (
-                                <div
-                                  key={adj.id}
-                                  onClick={() => adj.receiptImage && window.open(adj.receiptImage, '_blank')}
-                                  className={`flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4 ${adj.receiptImage ? 'cursor-pointer hover:bg-slate-100 transition-colors active:scale-[0.99]' : ''}`}
+                        {/* Adjustments */}
+                        <div className="h-px bg-slate-100" />
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Adjustments</p>
+                            {adjFormKey !== rKey && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setAdjFormMode('add'); setAdjFormKey(rKey); setAdjForm({ description: '', amount: '' }); playSound('click'); }}
+                                  className="flex items-center gap-1 h-7 px-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[9px] font-black text-slate-600 uppercase tracking-widest transition-colors"
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight truncate">{adj.description}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {adj.receiptImage
-                                      ? <Paperclip className="w-3 h-3 text-slate-400" />
-                                      : <span className="text-[8px] font-bold text-rose-400 uppercase tracking-widest">No receipt</span>
-                                    }
-                                    <span className={`text-[11px] font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
-                                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
+                                  <Plus className="w-3 h-3" /> Add
+                                </button>
+                                <button
+                                  onClick={() => { setAdjFormMode('deduct'); setAdjFormKey(rKey); setAdjForm({ description: '', amount: '' }); playSound('click'); }}
+                                  className="flex items-center gap-1 h-7 px-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[9px] font-black text-slate-600 uppercase tracking-widest transition-colors"
+                                >
+                                  <Minus className="w-3 h-3" /> Deduct
+                                </button>
+                              </div>
+                            )}
+                          </div>
 
-                        {/* Submission status + approve/reject */}
-                        {(() => {
-                          const sub = submissions.find(s => s.branchId === report.branchId && s.periodLabel === group.label);
-                          const rKey = `${report.branchId}::${group.label}`;
-                          if (!sub) return (
-                            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic pt-2">
-                              Remittance not yet submitted by branch manager
-                            </p>
-                          );
-                          return (
-                            <div className="space-y-2 pt-2">
-                              <div className="h-px bg-slate-100" />
-                              {sub.status === 'submitted' && (
-                                <>
-                                  <div className="flex items-center gap-2 px-1">
-                                    <Send className="w-3.5 h-3.5 text-slate-500" />
-                                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Submitted — Awaiting Review</span>
-                                  </div>
-                                  {rejectFormKey === rKey ? (
-                                    <div className="space-y-2">
-                                      <input
-                                        type="text"
-                                        value={rejectNote}
-                                        onChange={e => setRejectNote(e.target.value)}
-                                        placeholder="Reason for rejection (required)"
-                                        autoFocus
-                                        className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-[11px] font-bold outline-none focus:border-slate-400"
-                                      />
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => { setRejectFormKey(null); setRejectNote(''); }}
-                                          className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected', rejectNote)}
-                                          disabled={isReviewing || !rejectNote.trim()}
-                                          className="h-10 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
-                                          {isReviewing ? '…' : 'Confirm Reject'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <button
-                                        onClick={() => { setRejectFormKey(rKey); setRejectNote(''); }}
-                                        className="flex items-center justify-center gap-2 h-11 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest active:scale-95 transition-all">
-                                        <XCircle className="w-4 h-4" /> Reject
-                                      </button>
-                                      <button
-                                        onClick={() => handleReview(sub.id, report.branchId, group.label, 'approved')}
-                                        disabled={isReviewing}
-                                        className="flex items-center justify-center gap-2 h-11 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40">
-                                        <CheckCircle className="w-4 h-4" /> Approve
-                                      </button>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                              {sub.status === 'approved' && (
-                                <div className="flex items-center gap-2 px-1">
-                                  <CheckCircle className="w-3.5 h-3.5 text-slate-600" />
-                                  <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Approved</span>
-                                </div>
-                              )}
-                              {sub.status === 'rejected' && (
-                                <div className="flex items-start gap-2 px-1">
-                                  <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                                  <div>
-                                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest block">Rejected</span>
-                                    {sub.reviewNote && <span className="text-[9px] font-bold text-slate-400">{sub.reviewNote}</span>}
-                                  </div>
-                                </div>
-                              )}
+                          {rowAdj.map(adj => (
+                            <div
+                              key={adj.id}
+                              className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight truncate">{adj.description}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {adj.receiptImage && (
+                                  <button onClick={() => window.open(adj.receiptImage!, '_blank')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                    <Paperclip className="w-3 h-3" />
+                                  </button>
+                                )}
+                                <span className={`text-[11px] font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
+                                  {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                </span>
+                                <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                          );
-                        })()}
+                          ))}
+
+                          {rowAdj.length === 0 && adjFormKey !== rKey && (
+                            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">No adjustments</p>
+                          )}
+
+                          {adjFormKey === rKey && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+                              <div className="flex items-center gap-2">
+                                {adjFormMode === 'add' ? <Plus className="w-3.5 h-3.5 text-slate-500" /> : <Minus className="w-3.5 h-3.5 text-slate-500" />}
+                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                                  {adjFormMode === 'add' ? 'Add to ROI' : 'Deduct from ROI'}
+                                </span>
+                              </div>
+                              <input
+                                type="text"
+                                value={adjForm.description}
+                                onChange={e => setAdjForm(f => ({ ...f, description: e.target.value }))}
+                                placeholder={adjFormMode === 'add' ? 'Reason (e.g. Boosting)' : 'Reason (e.g. Extra Expense)'}
+                                autoFocus
+                                className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase outline-none focus:border-slate-400 transition-colors"
+                              />
+                              <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-slate-400">₱</span>
+                                <input
+                                  type="number" step="0.01" min="0"
+                                  value={adjForm.amount}
+                                  onChange={e => setAdjForm(f => ({ ...f, amount: e.target.value }))}
+                                  placeholder="0.00"
+                                  className="w-full bg-white border border-slate-200 pl-8 pr-4 py-2.5 rounded-xl text-[13px] font-black outline-none focus:border-slate-400 transition-colors tabular-nums"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => { setAdjFormKey(null); setAdjForm({ description: '', amount: '' }); }}
+                                  className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleAddAdjustment(report.branchId, group.label)}
+                                  disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
+                                  className="h-10 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                                >
+                                  {isSavingAdj ? '…' : 'Save'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
 
                       </div>
                     </div>

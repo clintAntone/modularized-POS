@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
 import { getEmployeeAllowance } from '../../../lib/payroll';
+import { toManilaDateStr } from '../../../lib/time';
 
 interface BackfillRequestSectionProps {
   branch: Branch;
@@ -78,8 +79,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       return;
     }
 
-    const dayTxs = transactions.filter(t => t.branchId === branch.id && t.timestamp.startsWith(formData.date));
-    const dayExps = expenses.filter(e => e.branchId === branch.id && e.timestamp.startsWith(formData.date));
+    const dayTxs = transactions.filter(t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === formData.date);
+    const dayExps = expenses.filter(e => e.branchId === branch.id && toManilaDateStr(e.timestamp) === formData.date);
     const dayAtt = attendance.filter(a => a.branchId === branch.id && a.date === formData.date);
 
     const gross = dayTxs.reduce((sum, t) => sum + (Number(t.total) || 0), 0);

@@ -275,6 +275,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
                     <OwnerShares
                         owners={localBranch.owners || []}
+                        groupLevy={localBranch.groupLevy}
                         isSaving={isSaving}
                         onUpdate={handleUpdateLocal}
                     />
