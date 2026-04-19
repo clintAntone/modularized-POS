@@ -1,0 +1,177 @@
+import React, { useMemo } from 'react';
+import { Service } from '../../../../types';
+import { UI_THEME } from '../../../../constants/ui_designs';
+import { playSound } from '../../../../lib/audio';
+import { POSMode } from '../POSSection';
+
+interface POSConfirmModalProps {
+    mode: POSMode;
+    formData: any;
+    activeServices: Service[];
+    isProcessing: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}
+
+export const POSConfirmModal: React.FC<POSConfirmModalProps> = (props) => {
+    const standardServices = props.activeServices.filter(s => props.formData.selected_service_ids.includes(s.id));
+    const loyaltyServices = props.activeServices.filter(s => props.formData.loyalty_service_ids.includes(s.id));
+    
+    const allSelectedServices = [
+        ...standardServices.map(s => ({ ...s, isLoyalty: false })),
+        ...loyaltyServices.map(s => ({ ...s, isLoyalty: true }))
+    ];
+
+    const rolesInSelection = new Set(allSelectedServices.map(s => s.primaryRole || 'THERAPIST'));
+    const isDualProviderRequired = allSelectedServices.some(s => s.isDualProvider) || rolesInSelection.size > 1;
+    
+    const currentBasePrice = useMemo(() => standardServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0), [standardServices]);
+    
+    // FIX: Update threshold to 900 as per user request
+    const pwdDiscount = (props.formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > 900 ? 100 : 50) : 0;
+    const totalDiscount = props.formData.discount + pwdDiscount;
+    const totalCalculated = Math.max(0, currentBasePrice - totalDiscount);
+
+    const calculateTotalCommission = (services: Service[], discount: number, roleToCalculate: 'THERAPIST' | 'BONESETTER'): number => {
+        const basePrice = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+        const totalPrice = basePrice;
+        
+        return services.reduce((sum, s) => {
+            const sPrice = Number(s.price) || 0;
+            const sDiscount = totalPrice > 0 ? (discount * sPrice) / totalPrice : 0;
+            const finalSPrice = Math.max(0, sPrice - sDiscount);
+            
+            const sPrimaryRole = s.primaryRole || 'THERAPIST';
+
+            if (sPrimaryRole === roleToCalculate) {
+                return sum + (s.commissionType === 'fixed' ? Number(s.commissionValue || 0) : (finalSPrice * Number(s.commissionValue || 0)) / 100);
+            } else if (s.isDualProvider) {
+                const sSecondaryRole = sPrimaryRole === 'THERAPIST' ? 'BONESETTER' : 'THERAPIST';
+                if (sSecondaryRole === roleToCalculate) {
+                    return sum + (s.secondaryCommissionType === 'fixed' ? Number(s.secondaryCommissionValue || 0) : (finalSPrice * Number(s.secondaryCommissionValue || 0)) / 100);
+                }
+            }
+            return sum;
+        }, 0);
+    };
+
+    const therapistComm = calculateTotalCommission(standardServices, totalDiscount, 'THERAPIST') + 
+                         calculateTotalCommission(loyaltyServices, 0, 'THERAPIST');
+    
+    const bonesetterComm = calculateTotalCommission(standardServices, totalDiscount, 'BONESETTER') + 
+                          calculateTotalCommission(loyaltyServices, 0, 'BONESETTER');
+
+    const primaryRole = allSelectedServices.length > 0 ? (allSelectedServices[0].primaryRole || 'THERAPIST') : 'THERAPIST';
+
+    const leadName = primaryRole === 'THERAPIST' ? props.formData.therapist_name : props.formData.bonesetter_name;
+    const supportName = primaryRole === 'THERAPIST' ? props.formData.bonesetter_name : props.formData.therapist_name;
+    const leadComm = primaryRole === 'THERAPIST' ? therapistComm : bonesetterComm;
+    const supportComm = primaryRole === 'THERAPIST' ? bonesetterComm : therapistComm;
+
+    const leadRoleLabel = primaryRole === 'BONESETTER' ? 'Bonesetter' : 'Therapist';
+    const supportRoleLabel = primaryRole === 'BONESETTER' ? 'Therapist' : 'Bonesetter';
+
+    return (
+        <div className={UI_THEME.layout.modalWrapper}>
+            <div className={`${UI_THEME.layout.modalLarge} ${UI_THEME.radius.modal} p-5 md:p-8 flex flex-col overflow-hidden max-h-[95vh]`}>
+                <div className="space-y-1 text-center shrink-0 mb-4">
+                    <h3 className="text-2xl md:text-3xl font-bold text-slate-900 uppercase tracking-tighter leading-none">{props.mode === 'EDITING' ? 'Modify Registry' : 'Confirm Session'}</h3>
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.4em]">Final Authentication Gate</p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 px-1">
+                    {/* CLIENT IDENTITY */}
+                    <div className="bg-slate-900 rounded-[24px] p-4 text-white relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 blur-2xl rounded-full"></div>
+                        <div className="relative z-10">
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client Identity</p>
+                            <h4 className="text-lg font-bold uppercase tracking-tight truncate">{props.formData.client_name}</h4>
+                        </div>
+                    </div>
+
+                    {/* SERVICES AVAILED */}
+                    <div className="space-y-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-3">Services Availed</p>
+                        <div className="bg-slate-50 rounded-[28px] p-3 space-y-2">
+                            {allSelectedServices.map((s, idx) => {
+                                const isLoyalty = (s as any).isLoyalty;
+                                return (
+                                    <div key={`${s.id}-${idx}`} className="flex justify-between items-center p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm">
+                                        <div className="min-w-0 pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-slate-900 uppercase text-[10px] truncate">{s.name}</p>
+                                                {isLoyalty && <span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded text-[6px] font-black uppercase tracking-widest">Loyalty</span>}
+                                            </div>
+                                            <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest">{s.duration} MINS</p>
+                                        </div>
+                                        <p className={`font-bold text-xs tabular-nums shrink-0 ${isLoyalty ? 'text-emerald-500' : 'text-slate-700'}`}>
+                                            {isLoyalty ? 'FREE' : `₱${s.price.toLocaleString()}`}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                            {totalDiscount > 0 && (
+                                <div className="flex justify-between items-center px-3 py-0.5">
+                                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Aggregate Reductions</span>
+                                    <span className="font-bold text-rose-600 text-xs tabular-nums">−₱{totalDiscount.toLocaleString()}</span>
+                                </div>
+                            )}
+                            <div className="h-px bg-slate-200 mx-2 my-1.5"></div>
+                            <div className="flex justify-between items-center px-3 py-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Collection</span>
+                                <span className="text-xl font-bold text-slate-900 tracking-tighter">₱{totalCalculated.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PAYMENT METHOD */}
+                    <div className="space-y-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-3">Settlement Details</p>
+                        <div className="bg-slate-50 rounded-[24px] p-4 flex items-center justify-between border border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${props.formData.payment_method === 'CASH' ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                    {props.formData.payment_method === 'CASH' ? '💵' : '📱'}
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-900 uppercase tracking-tight">
+                                        {props.formData.payment_method === 'CASH' ? 'Cash Payment' : 'GCash'}
+                                    </p>
+                                    <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest">Method selected</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* COMMISSION BREAKDOWN */}
+                    <div className="space-y-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-3">Commission Allocation</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-[24px] space-y-0.5">
+                                <p className="text-[7px] font-bold text-emerald-600 uppercase tracking-widest">Lead Provider ({leadRoleLabel})</p>
+                                <p className="font-bold text-slate-900 uppercase text-[11px] truncate">{leadName}</p>
+                                <p className="text-base font-bold text-emerald-700 tracking-tighter leading-none mt-1.5">₱{leadComm.toLocaleString()}</p>
+                            </div>
+                            {isDualProviderRequired && (
+                                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-[24px] space-y-0.5">
+                                    <p className="text-[7px] font-bold text-indigo-600 uppercase tracking-widest">Specialist Support ({supportRoleLabel})</p>
+                                    <p className="font-bold text-slate-900 uppercase text-[11px] truncate">{supportName}</p>
+                                    <p className="text-base font-bold text-indigo-700 tracking-tighter leading-none mt-1.5">₱{supportComm.toLocaleString()}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-row gap-3 mt-6 shrink-0">
+                    <button onClick={() => { playSound('click'); props.onClose(); }} disabled={props.isProcessing} className="flex-1 text-slate-500 font-bold py-4 rounded-[24px] border border-slate-200 uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all">
+                        Go Back
+                    </button>
+                    <button onClick={props.onConfirm} disabled={props.isProcessing} className="flex-[2] bg-[#0F172A] text-white font-bold py-4 rounded-[24px] uppercase tracking-widest text-[10px] shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        {props.isProcessing && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
+                        {props.isProcessing ? 'SYNCING...' : 'CONFIRM & COMMIT'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};

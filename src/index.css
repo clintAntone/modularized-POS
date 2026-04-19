@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --tracking-tightest: -0.075em;
+  --animate-beat: beat 1s ease-in-out infinite;
+
+  @keyframes beat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  @keyframes stroke-fill {
+    from { stroke-dashoffset: 94.2; }
+    to   { stroke-dashoffset: 0; }
+  }
+}

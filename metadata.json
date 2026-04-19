@@ -1,0 +1,7 @@
+{
+  "name": "Latest HILOT CENTER",
+  "description": "The central management heart for Hilot Center branches, handling daily operations, payroll, and business intelligence.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

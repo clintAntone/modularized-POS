@@ -1,0 +1,1 @@
+const resend_api_key  = 're_QEBiziMz_2tzBkx3UGxX18w9bGbnqUBMs';

@@ -1,0 +1,28 @@
+ {
+    "txs": [],
+    "name": "ALDRIN PILAPIL MIJARES",
+    "role": "THERAPIST,BONESETTER,RELIEVER",
+    "count": 4,
+    "allowance": 450,
+    "staffName": "ALDRIN PILAPIL MIJARES",
+    "attendance": {
+      "id": "vdwy5p872",
+      "date": "2026-04-18",
+      "otPay": 0,
+      "status": "REGULAR",
+      "clockIn": "2026-04-18T01:56:46.702+00:00",
+      "branchId": "pi3q0wo6i",
+      "clockOut": null,
+      "createdAt": "2026-04-18T01:56:46.42772+00:00",
+      "isHalfDay": false,
+      "staffName": "ALDRIN PILAPIL MIJARES",
+      "employeeId": "vvpzthtq0",
+      "cashAdvance": 0,
+      "isPosHandled": false,
+      "lateDeduction": 0
+    },
+    "commission": 800,
+    "employeeId": "vvpzthtq0",
+    "isReliever": true,
+    "baseAllowance": 450
+  },

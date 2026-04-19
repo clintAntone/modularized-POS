@@ -1,0 +1,831 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Branch, Employee } from '../../types';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
+import { UI_THEME } from '../../constants/ui_designs';
+import { playSound } from '../../lib/audio';
+import { compressImage } from '../../lib/image';
+import { deleteFileByUrl } from '../../lib/storage';
+import { supabase } from '../../lib/supabase';
+import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+import { Pagination } from '../dashboard/sections/common/Pagination';
+import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
+
+// Modular Components
+import { EmployeeTable } from './employee-manager/EmployeeTable';
+import { EmployeeMobileList } from './employee-manager/EmployeeMobileList';
+import { RecoveryModal } from './employee-manager/RecoveryModal';
+import { EditorModal } from './employee-manager/EditorModal';
+
+interface GlobalEmployeeManagerProps {
+  branches: Branch[];
+  employees: Employee[];
+  onRefresh?: () => void;
+  onSyncStatusChange?: (isSyncing: boolean) => void;
+}
+
+export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const [resetRequestedOnly, setResetRequestedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'pay_asc' | 'pay_desc'>('name');
+  
+  const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
+  const [showAdminWipeConfirm, setShowAdminWipeConfirm] = useState<Employee | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showPrintConfirm, setShowPrintConfirm] = useState(false);
+  
+  const [resettingEmployee, setResettingEmployee] = useState<Employee | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const itemsPerPage = 10;
+
+  const addEmployee = useAddEmployee();
+  const updateEmployee = useUpdateEmployee();
+  const deleteEmployee = useDeleteEmployee();
+  const updateBranch = useUpdateBranch();
+  const addAuditLog = useAddAuditLog();
+
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) setIsRoleDropdownOpen(false);
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) setIsStatusDropdownOpen(false);
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) setIsSortDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filteredEmployees = useMemo(() => {
+    let res = employees.filter(e => {
+        const isNodeMatch = selectedBranchIds.length === 0 ||
+                           selectedBranchIds.includes(e.branchId) ||
+                           (e.branchAllowances && typeof e.branchAllowances === 'object' && selectedBranchIds.some(id => id in e.branchAllowances));
+        const isAssignedManagerOfFiltered = selectedBranchIds.length > 0 && selectedBranchIds.some(id => {
+          const b = branches.find(br => br.id === id);
+          return b?.manager?.toUpperCase() === (e.name || '').toUpperCase();
+        });
+        const isTarget = isNodeMatch || isAssignedManagerOfFiltered;
+        
+        const isStatusValid = 
+          statusFilter === 'all' ? true :
+          statusFilter === 'active' ? e.isActive !== false :
+          e.isActive === false;
+
+        const isRoleMatch = roleFilter === 'all' || (e.role || '').includes(roleFilter);
+
+        const isResetMatch = !resetRequestedOnly || e.requestReset;
+
+        return isTarget && isStatusValid && isRoleMatch && isResetMatch;
+    });
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toUpperCase();
+      res = res.filter(e => (e.name || '').toUpperCase().includes(term));
+    }
+    
+    return res.sort((a, b) => {
+      if (!a || !b) return 0;
+      if (sortBy === 'pay_asc') return (a.allowance || 0) - (b.allowance || 0);
+      if (sortBy === 'pay_desc') return (b.allowance || 0) - (a.allowance || 0);
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [employees, selectedBranchIds, searchTerm, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
+
+  const resetRequestedCount = useMemo(() => 
+    employees.filter(e => e.requestReset).length
+  , [employees]);
+
+  const paginatedEmployees = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredEmployees.slice(start, start + itemsPerPage);
+  }, [filteredEmployees, currentPage]);
+
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+
+  const handleOpenEdit = (emp?: Employee) => {
+    playSound('click');
+    if (emp) {
+      setEditingEmployee({ ...emp });
+    } else {
+      setEditingEmployee({ 
+        name: '', 
+        firstName: '',
+        middleName: '',
+        lastName: '',
+        role: '', 
+        allowance: 0, 
+        isActive: true, 
+        branchId: selectedBranchIds.length === 1 ? selectedBranchIds[0] : ''
+      });
+    }
+  };
+
+  const handleOpenResetModal = (emp: Employee) => {
+    playSound('click');
+    setResettingEmployee(emp);
+    setError('');
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!showDeleteConfirm) return;
+    
+    setIsSaving(true);
+    try {
+      // Cleanup profile image if exists
+      if (showDeleteConfirm.profile) {
+        await deleteFileByUrl(showDeleteConfirm.profile, 'profiles');
+      }
+      
+      await deleteEmployee.mutateAsync(showDeleteConfirm.id);
+      
+      await addAuditLog.mutateAsync({
+        activity_type: 'DELETE',
+        entity_type: 'EMPLOYEE',
+        entity_id: showDeleteConfirm.id,
+        description: `Deleted suspended employee: ${showDeleteConfirm.name}`,
+        performer_name: 'SUPERADMIN'
+      });
+      
+      playSound('success');
+      setShowDeleteConfirm(null);
+      setEditingEmployee(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete employee');
+      playSound('warning');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAdminCredentialWipe = async () => {
+    if (!showAdminWipeConfirm || isSaving) return;
+    const target = showAdminWipeConfirm;
+    
+    setIsSaving(true);
+    if (onSyncStatusChange) onSyncStatusChange(true);
+    
+    try {
+        await updateEmployee.mutateAsync({
+            id: target.id,
+            [DB_COLUMNS.USERNAME]: null, 
+            [DB_COLUMNS.LOGIN_PIN]: null, 
+            [DB_COLUMNS.PIN_SALT]: null,
+            [DB_COLUMNS.REQUEST_RESET]: false 
+        });
+        
+        // Only reset branch setup status if the wiped employee is currently the assigned manager
+        const branch = branches.find(b => b.id === target.branchId);
+        const isManager = branch?.manager?.toUpperCase() === (target.name || '').toUpperCase();
+
+        if (isManager) {
+            await updateBranch.mutateAsync({
+                id: target.branchId,
+                [DB_COLUMNS.IS_PIN_CHANGED]: false,
+                [DB_COLUMNS.IS_OPEN]: false,
+                [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString()
+            });
+        }
+
+        await addAuditLog.mutateAsync({
+            [DB_COLUMNS.BRANCH_ID]: null,
+            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
+            [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
+            [DB_COLUMNS.ENTITY_ID]: target.id,
+            [DB_COLUMNS.DESCRIPTION]: `Administrator handled credentials reset for: ${target.name || 'UNNAMED'}. Access reverted to Setup Mode.`,
+            [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
+        });
+
+        playSound('success');
+        setShowAdminWipeConfirm(null);
+        setEditingEmployee(null);
+        if (onRefresh) onRefresh();
+    } catch (err) {
+        setError('Reset Protocol Fault');
+        playSound('warning');
+    } finally {
+        setIsSaving(false);
+        if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleSaveEmployee = async (payload: any, authorizedBranchIds: string[], profileFile: File | null) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    if (onSyncStatusChange) onSyncStatusChange(true);
+    setError('');
+
+    try {
+      const firstName = payload[DB_COLUMNS.FIRST_NAME]?.trim().toUpperCase();
+      const middleName = payload[DB_COLUMNS.MIDDLE_NAME]?.trim().toUpperCase() || null;
+      const lastName = payload[DB_COLUMNS.LAST_NAME]?.trim().toUpperCase();
+      const cleanName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim().toUpperCase();
+      const finalHomeBranchId = payload[DB_COLUMNS.BRANCH_ID];
+      const oldName = editingEmployee?.name?.toUpperCase().trim();
+      const oldBranchId = editingEmployee?.branchId;
+
+      // 0. DUPLICATION CHECK (Branch-Level)
+      const isDuplicate = employees.some(e => {
+        if (editingEmployee?.id && e.id === editingEmployee.id) return false;
+        if (e.branchId !== finalHomeBranchId) return false;
+        if (!e.isActive) return false;
+
+        const existingFullName = e.firstName && e.lastName 
+          ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase() 
+          : (e.name || '').toUpperCase();
+
+        return existingFullName === cleanName;
+      });
+
+      if (isDuplicate) {
+        setError(`DUPLICATE IDENTITY: A staff member with this name is already registered in this branch.`);
+        playSound('warning');
+        setIsSaving(false);
+        if (onSyncStatusChange) onSyncStatusChange(false);
+        return;
+      }
+
+      let profileUrl = payload[DB_COLUMNS.PROFILE] || '';
+      if (profileFile) {
+        if (payload[DB_COLUMNS.PROFILE]) await deleteFileByUrl(payload[DB_COLUMNS.PROFILE], 'profiles');
+        const compressed = await compressImage(profileFile, { maxWidth: 400, maxHeight: 400, quality: 0.5 });
+        const path = `${finalHomeBranchId || 'global'}/profiles/${Date.now()}_admin.jpg`;
+        const { error: uploadErr } = await supabase.storage.from('profiles').upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
+        if (!uploadErr) profileUrl = supabase.storage.from('profiles').getPublicUrl(path).data.publicUrl;
+        payload[DB_COLUMNS.PROFILE] = profileUrl;
+      }
+
+      const id = editingEmployee?.id || Math.random().toString(36).substr(2,9);
+      if (editingEmployee?.id) {
+        await updateEmployee.mutateAsync({ id, ...payload });
+      } else {
+        await addEmployee.mutateAsync({ [DB_COLUMNS.ID]: id, ...payload });
+      }
+      
+      const nameChanged = oldName && oldName !== cleanName;
+
+      // 1. BRANCH SYNC: Update manager/temp_manager slots in branches
+      const branchSyncPromises = branches.map(async (b) => {
+          const branchAllowance = payload[DB_COLUMNS.BRANCH_ALLOWANCES]?.[b.id];
+          const branchRole = (typeof branchAllowance === 'object' && branchAllowance !== null && branchAllowance.role) 
+            ? branchAllowance.role 
+            : (payload[DB_COLUMNS.ROLE] || '');
+          
+          const isManagerOfThisBranch = (branchRole || '').includes('MANAGER');
+          const shouldBeManagerOfThisBranch = isManagerOfThisBranch && authorizedBranchIds.includes(b.id);
+          
+          const isCurrentlyMarkedAsManagerOfThisBranch = b.manager?.toUpperCase() === oldName || b.manager?.toUpperCase() === cleanName;
+          const isCurrentlyMarkedAsTempManager = b.tempManager?.toUpperCase() === oldName;
+
+          const branchUpdates: any = { id: b.id };
+          let needsUpdate = false;
+
+          // Case 1: Person is assigned as manager to this branch
+          if (shouldBeManagerOfThisBranch) {
+              if (b.manager?.toUpperCase() !== cleanName) {
+                  const previousManagerName = b.manager?.toUpperCase().trim();
+                  branchUpdates[DB_COLUMNS.MANAGER] = cleanName;
+                  needsUpdate = true;
+
+                  // Handle previous manager role persistence
+                  if (previousManagerName && previousManagerName !== oldName) {
+                      const previousManager = employees.find(e => (e.name || '').toUpperCase().trim() === previousManagerName);
+                      if (previousManager) {
+                          // Check if they are still a manager of ANY OTHER branch (primary or temp)
+                          const isManagerElsewhere = branches.some(otherBranch => 
+                              otherBranch.id !== b.id && 
+                              (otherBranch.manager?.toUpperCase().trim() === previousManagerName || 
+                               otherBranch.tempManager?.toUpperCase().trim() === previousManagerName)
+                          );
+
+                          const currentRoles = (previousManager.role || '').split(',').filter(Boolean);
+                          let nextRoles = [...currentRoles];
+                          
+                          if (!isManagerElsewhere) {
+                              nextRoles = nextRoles.filter(r => r !== 'MANAGER');
+                              if (nextRoles.length === 0) nextRoles.push('THERAPIST');
+                          }
+                          
+                          const finalRoles = nextRoles.join(',');
+
+                          const nextAllowances = { ...(previousManager.branchAllowances || {}) };
+                          if (nextAllowances[b.id]) {
+                              const allowance = nextAllowances[b.id];
+                              if (typeof allowance === 'object' && allowance !== null) {
+                                  nextAllowances[b.id] = { ...allowance, role: finalRoles };
+                              } else {
+                                  nextAllowances[b.id] = { allowance: Number(allowance), role: finalRoles };
+                              }
+                          }
+
+                          await updateEmployee.mutateAsync({
+                              id: previousManager.id,
+                              [DB_COLUMNS.ROLE]: finalRoles,
+                              [DB_COLUMNS.BRANCH_ALLOWANCES]: nextAllowances
+                          });
+                      }
+                  }
+              }
+              // Ensure they are not also marked as temp manager
+              if (b.tempManager?.toUpperCase() === cleanName || b.tempManager?.toUpperCase() === oldName) {
+                  branchUpdates[DB_COLUMNS.TEMP_MANAGER] = '';
+                  needsUpdate = true;
+              }
+          } 
+          // Case 2: Name change cascade for existing management slots
+          else if (nameChanged) {
+              if (b.manager?.toUpperCase() === oldName) {
+                  branchUpdates[DB_COLUMNS.MANAGER] = cleanName;
+                  needsUpdate = true;
+              }
+              if (b.tempManager?.toUpperCase() === oldName) {
+                  branchUpdates[DB_COLUMNS.TEMP_MANAGER] = cleanName;
+                  needsUpdate = true;
+              }
+          }
+          // Case 3: Removal from manager slot
+          else if (isCurrentlyMarkedAsManagerOfThisBranch && !shouldBeManagerOfThisBranch) {
+              branchUpdates[DB_COLUMNS.MANAGER] = '';
+              branchUpdates[DB_COLUMNS.IS_OPEN] = false;
+              needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+              return updateBranch.mutateAsync(branchUpdates);
+          }
+          return Promise.resolve();
+      });
+      
+      await Promise.all(branchSyncPromises);
+
+      // 2. DATA CASCADE: Update all historical records if name changed
+      if (nameChanged) {
+          const cascadePromises = [
+              // Transactions: Update both therapist and bonesetter roles
+              supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.THERAPIST_NAME]: cleanName }).eq(DB_COLUMNS.THERAPIST_NAME, oldName),
+              supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.BONESETTER_NAME]: cleanName }).eq(DB_COLUMNS.BONESETTER_NAME, oldName),
+              
+              supabase.from(DB_TABLES.ATTENDANCE).update({ [DB_COLUMNS.STAFF_NAME]: cleanName }).eq(DB_COLUMNS.EMPLOYEE_ID, id),
+              supabase.from(DB_TABLES.AUDIT_LOGS).update({ [DB_COLUMNS.PERFORMER_NAME]: cleanName }).eq(DB_COLUMNS.PERFORMER_NAME, oldName)
+          ];
+          
+          // Execute all updates in parallel
+          await Promise.all(cascadePromises);
+      }
+
+      await addAuditLog.mutateAsync({
+        [DB_COLUMNS.BRANCH_ID]: null,
+        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee?.id ? 'UPDATE' : 'CREATE',
+        [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
+        [DB_COLUMNS.ENTITY_ID]: id,
+        [DB_COLUMNS.DESCRIPTION]: `${editingEmployee?.id ? 'Modified' : 'Registered'} staff identity: ${cleanName}${nameChanged ? ` (Previously: ${oldName || 'UNNAMED'})` : ''}${oldBranchId && oldBranchId !== finalHomeBranchId ? ` | Transferred from ${branches.find(b => b.id === oldBranchId)?.name || 'Unknown'} to ${branches.find(b => b.id === finalHomeBranchId)?.name || 'Unknown'}` : ''}`,
+        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
+      });
+
+      playSound('success');
+      setEditingEmployee(null);
+      if (onRefresh) onRefresh();
+    } catch (err) { 
+      console.error(err);
+      setError('SYSTEM SYNC FAULT. PLEASE RETRY.');
+      playSound('warning'); 
+    } finally { 
+      setIsSaving(false); 
+      if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleExportPDF = async (confirmed = false) => {
+    if (!confirmed) {
+      playSound('warning');
+      setShowPrintConfirm(true);
+      return;
+    }
+
+    setShowPrintConfirm(false);
+    setIsExporting(true);
+    playSound('click');
+
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // 1. Header
+      doc.setFontSize(18);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('STAFF DIRECTORY REPORT', 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // slate-400
+      doc.text('GLOBAL IDENTITY MANAGEMENT', 14, 26);
+
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 20, { align: 'right' });
+      doc.text(`Total Staff: ${filteredEmployees.length}`, pageWidth - 14, 26, { align: 'right' });
+
+      // 2. Table
+      autoTable(doc, {
+        startY: 35,
+        head: [['Employee Name', 'ID', 'Role', 'Branch Node', 'Allowance', 'Status']],
+        body: filteredEmployees.map(emp => [
+          (emp.name || '').toUpperCase(),
+          emp.id.toUpperCase(),
+          (emp.role || '').toUpperCase(),
+          (branches.find(b => b.id === emp.branchId)?.name || 'UNASSIGNED').toUpperCase(),
+          `PHP ${(emp.allowance || 0).toLocaleString()}`,
+          emp.isActive ? 'ACTIVE' : 'INACTIVE'
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8 },
+        columnStyles: {
+          4: { halign: 'right' }
+        },
+        rowPageBreak: 'avoid'
+      });
+
+      doc.save(`STAFF_DIRECTORY_${new Date().toISOString().split('T')[0]}.pdf`);
+      playSound('success');
+    } catch (error) {
+      console.error('PDF Export failed:', error);
+      alert('Failed to generate PDF.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className={`animate-in fade-in duration-300 ${UI_THEME.layout.maxContent} pb-32`}>
+      {/* RESET REQUESTS BANNER */}
+      {resetRequestedCount > 0 && (
+        <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
+          <div className="bg-rose-50 border border-rose-100 rounded-[24px] p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shrink-0 animate-pulse">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path d="M12 15v2m0 0v2m0-2h2m-2 0H10m4-11a4 4 0 11-8 0 4 4 0 018 0zM7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-[14px] font-black text-rose-900 uppercase tracking-tighter leading-none mb-1">
+                  {resetRequestedCount} Pending Credential {resetRequestedCount === 1 ? 'Request' : 'Requests'}
+                </h4>
+                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Action required to restore terminal access</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                setResetRequestedOnly(true);
+                setShowFilters(true);
+                playSound('click');
+              }}
+              className="px-6 py-3 bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95 whitespace-nowrap"
+            >
+              Review Requests
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY WIPE MODAL */}
+      {showAdminWipeConfirm && (
+        <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
+           <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner text-4xl">🛡️</div>
+              <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Authorize Data Wipe?</h4>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
+                Wiping credentials for <span className="text-slate-900">{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
+              </p>
+              <div className="flex flex-col gap-3">
+                 <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[12px] shadow-lg active:scale-95 transition-all">
+                    {isSaving ? 'Establishing Link...' : 'Confirm Identity Wipe'}
+                 </button>
+                 <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest">Abort</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* HEADER + FILTER SECTION */}
+      <div className="bg-white p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-sm mb-6 space-y-6 no-print">
+        <div className="flex flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Identity Management</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => handleOpenEdit()}
+              className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+            >
+              <span className="text-lg leading-none">+</span>
+              <span className="hidden sm:inline">Register Staff</span>
+            </button>
+          </div>
+        </div>
+
+        {/* SEARCH + FILTER TOGGLE ROW */}
+        <div className="flex flex-row items-center gap-2 sm:gap-4">
+          <div className={`relative flex-1 group ${UI_THEME.styles.controlHeight}`}>
+            <div className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="3" /></svg>
+            </div>
+            <input 
+              type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
+              placeholder="Search Employee..."
+              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-[13px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
+            />
+          </div>
+
+          <button
+            onClick={() => { setShowFilters(!showFilters); playSound('click'); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-[24px] border transition-all text-[10px] font-black uppercase tracking-widest shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+          >
+            <svg className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
+            <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
+            {(selectedBranchIds.length > 0 || roleFilter !== 'all' || statusFilter !== 'active' || resetRequestedOnly) && !showFilters && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-top-2 duration-300 pt-4 border-t border-slate-100">
+            <div className="flex gap-2 shrink-0 flex-wrap lg:flex-nowrap relative z-[200]">
+              {/* BRANCH DROPDOWN */}
+              <BranchCheckboxDropdown
+                branches={branches}
+                selectedIds={selectedBranchIds}
+                onChange={ids => { setSelectedBranchIds(ids); playSound('click'); }}
+                className="flex-1 sm:flex-none sm:min-w-[180px]"
+              />
+
+              {/* ROLE DROPDOWN */}
+              <div className="relative flex-1 sm:flex-none" ref={roleDropdownRef}>
+                <button 
+                  onClick={() => { setIsRoleDropdownOpen(!isRoleDropdownOpen); playSound('click'); }}
+                  className={`h-11 sm:h-12 min-w-[140px] sm:min-w-[160px] w-full flex items-center justify-between px-4 sm:px-5 bg-slate-50 border border-slate-200 rounded-2xl transition-all ${isRoleDropdownOpen ? 'bg-white border-emerald-500 shadow-lg' : 'hover:border-slate-300'}`}
+                >
+                  <span className={`${UI_THEME.text.metadata} text-slate-900 truncate pr-2`}>
+                    {roleFilter === 'all' ? 'All Roles' : roleFilter.charAt(0) + roleFilter.slice(1).toLowerCase() + 's'}
+                  </span>
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="4" /></svg>
+                </button>
+                {isRoleDropdownOpen && (
+                  <div className={`absolute top-[calc(100%+8px)] left-0 sm:right-0 sm:left-auto w-56 bg-white border border-slate-200 rounded-2xl ${UI_THEME.shadows.extreme} overflow-hidden z-[1000] p-1.5 animate-in zoom-in-95 duration-200 backdrop-blur-xl`}>
+                    {['all', 'MANAGER', 'THERAPIST', 'BONESETTER', 'TRAINEE'].map(role => (
+                      <button 
+                        key={role} 
+                        onClick={() => { setRoleFilter(role); setIsRoleDropdownOpen(false); }} 
+                        className={`w-full text-left px-4 py-3 rounded-lg ${UI_THEME.text.metadata} mb-1 last:mb-0 ${roleFilter === role ? 'bg-slate-900 text-white shadow-lg' : 'hover:bg-slate-50'}`}
+                      >
+                        {role === 'all' ? 'All Roles' : role.charAt(0) + role.slice(1).toLowerCase() + 's'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* RESET REQUEST TOGGLE */}
+              <button
+                onClick={() => { setResetRequestedOnly(!resetRequestedOnly); playSound('click'); }}
+                className={`h-11 sm:h-12 px-5 rounded-2xl border transition-all flex items-center gap-3 ${resetRequestedOnly ? 'bg-rose-600 border-rose-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600'}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${resetRequestedOnly ? 'bg-white animate-pulse' : 'bg-rose-500'}`}></div>
+                <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                  {resetRequestedOnly ? 'Showing Requests' : 'Filter Requests'}
+                </span>
+                {resetRequestedCount > 0 && !resetRequestedOnly && (
+                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-[9px] font-black">
+                    {resetRequestedCount}
+                  </span>
+                )}
+              </button>
+
+              {/* STATUS DROPDOWN */}
+              <div className="relative flex-1 sm:flex-none" ref={statusDropdownRef}>
+                <button 
+                  onClick={() => { setIsStatusDropdownOpen(!isStatusDropdownOpen); playSound('click'); }}
+                  className={`h-11 sm:h-12 min-w-[140px] sm:min-w-[160px] w-full flex items-center justify-between px-4 sm:px-5 bg-slate-50 border border-slate-200 rounded-2xl transition-all ${isStatusDropdownOpen ? 'bg-white border-emerald-500 shadow-lg' : 'hover:border-slate-300'}`}
+                >
+                  <span className={`${UI_THEME.text.metadata} text-slate-900 truncate pr-2`}>
+                    {statusFilter === 'all' ? 'All Status' : statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
+                  </span>
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="4" /></svg>
+                </button>
+                {isStatusDropdownOpen && (
+                  <div className={`absolute top-[calc(100%+8px)] left-0 sm:right-0 sm:left-auto w-56 bg-white border border-slate-200 rounded-2xl ${UI_THEME.shadows.extreme} overflow-hidden z-[1000] p-1.5 animate-in zoom-in-95 duration-200 backdrop-blur-xl`}>
+                    {[
+                      { id: 'active', label: 'Active Only' },
+                      { id: 'inactive', label: 'Inactive Only' },
+                      { id: 'all', label: 'All Status' }
+                    ].map(item => (
+                      <button 
+                        key={item.id} 
+                        onClick={() => { setStatusFilter(item.id as any); setIsStatusDropdownOpen(false); }} 
+                        className={`w-full text-left px-4 py-3 rounded-lg ${UI_THEME.text.metadata} mb-1 last:mb-0 ${statusFilter === item.id ? 'bg-slate-900 text-white shadow-lg' : 'hover:bg-slate-50'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* SORT DROPDOWN */}
+              <div className="relative flex-1 sm:flex-none" ref={sortDropdownRef}>
+                <button 
+                  onClick={() => { setIsSortDropdownOpen(!isSortDropdownOpen); playSound('click'); }}
+                  className={`h-11 sm:h-12 min-w-[140px] sm:min-w-[160px] w-full flex items-center justify-between px-4 sm:px-5 bg-slate-50 border border-slate-200 rounded-2xl transition-all ${isSortDropdownOpen ? 'bg-white border-emerald-500 shadow-lg' : 'hover:border-slate-300'}`}
+                >
+                  <span className={`${UI_THEME.text.metadata} text-slate-900 truncate pr-2`}>
+                    {sortBy === 'name' ? 'Sort by Name' : sortBy === 'pay_desc' ? 'Highest Pay' : 'Lowest Pay'}
+                  </span>
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="4" /></svg>
+                </button>
+                {isSortDropdownOpen && (
+                  <div className={`absolute top-[calc(100%+8px)] left-0 sm:right-0 sm:left-auto w-56 bg-white border border-slate-200 rounded-2xl ${UI_THEME.shadows.extreme} overflow-hidden z-[1000] p-1.5 animate-in zoom-in-95 duration-200 backdrop-blur-xl`}>
+                    {[
+                      { id: 'name', label: 'Sort by Name' },
+                      { id: 'pay_desc', label: 'Highest Pay' },
+                      { id: 'pay_asc', label: 'Lowest Pay' }
+                    ].map(item => (
+                      <button 
+                        key={item.id} 
+                        onClick={() => { setSortBy(item.id as any); setIsSortDropdownOpen(false); }} 
+                        className={`w-full text-left px-4 py-3 rounded-lg ${UI_THEME.text.metadata} mb-1 last:mb-0 ${sortBy === item.id ? 'bg-slate-900 text-white shadow-lg' : 'hover:bg-slate-50'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="px-1 space-y-4 no-print">
+        <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
+          <div className="flex-1 min-w-0">
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredEmployees.length}
+                itemsPerPage={itemsPerPage}
+            />
+          </div>
+
+          <button
+            onClick={() => handleExportPDF()}
+            disabled={isExporting || filteredEmployees.length === 0}
+            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isExporting ? (
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            )}
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Employees'}</span>
+          </button>
+        </div>
+
+        {showPrintConfirm && (
+          <div className={UI_THEME.layout.modalWrapper}>
+            <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              </div>
+              <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export Employees?</h4>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                Generate and download the global staff directory report?
+              </p>
+              <div className="flex flex-col gap-4 mt-10">
+                <button
+                  onClick={() => handleExportPDF(true)}
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  Confirm Print
+                </button>
+                <button
+                  onClick={() => setShowPrintConfirm(false)}
+                  className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <EmployeeTable 
+          employees={paginatedEmployees}
+          branches={branches}
+          onEdit={handleOpenEdit}
+          onReset={handleOpenResetModal}
+          onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+        />
+        <EmployeeMobileList 
+          employees={paginatedEmployees}
+          branches={branches}
+          onEdit={handleOpenEdit}
+          onReset={handleOpenResetModal}
+          onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+        />
+      </div>
+
+      {resettingEmployee && (
+        <div className="no-print">
+          <RecoveryModal 
+            employee={resettingEmployee}
+            branches={branches}
+            isSaving={updateEmployee.isPending}
+            onClose={() => setResettingEmployee(null)}
+            onRefresh={onRefresh}
+            onSyncStatusChange={onSyncStatusChange}
+          />
+        </div>
+      )}
+
+      {editingEmployee && !resettingEmployee && (
+        <div className="no-print">
+          <EditorModal 
+            key={editingEmployee?.id || 'new'}
+            employee={{...editingEmployee, allEmployees: employees} as any}
+            branches={branches}
+            isSaving={isSaving}
+            error={error}
+            onClose={() => setEditingEmployee(null)}
+            onSave={handleSaveEmployee}
+            onWipe={(target) => { setShowAdminWipeConfirm(target as Employee); }}
+            onReset={handleOpenResetModal}
+            onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          />
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className={UI_THEME.layout.modalWrapper}>
+          <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Delete Personnel?</h4>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              Are you sure you want to permanently delete <span className="text-rose-600">{showDeleteConfirm.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex flex-col gap-4 mt-10">
+              <button
+                onClick={handleDeleteEmployee}
+                disabled={isSaving}
+                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Confirm Deletion'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

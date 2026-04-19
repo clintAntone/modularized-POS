@@ -1,0 +1,255 @@
+import { DB_COLUMNS } from './constants/db_schema';
+
+export enum UserRole {
+  SUPERADMIN = 'SUPERADMIN',
+  BRANCH_MANAGER = 'BRANCH_MANAGER',
+  PORTAL_USER = 'PORTAL_USER'
+}
+
+export interface PortalPermissions {
+  tabs: Record<string, boolean>;
+  /** undefined / absent = all branches; non-empty array = restricted to listed branch IDs */
+  branchIds?: string[];
+}
+
+export interface PortalUser {
+  id: string;
+  username: string;
+  displayName: string;
+  loginPin: string;
+  pinSalt: string;
+  permissions: PortalPermissions;
+  isSuperadmin: boolean;
+  isActive: boolean;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export type CommissionType = 'percentage' | 'fixed';
+export type ProviderRole = 'THERAPIST' | 'BONESETTER' | 'MANAGER' | 'TRAINEE';
+
+export interface Branch {
+  id: string;
+  name: string;
+  pin: string;
+  isPinChanged: boolean;
+  isEnabled: boolean;
+  isOpen: boolean;
+  isOpenDate: string;
+  manager?: string;
+  tempManager?: string;
+  services: Service[];
+  weeklyCutoff: number;
+  cycleStartDate: string;
+  dailyProvisionAmount?: number;
+  enableShiftTracking?: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  owners?: { name: string; percentage: number }[];
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+  primaryRole?: ProviderRole;
+  secondaryRole?: ProviderRole;
+  commissionType: CommissionType;
+  commissionValue: number;
+  isDualProvider?: boolean;
+  secondaryCommissionType?: CommissionType;
+  secondaryCommissionValue?: number;
+  catalogId?: string;
+  catalogName?: string;
+  canBeLoyalty?: boolean;
+}
+
+export type ExpenseCategory = 'OPERATIONAL' | 'PROVISION' | 'SETTLEMENT';
+
+export interface Expense {
+  id: string;
+  branchId: string;
+  timestamp: string;
+  name: string;
+  amount: number;
+  category: ExpenseCategory;
+  receiptImage?: string;
+}
+
+export interface Transaction {
+  id: string;
+  branchId: string;
+  timestamp: string;
+  clientName: string;
+  therapistName: string;
+  therapistId?: string;
+  bonesetterName?: string;
+  bonesetterId?: string;
+  serviceId: string;
+  serviceName: string;
+  basePrice: number;
+  discount: number;
+  voucherValue: number;
+  primaryCommission: number;
+  secondaryCommission?: number;
+  deduction?: number;
+  total: number;
+  note?: string;
+  paymentMethod?: 'CASH' | 'GCASH';
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED';
+  paymongoLinkId?: string;
+}
+
+export interface Attendance {
+  id: string;
+  branchId: string;
+  employeeId: string;
+  staffName: string;
+  date: string;
+  clockIn: string;
+  clockOut?: string;
+  status: string;
+  lateDeduction: number;
+  otPay: number;
+  cashAdvance: number;
+  createdAt: string;
+  isHalfDay?: boolean;
+  isPosHandled?: boolean;
+  isPaidDaily?: boolean;
+  settledUnits?: number;
+}
+
+export interface Employee {
+  id: string;
+  branchId: string;
+  timestamp: string;
+  name: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  username?: string;
+  loginPin?: string;
+  pinSalt?: string;
+  requestReset?: boolean;
+  resetApproved?: boolean;
+  role: string;
+  allowance: number;
+  salary?: number;
+  isActive: boolean;
+  profile?: string;
+  branchAllowances?: Record<string, number | { allowance: number; role?: string }>;
+}
+
+export interface SalesReport {
+  id: string;
+  branchId: string;
+  reportDate: string;
+  submittedAt: string;
+  grossSales: number;
+  totalStaffPay: number;
+  totalExpenses: number;
+  totalVaultProvision: number;
+  netRoi: number;
+  sortDate?: string;
+  periodEnd?: string;
+  sessionData: any[];
+  staffBreakdown: any[];
+  expenseData: any[];
+  vaultData: any[];
+  isFinalized?: boolean;
+  finalizedAt?: string;
+  finalizedBy?: string;
+  isValidated?: boolean;
+  notes?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  branchId: string;
+  timestamp: string;
+  activityType: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: 'TRANSACTION' | 'EXPENSE' | 'ATTENDANCE' | 'EMPLOYEE';
+  entityId: string;
+  description: string;
+  amount?: number;
+  performerName?: string;
+}
+
+export interface Request {
+  id: string;
+  branchId: string;
+  timestamp: string;
+  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  data: any;
+  requesterId: string;
+  requesterName: string;
+  reviewedBy?: string;
+  reviewNote?: string;
+  updatedAt?: string;
+}
+
+export interface BillsCatalogItem {
+  id: string;
+  name: string;
+  category: 'MONTHLY' | 'AS_NEEDED';
+  dueDay?: number;
+  suggestedAmount: number;
+  notes?: string;
+  isActive: boolean;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface BranchBill {
+  id: string;
+  branchId: string;
+  catalogId?: string;  // set when assigned from a bills_catalog template
+  name: string;
+  category: 'MONTHLY' | 'AS_NEEDED';
+  amount: number;
+  dueDay?: number;
+  dueNextMonth?: boolean;  // if true, due_day refers to the 1st of the following month (e.g. April bill due May 1)
+  isActive: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface BillPayment {
+  id: string;
+  branchId: string;
+  billId: string;
+  periodCovered: string;  // 'YYYY-MM'
+  amountPaid: number;
+  paidAt: string;
+  notes?: string;
+  receiptImage?: string;
+  recordedBy?: string;
+  createdAt: string;
+}
+
+export type BillStatus = 'PAID' | 'OVERDUE' | 'DUE_SOON' | 'UPCOMING' | 'AS_NEEDED';
+
+export interface VaultCarryover {
+  id: string;
+  branchId: string;
+  amount: number;
+  effectiveDate: string;  // 'YYYY-MM-DD'
+  notes?: string;
+  recordedBy?: string;
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: {
+    role: UserRole;
+    branchId?: string;
+    employeeId?: string;
+    username?: string;
+    lastActive: number;
+    loginPin?: string;
+    sessionStart: number;
+    permissions?: PortalPermissions;
+  } | null;
+}
