@@ -19,7 +19,8 @@ import {
   Upload,
   MoreHorizontal,
   X,
-  UserSearch
+  UserSearch,
+  CalendarDays
 } from 'lucide-react';
 
 interface BranchNavbarProps {
@@ -45,6 +46,7 @@ const Icons = {
   developer: <Code className={c} />,
   how_to: <HelpCircle className={c} />,
   backfill: <Upload className={c} />,
+  heatmap: <CalendarDays className={c} />,
   more: <MoreHorizontal className="w-6 h-6 sm:w-5 sm:h-5" />
 };
 
@@ -95,6 +97,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       { id: 'sales',           label: 'Sales',          icon: Icons.sales,           desc: 'Daily Performance',   color: 'bg-emerald-50 text-emerald-600', group: 'Operations' },
       { id: 'staff',           label: 'Staff',          icon: Icons.staff,           desc: 'Personnel Roster',    color: 'bg-indigo-50 text-indigo-600',   group: 'Personnel'  },
       { id: 'sales_reports',   label: 'Sales Reports',  icon: Icons.archive,         desc: 'Historical Data',     color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
+      { id: 'heatmap',         label: 'Performance',    icon: Icons.heatmap,         desc: 'Daily Performance',   color: 'bg-emerald-50 text-emerald-600', group: 'Reports'    },
       { id: 'remittance',      label: 'Remittance',     icon: Icons.payroll,         desc: 'Weekly Distributions',color: 'bg-indigo-50 text-indigo-600',   group: 'Finance'    },
       { id: 'salaries',        label: 'Payroll',        icon: Icons.payroll,         desc: 'Cycle Audit',         color: 'bg-rose-50 text-rose-600',       group: 'Finance'    },
       { id: 'monthly_bills',   label: 'Monthly Bills',  icon: Icons.vault,           desc: 'Settle Dues',         color: 'bg-rose-50 text-rose-600',       group: 'Finance'    },

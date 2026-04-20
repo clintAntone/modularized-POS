@@ -36,6 +36,8 @@ interface StaffModalsProps {
 
 export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const rolesList = ['THERAPIST', 'BONESETTER'];
+  // True when editing an already-enrolled cross-branch employee (name is owned by their home branch)
+  const isExistingReliever = !!(props.editingEmployee?.id && props.editingEmployee?.branchId && props.editingEmployee.branchId !== props.branchId);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState<Employee[]>([]);
   const [searchError, setSearchError] = React.useState<string | null>(null);
@@ -409,10 +411,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative group">
-                    <button 
+                    <button
                       type="button"
-                      onClick={() => props.fileInputRef.current?.click()} 
-                      disabled={props.isPullMode}
+                      onClick={() => props.fileInputRef.current?.click()}
+                      disabled={props.isPullMode || isExistingReliever}
                       className={`w-28 h-28 sm:w-36 sm:h-36 rounded-[36px] sm:rounded-[48px] bg-white border-4 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden transition-all ${props.isPullMode ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500 hover:bg-emerald-50/30 group relative shadow-xl active:scale-95'}`}
                     >
                       {props.profileFile || props.editingEmployee.profile ? (
@@ -455,46 +457,46 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1 sm:space-y-2">
                       <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
-                      <input 
-                        required 
-                        disabled={props.isPullMode}
-                        value={props.editingEmployee.firstName || ''} 
+                      <input
+                        required
+                        disabled={props.isPullMode || isExistingReliever}
+                        value={props.editingEmployee.firstName || ''}
                         onChange={e => {
                           const val = e.target.value.toUpperCase();
                           const fullName = `${val} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
                           props.setEditingEmployee({...props.editingEmployee, firstName: val, name: fullName});
-                        }} 
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${props.isPullMode ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                        placeholder="FIRST NAME" 
+                        }}
+                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder="FIRST NAME"
                       />
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name</label>
-                      <input 
-                        disabled={props.isPullMode}
-                        value={props.editingEmployee.middleName || ''} 
+                      <input
+                        disabled={props.isPullMode || isExistingReliever}
+                        value={props.editingEmployee.middleName || ''}
                         onChange={e => {
                           const val = e.target.value.toUpperCase();
                           const fullName = `${props.editingEmployee.firstName || ''} ${val ? val.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
                           props.setEditingEmployee({...props.editingEmployee, middleName: val, name: fullName});
-                        }} 
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${props.isPullMode ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                        placeholder="OPTIONAL" 
+                        }}
+                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder="OPTIONAL"
                       />
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
-                      <input 
-                        required 
-                        disabled={props.isPullMode}
-                        value={props.editingEmployee.lastName || ''} 
+                      <input
+                        required
+                        disabled={props.isPullMode || isExistingReliever}
+                        value={props.editingEmployee.lastName || ''}
                         onChange={e => {
                           const val = e.target.value.toUpperCase();
                           const fullName = `${props.editingEmployee.firstName || ''} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${val}`.trim();
                           props.setEditingEmployee({...props.editingEmployee, lastName: val, name: fullName});
-                        }} 
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${props.isPullMode ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                        placeholder="LAST NAME" 
+                        }}
+                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder="LAST NAME"
                       />
                     </div>
                   </div>
@@ -504,7 +506,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     <div className="w-full p-4 sm:p-5 bg-white border-2 border-slate-100 rounded-[18px] sm:rounded-[24px] font-bold text-xs sm:text-sm uppercase text-slate-900 shadow-sm">
                       {props.editingEmployee.name || <span className="text-slate-300 italic">Auto-generated from full name...</span>}
                     </div>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1 mt-1">This name will be used in all transactions and reports.</p>
+                    {isExistingReliever
+                      ? <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest ml-1 mt-1 flex items-center gap-1"><Lock className="w-2.5 h-2.5" /> Name is locked — changes must be made at their home branch.</p>
+                      : <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1 mt-1">This name will be used in all transactions and reports.</p>
+                    }
                   </div>
 
                   {/* Duplicate Warning */}
@@ -599,23 +604,53 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                       <div className="space-y-2">
                         <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Role in this Branch</label>
                         
-                        {/* RELIEVER STATUS INDICATOR (Read-only since it's derived from branch mismatch) */}
-                        {props.editingEmployee.branchId !== props.branchId && (
-                          <div className="mb-4 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
-                                <ArrowRightLeft className="w-5 h-5" strokeWidth={2.5} />
+                        {/* RELIEVER STATUS + EXCLUDE TOGGLE */}
+                        {props.editingEmployee.branchId !== props.branchId && (() => {
+                          const cfg = props.editingEmployee.branchAllowances?.[props.branchId];
+                          const excludeFromReliever = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                          const toggleExclude = () => {
+                            const current = props.editingEmployee!.branchAllowances?.[props.branchId];
+                            const currentAllowance = typeof current === 'object' && current !== null ? current.allowance : (current ?? props.editingEmployee!.allowance ?? 0);
+                            const currentRole = typeof current === 'object' && current !== null ? (current.role || '') : props.editingEmployee!.role;
+                            props.setEditingEmployee({
+                              ...props.editingEmployee!,
+                              branchAllowances: {
+                                ...(props.editingEmployee!.branchAllowances || {}),
+                                [props.branchId]: { allowance: currentAllowance, role: currentRole, excludeFromReliever: !excludeFromReliever }
+                              }
+                            });
+                            playSound('click');
+                          };
+                          return (
+                            <div className="mb-4 space-y-2">
+                              <div className={`p-4 rounded-2xl border flex items-center justify-between shadow-sm ${excludeFromReliever ? 'bg-slate-50 border-slate-200' : 'bg-indigo-50 border-indigo-100'}`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${excludeFromReliever ? 'bg-slate-200 text-slate-500' : 'bg-indigo-600 text-white'}`}>
+                                    <ArrowRightLeft className="w-5 h-5" strokeWidth={2.5} />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className={`text-[11px] font-black uppercase tracking-tight ${excludeFromReliever ? 'text-slate-500 line-through' : 'text-indigo-900'}`}>RELIEVER ACCESS: {excludeFromReliever ? 'BYPASSED' : 'ON'}</p>
+                                    <p className={`text-[9px] font-bold uppercase tracking-widest leading-none ${excludeFromReliever ? 'text-slate-400' : 'text-indigo-400'}`}>
+                                      {excludeFromReliever ? 'Billed through regular payroll' : 'External branch node detected'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={toggleExclude}
+                                  className={`px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all ${excludeFromReliever ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  {excludeFromReliever ? 'Re-enable' : 'Bypass'}
+                                </button>
                               </div>
-                              <div className="space-y-0.5">
-                                <p className="text-[11px] font-black text-indigo-900 uppercase tracking-tight">RELIEVER ACCESS: ON</p>
-                                <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest leading-none">External branch node detected</p>
-                              </div>
+                              {excludeFromReliever && (
+                                <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest ml-1 leading-relaxed">
+                                  ⚠ Reliever billing is off — ensure this staff's pay is covered in regular payroll or weekly salary.
+                                </p>
+                              )}
                             </div>
-                            <div className="px-3 py-1 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded-lg">
-                              Verified
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         <div className="flex flex-wrap gap-2">
                           {rolesList.map(role => {

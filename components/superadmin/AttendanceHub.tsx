@@ -15,9 +15,10 @@ interface AttendanceHubProps {
   branches: Branch[];
   employees: Employee[];
   onRefresh?: () => void;
+  isReadOnly?: boolean;
 }
 
-export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branches, employees, onRefresh }) => {
+export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branches, employees, onRefresh, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<string>(
@@ -420,7 +421,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                         {/* Actions */}
                         <td className="pl-4 pr-5 py-4">
                           <div className="flex items-center justify-end gap-1.5">
-                            {log.clockOut && isToday(log.date) && (
+                            {!isReadOnly && log.clockOut && isToday(log.date) && (
                               <button
                                 onClick={() => handleResetClockOut(log)}
                                 disabled={isResetting === log.id}
@@ -435,13 +436,15 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                                 Reset
                               </button>
                             )}
-                            <button
-                              onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
-                              title="Delete entry"
-                              className="h-8 w-8 flex items-center justify-center bg-rose-50 hover:bg-rose-500 text-rose-400 hover:text-white rounded-lg transition-all active:scale-95"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            {!isReadOnly && (
+                              <button
+                                onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
+                                title="Delete entry"
+                                className="h-8 w-8 flex items-center justify-center bg-rose-50 hover:bg-rose-500 text-rose-400 hover:text-white rounded-lg transition-all active:scale-95"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -560,29 +563,31 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                     </div>
 
                     {/* ── Actions ── */}
-                    <div className="px-4 pb-4 flex items-center gap-2">
-                      {log.clockOut && isToday(log.date) && (
+                    {!isReadOnly && (
+                      <div className="px-4 pb-4 flex items-center gap-2">
+                        {log.clockOut && isToday(log.date) && (
+                          <button
+                            onClick={() => handleResetClockOut(log)}
+                            disabled={isResetting === log.id}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                          >
+                            {isResetting === log.id ? (
+                              <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            )}
+                            Reset Clock-Out
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleResetClockOut(log)}
-                          disabled={isResetting === log.id}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                          onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
+                          className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
                         >
-                          {isResetting === log.id ? (
-                            <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                          )}
-                          Reset Clock-Out
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          Delete
                         </button>
-                      )}
-                      <button
-                        onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
-                        className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Delete
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })

@@ -420,7 +420,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       // If the employee being clocked in/out is a reliever, sync their payout
       // expense immediately so the SALES tab KPI reflects it without needing a sale first.
-      const isReliever = selectedEmpForTime.branchId !== branch.id;
+      const clockCfg = selectedEmpForTime.branchAllowances?.[branch.id];
+      const clockExcluded = typeof clockCfg === 'object' && clockCfg !== null ? (clockCfg.excludeFromReliever || false) : false;
+      const isReliever = selectedEmpForTime.branchId !== branch.id && !clockExcluded;
       if (isReliever) {
         syncRelieverPayouts(branch, todayStr, employees)
           .then(() => { if (onRefresh) onRefresh(); })
@@ -711,7 +713,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-1">
         {paginatedStaff.length > 0 ? paginatedStaff.map(emp => {
           const currentRole = getEmployeeRole(emp, branch.id);
-          const isReliever = emp.branchId !== branch.id && !currentRole.includes('MANAGER');
+          const branchCfg = emp.branchAllowances?.[branch.id];
+          const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
+          const isReliever = emp.branchId !== branch.id && !currentRole.includes('MANAGER') && !excludeFromReliever;
           const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
           const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
 

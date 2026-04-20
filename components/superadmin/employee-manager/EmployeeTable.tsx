@@ -8,9 +8,9 @@ import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../lib
 interface EmployeeTableProps {
   employees: Employee[];
   branches: Branch[];
-  onEdit: (emp: Employee) => void;
-  onReset: (emp: Employee) => void;
-  onDelete: (emp: Employee) => void;
+  onEdit?: (emp: Employee) => void;
+  onReset?: (emp: Employee) => void;
+  onDelete?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
@@ -41,11 +41,11 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
               }));
               
               return (
-                <tr 
-                  key={emp.id} 
-                  className={`hover:bg-slate-50 transition-colors group cursor-pointer ${!emp.isActive ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                <tr
+                  key={emp.id}
+                  className={`hover:bg-slate-50 transition-colors group ${onEdit ? 'cursor-pointer' : ''} ${!emp.isActive ? 'opacity-60 grayscale-[0.5]' : ''}`}
                 >
-                  <td className="px-8 py-5" onClick={() => onEdit(emp)}>
+                  <td className="px-8 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg overflow-hidden shrink-0 shadow-inner ${emp.isActive ? 'bg-slate-100' : 'bg-slate-50'}`}>
                         {emp.profile ? <img src={emp.profile} className="w-full h-full object-cover" alt={emp.name || ''} /> : <span className="font-bold italic text-slate-300">{getInitials(emp.name)}</span>}
@@ -63,7 +63,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5" onClick={() => onEdit(emp)}>
+                  <td className="px-6 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex flex-wrap gap-1.5">
                        {authorizedBranches.length > 0 ? authorizedBranches.map((b, i) => (
                          <span key={i} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter flex items-center gap-1 ${b.isManager ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
@@ -73,16 +73,16 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                        )) : <span className="text-[10px] font-semibold text-slate-300 italic">No Branch Linked</span>}
                     </div>
                   </td>
-                  <td className="px-4 py-5 text-center" onClick={() => onEdit(emp)}>
+                  <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     <RoleBadge role={getEmployeeRole(emp, currentBranchId || emp.branchId)} />
                   </td>
-                  <td className="px-4 py-5 text-center" onClick={() => onEdit(emp)}>
+                  <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center justify-center gap-2.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-300'}`}></div>
                       <span className={`text-[10px] font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-5 text-right" onClick={() => onEdit(emp)}>
+                  <td className="px-4 py-5 text-right" onClick={() => onEdit?.(emp)}>
                     <div className="flex flex-col items-end">
                       <span className="text-sm font-bold text-slate-900 tabular-nums">
                         ₱{getEmployeeAllowance(emp, currentBranchId || 'all').toLocaleString()}
@@ -96,23 +96,27 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onReset(emp); }}
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-90 ${emp.requestReset ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
-                            title={emp.requestReset ? "Resolve Reset Request" : "Manual Credential Reset"}
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                            </svg>
-                        </button>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onEdit(emp); }}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-300 hover:bg-slate-900 hover:text-white transition-all shadow-sm border border-slate-100 active:scale-90"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="3" /></svg>
-                        </button>
-                        {!emp.isActive && (
-                          <button 
+                        {onReset && (
+                          <button
+                              onClick={(e) => { e.stopPropagation(); onReset(emp); }}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-90 ${emp.requestReset ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
+                              title={emp.requestReset ? "Resolve Reset Request" : "Manual Credential Reset"}
+                          >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                              </svg>
+                          </button>
+                        )}
+                        {onEdit && (
+                          <button
+                              onClick={(e) => { e.stopPropagation(); onEdit(emp); }}
+                              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-300 hover:bg-slate-900 hover:text-white transition-all shadow-sm border border-slate-100 active:scale-90"
+                          >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="3" /></svg>
+                          </button>
+                        )}
+                        {onDelete && !emp.isActive && (
+                          <button
                               onClick={(e) => { e.stopPropagation(); onDelete(emp); }}
                               className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white transition-all shadow-sm border border-rose-100 active:scale-90"
                               title="Delete Suspended Personnel"

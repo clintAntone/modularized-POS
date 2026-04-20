@@ -19,6 +19,7 @@ import { HowToSection } from './dashboard/sections/HowToSection';
 import { DeveloperSection } from './dashboard/sections/DeveloperSection';
 import { ClientHistorySection } from './dashboard/sections/ClientHistorySection';
 import { RemittanceSection } from './dashboard/sections/RemittanceSection';
+import { HeatmapSection } from './dashboard/sections/HeatmapSection';
 import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole, getEmployeeAllowance } from '../lib/payroll';
@@ -55,7 +56,7 @@ interface BranchManagerDashboardProps {
   onSyncStatusChange?: (isSyncing: boolean) => void;
 }
 
-export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill';
+export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'heatmap' | 'settings' | 'how_to' | 'backfill';
 
 const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) => {
   const [currentTime, setCurrentTime] = useState(getTrueDate());
@@ -826,6 +827,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
             case 'staff': return <StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={isClosedMode} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} />;
             case 'clients': return <ClientHistorySection branch={props.branch} />;
             case 'remittance': return <RemittanceSection branch={props.branch} salesReports={props.salesReports} />;
+            case 'heatmap': return <HeatmapSection branch={props.branch} salesReports={props.salesReports} />;
             case 'expenses_hub': return (
                 <ExpensesManagerSection 
                     branch={props.branch} 

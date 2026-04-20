@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Branch, Transaction, Expense, Service, AuditLog, SalesReport, Employee, Attendance, UserRole } from '../../types';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -11,6 +11,7 @@ interface SuperAdminNavbarProps {
   onTabChange: (id: AdminTab) => void;
   employees?: Employee[];
   isSticky?: boolean;
+  pendingRequestsCount?: number;
   allowedTabs?: string[]; // undefined = all tabs (superadmin)
 }
 
@@ -30,19 +31,18 @@ const Icons = {
   requests: <svg className="w-[19px] h-[19px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>,
 };
 
-export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, onTabChange, employees = [], isSticky = true, allowedTabs }) => {
+export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, onTabChange, employees = [], isSticky = true, pendingRequestsCount = 0, allowedTabs }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [showMoreModal, setShowMoreModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Measured visible count for desktop nav (null = not yet measured, show all)
+  const [visibleCount, setVisibleCount] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null); // the px-padded content row
+  const measureRef = useRef<HTMLDivElement>(null);   // hidden div for measuring tab widths
 
-  const resetRequestCount = useMemo(() => 
+  const resetRequestCount = useMemo(() =>
     employees.filter(e => e.requestReset).length
   , [employees]);
-
-  const pendingRequestsCount = useMemo(() => 
-    // We'll pass this in or fetch it. For now, let's assume we might need it.
-    0 
-  , []);
 
   useEffect(() => {
     setMounted(true);
@@ -93,40 +93,60 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     return groups;
   }, [adminTabRegistry]);
 
-  const { visibleTabs, overflowTabs, isMoreActive } = useMemo(() => {
-    const priorityIds = ['sales_hub', 'archive', 'employees', 'attendance', 'network', 'catalogs', 'backfill', 'remittances', 'bills', 'requests', 'payroll'];
+  // ResizeObserver: measure actual tab widths and set visibleCount
+  const recalculate = useCallback(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
 
-    // How many tabs fit before we need a "More" button
-    let capacity = 4;  // mobile fallback (≥480px)
-    if (windowWidth >= 1536) capacity = 14;
-    else if (windowWidth >= 1280) capacity = 11;
-    else if (windowWidth >= 1024) capacity = 9;
-    else if (windowWidth >= 768)  capacity = 7;
-    else if (windowWidth >= 640)  capacity = 5;
+    const available = container.clientWidth;
+    const tabEls = Array.from(measure.querySelectorAll<HTMLElement>('[data-tab-measure]'));
+    const moreEl = measure.querySelector<HTMLElement>('[data-more-measure]');
+    const moreW = (moreEl?.offsetWidth ?? 72) + 8; // +8 for gap
+
+    let used = 0;
+    let count = 0;
+    for (let i = 0; i < tabEls.length; i++) {
+      const w = tabEls[i].offsetWidth + 8; // +8 for gap
+      const remaining = tabEls.length - i - 1;
+      const needed = used + w + (remaining > 0 ? moreW : 0);
+      if (needed <= available) {
+        used += w;
+        count++;
+      } else {
+        break;
+      }
+    }
+    setVisibleCount(Math.max(1, count));
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || windowWidth < 640) return;
+    const obs = new ResizeObserver(recalculate);
+    if (containerRef.current) obs.observe(containerRef.current);
+    recalculate();
+    return () => obs.disconnect();
+  }, [mounted, windowWidth, adminTabRegistry, recalculate]);
+
+  const { visibleTabs, overflowTabs, isMoreActive } = useMemo(() => {
+    const priorityIds = ['sales_hub', 'archive', 'employees', 'attendance', 'network', 'catalogs', 'backfill', 'remittances', 'requests', 'payroll'];
 
     let visible: typeof adminTabRegistry;
     if (windowWidth < 480) {
-      // Very small mobile: 3 fixed tabs
       visible = adminTabRegistry.filter(t => priorityIds.slice(0, 3).includes(t.id));
     } else if (windowWidth < 640) {
-      // Mobile: 4 tabs
       visible = adminTabRegistry.filter(t => priorityIds.slice(0, 4).includes(t.id));
     } else {
-      // Tablet/Desktop: fill up to capacity, reserve 1 slot for "More" if there's overflow
-      const allPriority = adminTabRegistry.filter(t => priorityIds.includes(t.id));
-      const others = adminTabRegistry.filter(t => !priorityIds.includes(t.id));
-      const visibleCount = others.length > 0
-        ? Math.min(allPriority.length, capacity - 1)
-        : Math.min(allPriority.length, capacity);
-      visible = allPriority.slice(0, visibleCount);
+      // Desktop: use measured visibleCount; fall back to showing all until first measurement
+      const count = visibleCount ?? adminTabRegistry.length;
+      visible = adminTabRegistry.slice(0, count);
     }
 
     const visibleIds = new Set(visible.map(t => t.id));
     const overflow = adminTabRegistry.filter(t => !visibleIds.has(t.id));
     const moreActive = overflow.some(t => t.id === activeTab);
-
     return { visibleTabs: visible, overflowTabs: overflow, isMoreActive: moreActive };
-  }, [adminTabRegistry, activeTab, windowWidth]);
+  }, [adminTabRegistry, activeTab, windowWidth, visibleCount]);
 
   const handleTabClick = (id: string) => {
     resumeAudioContext();
@@ -141,8 +161,36 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
       <>
         {windowWidth >= 640 ? (
           <nav className={`bg-slate-800 border-b border-white/5 no-print ${isSticky ? 'sticky top-[72px] sm:top-20' : ''} z-[900] shadow-lg w-full`}>
-            <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-20`}>
-              <div className="flex items-center gap-1 lg:gap-2">
+            <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-20 relative`}>
+              {/* Hidden measurement div — renders all tabs invisibly to get their actual widths */}
+              <div
+                ref={measureRef}
+                aria-hidden="true"
+                className="absolute flex items-center gap-1 lg:gap-2 pointer-events-none"
+                style={{ visibility: 'hidden', top: '-9999px', left: 0, whiteSpace: 'nowrap' }}
+              >
+                {adminTabRegistry.map(item => (
+                  <button
+                    key={item.id}
+                    data-tab-measure="1"
+                    tabIndex={-1}
+                    className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase shrink-0 rounded-xl"
+                  >
+                    <div>{item.icon}</div>
+                    <span className="tracking-widest whitespace-nowrap">{item.label}</span>
+                  </button>
+                ))}
+                <button
+                  data-more-measure="1"
+                  tabIndex={-1}
+                  className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase shrink-0 rounded-xl mr-2"
+                >
+                  {Icons.more}
+                  <span className="tracking-widest whitespace-nowrap">More</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1 lg:gap-2 min-w-0">
                 {visibleTabs.map(item => {
                   const isActive = activeTab === item.id;
                   return (
@@ -163,6 +211,16 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                           </span>
                         </div>
                       )}
+                      {item.id === 'requests' && pendingRequestsCount > 0 && (
+                        <div className="absolute -top-1 -right-1 flex items-center justify-center z-10">
+                          <span className="relative flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-white items-center justify-center text-[8px] font-black text-white leading-none">
+                              {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                            </span>
+                          </span>
+                        </div>
+                      )}
                       {isActive && <div className="absolute -bottom-1 left-4 right-4 h-[2px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>}
                     </button>
                   );
@@ -171,7 +229,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                 {overflowTabs.length > 0 && (
                   <button
                     onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isMoreActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl mr-2 ${isMoreActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                   >
                     <div className={`transition-all duration-200 ${isMoreActive ? 'scale-110 text-emerald-400' : 'group-hover:text-emerald-300'}`}>{Icons.more}</div>
                     <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${isMoreActive ? 'opacity-100' : ''}`}>
@@ -202,6 +260,16 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                           <span className="relative flex h-2.5 w-2.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-slate-800"></span>
+                          </span>
+                        </div>
+                      )}
+                      {item.id === 'requests' && pendingRequestsCount > 0 && (
+                        <div className="absolute -top-1 right-1 flex items-center justify-center">
+                          <span className="relative flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-slate-800 items-center justify-center text-[8px] font-black text-white leading-none">
+                              {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                            </span>
                           </span>
                         </div>
                       )}
@@ -268,6 +336,16 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                                     <span className="relative flex h-3 w-3">
                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                       <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 border border-white"></span>
+                                    </span>
+                                  </div>
+                                )}
+                                {item.id === 'requests' && pendingRequestsCount > 0 && (
+                                  <div className="absolute top-2 right-2 flex items-center justify-center">
+                                    <span className="relative flex h-5 w-5">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
+                                      <span className="relative inline-flex rounded-full h-5 w-5 bg-amber-500 border-2 border-white items-center justify-center text-[9px] font-black text-white leading-none">
+                                        {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                                      </span>
                                     </span>
                                   </div>
                                 )}

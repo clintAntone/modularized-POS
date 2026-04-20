@@ -10,9 +10,10 @@ interface ArchiveHubProps {
   branches: Branch[];
   salesReports: SalesReport[];
   employees?: any[];
+  isReadOnly?: boolean;
 }
 
-export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, employees = [] }) => {
+export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, employees = [], isReadOnly }) => {
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
 
   const consolidatedBranch = useMemo(() => ({
@@ -65,8 +66,8 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
             salesReports={filteredReports}
             branches={branches}
             employees={employees}
-            canEdit={true}
-            canValidate={true}
+            canEdit={!isReadOnly}
+            canValidate={!isReadOnly}
         />
       </div>
   );

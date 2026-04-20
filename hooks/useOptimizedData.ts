@@ -247,6 +247,22 @@ export const useOptimizedData = (auth: AuthState) => {
         const item = remainingQueue[i];
         try {
           const conflictTarget = item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id';
+
+          // Skip if the record was deleted server-side while we were offline
+          const itemId = item.data?.id ?? item.data?.key;
+          if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG) {
+            const { data: existing } = await supabase
+              .from(item.table)
+              .select('id')
+              .eq(conflictTarget, itemId)
+              .maybeSingle();
+            if (existing === null) {
+              console.log(`📡 Offline queue: skipping deleted record in ${item.table} (id=${itemId})`);
+              processedIndices.push(i);
+              continue;
+            }
+          }
+
           const { error } = await supabase
             .from(item.table)
             .upsert(item.data, { onConflict: conflictTarget });

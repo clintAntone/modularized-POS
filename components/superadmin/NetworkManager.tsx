@@ -13,9 +13,10 @@ interface NetworkManagerProps {
   onAddBulk: () => void;
   onEdit: (id: string) => void;
   onToggle: (id: string, enabled: boolean) => void;
+  isReadOnly?: boolean;
 }
 
-export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd, onAddBulk, onEdit, onToggle }) => {
+export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd, onAddBulk, onEdit, onToggle, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('all');
@@ -144,22 +145,24 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => { playSound('click'); onAddBulk(); }}
-              className={`h-10 sm:h-11 rounded-[24px] bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Bulk Register</span>
-            </button>
-            <button 
-              onClick={() => { playSound('click'); onAdd(); }}
-              className={`h-10 sm:h-11 rounded-[24px] ${UI_THEME.styles.actionButton} px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
-            >
-              <span className="text-lg sm:text-base leading-none font-bold">+</span>
-              <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Register Branch</span>
-            </button>
-          </div>
+          {!isReadOnly && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { playSound('click'); onAddBulk(); }}
+                className={`h-10 sm:h-11 rounded-[24px] bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Bulk Register</span>
+              </button>
+              <button
+                onClick={() => { playSound('click'); onAdd(); }}
+                className={`h-10 sm:h-11 rounded-[24px] ${UI_THEME.styles.actionButton} px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
+              >
+                <span className="text-lg sm:text-base leading-none font-bold">+</span>
+                <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Register Branch</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* SEARCH + FILTER TOGGLE ROW */}

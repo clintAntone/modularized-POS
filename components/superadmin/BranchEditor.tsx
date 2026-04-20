@@ -37,6 +37,7 @@ interface BranchEditorProps {
     onDelete: (id: string) => Promise<void>;
     onClose: () => void;
     isSaving: boolean;
+    isReadOnly?: boolean;
     setConfirmState: (state: ConfirmState | ((prev: ConfirmState) => ConfirmState)) => void;
 }
 
@@ -46,7 +47,7 @@ interface Toast {
 }
 
 export const BranchEditor: React.FC<BranchEditorProps> = ({
-                                                              branch, employees, onSave, onToggle, onResetPin, onForceLogout, onDelete, onClose, isSaving, setConfirmState,
+                                                              branch, employees, onSave, onToggle, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
@@ -288,6 +289,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         isEnabled={branch.isEnabled}
                         isManagerUnassigned={isManagerUnassigned}
                         isSaving={isSaving}
+                        isReadOnly={isReadOnly}
                         onToggle={() => {
                             playSound('warning');
                             setConfirmState({
@@ -377,7 +379,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     />
                 </div>
 
-                <div className="p-6 sm:p-8 bg-white border-t mt-auto shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170]">
+                {!isReadOnly && (
+                  <div className="p-6 sm:p-8 bg-white border-t mt-auto shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170]">
                     <button
                         onClick={handleSaveTrigger}
                         disabled={isSaving || !isDirty}
@@ -386,7 +389,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         {isSaving ? <div className="w-5 h-5 border-3 border-white/20 border-t-white rounded-full animate-spin"></div> : '⚡'}
                         {isSaving ? 'SYNCHRONIZING...' : isDirty ? 'COMMIT ALL UPDATES' : 'CONFIGURATION SYNCED'}
                     </button>
-                </div>
+                  </div>
+                )}
             </div>
         </div>
     );

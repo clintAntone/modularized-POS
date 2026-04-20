@@ -34,7 +34,7 @@ const CardShell: React.FC<{
     onClick={onClick}
     className={`
       w-full text-left flex flex-col transition-all duration-300 group relative overflow-hidden
-      bg-white border shadow-sm cursor-pointer active:scale-[0.98] p-4 sm:p-7 rounded-2xl sm:rounded-[40px]
+      bg-white border shadow-sm cursor-pointer active:scale-[0.98] p-3 sm:p-7 rounded-2xl sm:rounded-[40px]
       ${isActive ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100 hover:border-emerald-200 hover:shadow-md'}
       ${className}
     `}
@@ -54,6 +54,8 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [branchSearch, setBranchSearch] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [globalServiceSearch, setGlobalServiceSearch] = useState('');
 
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
   const [editingCatalogName, setEditingCatalogName] = useState('');
@@ -93,20 +95,42 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
     });
   };
 
-  const paginatedServices = useMemo(() => {
+  const globalSearchResults = useMemo(() => {
+    const q = globalServiceSearch.trim().toLowerCase();
+    if (!q) return [];
+    const results: { service: Service; catalog: CatalogGroup }[] = [];
+    localCatalogs.forEach(cat => {
+      (cat.services || []).forEach(s => {
+        if (s.name.toLowerCase().includes(q)) results.push({ service: s, catalog: cat });
+      });
+    });
+    return results;
+  }, [localCatalogs, globalServiceSearch]);
+
+  const filteredServices = useMemo(() => {
     if (!activeCatalog) return [];
+    const q = serviceSearch.trim().toLowerCase();
+    if (!q) return activeCatalog.services;
+    return activeCatalog.services.filter(s => s.name.toLowerCase().includes(q));
+  }, [activeCatalog, serviceSearch]);
+
+  const paginatedServices = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return activeCatalog.services.slice(startIndex, startIndex + itemsPerPage);
-  }, [activeCatalog, currentPage]);
+    return filteredServices.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredServices, currentPage]);
 
   const totalPages = useMemo(() => {
-    if (!activeCatalog) return 0;
-    return Math.ceil(activeCatalog.services.length / itemsPerPage);
-  }, [activeCatalog]);
+    return Math.ceil(filteredServices.length / itemsPerPage);
+  }, [filteredServices]);
 
   useEffect(() => {
     setCurrentPage(1);
+    setServiceSearch('');
   }, [activeCatalogId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [serviceSearch]);
 
   useEffect(() => {
     setLocalCatalogs(JSON.parse(JSON.stringify(initialCatalogs || [])));
@@ -379,8 +403,8 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
       
       {!activeCatalogId && (
         <div className="space-y-10">
-          <div className={`bg-white ${UI_THEME.layout.cardPadding} ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 no-print`}>
-            <div className="flex items-center gap-3">
+          <div className={`bg-white ${UI_THEME.layout.cardPadding} ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print`}>
+            <div className="flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shadow-inner">
                 <BookOpen className="w-5 h-5" />
               </div>
@@ -389,34 +413,88 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Master Distribution Control</p>
               </div>
             </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={globalServiceSearch}
+                onChange={e => setGlobalServiceSearch(e.target.value)}
+                placeholder="Search any service across all catalogs…"
+                className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-[11px] font-bold uppercase tracking-widest outline-none focus:border-emerald-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
+              />
+              {globalServiceSearch && (
+                <button onClick={() => setGlobalServiceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Global search results */}
+          {globalServiceSearch.trim() && (
+            <div className="px-4">
+              {globalSearchResults.length === 0 ? (
+                <div className="bg-white rounded-[28px] border border-slate-100 py-12 text-center">
+                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No services found matching "{globalServiceSearch}"</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{globalSearchResults.length} result{globalSearchResults.length !== 1 ? 's' : ''} across {new Set(globalSearchResults.map(r => r.catalog.id)).size} catalog{new Set(globalSearchResults.map(r => r.catalog.id)).size !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="divide-y divide-slate-50 max-h-[480px] overflow-y-auto">
+                    {globalSearchResults.map(({ service: s, catalog: cat }) => (
+                      <div
+                        key={`${cat.id}-${s.id}`}
+                        onClick={() => { setActiveCatalogId(cat.id); setGlobalServiceSearch(''); playSound('click'); }}
+                        className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 flex items-center justify-center text-sm shrink-0">📋</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-emerald-700 transition-colors">{s.name}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{cat.name}</p>
+                        </div>
+                        <div className="shrink-0 text-right space-y-0.5">
+                          <p className="text-[11px] font-black text-emerald-600 tabular-nums">₱{s.price.toLocaleString()}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{s.duration}M</p>
+                        </div>
+                        <div className="shrink-0 text-[9px] font-bold text-slate-300 uppercase tracking-widest group-hover:text-slate-500 transition-colors">
+                          <Settings className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4">
             {localCatalogs.map(cat => (
               <CardShell key={cat.id} onClick={() => setActiveCatalogId(cat.id)}>
                 <div className="flex flex-col h-full relative">
-                  <div className="flex justify-between items-start mb-4 sm:mb-8">
-                    <div className="w-10 h-10 sm:w-14 sm:h-14 bg-slate-900 text-emerald-400 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-xl border border-white/5 transition-transform group-hover:scale-110">📂</div>
-                    <div className="flex gap-2">
-                      <button 
+                  <div className="flex justify-between items-start mb-3 sm:mb-8">
+                    <div className="w-9 h-9 sm:w-14 sm:h-14 bg-slate-900 text-emerald-400 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl shadow-xl border border-white/5 transition-transform group-hover:scale-110">📂</div>
+                    <div className="flex gap-1.5 sm:gap-2">
+                      <button
                         onClick={(e) => handleStartRename(e, cat)}
-                        className="p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-100 shadow-sm active:scale-90"
+                        className="p-1.5 sm:p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-100 shadow-sm active:scale-90"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={(e) => handleCatalogDeleteFromList(e, cat)}
-                        className="p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-100 shadow-sm active:scale-90"
+                        className="p-1.5 sm:p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-100 shadow-sm active:scale-90"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   </div>
-                  
-                  <h4 className="text-lg font-bold text-slate-900 uppercase tracking-tight pr-10 mb-2 leading-tight">{cat.name}</h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Unit Distribution Set</p>
-                  
-                  <div className="mt-auto border-t border-slate-50 pt-6 flex items-center justify-between">
+
+                  <h4 className="text-sm sm:text-lg font-bold text-slate-900 uppercase tracking-tight pr-10 mb-1 sm:mb-2 leading-tight">{cat.name}</h4>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 sm:mb-6">Unit Distribution Set</p>
+
+                  <div className="mt-auto border-t border-slate-50 pt-3 sm:pt-6 flex items-center justify-between">
                      <div className="flex items-center gap-2">
                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
                        <span className="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">{(cat.services || []).length} Services</span>
@@ -509,13 +587,14 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
             <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-start">
               {/* LEFT: SERVICES TABLE */}
               <div className="flex-1 w-full space-y-4 px-1 no-print">
-                <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
+                <div className="flex flex-col gap-3 px-1 sm:px-2">
+                <div className="flex flex-row items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <Pagination 
+                    <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       onPageChange={setCurrentPage}
-                      totalItems={activeCatalog?.services.length || 0}
+                      totalItems={filteredServices.length}
                       itemsPerPage={itemsPerPage}
                     />
                   </div>
@@ -524,6 +603,22 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Export Services</span>
                   </button>
                 </div>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={serviceSearch}
+                    onChange={e => setServiceSearch(e.target.value)}
+                    placeholder="Search services…"
+                    className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-[11px] font-bold uppercase tracking-widest outline-none focus:border-slate-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
+                  />
+                  {serviceSearch && (
+                    <button onClick={() => setServiceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
                 {/* MOBILE CARD VIEW */}
                 <div className="sm:hidden space-y-4">

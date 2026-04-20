@@ -24,9 +24,10 @@ interface GlobalEmployeeManagerProps {
   employees: Employee[];
   onRefresh?: () => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
+  isReadOnly?: boolean;
 }
 
-export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange }) => {
+export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -546,13 +547,15 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           </div>
 
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => handleOpenEdit()}
-              className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
-            >
-              <span className="text-lg leading-none">+</span>
-              <span className="hidden sm:inline">Register Staff</span>
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => handleOpenEdit()}
+                className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+              >
+                <span className="text-lg leading-none">+</span>
+                <span className="hidden sm:inline">Register Staff</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -750,19 +753,19 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           </div>
         )}
 
-        <EmployeeTable 
+        <EmployeeTable
           employees={paginatedEmployees}
           branches={branches}
-          onEdit={handleOpenEdit}
-          onReset={handleOpenResetModal}
-          onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          onEdit={isReadOnly ? undefined : handleOpenEdit}
+          onReset={isReadOnly ? undefined : handleOpenResetModal}
+          onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
         />
-        <EmployeeMobileList 
+        <EmployeeMobileList
           employees={paginatedEmployees}
           branches={branches}
-          onEdit={handleOpenEdit}
-          onReset={handleOpenResetModal}
-          onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          onEdit={isReadOnly ? undefined : handleOpenEdit}
+          onReset={isReadOnly ? undefined : handleOpenResetModal}
+          onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
         />
       </div>
 

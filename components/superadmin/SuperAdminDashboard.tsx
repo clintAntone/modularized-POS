@@ -62,6 +62,7 @@ type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees'
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branches, transactions, expenses, auditLogs, salesReports, employees, attendance, requests, onRefresh, onSyncStatusChange, permissions }) => {
   const isPortalUser = !!permissions;
+  const isReadOnly = permissions ? permissions.readOnly !== false : false;
 
   const initialTab = useMemo<AdminTab>(() => {
     if (!permissions) return 'sales_hub';
@@ -626,7 +627,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'network': return <NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} />;
+      case 'network': return <NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} />;
       case 'catalogs': return (
           <ServiceCatalog
               branches={branches}
@@ -641,17 +642,17 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
       );
       case 'sales_hub': return <SalesHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} onRefresh={onRefresh} />;
       case 'analytics': return <AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} />;
-      case 'employees': return <GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} onSyncStatusChange={onSyncStatusChange} />;
-      case 'archive': return <ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} />;
+      case 'employees': return <GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} />;
+      case 'archive': return <ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} isReadOnly={isReadOnly} />;
       case 'settings': return <SettingsHub onRefresh={onRefresh} />;
       case 'audit': return <GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} />;
-      case 'attendance': return <AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} />;
+      case 'attendance': return <AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
       case 'payroll': return <PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} />;
       case 'expenses': return <ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} />;
-      case 'backfill': return <MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} />;
-      case 'remittances': return <WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} />;
-      case 'bills': return <BillsCatalogHub branches={scopedBranches} />;
-      case 'requests': return <RequestsHub requests={scopedRequests} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} />;
+      case 'backfill': return <MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
+      case 'remittances': return <WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
+      case 'bills': return <BillsCatalogHub branches={scopedBranches} isReadOnly={isReadOnly} />;
+      case 'requests': return <RequestsHub requests={scopedRequests} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
       case 'how_to': return <HowToSection role={UserRole.SUPERADMIN} />;
       case 'portal_users': return <PortalUsersSection currentUserId={user.employeeId} branches={branches} />;
       default: return null;
@@ -705,6 +706,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
               onTabChange={handleTabChange}
               employees={employees}
               isSticky={false}
+              pendingRequestsCount={(scopedRequests as any[]).filter((r: any) => r.status === 'PENDING').length}
               allowedTabs={isPortalUser ? Object.entries(permissions!.tabs).filter(([, v]) => v).map(([k]) => k) : undefined}
           />
         </div>
@@ -804,6 +806,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
                 onDelete={handleDeleteBranch}
                 onClose={() => setEditingBranchId(null)}
                 isSaving={isSaving}
+                isReadOnly={isReadOnly}
                 setConfirmState={setConfirmState as any}
             />
         )}

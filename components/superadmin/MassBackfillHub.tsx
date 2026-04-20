@@ -5,7 +5,7 @@ import { playSound } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 import { toDateStr } from '@/src/utils/reportUtils';
 
-import { getInitials } from '../../lib/payroll';
+import { getInitials, getEmployeeAllowance } from '../../lib/payroll';
 import { getTrueDate, getTrueManilaISOString } from '../../lib/time';
 
 interface MassBackfillHubProps {
@@ -13,9 +13,10 @@ interface MassBackfillHubProps {
     employees: Employee[];
     salesReports: SalesReport[];
     onRefresh?: () => void;
+    isReadOnly?: boolean;
 }
 
-export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, employees, salesReports, onRefresh }) => {
+export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, employees, salesReports, onRefresh, isReadOnly }) => {
     const [selectedBranchId, setSelectedBranchId] = useState('');
     const [selectedDate, setSelectedDate] = useState(toDateStr(getTrueDate()));
     const [grossSales, setGrossSales] = useState<number>(0);
@@ -91,7 +92,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                     otPay: s.attendance?.otPay || 0,
                     cashAdvance: s.attendance?.cashAdvance || 0,
                     lateDeduction: s.attendance?.lateDeduction || 0,
-                    allowance: s.allowance || 0
+                    allowance: s.allowance || 0,
+                    isHalfDay: !!s.isHalfDay
                 }));
 
                 // Automatically add active branch employees who are NOT in the report
@@ -104,7 +106,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         otPay: 0,
                         cashAdvance: 0,
                         lateDeduction: 0,
-                        allowance: be.allowance || 0
+                        allowance: be.allowance || 0,
+                        isHalfDay: false
                     }));
 
                 setEmployeeEntries([...reportEntries, ...missingEmployees]);
@@ -125,7 +128,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                     otPay: 0,
                     cashAdvance: 0,
                     lateDeduction: 0,
-                    allowance: e.allowance || 0
+                    allowance: e.allowance || 0,
+                    isHalfDay: false
                 })));
                 setStatus('');
             }
@@ -164,6 +168,17 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
         setEmployeeEntries(prev => prev.map(e => e.employeeId === id ? { ...e, [field]: value } : e));
     };
 
+    const handleToggleHalfDay = (empId: string) => {
+        const emp = employees.find(e => e.id === empId);
+        if (!emp) return;
+        const baseAllowance = getEmployeeAllowance(emp, selectedBranchId);
+        setEmployeeEntries(prev => prev.map(e => {
+            if (e.employeeId !== empId) return e;
+            const next = !e.isHalfDay;
+            return { ...e, isHalfDay: next, allowance: next ? baseAllowance / 2 : baseAllowance };
+        }));
+    };
+
     const handleAddEmployee = (emp: Employee) => {
         if (employeeEntries.find(e => e.employeeId === emp.id)) return;
         
@@ -174,7 +189,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             otPay: 0,
             cashAdvance: 0,
             lateDeduction: 0,
-            allowance: emp.allowance || 0
+            allowance: emp.allowance || 0,
+            isHalfDay: false
         }]);
         setIsAddPersonnelOpen(false);
         playSound('click');
@@ -238,6 +254,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 count: 0,
                 commission: Number(e.commission),
                 allowance: Number(e.allowance),
+                isHalfDay: !!e.isHalfDay,
                 attendance: {
                     id: `ATT-BACKFILL-${Math.random().toString(36).substr(2, 9)}`,
                     date: selectedDate,
@@ -460,9 +477,10 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                     <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden relative z-10">
                         <div className={`h-full transition-all duration-1000 ${isSalaryMismatch ? 'bg-rose-500 w-full' : 'bg-rose-500 w-0 group-hover:w-full'}`}></div>
                         {isSalaryMismatch && (
-                            <button 
+                            <button
                                 onClick={handleSyncSalary}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 text-[9px] font-black text-white uppercase tracking-widest bg-rose-600 px-3 py-1 rounded-full shadow-lg hover:bg-emerald-600 transition-all active:scale-95"
+                                disabled={isReadOnly}
+                                className="absolute right-0 top-1/2 -translate-y-1/2 text-[9px] font-black text-white uppercase tracking-widest bg-rose-600 px-3 py-1 rounded-full shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30"
                             >
                                 Auto-Sync
                             </button>
@@ -521,11 +539,13 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             <div key={item.id || idx} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                                 <span className="flex-1 text-[11px] font-bold text-slate-700 uppercase truncate">{item.name}</span>
                                 <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
+                                {!isReadOnly && (
                                 <button
                                     type="button"
                                     onClick={() => removeExpenseItem(idx)}
                                     className="w-5 h-5 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0"
                                 >×</button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -555,7 +575,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         <button
                             type="button"
                             onClick={addExpenseItem}
-                            disabled={!newExpenseName.trim() || !newExpenseAmount}
+                            disabled={isReadOnly || !newExpenseName.trim() || !newExpenseAmount}
                             className="px-3 py-2.5 bg-rose-500 text-white rounded-xl text-[11px] font-black hover:bg-rose-600 active:scale-95 transition-all disabled:opacity-30 shrink-0"
                         >Add</button>
                     </div>
@@ -644,7 +664,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 .map(emp => (
                                                 <button
                                                     key={emp.id}
-                                                    onClick={() => { handleAddEmployee(emp); setPersonnelSearch(''); setIsAddPersonnelOpen(false); }}
+                                                    onClick={() => { if (!isReadOnly) { handleAddEmployee(emp); setPersonnelSearch(''); setIsAddPersonnelOpen(false); } }}
                                                     className="w-full p-4 flex items-center justify-between hover:bg-emerald-50 rounded-[20px] transition-all group"
                                                 >
                                                     <div className="flex items-center gap-4 min-w-0">
@@ -685,6 +705,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         <th className="px-4 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Cash Adv</th>
                                         <th className="px-4 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Deduction</th>
                                         <th className="px-4 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Allowance</th>
+                                        <th className="px-4 py-5 text-center text-[10px] font-black text-amber-500 uppercase tracking-widest">½ Day</th>
                                         <th className="px-4 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest w-40">Net Pay</th>
                                         <th className="pl-4 pr-8 py-5 text-right w-20"></th>
                                     </tr>
@@ -693,7 +714,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                     {employeeEntries.map((emp) => {
                                         const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                         return (
-                                            <tr key={emp.employeeId} className="group hover:bg-slate-50/50 transition-colors">
+                                            <tr key={emp.employeeId} className={`group transition-colors ${emp.isHalfDay ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-slate-50/50'}`}>
                                                 <td className="pl-8 pr-4 py-6">
                                                     <div className="space-y-1">
                                                         <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>
@@ -779,23 +800,42 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                         />
                                                     </div>
                                                 </td>
+                                                <td className="px-4 py-6 text-center">
+                                                    <button
+                                                        onClick={() => !isReadOnly && handleToggleHalfDay(emp.employeeId)}
+                                                        title={emp.isHalfDay ? 'Half-day (click to remove)' : 'Mark as half-day'}
+                                                        disabled={isReadOnly}
+                                                        className={`w-9 h-9 rounded-xl flex items-center justify-center mx-auto transition-all active:scale-90 disabled:opacity-30 ${
+                                                            emp.isHalfDay
+                                                                ? 'bg-amber-500 text-white shadow-sm'
+                                                                : 'bg-slate-100 text-slate-300 hover:bg-amber-100 hover:text-amber-500'
+                                                        }`}
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                            <circle cx="12" cy="12" r="10"/>
+                                                            <path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/>
+                                                        </svg>
+                                                    </button>
+                                                </td>
                                                 <td className="px-4 py-6 text-right">
                                                     <p className="text-[12px] font-black text-slate-900 tabular-nums tracking-tight">₱{netPay.toLocaleString()}</p>
                                                 </td>
                                                 <td className="pl-4 pr-8 py-6 text-right">
-                                                    <button
+                                                    {!isReadOnly && (
+                                                      <button
                                                         onClick={() => handleRemoveEmployee(emp.employeeId)}
                                                         className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
-                                                    >
+                                                      >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                    </button>
+                                                      </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
                                     })}
                                     {employeeEntries.length === 0 && (
                                         <tr>
-                                            <td colSpan={8} className="py-20 text-center">
+                                            <td colSpan={9} className="py-20 text-center">
                                                 <div className="flex flex-col items-center gap-3 opacity-20">
                                                     <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                                     <p className="text-[10px] font-black uppercase tracking-widest">No personnel added yet</p>
@@ -812,7 +852,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             {employeeEntries.map((emp) => {
                                 const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                 return (
-                                    <div key={emp.employeeId} className="bg-white border border-slate-200 rounded-[24px] p-5 space-y-5 shadow-sm">
+                                    <div key={emp.employeeId} className={`border rounded-[24px] p-5 space-y-5 shadow-sm ${emp.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-0.5">
                                                 <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>
@@ -820,14 +860,31 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                     {branches.find(b => b.id === emp.branchId)?.name || 'Unknown'}
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={() => handleRemoveEmployee(emp.employeeId)}
-                                                className="w-8 h-8 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center transition-all active:scale-90"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                {!isReadOnly && (
+                                                <button
+                                                    onClick={() => handleToggleHalfDay(emp.employeeId)}
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                                                        emp.isHalfDay
+                                                            ? 'bg-amber-500 text-white'
+                                                            : 'bg-slate-100 text-slate-400 hover:bg-amber-100 hover:text-amber-600'
+                                                    }`}
+                                                >
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
+                                                    ½ Day
+                                                </button>
+                                                )}
+                                                {!isReadOnly && (
+                                                <button
+                                                    onClick={() => handleRemoveEmployee(emp.employeeId)}
+                                                    className="w-8 h-8 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        
+
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Commission</label>
@@ -937,8 +994,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
                     <button
                         onClick={() => setShowConfirmModal(true)}
-                        disabled={isProcessing || !selectedBranchId || !selectedDate}
-                        className={`group relative w-full h-20 md:h-24 rounded-[28px] font-black uppercase tracking-[0.3em] text-[11px] md:text-[14px] shadow-2xl transition-all active:scale-[0.98] overflow-hidden ${isProcessing || !selectedBranchId || !selectedDate ? 'bg-slate-100 text-slate-300' : 'bg-slate-950 text-white hover:bg-emerald-600'}`}
+                        disabled={isReadOnly || isProcessing || !selectedBranchId || !selectedDate}
+                        className={`group relative w-full h-20 md:h-24 rounded-[28px] font-black uppercase tracking-[0.3em] text-[11px] md:text-[14px] shadow-2xl transition-all active:scale-[0.98] overflow-hidden ${isReadOnly || isProcessing || !selectedBranchId || !selectedDate ? 'bg-slate-100 text-slate-300' : 'bg-slate-950 text-white hover:bg-emerald-600'}`}
                     >
                         <div className="relative z-10 flex items-center justify-center gap-4">
                             {isProcessing ? (

@@ -61,6 +61,24 @@ export const useGlobalData = (auth: AuthState) => {
                 const item = remainingQueue[i];
                 try {
                     const conflictTarget = item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id';
+
+                    // Skip if the record was deleted server-side while we were offline
+                    // (prevents re-inserting records that an admin intentionally removed)
+                    const itemId = item.data?.id ?? item.data?.key;
+                    if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG) {
+                        const { data: existing } = await supabase
+                            .from(item.table)
+                            .select('id')
+                            .eq(conflictTarget, itemId)
+                            .maybeSingle();
+                        // If the record no longer exists (was deleted), drop this queue item silently
+                        if (existing === null) {
+                            console.log(`📡 Offline queue: skipping deleted record in ${item.table} (id=${itemId})`);
+                            processedIndices.push(i);
+                            continue;
+                        }
+                    }
+
                     const { error } = await supabase.from(item.table).upsert(item.data, { onConflict: conflictTarget });
 
                     if (!error) {
@@ -446,17 +464,10 @@ export const useGlobalData = (auth: AuthState) => {
         window.addEventListener('offline', handleOffline);
 
         flushOfflineQueue();
-        
-        // Polling fallback: Refresh database every 60 seconds (increased from 30s for performance)
-        const syncInterval = setInterval(() => {
-            flushOfflineQueue();
-            refreshDatabase();
-        }, 60000);
 
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
-            clearInterval(syncInterval);
         };
     }, [refreshDatabase, flushOfflineQueue]);
 

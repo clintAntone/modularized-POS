@@ -185,7 +185,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
                     session_data: editedReport.sessionData,
                     expense_data: editedReport.expenseData,
                     vault_data: editedReport.vaultData,
-                    staff_breakdown: staffBreakdown
+                    staff_breakdown: staffBreakdown,
                 })
                 .eq(DB_COLUMNS.ID, report.id);
 

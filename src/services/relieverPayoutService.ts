@@ -44,7 +44,9 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
             const emp = employees.find(e => e.id === empId);
             if (emp && emp.branchId !== branch.id) {
                 const role = getEmployeeRole(emp, branch.id);
-                if (!role.includes('MANAGER')) {
+                const cfg = emp.branchAllowances?.[branch.id];
+                const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                if (!role.includes('MANAGER') && !excluded) {
                     const name = emp.name?.trim().toUpperCase();
                     if (name && !hiddenStaffNames?.has(name)) {
                         let allowance = getEmployeeAllowance(emp, branch.id);
@@ -69,7 +71,9 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
                 const emp = employees.find(e => e.name?.trim().toUpperCase() === therapist);
                 if (emp && emp.branchId !== branch.id) {
                     const role = getEmployeeRole(emp, branch.id);
-                    if (!role.includes('MANAGER')) {
+                    const cfg = emp.branchAllowances?.[branch.id];
+                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                    if (!role.includes('MANAGER') && !excluded) {
                         if (!relieverData[therapist]) {
                             relieverData[therapist] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
                         }
@@ -77,12 +81,14 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
                     }
                 }
             }
-            
+
             if (bonesetter && !hiddenStaffNames?.has(bonesetter)) {
                 const emp = employees.find(e => e.name?.trim().toUpperCase() === bonesetter);
                 if (emp && emp.branchId !== branch.id) {
                     const role = getEmployeeRole(emp, branch.id);
-                    if (!role.includes('MANAGER')) {
+                    const cfg = emp.branchAllowances?.[branch.id];
+                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                    if (!role.includes('MANAGER') && !excluded) {
                         if (!relieverData[bonesetter]) {
                             relieverData[bonesetter] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
                         }

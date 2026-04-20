@@ -10,6 +10,8 @@ export interface PortalPermissions {
   tabs: Record<string, boolean>;
   /** undefined / absent = all branches; non-empty array = restricted to listed branch IDs */
   branchIds?: string[];
+  /** true = read-only (cannot perform write actions); false = full read-write. Defaults to true. */
+  readOnly?: boolean;
 }
 
 export interface PortalUser {
@@ -140,7 +142,7 @@ export interface Employee {
   salary?: number;
   isActive: boolean;
   profile?: string;
-  branchAllowances?: Record<string, number | { allowance: number; role?: string }>;
+  branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
 }
 
 export interface SalesReport {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Branch, SalesReport } from '../../types';
 import { playSound } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -32,7 +32,13 @@ type CycleView = 'daily' | 'weekly' | 'batch';
 
 export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesReports }) => {
   const [view, setView] = useState<CycleView>('daily');
-  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('reports_filter_branches') || '[]'); } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('reports_filter_branches', JSON.stringify(selectedBranchIds));
+  }, [selectedBranchIds]);
   const [drilldownReport, setDrilldownReport] = useState<SalesReport | null>(null);
 
   const getLocalDateStr = (date: Date) => toDateStr(date);

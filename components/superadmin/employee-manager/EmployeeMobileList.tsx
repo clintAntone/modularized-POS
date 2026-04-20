@@ -7,9 +7,9 @@ import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../lib
 interface EmployeeMobileListProps {
   employees: Employee[];
   branches: Branch[];
-  onEdit: (emp: Employee) => void;
-  onReset: (emp: Employee) => void;
-  onDelete: (emp: Employee) => void;
+  onEdit?: (emp: Employee) => void;
+  onReset?: (emp: Employee) => void;
+  onDelete?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
@@ -31,7 +31,7 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
             key={emp.id} 
             className={`bg-white p-4 ${UI_THEME.radius.card} border transition-all duration-500 flex flex-col justify-between group hover:shadow-lg hover:translate-y-[-2px] cursor-pointer relative overflow-hidden ${emp.isActive ? 'border-slate-200 hover:border-emerald-500' : 'border-slate-100 opacity-60 grayscale bg-slate-50/50'}`}
           >
-            <div className="flex items-start gap-3 mb-3" onClick={() => onEdit(emp)}>
+            <div className="flex items-start gap-3 mb-3" onClick={() => onEdit?.(emp)}>
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-inner shrink-0 overflow-hidden ${emp.isActive ? 'bg-slate-100' : 'bg-white'}`}>
                 {emp.profile ? <img src={emp.profile} className="w-full h-full object-cover" alt={emp.name || ''} /> : <span className="font-black italic text-slate-300 text-sm">{getInitials(emp.name)}</span>}
               </div>
@@ -54,27 +54,31 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                 <button 
-                    onClick={(e) => { e.stopPropagation(); onReset(emp); }}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-md border ${emp.requestReset ? 'bg-rose-600 border-rose-500 text-white animate-pulse' : 'bg-white border-slate-100 text-slate-300'}`}
-                 >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
-                 </button>
-                 {!emp.isActive && (
-                   <button 
+              {(onReset || onDelete) && (
+                <div className="flex flex-col gap-2">
+                  {onReset && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onReset(emp); }}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-md border ${emp.requestReset ? 'bg-rose-600 border-rose-500 text-white animate-pulse' : 'bg-white border-slate-100 text-slate-300'}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                    </button>
+                  )}
+                  {onDelete && !emp.isActive && (
+                    <button
                       onClick={(e) => { e.stopPropagation(); onDelete(emp); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md border bg-rose-50 border-rose-100 text-rose-400 hover:bg-rose-600 hover:text-white transition-all"
                       title="Delete Suspended Personnel"
-                   >
+                    >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                   </button>
-                 )}
-              </div>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center justify-between pt-3 border-t border-slate-100">

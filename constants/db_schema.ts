@@ -163,6 +163,7 @@ export const DB_COLUMNS = {
   // Remittance Adjustments & Submissions
   PERIOD_LABEL: 'period_label',
   SUBMITTED_BY: 'submitted_by',
+  TARGET_OWNER: 'target_owner',
 
   // Portal Users
   DISPLAY_NAME: 'display_name',

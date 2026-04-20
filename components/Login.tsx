@@ -56,6 +56,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     }, [branches, searchTerm]);
 
     useEffect(() => {
+        setUsername('');
+        setPin('');
+        setError('');
+    }, [selectedBranchId]);
+
+    useEffect(() => {
         if (error) {
             setShake(true);
             const timer = setTimeout(() => setShake(false), 500);

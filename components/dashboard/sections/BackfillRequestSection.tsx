@@ -39,7 +39,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   const [provisionItems, setProvisionItems] = useState<Expense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
-  const [staffPayroll, setStaffPayroll] = useState<Record<string, { salary: string; commission: string; ot: string; late: string; allowance: string; cashAdvance: string }>>({});
+  const [staffPayroll, setStaffPayroll] = useState<Record<string, { salary: string; commission: string; ot: string; late: string; allowance: string; cashAdvance: string; isHalfDay: boolean }>>({});
 
   const branchStaff = useMemo(() => {
     return employees.filter(e => {
@@ -72,7 +72,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           ot: (b.otPay || 0).toString(),
           late: (b.lateDeduction || 0).toString(),
           allowance: (b.allowance || 0).toString(),
-          cashAdvance: (b.cashAdvance || 0).toString()
+          cashAdvance: (b.cashAdvance || 0).toString(),
+          isHalfDay: !!b.isHalfDay
         };
       });
       setStaffPayroll(payroll);
@@ -105,7 +106,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         ot: (att?.otPay || 0).toString(),
         late: (att?.lateDeduction || 0).toString(),
         allowance: allowance.toString(),
-        cashAdvance: '0'
+        cashAdvance: '0',
+        isHalfDay: !!att?.isHalfDay
       };
     });
     setStaffPayroll(payroll);
@@ -114,8 +116,20 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   const handlePayrollChange = (empId: string, field: string, value: string) => {
     setStaffPayroll(prev => ({
       ...prev,
-      [empId]: { ...(prev[empId] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' }), [field]: value }
+      [empId]: { ...(prev[empId] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false }), [field]: value }
     }));
+  };
+
+  const handleHalfDayToggle = (empId: string, emp: Employee) => {
+    const baseAllowance = getEmployeeAllowance(emp, branch.id);
+    setStaffPayroll(prev => {
+      const current = prev[empId] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false };
+      const next = !current.isHalfDay;
+      return {
+        ...prev,
+        [empId]: { ...current, isHalfDay: next, allowance: next ? (baseAllowance / 2).toString() : baseAllowance.toString() }
+      };
+    });
   };
 
   const addExpenseItem = () => {
@@ -179,7 +193,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               employeeId: empId, name: emp?.name || 'Unknown',
               salary: Number(data.salary) || 0, commission: Number(data.commission) || 0,
               otPay: Number(data.ot) || 0, lateDeduction: Number(data.late) || 0,
-              allowance: Number(data.allowance) || 0, cashAdvance: Number(data.cashAdvance) || 0
+              allowance: Number(data.allowance) || 0, cashAdvance: Number(data.cashAdvance) || 0,
+              isHalfDay: !!data.isHalfDay
             };
           }),
           notes: formData.notes
@@ -383,6 +398,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Late</th>
                   <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Allow.</th>
                   <th className="px-3 py-3 text-[8px] font-black text-rose-400 uppercase tracking-widest">Adv.</th>
+                  <th className="px-3 py-3 text-[8px] font-black text-amber-500 uppercase tracking-widest text-center">½ Day</th>
                   <th className="px-4 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
                 </tr>
               </thead>
@@ -391,7 +407,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
                   const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
                   return (
-                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={emp.id} className={`hover:bg-slate-50/50 transition-colors ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50/40' : ''}`}>
                       <td className="px-4 py-3">
                         <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
@@ -414,6 +430,23 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                           onChange={e => handlePayrollChange(emp.id, 'cashAdvance', e.target.value)}
                         />
                       </td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleHalfDayToggle(emp.id, emp)}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-all active:scale-90 ${
+                            staffPayroll[emp.id]?.isHalfDay
+                              ? 'bg-amber-500 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-300 hover:bg-amber-100 hover:text-amber-500'
+                          }`}
+                          title={staffPayroll[emp.id]?.isHalfDay ? 'Half-day (click to remove)' : 'Mark as half-day'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/>
+                          </svg>
+                        </button>
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-[11px] font-black text-slate-900 tabular-nums">₱{total.toLocaleString()}</span>
                       </td>
@@ -430,15 +463,29 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
               const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
               return (
-                <div key={emp.id} className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                <div key={emp.id} className={`rounded-xl border overflow-hidden ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-inherit">
                     <div>
                       <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total</p>
-                      <p className="text-[13px] font-black text-emerald-600 tabular-nums">₱{total.toLocaleString()}</p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleHalfDayToggle(emp.id, emp)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                          staffPayroll[emp.id]?.isHalfDay
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-200 text-slate-400 hover:bg-amber-100 hover:text-amber-600'
+                        }`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
+                        ½ Day
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total</p>
+                        <p className="text-[13px] font-black text-emerald-600 tabular-nums">₱{total.toLocaleString()}</p>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 p-3">

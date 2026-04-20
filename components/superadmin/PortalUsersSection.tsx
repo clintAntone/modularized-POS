@@ -44,6 +44,7 @@ interface FormState {
   isActive: boolean;
   restrictBranches: boolean;
   branchIds: string[];
+  readOnly: boolean;
 }
 
 const emptyForm = (): FormState => ({
@@ -56,6 +57,7 @@ const emptyForm = (): FormState => ({
   isActive: true,
   restrictBranches: false,
   branchIds: [],
+  readOnly: true, // default: read-only for safety
 });
 
 interface PortalUsersSectionProps {
@@ -127,6 +129,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
       isActive:         u.isActive,
       restrictBranches: savedBranchIds.length > 0,
       branchIds:        savedBranchIds,
+      readOnly:         perms.readOnly !== false, // default to true if not explicitly set to false
     });
     setFormError('');
     setShowForm(true);
@@ -151,16 +154,17 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
 
     if (!form.displayName.trim())                                    { setFormError('Display name is required.'); return; }
     if (!form.username.trim())                                       { setFormError('Username is required.'); return; }
-    if (!editingId && form.pin.length < 6)                          { setFormError('PIN must be at least 6 digits.'); return; }
+    if (!editingId && form.pin.length !== 6)                         { setFormError('PIN must be exactly 6 digits.'); return; }
     if (!editingId && form.pin !== form.confirmPin)                  { setFormError('PINs do not match.'); return; }
     if (form.pin && form.pin !== form.confirmPin)                    { setFormError('PINs do not match.'); return; }
-    if (form.pin && form.pin.length < 6)                            { setFormError('PIN must be at least 6 digits.'); return; }
+    if (form.pin && form.pin.length !== 6)                           { setFormError('PIN must be exactly 6 digits.'); return; }
     if (form.restrictBranches && form.branchIds.length === 0)       { setFormError('Select at least one branch, or disable branch restriction.'); return; }
 
     setIsSaving(true);
     try {
       const perms: PortalPermissions = {
         tabs: form.permissions,
+        readOnly: form.isSuperadmin ? false : form.readOnly,
         ...(form.restrictBranches && form.branchIds.length > 0
           ? { branchIds: form.branchIds }
           : {}),
@@ -283,6 +287,11 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
                       {u.isSuperadmin && (
                         <span className="text-[8px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Admin</span>
                       )}
+                      {!u.isSuperadmin && (
+                        u.permissions?.readOnly !== false
+                          ? <span className="text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Read Only</span>
+                          : <span className="text-[8px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Read + Write</span>
+                      )}
                       {label && (
                         <span className="text-[8px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0 flex items-center gap-1">
                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -368,7 +377,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
               {/* PIN */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  {editingId ? 'New PIN (leave blank to keep current)' : 'PIN (6+ digits)'}
+                  {editingId ? 'New PIN (leave blank to keep current)' : 'PIN (exactly 6 digits)'}
                 </label>
                 <input
                   type="password"
@@ -376,7 +385,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
                   value={form.pin}
                   onChange={e => setForm(p => ({ ...p, pin: e.target.value.replace(/\D/g, '') }))}
                   placeholder="••••••"
-                  maxLength={8}
+                  maxLength={6}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all tracking-[0.3em]"
                 />
               </div>
@@ -391,7 +400,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
                     value={form.confirmPin}
                     onChange={e => setForm(p => ({ ...p, confirmPin: e.target.value.replace(/\D/g, '') }))}
                     placeholder="••••••"
-                    maxLength={8}
+                    maxLength={6}
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all tracking-[0.3em]"
                   />
                 </div>
@@ -442,6 +451,37 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ── ACCESS LEVEL ──────────────────────── */}
+              {!form.isSuperadmin && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Access Level</label>
+                  <p className="text-[9px] text-slate-400">Controls whether this user can only view data or also perform write actions (approve, save, edit, etc.).</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, readOnly: true }))}
+                      className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all ${form.readOnly ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                    >
+                      <span className="text-[11px] font-black uppercase tracking-widest">Read Only</span>
+                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">View & browse only</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, readOnly: false }))}
+                      className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all ${!form.readOnly ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                    >
+                      <span className="text-[11px] font-black uppercase tracking-widest">Read + Write</span>
+                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">Can perform actions</span>
+                    </button>
+                  </div>
+                  {form.readOnly && (
+                    <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest">
+                      ⚠ Read Only is the safe default — users cannot accidentally modify data.
+                    </p>
+                  )}
                 </div>
               )}
 
