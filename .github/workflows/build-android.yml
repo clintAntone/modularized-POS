@@ -48,28 +48,41 @@ jobs:
         continue-on-error: true  # already added if android/ is committed
 
       # ── 6. App icon ────────────────────────────────────────────────────────
-      # Place a 1024×1024 icon.png in src/assets/
       - name: Generate app icon
-        if: ${{ hashFiles('src/assets/icon.png') != '' }}
+        if: hashFiles('src/assets/icon.png') != ''
         run: npx @capacitor/assets generate --android --icon src/assets/icon.png
 
       # ── 7. Capacitor sync ──────────────────────────────────────────────────
       - name: Capacitor sync
         run: npx cap sync android
 
-      # ── 8. Set version in build.gradle ────────────────────────────────────
+      # ── 8. Set version in build.gradle ─────────────────────────────────────
       - name: Set app version to 2.0
         run: |
           sed -i 's/versionName "[^"]*"/versionName "2.0"/' android/app/build.gradle
           sed -i 's/versionCode [0-9]*/versionCode 200/' android/app/build.gradle
 
-      # ── 9. Signing (only when keystore secret is present) ──────────────────
+      # ── 9. Check if keystore secret exists ─────────────────────────────────
+      - name: Check keystore secret
+        id: keystore_check
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "has_keystore=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_keystore=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ── 10. Signing setup ──────────────────────────────────────────────────
       - name: Decode release keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+        if: steps.keystore_check.outputs.has_keystore == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
 
       - name: Inject signing config into build.gradle
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.has_keystore == 'true'
         run: |
           python3 - <<'EOF'
           import re
@@ -89,11 +102,9 @@ jobs:
               }
           """
 
-          # Insert signingConfigs before buildTypes if not already present
           if "signingConfigs" not in content:
               content = content.replace("    buildTypes {", signing_block + "    buildTypes {", 1)
 
-          # Apply signing to release buildType
           content = re.sub(
               r'(release \{)',
               r'\1\n            signingConfig signingConfigs.release',
@@ -105,12 +116,12 @@ jobs:
               f.write(content)
           EOF
 
-      # ── 10. Build ──────────────────────────────────────────────────────────
+      # ── 11. Build ──────────────────────────────────────────────────────────
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
       - name: Build release APK (signed)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.has_keystore == 'true'
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
         env:
@@ -119,11 +130,11 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Build debug APK (no keystore)
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
+        if: steps.keystore_check.outputs.has_keystore == 'false'
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
-      # ── 11. Upload artifact ────────────────────────────────────────────────
+      # ── 12. Upload artifact ────────────────────────────────────────────────
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
