@@ -54,8 +54,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     const s = localStorage.getItem('rem_filter_status');
     return (s === 'ALL' || s === 'approved' || s === 'none') ? s : 'none';
   });
+  const [levyOnly, setLevyOnly] = useState(() => localStorage.getItem('rem_filter_levy') === 'true');
+  const [negativeOnly, setNegativeOnly] = useState(() => localStorage.getItem('rem_filter_negative') === 'true');
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [submissions, setSubmissions] = useState<RemittanceSubmission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isReviewing, setIsReviewing] = useState(false);
   const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string } | null>(null);
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
@@ -81,26 +84,25 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
-    supabase
-      .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
-      .select('*')
-      .order(DB_COLUMNS.CREATED_AT, { ascending: true })
-      .then(({ data }) => {
-        if (data) setAdjustments(data.map(r => ({
-          id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
-          description: r.description, amount: Number(r.amount),
-          targetOwner: r.target_owner || null,
-          createdAt: r.created_at
-        })));
-      });
-
-    supabase
-      .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-      .select('*')
-      .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-      .then(({ data }) => {
-        if (data) setSubmissions(data.map(mapSubmission));
-      });
+    Promise.all([
+      supabase
+        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+        .select('*')
+        .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
+      supabase
+        .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+        .select('*')
+        .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+    ]).then(([adjResult, subResult]) => {
+      if (adjResult.data) setAdjustments(adjResult.data.map(r => ({
+        id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
+        description: r.description, amount: Number(r.amount),
+        targetOwner: r.target_owner || null,
+        createdAt: r.created_at
+      })));
+      if (subResult.data) setSubmissions(subResult.data.map(mapSubmission));
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
 
     // Realtime: update submission list whenever a branch submits or a review is saved
     const channel = supabase
@@ -124,6 +126,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   useEffect(() => { localStorage.setItem('rem_filter_periods', JSON.stringify(selectedPeriods)); }, [selectedPeriods]);
   useEffect(() => { localStorage.setItem('rem_filter_branches', JSON.stringify(selectedBranchIds)); }, [selectedBranchIds]);
   useEffect(() => { localStorage.setItem('rem_filter_status', statusFilter); }, [statusFilter]);
+  useEffect(() => { localStorage.setItem('rem_filter_levy', String(levyOnly)); }, [levyOnly]);
+  useEffect(() => { localStorage.setItem('rem_filter_negative', String(negativeOnly)); }, [negativeOnly]);
 
   const handleReview = async (submissionId: string | null, branchId: string, periodLabel: string, status: 'approved' | 'rejected', note?: string) => {
     setIsReviewing(true);
@@ -312,6 +316,22 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         })
       })).filter(g => g.reports.length > 0);
     }
+    if (levyOnly) {
+      groups = groups.map(g => ({
+        ...g,
+        reports: g.reports.filter((r: any) => !!r.groupLevy),
+      })).filter(g => g.reports.length > 0);
+    }
+    if (negativeOnly) {
+      groups = groups.map(g => ({
+        ...g,
+        reports: g.reports.filter((r: any) => {
+          const rowAdj = adjustments.filter(a => a.branchId === r.branchId && a.periodLabel === g.label);
+          const totalGlobalAdj = rowAdj.filter(a => !a.targetOwner).reduce((s, a) => s + a.amount, 0);
+          return (r.netRoi + totalGlobalAdj) < 0;
+        }),
+      })).filter(g => g.reports.length > 0);
+    }
     if (branchSearch.trim()) {
       const q = branchSearch.trim().toLowerCase();
       groups = groups.map(g => ({
@@ -327,7 +347,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       })).filter(g => g.reports.length > 0);
     }
     return groups;
-  }, [allGroupedReports, selectedPeriods, selectedBranchIds, statusFilter, submissions, branchSearch]);
+  }, [allGroupedReports, selectedPeriods, selectedBranchIds, statusFilter, submissions, branchSearch, levyOnly, negativeOnly, adjustments]);
 
   // Pending branches for the quick-process strip (respects period + branch filter, ignores status filter)
   const quickProcessItems = useMemo(() => {
@@ -501,6 +521,30 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       playSound('warning');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-300">
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-200 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-slate-200/60 rounded-2xl animate-pulse shrink-0" />
+          <div className="space-y-2 flex-1">
+            <div className="h-4 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
+            <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-1/2" />
+          </div>
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-white rounded-[24px] border border-slate-100 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-4 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
+              <div className="h-7 bg-slate-200/60 rounded-xl animate-pulse w-20" />
+            </div>
+            <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-1/2" />
+            <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-1/4" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -752,6 +796,32 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 </button>
               );
             })}
+
+            {/* Levy filter toggle */}
+            <button
+              onClick={() => { setLevyOnly(v => !v); playSound('click'); }}
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                levyOnly
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              <span className="text-[11px] leading-none">🏦</span>
+              With Levy
+            </button>
+
+            {/* Negative ROI filter toggle */}
+            <button
+              onClick={() => { setNegativeOnly(v => !v); playSound('click'); }}
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                negativeOnly
+                  ? 'bg-rose-600 text-white shadow'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${negativeOnly ? 'bg-white' : 'bg-rose-400'}`} />
+              Negative
+            </button>
           </div>
 
           {/* Export — mobile only (hidden on lg+) */}
@@ -896,7 +966,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {sub?.status === 'approved' && (
                         <div className="flex items-center gap-2.5 px-6 py-2.5 bg-emerald-50 border-b border-emerald-200">
                           <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Remitted — Done</span>
+                          <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">
+                            {adjustedRoi <= 0 ? 'Nothing to Remit — Done' : 'Remitted — Done'}
+                          </span>
                         </div>
                       )}
 

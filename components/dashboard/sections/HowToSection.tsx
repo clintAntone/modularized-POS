@@ -357,38 +357,6 @@ const VisualExpenseForm = () => (
   </Phone>
 );
 
-const VisualDailyDeposit = () => (
-  <Phone>
-    <div className="bg-slate-50 h-full flex flex-col pb-2">
-      <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
-      </div>
-      <div className="flex-1 p-2 space-y-1 overflow-hidden">
-        {['HILOT BODY · JUAN D.', 'HILOT HEAD · MARIA S.'].map(s => (
-          <div key={s} className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
-            <p className="text-[7px] text-slate-600">{s}</p>
-            <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
-          </div>
-        ))}
-      </div>
-      {/* Bottom action buttons — arrow points down to Daily Deposit */}
-      <div className="px-2 pb-1 space-y-1.5">
-        <div className="flex justify-center">
-          <Arrow dir="down" className="w-4 h-4 text-emerald-400" />
-        </div>
-        <div className="bg-slate-300 rounded-xl py-2 text-center opacity-40">
-          <p className="text-[8px] font-black text-slate-600 uppercase">Record Expense</p>
-        </div>
-        <Highlight>
-          <div className="bg-blue-500 rounded-xl py-2 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Daily Deposit</p>
-          </div>
-        </Highlight>
-      </div>
-    </div>
-    <InlineNavBar active="sales" />
-  </Phone>
-);
 
 const VisualExpenseSave = () => (
   <Phone>
@@ -440,49 +408,6 @@ const VisualExpenseSave = () => (
   </Phone>
 );
 
-const VisualDailyDepositConfirm = () => (
-  <Phone>
-    <div className="h-full relative">
-      {/* Background — Sales tab (dimmed) */}
-      <div className="absolute inset-0 bg-slate-50">
-        <div className="bg-white px-3 py-2 border-b border-slate-100">
-          <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-slate-800 flex items-center justify-around px-1 py-2">
-          {['POS', 'Sales', 'Staff', 'More'].map((t, i) => (
-            <div key={t} className={`flex flex-col items-center gap-0.5 px-2 ${i === 1 ? 'text-emerald-400' : 'text-slate-500'}`}>
-              <div className="w-4 h-4 rounded bg-current opacity-60" />
-              <span className="text-[7px] font-bold uppercase tracking-widest">{t}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/60" />
-      {/* Centered confirmation dialog */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-4 w-full space-y-2">
-          <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center mx-auto">
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-          </div>
-          <p className="text-[9px] font-black text-slate-900 uppercase text-center tracking-tight">Log Daily Deposit?</p>
-          <p className="text-[7px] text-slate-400 text-center leading-relaxed">Make sure you have already collected it before confirming.</p>
-          <div className="flex justify-center pt-1">
-            <Arrow dir="down" className="w-4 h-4 text-blue-500" />
-          </div>
-          <Highlight>
-            <div className="bg-blue-500 rounded-xl py-2 text-center">
-              <p className="text-[8px] font-black text-white uppercase">Yes, Confirm</p>
-            </div>
-          </Highlight>
-          <div className="bg-slate-100 rounded-xl py-1.5 text-center">
-            <p className="text-[8px] font-black text-slate-400 uppercase">Cancel</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </Phone>
-);
 
 const VisualRemittanceTab = () => (
   <Phone>
@@ -544,6 +469,361 @@ const VisualReportNav = () => (
       </div>
       <InlineNavBar active="sales" arrowAt="sales" />
     </div>
+  </Phone>
+);
+
+// ── Vault Deposit visuals ────────────────────────────────────────────────────
+
+const VisualVaultDepositButton = () => (
+  <Phone>
+    <div className="bg-slate-50 h-full flex flex-col pb-2">
+      <div className="bg-white px-3 py-2 border-b border-slate-100">
+        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+      </div>
+      <div className="flex-1 p-2 space-y-1.5 overflow-hidden">
+        <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
+          <p className="text-[7px] text-slate-600">HILOT BODY · JUAN D.</p>
+          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+        </div>
+        <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
+          <p className="text-[7px] text-slate-600">HILOT HEAD · MARIA S.</p>
+          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+        </div>
+        <div className="pt-2 space-y-2">
+          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-1">Vault</p>
+          <div className="flex justify-center">
+            <Arrow dir="down" className="w-4 h-4 text-indigo-400" />
+          </div>
+          <Highlight>
+            <div className="border-2 border-dashed border-indigo-300 bg-indigo-50/50 rounded-xl py-3 flex items-center justify-center gap-2">
+              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              <p className="text-[8px] font-black text-indigo-600 uppercase">Deposit to Vault</p>
+            </div>
+          </Highlight>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+const VisualVaultDepositAmount = () => (
+  <Phone>
+    <div className="h-full relative">
+      <div className="absolute inset-0 bg-slate-50" />
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-4 w-full space-y-2">
+          <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center mx-auto">
+            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          </div>
+          <p className="text-[9px] font-black text-slate-900 uppercase text-center tracking-tight">Deposit to Vault</p>
+          <div>
+            <p className="text-[7px] text-slate-400 uppercase mb-1">Amount (₱)</p>
+            <Highlight>
+              <div className="h-6 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center px-2">
+                <p className="text-[9px] font-black text-indigo-700">500</p>
+              </div>
+            </Highlight>
+          </div>
+          <div className="flex justify-center">
+            <Arrow dir="down" className="w-3 h-3 text-indigo-400" />
+          </div>
+          <Highlight>
+            <div className="bg-indigo-500 rounded-xl py-2 text-center">
+              <p className="text-[8px] font-black text-white uppercase">Confirm Deposit</p>
+            </div>
+          </Highlight>
+        </div>
+      </div>
+    </div>
+  </Phone>
+);
+
+const VisualVaultDepositDone = () => (
+  <Phone>
+    <div className="bg-slate-50 h-full flex flex-col pb-2">
+      <div className="bg-white px-3 py-2 border-b border-slate-100">
+        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+      </div>
+      <div className="flex-1 p-2 space-y-1.5">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 space-y-0.5">
+          <p className="text-[7px] font-black text-indigo-600 uppercase tracking-widest">Vault Deposit</p>
+          <p className="text-[12px] font-black text-indigo-800">₱ 500.00</p>
+          <p className="text-[6px] text-indigo-400">Added to vault balance</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center gap-2">
+          <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
+          <p className="text-[7px] font-bold text-emerald-700">Vault balance updated successfully.</p>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+// ── Vault Withdrawal visuals ─────────────────────────────────────────────────
+
+const VisualWithdrawExpense = () => (
+  <Phone>
+    <div className="bg-slate-50 h-full flex flex-col pb-2">
+      <div className="bg-white px-3 py-2 border-b border-slate-100">
+        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+      </div>
+      <div className="flex-1 p-2 space-y-1 overflow-hidden">
+        <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
+          <p className="text-[7px] text-slate-600">HILOT BODY · JUAN D.</p>
+          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+        </div>
+      </div>
+      <div className="px-2 pb-1 space-y-1.5">
+        <div className="flex justify-center">
+          <Arrow dir="down" className="w-4 h-4 text-emerald-400" />
+        </div>
+        <Highlight>
+          <div className="bg-rose-500 rounded-xl py-2 text-center">
+            <p className="text-[8px] font-black text-white uppercase">Record Expense</p>
+          </div>
+        </Highlight>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+const VisualWithdrawCategory = () => (
+  <Phone>
+    <div className="h-full relative">
+      <div className="absolute inset-0 bg-slate-50" />
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-3 space-y-2 pb-4">
+        <div className="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-1" />
+        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Record Expense</p>
+        <div>
+          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Description</p>
+          <div className="h-4 bg-slate-50 rounded border border-slate-200 px-1.5 flex items-center">
+            <p className="text-[7px] text-slate-600">Emergency supply</p>
+          </div>
+        </div>
+        <div>
+          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Amount</p>
+          <div className="h-4 bg-slate-50 rounded border border-slate-200 px-1.5 flex items-center">
+            <p className="text-[7px] text-slate-600">₱ 800</p>
+          </div>
+        </div>
+        <div>
+          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Category</p>
+          <div className="flex justify-center mb-0.5">
+            <Arrow dir="down" className="w-3 h-3 text-amber-400" />
+          </div>
+          <Highlight>
+            <div className="h-5 bg-amber-50 rounded border border-amber-300 px-1.5 flex items-center justify-between">
+              <p className="text-[7px] font-black text-amber-700">Vault Withdrawal</p>
+              <svg className="w-2.5 h-2.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </Highlight>
+        </div>
+        <Highlight>
+          <div className="bg-slate-900 rounded-xl py-1.5 text-center">
+            <p className="text-[8px] font-black text-white uppercase">Save Expense</p>
+          </div>
+        </Highlight>
+      </div>
+    </div>
+  </Phone>
+);
+
+// ── Vault concept visuals ────────────────────────────────────────────────────
+
+const VisualVaultConcept = () => (
+  <Phone>
+    <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
+      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Balance</p>
+            <p className="text-xl font-black text-white">₱9,500</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Target (Rent)</p>
+            <p className="text-sm font-black text-indigo-400">₱15,000</p>
+          </div>
+        </div>
+        <div>
+          <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full" style={{ width: '63%' }} />
+          </div>
+          <div className="flex justify-between mt-1">
+            <p className="text-[6px] text-slate-500">63% funded</p>
+            <p className="text-[6px] text-slate-500">₱5,500 to go</p>
+          </div>
+        </div>
+      </div>
+      <div className="bg-indigo-900/40 border border-indigo-500/20 rounded-xl p-3 flex items-center gap-2">
+        <span className="text-base">🏦</span>
+        <div>
+          <p className="text-[7px] font-black text-indigo-300 uppercase tracking-widest">Rent + WiFi Only</p>
+          <p className="text-[6px] text-slate-400 mt-0.5">Fixed bills · fixed due date · save daily</p>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+const VisualVaultDailyShare = () => (
+  <Phone>
+    <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
+      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Daily Share</div>
+      <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-center">
+            <p className="text-[6px] text-slate-400 uppercase">Monthly Bills</p>
+            <p className="text-sm font-black text-white">₱15,000</p>
+          </div>
+          <div className="text-[10px] text-slate-500 font-bold">÷ 30</div>
+          <div className="text-center">
+            <p className="text-[6px] text-slate-400 uppercase">Per Day</p>
+            <p className="text-sm font-black text-indigo-400">₱500</p>
+          </div>
+        </div>
+        <div className="border-t border-slate-700 pt-2 text-center">
+          <p className="text-[6px] text-slate-500 leading-relaxed">Same amount you used to deposit daily before — now it goes into the vault instead</p>
+        </div>
+      </div>
+      <div className="flex justify-center">
+        <Arrow dir="down" className="w-4 h-4 text-indigo-400" />
+      </div>
+      <Highlight>
+        <div className="border-2 border-dashed border-indigo-400 bg-indigo-900/30 rounded-xl py-3 flex items-center justify-center gap-2">
+          <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <p className="text-[8px] font-black text-indigo-300 uppercase">Deposit ₱500 Today</p>
+        </div>
+      </Highlight>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+const VisualVaultReady = () => (
+  <Phone>
+    <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
+      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="bg-emerald-900/40 border border-emerald-500/40 rounded-2xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Balance</p>
+            <p className="text-xl font-black text-emerald-400">₱15,000</p>
+          </div>
+          <div className="bg-emerald-500 rounded-lg px-2 py-1">
+            <p className="text-[7px] font-black text-white uppercase">✓ Ready</p>
+          </div>
+        </div>
+        <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-500 rounded-full w-full" />
+        </div>
+        <p className="text-[6px] text-emerald-400">Target reached — vault fully funded!</p>
+      </div>
+      <div className="bg-slate-800 rounded-xl p-3 flex items-start gap-2">
+        <svg className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div>
+          <p className="text-[7px] font-black text-white uppercase">When rent is due</p>
+          <p className="text-[6px] text-slate-400 mt-0.5">Record Expense → category: Vault Withdrawal. The vault pays for it.</p>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+// ── Restore hidden staff visuals ─────────────────────────────────────────────
+
+const VisualRestoreStaffPlus = () => (
+  <Phone>
+    <div className="bg-slate-50 h-full flex flex-col pb-2">
+      <div className="bg-white px-3 py-2 border-b border-slate-100">
+        <p className="text-[8px] font-black text-slate-900 uppercase">Staff Performance</p>
+      </div>
+      <div className="flex-1 p-2 space-y-1.5">
+        <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-50">
+          <div>
+            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
+            <p className="text-[7px] text-slate-400">₱ 600 · 2 sessions</p>
+          </div>
+          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+        </div>
+        <div className="flex items-center justify-between pt-1 px-1">
+          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">1 staff hidden</p>
+          <div className="flex items-center gap-1">
+            <Arrow dir="right" className="w-3 h-3 text-emerald-400" />
+            <Highlight>
+              <div className="w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M12 5v14m-7-7h14"/></svg>
+              </div>
+            </Highlight>
+          </div>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
+  </Phone>
+);
+
+const VisualRestoreStaffSelect = () => (
+  <Phone>
+    <div className="h-full relative">
+      <div className="absolute inset-0 bg-slate-50" />
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-3 space-y-2 pb-5">
+        <div className="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-1" />
+        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Restore Hidden Staff</p>
+        <div className="flex justify-center mb-0.5">
+          <Arrow dir="down" className="w-3 h-3 text-emerald-400" />
+        </div>
+        <Highlight>
+          <div className="bg-white border border-slate-100 rounded-xl p-2.5 flex items-center justify-between">
+            <div>
+              <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
+              <p className="text-[7px] text-slate-400">Therapist · Hidden from today</p>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+              <p className="text-[7px] font-black text-emerald-600 uppercase">Restore</p>
+            </div>
+          </div>
+        </Highlight>
+      </div>
+    </div>
+  </Phone>
+);
+
+const VisualRestoreStaffDone = () => (
+  <Phone>
+    <div className="bg-slate-50 h-full flex flex-col pb-2">
+      <div className="bg-white px-3 py-2 border-b border-slate-100">
+        <p className="text-[8px] font-black text-slate-900 uppercase">Staff Performance</p>
+      </div>
+      <div className="flex-1 p-2 space-y-1.5">
+        <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-50">
+          <div>
+            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
+            <p className="text-[7px] text-slate-400">₱ 600 · 2 sessions</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-emerald-200 ring-1 ring-emerald-300">
+          <div>
+            <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
+            <p className="text-[7px] text-emerald-600 font-bold">Restored · ₱ 0 today</p>
+          </div>
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 flex items-center gap-2">
+          <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
+          <p className="text-[7px] font-bold text-emerald-700">Maria S. restored to today's roster.</p>
+        </div>
+      </div>
+    </div>
+    <InlineNavBar active="sales" />
   </Phone>
 );
 
@@ -633,24 +913,6 @@ const MANAGER_GUIDES: Guide[] = [
     ],
   },
   {
-    id: 'daily-deposit',
-    title: 'Logging a Daily Deposit',
-    description: 'How to record the daily cash deposit from the branch.',
-    icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>,
-    steps: [
-      {
-        title: 'Tap "Daily Deposit"',
-        instruction: 'Go to the Sales tab and scroll to the bottom. Tap the "Daily Deposit" button.',
-        visual: <VisualDailyDeposit />,
-      },
-      {
-        title: 'Confirm the deposit',
-        instruction: 'A confirmation dialog will appear. Make sure you have already collected the deposit before tapping "Yes, Confirm". This cannot be undone.',
-        visual: <VisualDailyDepositConfirm />,
-      },
-    ],
-  },
-  {
     id: 'remittance',
     title: 'Submitting Remittance',
     description: 'How to submit the weekly remittance breakdown to admin.',
@@ -665,6 +927,98 @@ const MANAGER_GUIDES: Guide[] = [
         title: 'Submit to admin',
         instruction: 'Once you have reviewed the breakdown and all adjustments are accounted for, tap "Submit Remittance". The admin will then review and approve it.',
         visual: <VisualRemittanceSubmit />,
+      },
+    ],
+  },
+  {
+    id: 'vault-concept',
+    title: 'Understanding the Vault',
+    description: 'What the vault is and why you deposit to it — the alkansya concept.',
+    icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
+    steps: [
+      {
+        title: 'The vault is only for RENT and WiFi',
+        instruction: 'The vault fund covers fixed bills with a fixed due date — specifically rent and WiFi. These two never change month to month, so you can plan for them in advance. Electricity and water are NOT included because their amounts vary every month. Those are handled differently.',
+        visual: <VisualVaultConcept />,
+      },
+      {
+        title: 'Save daily — like an alkansya',
+        instruction: 'Set the vault target to your total rent + WiFi cost (e.g. ₱15,000 rent + ₱1,500 WiFi = ₱16,500 target). Divide by 30 days and you get your daily share — around ₱550. Deposit that amount every closing. No more scrambling on due date — the money is already waiting.',
+        visual: <VisualVaultDailyShare />,
+      },
+      {
+        title: 'On due date, withdraw from vault',
+        instruction: 'Once the vault is fully funded (green "Ready"), pay the bill by recording a Vault Withdrawal expense. For electricity and water — log those as regular expenses under the Sales tab and pay them from that day\'s cash. If the bill is too large and daily cash can\'t cover it, you may withdraw the shortfall from the vault.',
+        visual: <VisualVaultReady />,
+      },
+    ],
+  },
+  {
+    id: 'vault-deposit',
+    title: 'Daily Vault Deposit',
+    description: 'How to add your daily share toward rent and WiFi — like dropping coins in an alkansya.',
+    icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>,
+    steps: [
+      {
+        title: 'Go to Sales and find the Vault section',
+        instruction: 'Tap the Sales tab and scroll down until you see the Vault section. Tap "Deposit to Vault" — the button with the dashed border. Do this once a day, usually at closing time.',
+        visual: <VisualVaultDepositButton />,
+      },
+      {
+        title: 'Enter today\'s deposit amount',
+        instruction: 'A dialog will open. Type the amount you are putting in today. You can use the "Deposit full ROI" checkbox to let the system calculate your share automatically, or enter a custom amount. The system will not let you deposit more than the remaining room in the vault. Tap "Confirm Deposit".',
+        visual: <VisualVaultDepositAmount />,
+      },
+      {
+        title: 'Vault balance updated',
+        instruction: 'The deposit is recorded and the vault balance goes up. The progress toward the target is saved to today\'s report. Keep depositing daily and the vault will reach its target before the bill is due.',
+        visual: <VisualVaultDepositDone />,
+      },
+    ],
+  },
+  {
+    id: 'vault-withdrawal',
+    title: 'Paying Bills — Vault vs. Daily Cash',
+    description: 'Rent and WiFi come from the vault. Electricity and water come from daily sales — vault only covers the shortfall.',
+    icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>,
+    steps: [
+      {
+        title: 'Electricity and water → regular expense',
+        instruction: 'These bills vary every month so they are NOT paid from the vault. Go to Sales → Record Expense, enter the amount, and choose the appropriate category (Operational or Utilities). Pay it from that day\'s cash on hand. If today\'s sales can fully cover it, you\'re done.',
+        visual: <VisualWithdrawExpense />,
+      },
+      {
+        title: 'Can\'t cover it from daily cash? Use vault as backup',
+        instruction: 'If the electricity or water bill is larger than what today\'s sales can cover, record the shortfall as a separate expense and choose "Vault Withdrawal" as the category. Only the amount that daily cash cannot shoulder should come from the vault — not the full bill.',
+        visual: <VisualWithdrawCategory />,
+      },
+      {
+        title: 'Rent and WiFi → always vault withdrawal',
+        instruction: 'On due date for rent or WiFi, go to Sales → Record Expense. Enter the full amount and select "Vault Withdrawal" as the category. The vault balance is reduced — your daily ROI is untouched. This is exactly what the vault was built for.',
+        visual: <VisualWithdrawCategory />,
+      },
+    ],
+  },
+  {
+    id: 'restore-staff',
+    title: 'Restoring a Removed Staff',
+    description: 'How to bring back a staff member accidentally removed from today\'s Sales summary.',
+    icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>,
+    steps: [
+      {
+        title: 'Tap the "+" button in Staff Performance',
+        instruction: 'On the Sales tab, scroll to the Staff Performance section. If a staff member was accidentally hidden, a note will say how many are hidden. Tap the "+" button to see them.',
+        visual: <VisualRestoreStaffPlus />,
+      },
+      {
+        title: 'Tap the staff member to restore',
+        instruction: 'A list of hidden staff will appear. Tap the name of the staff member you want to bring back. Their sessions and pay will reappear in the summary.',
+        visual: <VisualRestoreStaffSelect />,
+      },
+      {
+        title: 'Staff is restored',
+        instruction: 'The staff member is back in the roster. Their recorded sessions and commissions are included in today\'s totals again.',
+        visual: <VisualRestoreStaffDone />,
       },
     ],
   },

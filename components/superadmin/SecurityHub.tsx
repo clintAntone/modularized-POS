@@ -9,15 +9,18 @@ export const SecurityHub: React.FC = () => {
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-
+  const [forceLogoutStatus, setForceLogoutStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isForceLoggingOut, setIsForceLoggingOut] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleGlobalForceLogout = async () => {
-    if (!window.confirm('FORCE LOGOUT ALL SESSIONS?\n\nThis will immediately terminate every active session across the entire network, including all branches and other administrators. You will remain logged in, but all others must re-authenticate.')) {
-      return;
-    }
+  const handleGlobalForceLogout = () => {
+    setShowConfirm(true);
+  };
 
+  const doForceLogout = async () => {
+    setShowConfirm(false);
     setIsForceLoggingOut(true);
+    setForceLogoutStatus('idle');
     try {
       const now = Date.now();
 
@@ -53,21 +56,13 @@ export const SecurityHub: React.FC = () => {
         [DB_COLUMNS.VALUE]: JSON.stringify(registry)
       }, { onConflict: DB_COLUMNS.KEY });
 
-      // 3. Audit log
-      await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-        [DB_COLUMNS.BRANCH_ID]: null,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
-        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-        [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
-        [DB_COLUMNS.DESCRIPTION]: 'Global Network Session Termination triggered by SuperAdmin.',
-        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
-      });
-
       playSound('success');
-      alert('Global Logout Signal Broadcasted.');
+      setForceLogoutStatus('success');
+      setTimeout(() => setForceLogoutStatus('idle'), 4000);
     } catch (err) {
       playSound('warning');
-      alert('Failed to broadcast signal.');
+      setForceLogoutStatus('error');
+      setTimeout(() => setForceLogoutStatus('idle'), 4000);
     } finally {
       setIsForceLoggingOut(false);
     }
@@ -180,7 +175,19 @@ export const SecurityHub: React.FC = () => {
           <h4 className="text-xs sm:text-sm font-bold text-rose-600 uppercase tracking-widest">Danger Zone</h4>
           <p className="text-[8px] sm:text-[9px] font-medium text-slate-400 uppercase tracking-widest leading-relaxed">Emergency Network-Wide Session Termination</p>
         </div>
-        <button 
+
+        {forceLogoutStatus === 'success' && (
+          <div className="p-3 sm:p-4 bg-emerald-50 text-emerald-600 rounded-xl sm:rounded-2xl text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-emerald-100 animate-in slide-in-from-top-2">
+            Logout Signal Broadcasted to All Sessions
+          </div>
+        )}
+        {forceLogoutStatus === 'error' && (
+          <div className="p-3 sm:p-4 bg-rose-50 text-rose-600 rounded-xl sm:rounded-2xl text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-rose-100 animate-in slide-in-from-top-2">
+            Failed to Broadcast Signal — Try Again
+          </div>
+        )}
+
+        <button
           onClick={handleGlobalForceLogout}
           disabled={isForceLoggingOut}
           className="w-full py-5 sm:py-6 bg-rose-50 text-rose-600 rounded-[20px] sm:rounded-[32px] font-bold uppercase tracking-widest text-[10px] sm:text-[11px] border-2 border-rose-100 hover:bg-rose-600 hover:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
@@ -189,6 +196,37 @@ export const SecurityHub: React.FC = () => {
           <span>Force Logout All Active Sessions</span>
         </button>
       </div>
+
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] sm:rounded-[40px] p-8 sm:p-10 max-w-sm w-full text-center space-y-6 border border-slate-100 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-inner">
+              📡
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tighter">Force Logout All?</h3>
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                This will immediately terminate every active session across the entire network. All branches and portal users must re-authenticate. You will remain logged in.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={doForceLogout}
+                className="w-full py-4 sm:py-5 bg-rose-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] sm:text-[11px] hover:bg-rose-700 active:scale-[0.98] transition-all shadow-lg"
+              >
+                Confirm — Terminate All Sessions
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="w-full py-3 sm:py-4 text-slate-400 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest hover:text-slate-600 transition-colors"
+              >
+                Cancel / Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

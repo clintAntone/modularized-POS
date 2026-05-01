@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Branch, Transaction, Service, Employee, Attendance, AuthState } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
@@ -119,6 +120,21 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     }, [transactions, branch.id, todayStr]);
 
     const activeServices = useMemo(() => (branch.services || []), [branch.services]);
+
+    // Unique client names from all branch history, sorted by most recent first
+    const clientNameHistory = useMemo(() => {
+        const seen = new Map<string, string>(); // name → latest timestamp
+        transactions
+            .filter(t => t.branchId === branch.id && t.clientName?.trim())
+            .forEach(t => {
+                const name = t.clientName.trim().toUpperCase();
+                const ts = t.timestamp || '';
+                if (!seen.has(name) || ts > seen.get(name)!) seen.set(name, ts);
+            });
+        return [...seen.entries()]
+            .sort((a, b) => b[1].localeCompare(a[1]))
+            .map(([name]) => name);
+    }, [transactions, branch.id]);
 
     const activeStaff = useMemo(() => {
         return employees.filter(e => {
@@ -372,7 +388,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 setSuccessDetails(null);
                 resetForm();
                 if (onRefresh) onRefresh();
-            }, 2500);
+            }, 1000);
         };
 
         try {
@@ -392,47 +408,6 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     addTransaction.mutateAsync(dbPayload),
                     addAuditLog.mutateAsync(auditPayload)
                 ]);
-            }
-
-            // AUTOMATIC POS BONUS DETECTION
-            // Refined Logic: Delegate gets bonus if manager is absent/inactive and delegate is active
-            if (isRelief && user.employeeId) {
-                const managerName = branch.manager?.toUpperCase();
-                const managerAttendance = attendance.find(a => a.staffName?.toUpperCase() === managerName && a.date === todayStr);
-                const managerTimedIn = !!(managerAttendance && managerAttendance.clockIn);
-                
-                const managerHandledClient = transactions.some(t => 
-                    (t.therapistName?.toUpperCase() === managerName || t.bonesetterName?.toUpperCase() === managerName) &&
-                    toManilaDateStr(t.timestamp) === todayStr
-                );
-
-                const myAttendance = attendance.find(a => a.employeeId === user.employeeId && a.date === todayStr);
-                const delegateTimedIn = !!(myAttendance && myAttendance.clockIn);
-
-                // Conditions: Manager not timed in AND manager has no clients AND delegate is timed in
-                if (!managerTimedIn && !managerHandledClient && delegateTimedIn) {
-                    if (myAttendance && !myAttendance.isPosHandled) {
-                        try {
-                            await supabase
-                                .from(DB_TABLES.ATTENDANCE)
-                                .update({ is_pos_handled: true })
-                                .eq('id', myAttendance.id);
-                            
-                            // Also add an audit log for this automatic bonus
-                            await addAuditLog.mutateAsync({
-                                [DB_COLUMNS.BRANCH_ID]: branch.id,
-                                [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
-                                [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-                                [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
-                                [DB_COLUMNS.ENTITY_ID]: myAttendance.id,
-                                [DB_COLUMNS.DESCRIPTION]: `Automated POS Handling Bonus (+100) awarded to delegate manager: ${myAttendance.staffName} (Manager ${managerName} absent/inactive)`,
-                                [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM CORE'
-                            });
-                        } catch (attErr) {
-                            console.error("Failed to auto-award POS bonus:", attErr);
-                        }
-                    }
-                }
             }
 
             onFinalSuccess();
@@ -625,8 +600,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 </div>
             )}
 
-            {successDetails && (
-                <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/60 backdrop-blur-2xl animate-in fade-in duration-300 p-4">
+            {successDetails && ReactDOM.createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className="bg-white rounded-[40px] shadow-2xl text-center w-full max-w-xs animate-in zoom-in-95 duration-300 border border-slate-100 overflow-hidden">
                         {/* Color band */}
                         <div className={`${successDetails.isOffline ? 'bg-amber-500' : 'bg-emerald-600'} px-8 pt-10 pb-8 flex flex-col items-center gap-4`}>
@@ -665,7 +640,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {txToDelete && (
@@ -722,6 +698,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     isPaymongoEnabled={isPaymongoEnabled}
                     onFinalize={() => setShowConfirm(true)}
                     onAbort={resetForm}
+                    clientNameHistory={clientNameHistory}
                 />
             )}
 

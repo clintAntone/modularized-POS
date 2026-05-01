@@ -108,11 +108,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
         [DB_COLUMNS.SETTLED_UNITS]: attendanceForm.isPaidDaily ? (staffSummary[selectedStaff]?.count || 0) : 0
       };
 
-      // If marked as half-day, automatically clock them out so they don't show in POS
-      if (attendanceForm.isHalfDay) {
-        payload[DB_COLUMNS.CLOCK_OUT] = timestamp;
-      }
-
       if (existingAtt) {
         const { error } = await supabase.from(DB_TABLES.ATTENDANCE).update(payload).eq(DB_COLUMNS.ID, existingAtt.id);
         if (error) throw error;
@@ -335,7 +330,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
         )}
 
         <div className="flex items-center justify-between px-4">
-          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Personnel Performance Matrix</h4>
+          <div>
+            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">STAFF PERFORMANCE</h4>
+            <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Staff allowances and commissions</p>
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Live Audit</span>
@@ -389,7 +387,13 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                       <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 text-purple-600' : data.attendance ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
                           {data.profile ? (
-                              <img src={data.profile} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              <img
+                                src={data.profile}
+                                alt={name}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={e => { e.currentTarget.style.display = 'none'; }}
+                              />
                           ) : (
                               data.attendance ? (
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -460,7 +464,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             }}
                             className="w-9 h-9 sm:w-12 sm:h-12 bg-slate-900 text-white rounded-xl sm:rounded-2xl hover:bg-emerald-600 transition-all shadow-lg active:scale-90 flex items-center justify-center group-hover:scale-110 border-2 border-slate-800 hover:border-emerald-500"
                         >
-                          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                         </button>
                       </div>
                     </div>
@@ -471,14 +475,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
           <button
               onClick={() => setShowAddStaffSelector(true)}
-              className={`border-2 border-dashed border-slate-200 ${UI_THEME.radius.card} p-6 flex flex-col items-center justify-center gap-4 hover:border-emerald-500 hover:bg-emerald-50/10 transition-all min-h-[260px] group active:scale-[0.98] no-print`}
+              className={`border-2 border-dashed border-slate-200 ${UI_THEME.radius.card} p-4 flex flex-col items-center justify-center gap-2 hover:border-emerald-500 hover:bg-emerald-50/10 transition-all min-h-[120px] group active:scale-[0.98] no-print`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 text-2xl shadow-inner transition-all duration-500 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+            <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 shadow-inner transition-all duration-300 group-hover:bg-emerald-600 group-hover:text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
             </div>
-            <div className="text-center space-y-1">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-emerald-700">Restore Profiles</p>
-              <p className="text-[8px] font-semibold text-slate-300 uppercase tracking-tight">Access Hidden Registry</p>
+            <div className="text-center space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-emerald-700">Restore Profiles</p>
+              <p className="text-[7px] font-semibold text-slate-300 uppercase tracking-tight">Access Hidden Registry</p>
             </div>
           </button>
         </div>

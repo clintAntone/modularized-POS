@@ -55,11 +55,6 @@ const TABLE_DEFINITIONS: Record<string, { columns: string[], types: Record<strin
     types: { services: 'JSONB', branch_ids: 'JSONB', created_at: 'TIMESTAMPTZ', updated_at: 'TIMESTAMPTZ' },
     pk: 'id'
   },
-  payroll: {
-    columns: ['id', 'branch_id', 'settlement', 'status', 'total_payout', 'staff_summary', 'daily_records', 'metadata', 'created_at'],
-    types: { id: 'BIGSERIAL', total_payout: 'NUMERIC', staff_summary: 'JSONB', daily_records: 'JSONB', metadata: 'JSONB', created_at: 'TIMESTAMPTZ' },
-    pk: 'id'
-  },
   system_config: {
     columns: ['key', 'value', 'updated_at'],
     types: { updated_at: 'TIMESTAMPTZ' },

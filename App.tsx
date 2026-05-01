@@ -18,6 +18,7 @@ import { Power } from 'lucide-react';
 const SuperAdminDashboard = lazy(() => import('./components/superadmin/SuperAdminDashboard'));
 const BranchManagerDashboard = lazy(() => import('./components/BranchManagerDashboard'));
 
+
 const App: React.FC = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isNetworkError, setIsNetworkError] = useState(false);
@@ -58,9 +59,13 @@ const App: React.FC = () => {
   // Pass actual auth state to Data Hub
   const {
     branches, transactions, expenses,
-    attendance, employees, salesReports, auditLogs, requests,
-    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase
+    attendance, employees, salesReports, auditLogs, requests, branchVault,
+    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase
   } = useGlobalData(auth);
+
+  const [changelogDismissed, setChangelogDismissed] = useState(() =>
+    localStorage.getItem('vault_fund_changelog_dismissed') === 'true'
+  );
 
   // Derive identity from synchronized data
   const currentEmployee = useMemo(() =>
@@ -88,7 +93,6 @@ const App: React.FC = () => {
     const sessionStart = auth.user.sessionStart;
     const hit = branches.find(b => b.refreshSignal && b.refreshSignal > sessionStart);
     if (hit) {
-      console.log("⚠️ Security: Remote session termination via refresh_signal.");
       handleLogout();
     }
   }, [branches, auth.user, handleLogout]);
@@ -101,7 +105,6 @@ const App: React.FC = () => {
       const branchForceTime = auth.user.branchId ? (forceLogoutRegistry[auth.user.branchId] || 0) : 0;
       const latestForceTime = Math.max(globalForceTime, branchForceTime);
       if (latestForceTime > auth.user.sessionStart) {
-        console.log("⚠️ Security: Remote session termination via registry fallback.");
         handleLogout();
       }
     }
@@ -175,6 +178,7 @@ const App: React.FC = () => {
     }
   }, [auth.user?.branchId, auth.user?.employeeId, auth.user?.role]);
 
+
   // GLOBAL FETCH ERROR HANDLER
   useEffect(() => {
     const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
@@ -202,7 +206,6 @@ const App: React.FC = () => {
       
       // 2. If user is NOT logged in (Login Page), close the app
       if (!auth.user) {
-        console.log("📱 WebToNative: Attempting to close app from Login page.");
         if ((window as any).webToNative?.closeApp) {
           (window as any).webToNative.closeApp();
         } else {
@@ -214,7 +217,6 @@ const App: React.FC = () => {
       // 3. If logged in, navigate back in history
       // This will trigger popstate listeners in sub-components (like BranchManagerDashboard tabs)
       // or the logout modal listener we just added.
-      console.log("📱 WebToNative: Navigating back in history.");
       window.history.back();
     };
 
@@ -395,7 +397,7 @@ const App: React.FC = () => {
         </div>
       );
     }
-    if (!currentBranch.isPinChanged || (currentEmployee && (!currentEmployee.loginPin || (currentEmployee.requestReset && currentEmployee.resetApproved)))) {
+    if (!currentBranch.isPinChanged || (currentEmployee && (!currentEmployee.hasPinSet || (currentEmployee.requestReset && currentEmployee.resetApproved)))) {
       return <ProfileSetup branch={currentBranch} employee={identifiedEmployee || undefined} providedPin={auth.user.loginPin} onSetupComplete={refreshDatabase as any} onRefresh={refreshDatabase} onCancel={handleCancelPinChange} />;
     }
 
@@ -418,8 +420,126 @@ const App: React.FC = () => {
   }
 
   return (
-      <div className="min-h-screen w-full flex flex-col bg-slate-50">
+      <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-hidden">
         <GlobalLoadingOverlay isVisible={globalSync} />
+
+        {/* VAULT FUND Changelog Modal */}
+        {displayChanges && !changelogDismissed && auth.user && (
+          <div className="fixed inset-0 z-[9998] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="bg-amber-500 px-6 pt-7 pb-6 text-white">
+                <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">System Update</p>
+                <h2 className="text-xl font-black uppercase tracking-tight leading-tight">What's New</h2>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-3 overflow-y-auto max-h-[55vh] no-scrollbar">
+                <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a0 0 0 010 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">KPI Renamed — Vault Fund</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      <span className="font-bold text-slate-700">"Rent and Bills"</span> is now <span className="font-bold text-amber-700">"Vault Fund"</span> across all dashboards and PDF exports.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">New Vault Tab (Superadmin)</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      Monitor vault <span className="font-bold text-slate-700">balances and targets</span> across all branches in one place.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m0 0l-6-6m6 6l6-6" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Quick Expense Log — Vault</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      Deposit to vault or cover expense shortfalls directly from the expense modal. Quick-pick chips for common expense categories.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">POS — Client Name Autocomplete</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      The client name field now <span className="font-bold text-slate-700">suggests past client names</span> from transaction history as you type.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Late to Open — Live Tab</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      Branches that have passed their opening time but are still closed are now flagged in the <span className="font-bold text-slate-700">Live tab</span>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
+                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Missing Reports — Improved Detection</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                      Reports where gross, salary, expenses, and ROI are all zero are now also flagged as <span className="font-bold text-slate-700">missing</span>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-6">
+                <button
+                  onClick={() => {
+                    localStorage.setItem('vault_fund_changelog_dismissed', 'true');
+                    setChangelogDismissed(true);
+                  }}
+                  className="w-full py-4 bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl hover:bg-slate-800 active:scale-95 transition-all"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isNetworkError && (
           <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -471,6 +591,9 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* Force-update gate for already-logged-in users */}
+        {!systemLatest && <UpdatePopup apkUrl={apkUrl} />}
+
         {showLogoutConfirm && (
             <div className={UI_THEME.layout.modalWrapper}>
               <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100 shadow-2xl animate-in zoom-in-95`}>
@@ -490,7 +613,9 @@ const App: React.FC = () => {
         <header className="sticky top-0 left-0 right-0 z-[1000] h-[72px] sm:h-20 bg-emerald-700 text-white shadow-lg no-print w-full">
           <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-full flex items-center justify-between`}>
             <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
-              {systemLogo && <img src={systemLogo} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/10 p-1.5 shrink-0" decoding="async" loading="eager" />}
+              {systemLogo && (
+                <img src={systemLogo} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/10 p-1.5 shrink-0" decoding="async" loading="eager" />
+              )}
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <h1 className="font-bold text-[15px] sm:text-[20px] tracking-tighter uppercase leading-none truncate">{dynamicAppName}</h1>
@@ -514,7 +639,7 @@ const App: React.FC = () => {
             {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
                 <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} onlineUsers={{}} salesReports={salesReports} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
             ) : (
-                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
+                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
             )}
           </Suspense>
         </main>

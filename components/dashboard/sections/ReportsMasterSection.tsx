@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Branch, SalesReport } from '../../../types';
+import { Branch, BranchVault, SalesReport } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
 import { jsPDF } from 'jspdf';
@@ -17,9 +17,13 @@ interface ReportsMasterProps {
   branch: Branch;
   salesReports: SalesReport[];
   branches?: Branch[];
+  branchVaults?: BranchVault[];
   employees?: any[];
   canEdit?: boolean;
   canValidate?: boolean;
+  branchVault?: BranchVault | null;
+  canDelete?: boolean;
+  onDeleted?: () => void;
 }
 
 export type ReportViewType = 'daily' | 'weekly' | 'monthly';
@@ -29,7 +33,12 @@ type SortOrder = 'asc' | 'desc';
 // Helper to get ISO Week number
 // Removed local helpers as they are now in reportUtils
 
-export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, salesReports, branches = [], employees = [], canEdit = false, canValidate = false }) => {
+export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, salesReports, branches = [], branchVaults = [], employees = [], canEdit = false, canValidate = false, branchVault = null, canDelete = false, onDeleted }) => {
+  // Merge single branchVault into the array so per-branch lookups work even in branch-manager view
+  const effectiveBranchVaults = branchVaults.length > 0
+    ? branchVaults
+    : branchVault ? [branchVault] : [];
+
   const [view, setView] = useState<ReportViewType>('daily');
   const [selectedReport, setSelectedReport] = useState<SalesReport | null>(null);
   const [constituents, setConstituents] = useState<SalesReport[]>([]);
@@ -43,10 +52,11 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isExporting, setIsExporting] = useState(false);
   const [showPrintConfirm, setShowPrintConfirm] = useState(false);
+  const [showMissingPanel, setShowMissingPanel] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page on view/filter change
@@ -380,6 +390,31 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
+  // Missing reports: branches with no report for yesterday only (today excluded — branches may not be open yet).
+  const missingBranches = useMemo(() => {
+    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const yesterdayDate = new Date(manilaToday + 'T12:00:00+08:00');
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+    const targetBranches = (branch.id === 'all' ? branches : branches.filter(b => b.id === branch.id))
+      .filter(b => !b.name.toUpperCase().includes('TEST'));
+    const result: { branch: Branch; missingDates: string[] }[] = [];
+
+    targetBranches.forEach(b => {
+      const missingDates = [yesterday].filter(d => {
+        if (b.cycleStartDate && d < b.cycleStartDate) return false;
+        const report = salesReports.find(r => r.branchId === b.id && r.reportDate === d);
+        if (!report) return true;
+        // Treat as missing if all key fields are zero (empty/placeholder report)
+        return report.grossSales === 0 && report.totalStaffPay === 0 && report.totalExpenses === 0 && report.netRoi === 0;
+      });
+      if (missingDates.length > 0) result.push({ branch: b, missingDates });
+    });
+
+    return result.sort((a, b) => b.missingDates.length - a.missingDates.length);
+  }, [branches, branch.id, salesReports]);
+
   return (
       <div className={`space-y-6 md:space-y-8 animate-in fade-in duration-500 ${UI_THEME.layout.maxContent}`}>
         {selectedReport && (
@@ -393,6 +428,11 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 canValidate={canValidate}
                 branch={branches.find(b => b.id === selectedReport.branchId) || branch}
                 branches={branches}
+                branchVaults={effectiveBranchVaults}
+                vaultStartDate={
+                  effectiveBranchVaults.find(v => v.branchId === selectedReport.branchId)?.startDate ??
+                  branchVault?.startDate ?? null
+                }
             />
         )}
 
@@ -412,28 +452,81 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
             isNetworkView={branch.id === 'all'}
         />
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-1 sm:px-2">
-          <div className="w-full sm:flex-1 min-w-0">
+        {/* Missing Reports Panel */}
+        {missingBranches.length > 0 && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/40 overflow-hidden">
+            {/* Header row */}
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-black text-rose-800 uppercase tracking-widest leading-none">Missing Reports</p>
+                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest mt-0.5">
+                  {missingBranches.length} {missingBranches.length === 1 ? 'branch has' : 'branches have'} missing reports
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowMissingPanel(p => !p); playSound('click'); }}
+                className="w-8 h-8 rounded-xl bg-rose-100 hover:bg-rose-200 flex items-center justify-center transition-colors shrink-0"
+              >
+                <svg
+                  className={`w-4 h-4 text-rose-500 transition-transform duration-200 ${showMissingPanel ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Expanded branch cards */}
+            {showMissingPanel && (
+              <div className="px-4 pb-4 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                  {missingBranches.map(({ branch: b, missingDates }) => (
+                    <div key={b.id} className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide truncate">{b.name}</p>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {missingDates.map(d => (
+                          <span key={d} className="flex items-center gap-1 text-[9px] font-bold text-amber-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            Yesterday
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-row items-center gap-4 px-1 sm:px-2">
+          <div className="flex-1 min-w-0">
             <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 totalItems={sortedData.length}
                 itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
 
           <button
             onClick={() => handleExportPDF()}
             disabled={isExporting || sortedData.length === 0}
-            className={`h-14 w-full sm:w-auto px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isExporting ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
             ) : (
               <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             )}
-            <span>{isExporting ? 'Exporting...' : 'Print All Reports'}</span>
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
           </button>
         </div>
 
@@ -443,7 +536,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               </div>
-              <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Print All Reports?</h4>
+              <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                 Generate a consolidated PDF summary of all {sortedData.length} filtered reports?
               </p>
@@ -452,7 +545,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                   onClick={() => handleExportPDF(true)}
                   className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  Confirm Print
+                  Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}
@@ -465,14 +558,24 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           </div>
         )}
 
+        <div className="md:hidden flex items-center gap-3 px-1">
+          <div className="flex-1 h-px bg-slate-200"></div>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Reports</span>
+          <div className="flex-1 h-px bg-slate-200"></div>
+        </div>
+
         <ReportTable
             reports={paginatedData}
             branches={branches}
+            branchVaults={branchVaults}
             viewMode={view}
             currentBranchId={branch.id}
             sortField={sortField}
             sortOrder={sortOrder}
             onSort={handleSort}
+            vaultStartDate={branchVault?.startDate ?? null}
+            canDelete={canDelete}
+            onDeleted={onDeleted}
             onSelect={(r) => {
               playSound('click');
               setSelectedReport(r);

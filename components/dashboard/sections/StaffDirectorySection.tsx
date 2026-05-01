@@ -43,7 +43,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [filterRole, setFilterRole] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -61,6 +61,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [confirmPromoteEmployee, setConfirmPromoteEmployee] = useState<Employee | null>(null);
   const [promoteConfirmInput, setPromoteConfirmInput] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
+
+  const [disableRequestEmployee, setDisableRequestEmployee] = useState<Employee | null>(null);
+  const [disableReason, setDisableReason] = useState('');
+  const [isSubmittingDisable, setIsSubmittingDisable] = useState(false);
 
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -125,11 +129,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         const currentRole = getEmployeeRole(e, branch.id);
         return (currentRole || '').split(',').includes(filterRole);
       });
-    }
-
-    if (filterStatus !== 'ALL') {
-      const isActive = filterStatus === 'ACTIVE';
-      list = list.filter(e => e.isActive === isActive);
     }
 
     return list.sort((a, b) => {
@@ -246,6 +245,38 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       showToast('Promotion failed. Please try again.', 'error');
     } finally {
       setIsPromoting(false);
+    }
+  };
+
+  const handleSubmitDisableRequest = async () => {
+    if (!disableRequestEmployee || isSubmittingDisable) return;
+    setIsSubmittingDisable(true);
+    try {
+      const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
+        [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
+        [DB_COLUMNS.TYPE]: 'DISABLE_EMPLOYEE',
+        [DB_COLUMNS.STATUS]: 'PENDING',
+        [DB_COLUMNS.DATA]: {
+          employeeId: disableRequestEmployee.id,
+          employeeName: disableRequestEmployee.name,
+          reason: disableReason.trim(),
+        },
+        [DB_COLUMNS.REQUESTER_ID]: operatorName,
+        [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
+      });
+      if (error) throw error;
+      playSound('success');
+      showToast(`Disable request submitted for ${disableRequestEmployee.name}`);
+      setDisableRequestEmployee(null);
+      setDisableReason('');
+      onRefresh?.();
+    } catch (err) {
+      playSound('warning');
+      showToast('Request failed. Try again.', 'error');
+    } finally {
+      setIsSubmittingDisable(false);
     }
   };
 
@@ -648,7 +679,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         showFilters={showFilters}
         setShowFilters={setShowFilters}
         isExporting={isExporting}
-        hasActiveFilters={filterRole !== 'ALL' || filterStatus !== 'ALL'}
+        hasActiveFilters={filterRole !== 'ALL'}
       />
 
       {/* FILTER PANEL */}
@@ -670,26 +701,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status Filter</label>
-              <div className="flex flex-wrap gap-2">
-                {['ALL', 'ACTIVE', 'SUSPENDED'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => { setFilterStatus(status); setCurrentPage(1); playSound('click'); }}
-                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${filterStatus === status ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200'}`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing {branchStaff.length} Personnel</p>
             <button 
-              onClick={() => { setFilterRole('ALL'); setFilterStatus('ACTIVE'); setSearchTerm(''); setCurrentPage(1); playSound('click'); }}
+              onClick={() => { setFilterRole('ALL'); setSearchTerm(''); setCurrentPage(1); playSound('click'); }}
               className="text-[9px] font-black text-rose-600 uppercase tracking-widest hover:underline"
             >
               Reset All Filters
@@ -715,9 +732,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           const currentRole = getEmployeeRole(emp, branch.id);
           const branchCfg = emp.branchAllowances?.[branch.id];
           const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
-          const isReliever = emp.branchId !== branch.id && !currentRole.includes('MANAGER') && !excludeFromReliever;
           const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
           const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
+          // A staff from another branch is a reliever unless they ARE this branch's main/temp manager
+          const isReliever = emp.branchId !== branch.id && !isMainManager && !isTempManager && !excludeFromReliever;
 
           return (
             <StaffCard
@@ -733,6 +751,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               onTimeAction={handleOpenTimeModal}
               onReset={isDelegate ? undefined : handleOpenReset}
               onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
+              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager ? () => { setDisableRequestEmployee(emp); setDisableReason(''); } : undefined}
             />
           );
         }) : (
@@ -744,38 +763,113 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       </div>
 
       {/* PAGINATION */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 mt-12">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); playSound('click'); }}
-            className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
+      {totalPages > 0 && (
+        <div className="flex flex-col items-center gap-3 mt-12">
+          <select
+            value={itemsPerPage}
+            onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); playSound('click'); }}
+            className="h-8 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black text-slate-600 uppercase tracking-wider cursor-pointer hover:border-slate-400 focus:outline-none transition-colors"
           >
-            <ChevronLeft className="w-5 h-5" strokeWidth={3} />
-          </button>
-          
-          <div className="flex items-center gap-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setCurrentPage(i + 1); playSound('click'); }}
-                className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-              >
-                {i + 1}
-              </button>
+            {[10, 25, 50, 100].map(n => (
+              <option key={n} value={n}>{n} per page</option>
             ))}
-          </div>
+          </select>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); playSound('click'); }}
+                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
+              >
+                <ChevronLeft className="w-5 h-5" strokeWidth={3} />
+              </button>
 
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); playSound('click'); }}
-            className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
-          >
-            <ChevronRight className="w-5 h-5" strokeWidth={3} />
-          </button>
+              <div className="flex items-center gap-2">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setCurrentPage(i + 1); playSound('click'); }}
+                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); playSound('click'); }}
+                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
+              >
+                <ChevronRight className="w-5 h-5" strokeWidth={3} />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
+
+    {/* DISABLE EMPLOYEE REQUEST MODAL */}
+    {disableRequestEmployee && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDisableRequestEmployee(null)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request to Disable</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-[11px] font-black text-slate-900 uppercase">{disableRequestEmployee.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Reason <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea
+              value={disableReason}
+              onChange={e => setDisableReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Resigned, No-show, Misconduct..."
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-amber-400 resize-none bg-slate-50"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              disabled={isSubmittingDisable}
+              onClick={() => setDisableRequestEmployee(null)}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={isSubmittingDisable}
+              onClick={handleSubmitDisableRequest}
+              className="flex-1 h-10 rounded-xl bg-amber-500 text-[11px] font-black uppercase tracking-widest text-white hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingDisable
+                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                : 'Submit Request'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* PROMOTE TO REGULAR CONFIRMATION MODAL */}
     {confirmPromoteEmployee && (() => {

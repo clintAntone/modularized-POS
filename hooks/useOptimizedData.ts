@@ -58,7 +58,6 @@ export const useOptimizedData = (auth: AuthState) => {
     const now = Date.now();
     
     if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      console.log(`📦 Cache HIT: ${key} (age: ${((now - cached.timestamp) / 1000).toFixed(1)}s)`);
       return cached.data;
     }
     
@@ -94,7 +93,8 @@ export const useOptimizedData = (auth: AuthState) => {
     closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
     owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
       ? JSON.parse(db[DB_COLUMNS.OWNERS])
-      : (db[DB_COLUMNS.OWNERS] || [])
+      : (db[DB_COLUMNS.OWNERS] || []),
+    vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
   });
 
   const mapDbEmployee = (db: any): Employee => ({
@@ -102,8 +102,7 @@ export const useOptimizedData = (auth: AuthState) => {
     branchId: db[DB_COLUMNS.BRANCH_ID],
     name: db[DB_COLUMNS.NAME],
     username: db[DB_COLUMNS.USERNAME],
-    loginPin: db[DB_COLUMNS.LOGIN_PIN],
-    pinSalt: db[DB_COLUMNS.PIN_SALT],
+    hasPinSet: Boolean(db[DB_COLUMNS.LOGIN_PIN]),
     requestReset: Boolean(db[DB_COLUMNS.REQUEST_RESET]),
     role: db[DB_COLUMNS.ROLE],
     allowance: Number(db[DB_COLUMNS.ALLOWANCE] || 0),
@@ -238,7 +237,6 @@ export const useOptimizedData = (auth: AuthState) => {
 
       isSyncingQueue.current = true;
       setGlobalSync(true);
-      console.log(`📡 Syncing ${queue.length} queued items...`);
 
       const remainingQueue = [...queue];
       const processedIndices: number[] = [];
@@ -257,7 +255,6 @@ export const useOptimizedData = (auth: AuthState) => {
               .eq(conflictTarget, itemId)
               .maybeSingle();
             if (existing === null) {
-              console.log(`📡 Offline queue: skipping deleted record in ${item.table} (id=${itemId})`);
               processedIndices.push(i);
               continue;
             }
@@ -367,7 +364,6 @@ export const useOptimizedData = (auth: AuthState) => {
       const cachedConfig = getCachedData('branches');
       if (cachedConfig) {
         // Use cached config if fresh
-        console.log('📦 Using cached config');
       } else {
         const { data: configData } = await supabase
           .from(DB_TABLES.SYSTEM_CONFIG)

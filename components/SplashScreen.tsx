@@ -1,26 +1,89 @@
-import React from 'react';
-import Lottie from 'lottie-react';
-import splashData from '../src/assets/splash.json';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface SplashScreenProps {
   message?: string;
   subMessage?: string;
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({ 
-  message = "Initializing Core Systems", 
-  subMessage = "Establishing secure connection to master node" 
+export const SplashScreen: React.FC<SplashScreenProps> = ({
+  message = "Initializing Core Systems",
+  subMessage = "Establishing secure connection to master node"
 }) => {
+  const [elapsed, setElapsed] = useState(0);
+  const [diagState, setDiagState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [internet, setInternet] = useState<boolean | null>(null);
+  const [supabaseOk, setSupabaseOk] = useState<boolean | null>(null);
+  const [diagDetail, setDiagDetail] = useState('');
+
+  // Tick every second so we can show elapsed time and trigger diagnostics
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // After 15 s of spinning, auto-run the diagnostic
+  useEffect(() => {
+    if (elapsed === 15 && diagState === 'idle') {
+      runDiagnostic();
+    }
+  }, [elapsed, diagState]);
+
+  const runDiagnostic = async () => {
+    setDiagState('running');
+
+    // 1. Internet
+    const online = navigator.onLine;
+    setInternet(online);
+
+    if (!online) {
+      setDiagDetail('Your device appears to be offline. Check your WiFi or mobile data and try again.');
+      setDiagState('done');
+      return;
+    }
+
+    // 2. Supabase reachability
+    try {
+      setDiagDetail('Testing connection to the server...');
+      const { error } = await supabase
+        .from('branches')
+        .select('id', { count: 'exact', head: true });
+
+      if (error) throw error;
+      setSupabaseOk(true);
+      setDiagDetail('Server is reachable. The app may still be loading data. Try refreshing.');
+    } catch (err: any) {
+      setSupabaseOk(false);
+      const msg = err?.message || '';
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
+        setDiagDetail('Your connection reached the internet but could not reach the app server. This may be a firewall, VPN, or mobile data restriction blocking the connection.');
+      } else {
+        setDiagDetail(`Server error: ${msg || 'Unknown error'}. Try refreshing or contact your admin.`);
+      }
+    }
+
+    setDiagState('done');
+  };
+
+  const StatusDot = ({ ok }: { ok: boolean | null }) => {
+    if (ok === null) return <span className="w-2 h-2 rounded-full bg-slate-600 animate-pulse inline-block" />;
+    return <span className={`w-2 h-2 rounded-full inline-block ${ok ? 'bg-emerald-400' : 'bg-rose-400'}`} />;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center gap-6 max-w-xs w-full px-4">
-        <div className="w-48 h-48 sm:w-64 sm:h-64">
-          <Lottie 
-            animationData={splashData} 
-            loop={true} 
-            autoplay={true}
-          />
+        {/* Animated logo mark */}
+        <div className="relative w-24 h-24">
+          <div className="absolute inset-0 rounded-full border-4 border-emerald-100" />
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-emerald-500 border-r-emerald-400 animate-spin" style={{ animationDuration: '1s' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
+              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+          </div>
         </div>
+
         <div className="text-center space-y-3">
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-600 animate-pulse">
             {message}
@@ -28,7 +91,90 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
             {subMessage}
           </p>
+          {elapsed >= 5 && diagState === 'idle' && (
+            <p className="text-[8px] text-slate-300 tabular-nums">{elapsed}s elapsed…</p>
+          )}
         </div>
+
+        {/* Diagnostic panel — appears after 15 s */}
+        {elapsed >= 15 && (
+          <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm animate-in fade-in duration-500">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">
+              {diagState === 'running' ? 'Checking connection…' : 'Taking longer than expected'}
+            </p>
+
+            {/* Status rows */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                <span>Internet</span>
+                <span className="flex items-center gap-1.5">
+                  <StatusDot ok={internet} />
+                  {internet === null ? 'Checking…' : internet ? 'Connected' : 'No connection'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                <span>Server</span>
+                <span className="flex items-center gap-1.5">
+                  <StatusDot ok={supabaseOk} />
+                  {supabaseOk === null ? (internet === false ? 'Skipped' : 'Checking…') : supabaseOk ? 'Reachable' : 'Unreachable'}
+                </span>
+              </div>
+            </div>
+
+            {/* Detail message */}
+            {diagDetail && (
+              <p className="text-[10px] text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
+                {diagDetail}
+              </p>
+            )}
+
+            {/* What to do */}
+            {diagState === 'done' && (
+              <div className="space-y-2 pt-1">
+                {!internet && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[10px] text-amber-800 leading-relaxed">
+                    <p className="font-black uppercase tracking-widest mb-1">Try this:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Toggle airplane mode off and on</li>
+                      <li>Switch between WiFi and mobile data</li>
+                      <li>Move to a better signal area</li>
+                    </ol>
+                  </div>
+                )}
+                {internet && supabaseOk === false && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[10px] text-rose-800 leading-relaxed">
+                    <p className="font-black uppercase tracking-widest mb-1">Try this:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Disconnect and reconnect to WiFi</li>
+                      <li>Try using mobile data instead</li>
+                      <li>If on shared WiFi, try another network</li>
+                      <li>Contact your admin if it persists</li>
+                    </ol>
+                  </div>
+                )}
+                {internet && supabaseOk === true && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[10px] text-emerald-800 leading-relaxed">
+                    Server is reachable. The app may be loading a large amount of data. Please wait a moment more or refresh.
+                  </div>
+                )}
+
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all"
+                >
+                  Refresh App
+                </button>
+                <button
+                  onClick={runDiagnostic}
+                  disabled={diagState === 'running'}
+                  className="w-full py-2.5 bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all disabled:opacity-40"
+                >
+                  Run Check Again
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

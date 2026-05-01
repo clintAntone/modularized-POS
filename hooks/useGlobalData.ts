@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Branch, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole } from '../types';
+import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole } from '../types';
 import { APP_NAME } from '../constants';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { supabase } from '../lib/supabase';
@@ -23,6 +23,7 @@ export const useGlobalData = (auth: AuthState) => {
     const [connStatus, setConnStatus] = useState<'connecting' | 'connected' | 'error' | 'offline'>('connecting');
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
+    const [displayChanges, setDisplayChanges] = useState(false);
 
     const isSyncingQueue = useRef(false);
 
@@ -52,7 +53,6 @@ export const useGlobalData = (auth: AuthState) => {
             }
 
             isSyncingQueue.current = true;
-            console.log(`📡 HilotCore: Relaying ${queue.length} cached items to mainframe...`);
 
             const remainingQueue = [...queue];
             const processedIndices: number[] = [];
@@ -73,7 +73,6 @@ export const useGlobalData = (auth: AuthState) => {
                             .maybeSingle();
                         // If the record no longer exists (was deleted), drop this queue item silently
                         if (existing === null) {
-                            console.log(`📡 Offline queue: skipping deleted record in ${item.table} (id=${itemId})`);
                             processedIndices.push(i);
                             continue;
                         }
@@ -121,7 +120,9 @@ export const useGlobalData = (auth: AuthState) => {
         return {
             id: db[DB_COLUMNS.ID],
             name: db[DB_COLUMNS.NAME],
-            pin: db[DB_COLUMNS.PIN],
+            // Only expose the setup PIN for branches that haven't completed initial setup yet.
+            // Once isPinChanged = true, the setup PIN is no longer used and should not be sent to clients.
+            pin: db[DB_COLUMNS.IS_PIN_CHANGED] ? '' : (db[DB_COLUMNS.PIN] || ''),
             isPinChanged: Boolean(db[DB_COLUMNS.IS_PIN_CHANGED]),
             isEnabled: Boolean(db[DB_COLUMNS.IS_ENABLED]),
             isOpen: Boolean(db[DB_COLUMNS.IS_OPEN]),
@@ -144,6 +145,7 @@ export const useGlobalData = (auth: AuthState) => {
                 try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
             })(),
             refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
+            vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
         };
     };
 
@@ -167,8 +169,9 @@ export const useGlobalData = (auth: AuthState) => {
             middleName: db[DB_COLUMNS.MIDDLE_NAME],
             lastName: db[DB_COLUMNS.LAST_NAME],
             username: db[DB_COLUMNS.USERNAME],
-            loginPin: db[DB_COLUMNS.LOGIN_PIN],
-            pinSalt: db[DB_COLUMNS.PIN_SALT],
+            // Credentials are not stored in the global cache — only a presence flag is kept.
+            // The actual hash is fetched directly at login time via a targeted query.
+            hasPinSet: Boolean(db[DB_COLUMNS.LOGIN_PIN]),
             requestReset: Boolean(db[DB_COLUMNS.REQUEST_RESET]),
             role: db[DB_COLUMNS.ROLE],
             allowance: Number(db[DB_COLUMNS.ALLOWANCE] || 0),
@@ -188,7 +191,8 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbBranch);
         },
-        enabled: !!supabase
+        enabled: !!supabase,
+        staleTime: 5 * 60 * 1000
     });
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
@@ -201,7 +205,8 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbEmployee);
         },
-        enabled: !!supabase
+        enabled: !!supabase,
+        staleTime: 5 * 60 * 1000
     });
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
@@ -231,7 +236,8 @@ export const useGlobalData = (auth: AuthState) => {
                 note: t[DB_COLUMNS.NOTE]
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
     });
 
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
@@ -253,7 +259,8 @@ export const useGlobalData = (auth: AuthState) => {
                 name: e[DB_COLUMNS.NAME], amount: Number(e[DB_COLUMNS.AMOUNT] || 0), category: e[DB_COLUMNS.CATEGORY], receiptImage: e[DB_COLUMNS.RECEIPT_IMAGE]
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
     });
 
     const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
@@ -279,10 +286,13 @@ export const useGlobalData = (auth: AuthState) => {
                 sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
                 staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
-                vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || [])
+                vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
+                vaultDeposit: Number(r[DB_COLUMNS.VAULT_DEPOSIT] ?? 0),
+                vaultBalanceSnapshot: Number(r[DB_COLUMNS.VAULT_BALANCE_SNAPSHOT] ?? 0),
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
     });
 
     const { data: auditLogs = [], isLoading: auditLogsLoading, error: auditLogsError } = useQuery({
@@ -305,7 +315,8 @@ export const useGlobalData = (auth: AuthState) => {
                 description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME]
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
     });
 
     const { data: attendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
@@ -327,18 +338,23 @@ export const useGlobalData = (auth: AuthState) => {
                 staffName: att[DB_COLUMNS.STAFF_NAME], date: att[DB_COLUMNS.DATE], clockIn: att[DB_COLUMNS.CLOCK_IN],
                 clockOut: att[DB_COLUMNS.CLOCK_OUT], status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
                 otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0), 
-                isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]), isPosHandled: Boolean(att[DB_COLUMNS.IS_POS_HANDLED]),
+                isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
                 createdAt: att[DB_COLUMNS.CREATED_AT]
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
     });
 
     const { data: requests = [], isLoading: requestsLoading, error: requestsError } = useQuery({
         queryKey: ['requests', auth.user?.branchId],
         queryFn: async () => {
             if (!supabase) return [];
-            let query = supabase.from(DB_TABLES.REQUESTS).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false });
+            const lookbackDate = new Date();
+            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            const lookbackIso = lookbackDate.toISOString();
+
+            let query = supabase.from(DB_TABLES.REQUESTS).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -358,7 +374,32 @@ export const useGlobalData = (auth: AuthState) => {
                 updatedAt: r[DB_COLUMNS.UPDATED_AT]
             }));
         },
-        enabled: !!supabase && !!auth.user
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000
+    });
+
+    // Branch vault — one row per branch, loaded for branch managers only
+    const { data: branchVault = null } = useQuery<BranchVault | null>({
+        queryKey: ['branchVault', auth.user?.branchId],
+        queryFn: async (): Promise<BranchVault | null> => {
+            if (!supabase || !auth.user?.branchId) return null;
+            const { data, error } = await supabase
+                .from(DB_TABLES.BRANCH_VAULTS)
+                .select('*')
+                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
+                .maybeSingle();
+            if (error) throw error;
+            if (!data) return null;
+            return {
+                branchId: data[DB_COLUMNS.BRANCH_ID],
+                target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
+                balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+                lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
+                startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
+            };
+        },
+        enabled: !!supabase && !!auth.user && auth.user.role === UserRole.BRANCH_MANAGER,
+        staleTime: 2 * 60 * 1000
     });
 
     const fetchSystemConfig = useCallback(async () => {
@@ -374,7 +415,8 @@ export const useGlobalData = (auth: AuthState) => {
             const paymongoEnabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'paymongo_enabled')?.value;
             const latestVal = configData.find(c => c[DB_COLUMNS.KEY] === 'latest')?.value;
             const apkFilenameVal = configData.find(c => c[DB_COLUMNS.KEY] === 'apk_filename')?.value;
-
+            const displayChangesVal = configData.find(c => c[DB_COLUMNS.KEY] === 'display_changes')?.value;
+            setDisplayChanges(displayChangesVal === 'true');
             if (nameVal) setDynamicAppName(nameVal);
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
@@ -486,7 +528,6 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SYSTEM_CONFIG }, () => fetchSystemConfig())
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('HilotCore: Real-time sync active');
                 }
             });
 
@@ -495,153 +536,21 @@ export const useGlobalData = (auth: AuthState) => {
         };
     }, [refreshDatabase, fetchSystemConfig, queryClient]);
 
-    const loading = branchesLoading || employeesLoading || transactionsLoading || expensesLoading || salesReportsLoading || auditLogsLoading || attendanceLoading || requestsLoading;
+    const loading = branchesLoading || employeesLoading;
     const error = branchesError || employeesError || transactionsError || expensesError || salesReportsError || auditLogsError || attendanceError || requestsError;
 
-    // AUTO-LOGOUT SENTINEL: Automatically close sessions and branches at 6 AM daily reset
-    useEffect(() => {
-        if (!supabase || !auth.user || loading || !navigator.onLine || branches.length === 0) return;
-
-        const runSentinelChecks = async () => {
-            const now = getTrueDate();
-            const manilaHour = parseInt(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false }).format(now));
-            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-            
-            // Determine the start of the current business day (6 AM Manila)
-            const businessDayDateStr = manilaHour < 6 
-                ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now.getTime() - 24 * 60 * 60 * 1000))
-                : todayStr;
-            
-            // Create a Date object for 6 AM Manila of the current business day
-            const currentBusinessDayStart = new Date(`${businessDayDateStr}T06:00:00+08:00`);
-
-            const getStaleInfo = (item: { clockIn: string; clockOut?: string | null; branchId: string; date?: string }) => {
-                if (item.clockOut) return null;
-                const clockInDate = new Date(item.clockIn);
-                const shiftDurationHours = (now.getTime() - clockInDate.getTime()) / (1000 * 60 * 60);
-
-                // Only auto-clock-out records from a previous date — never touch today's attendance.
-                // This fixes the bug where employees clocking in before 6 AM get auto-clocked-out
-                // mid-shift once 14 hours elapse.
-                const clockInDateStr = item.date || new Intl.DateTimeFormat('en-CA', {
-                    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
-                }).format(clockInDate);
-                if (clockInDateStr >= todayStr) return null;
-
-                if (clockInDate < currentBusinessDayStart && shiftDurationHours >= 14) {
-                    const branch = branches.find(b => b.id === item.branchId);
-                    if (!branch) return null;
-
-                    // Recorded clock out should be the branch closing time or midnight of the clock-in day
-                    const [closeH, closeM] = (branch.closingTime || '22:00').split(':').map(Number);
-                    let branchClosingDate = new Date(clockInDate);
-                    branchClosingDate.setHours(closeH, closeM, 0, 0);
-                    if (branchClosingDate < clockInDate) {
-                        branchClosingDate.setDate(branchClosingDate.getDate() + 1);
-                    }
-                    
-                    let midnightDate = new Date(clockInDate);
-                    midnightDate.setHours(24, 0, 0, 0);
-
-                    const finalClosingDate = new Date(Math.max(midnightDate.getTime(), branchClosingDate.getTime()));
-                    return { closingDate: finalClosingDate.toISOString() };
-                }
-                return null;
-            };
-
-            // 1. Check Stale Branches (Past 6 AM Manila and still open from yesterday)
-            const isPast6AM = manilaHour >= 6;
-            if (isPast6AM) {
-                const staleBranches = branches.filter(b => b.isOpen && b.isOpenDate && b.isOpenDate < todayStr);
-                for (const branch of staleBranches) {
-                    console.log(`🏢 HilotCore: Auto-closing stale branch node: ${branch.name}`);
-                    await supabase.from(DB_TABLES.BRANCHES).update({ 
-                        [DB_COLUMNS.IS_OPEN]: false 
-                    }).eq(DB_COLUMNS.ID, branch.id);
-
-                    await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-                        [DB_COLUMNS.BRANCH_ID]: branch.id,
-                        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-                        [DB_COLUMNS.ENTITY_TYPE]: 'BRANCH',
-                        [DB_COLUMNS.ENTITY_ID]: branch.id,
-                        [DB_COLUMNS.DESCRIPTION]: `System auto-closure: Branch remained open past 6 AM reset threshold.`,
-                        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM_SENTINEL'
-                    });
-                }
-            }
-
-            // 2. Check Stale Sessions
-            const staleAttendance = attendance.map(a => ({ ...a, stale: getStaleInfo(a) })).filter(a => a.stale);
-
-            if (staleAttendance.length === 0) {
-                // If we closed branches, we should refresh
-                if (isPast6AM && branches.some(b => b.isOpen && b.isOpenDate && b.isOpenDate < todayStr)) {
-                    refreshDatabase(true);
-                }
-                return;
-            }
-
-            console.log(`🕒 HilotCore: Found ${staleAttendance.length} stale sessions. Initiating daily reset auto-logout...`);
-
-            try {
-                // Process Attendance
-                for (const att of staleAttendance) {
-                    const autoClockOut = att.stale!.closingDate;
-                    await supabase.from(DB_TABLES.ATTENDANCE).update({ 
-                        [DB_COLUMNS.CLOCK_OUT]: autoClockOut,
-                        [DB_COLUMNS.STATUS]: 'AUTO-LOGOUT'
-                    }).eq(DB_COLUMNS.ID, att.id);
-                    
-                    // Log to Audit
-                    await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-                        [DB_COLUMNS.BRANCH_ID]: att.branchId,
-                        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-                        [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
-                        [DB_COLUMNS.ENTITY_ID]: att.id,
-                        [DB_COLUMNS.DESCRIPTION]: `System auto-logout for ${att.staffName} (Shift exceeded 14-hour threshold)`,
-                        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM_SENTINEL'
-                    });
-                }
-
-                // Refresh to sync UI
-                refreshDatabase(true);
-            } catch (err) {
-                console.error("Auto-logout execution failed:", err);
-            }
-            
-            // If we closed branches, we should refresh
-            if (isPast6AM && branches.some(b => b.isOpen && b.isOpenDate && b.isOpenDate < todayStr)) {
-                refreshDatabase(true);
-            }
-        };
-
-        // Delay check slightly after load to prioritize UI rendering
-        const timer = setTimeout(runSentinelChecks, 8000);
-        const interval = setInterval(runSentinelChecks, 15 * 60 * 1000); // Check every 15 minutes
-        return () => {
-            clearTimeout(timer);
-            clearInterval(interval);
-        };
-    }, [attendance, branches, auth.user, loading, refreshDatabase]);
+    // Sentinel removed — employee time-out is manual only via STAFF tab
 
     useEffect(() => {
         if (loading) {
-            console.log('Syncing Data Status:', {
-                branches: branchesLoading,
-                employees: employeesLoading,
-                transactions: transactionsLoading,
-                expenses: expensesLoading,
-                salesReports: salesReportsLoading,
-                auditLogs: auditLogsLoading,
-                attendance: attendanceLoading
-            });
         }
     }, [loading, branchesLoading, employeesLoading, transactionsLoading, expensesLoading, salesReportsLoading, auditLogsLoading, attendanceLoading]);
 
     return {
         branches, transactions, expenses, attendance, employees,
-        salesReports, auditLogs, requests, systemLogo, systemVersion, systemLatest, apkUrl,
+        salesReports, auditLogs, requests, branchVault,
+        systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,
-        pendingSyncCount, forceLogoutRegistry, refreshDatabase
+        pendingSyncCount, forceLogoutRegistry, displayChanges, refreshDatabase
     };
 };

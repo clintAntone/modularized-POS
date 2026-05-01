@@ -20,7 +20,7 @@ export const AuditSection: React.FC<AuditSectionProps> = ({ branch, auditLogs })
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Detail Drilldown states
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
@@ -225,6 +225,7 @@ export const AuditSection: React.FC<AuditSectionProps> = ({ branch, auditLogs })
               onPageChange={setCurrentPage}
               totalItems={filteredLogs.length}
               itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
           />
         </div>
         <div className="relative group w-full sm:w-auto shrink-0">

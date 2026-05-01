@@ -54,7 +54,8 @@ export const HeatmapSection: React.FC<HeatmapSectionProps> = ({ branch, salesRep
   const monthSummary = useMemo(() => {
     const prefix = `${heatYear}-${String(heatMonth + 1).padStart(2, '0')}`;
     let gross = 0, net = 0, salary = 0, expenses = 0, vault = 0, days = 0;
-    Object.entries(dailyStats).forEach(([date, d]) => {
+    Object.keys(dailyStats).forEach(date => {
+      const d = dailyStats[date];
       if (date.startsWith(prefix)) { gross += d.gross; net += d.net; salary += d.salary; expenses += d.expenses; vault += d.vault; days++; }
     });
     return { gross, net, salary, expenses, vault, days };

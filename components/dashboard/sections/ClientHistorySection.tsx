@@ -3,7 +3,7 @@ import { Branch, Transaction } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
-import { formatManilaDate, formatManilaTime } from '../../../lib/time';
+import { formatManilaDate, formatManilaTime, toManilaDateStr } from '../../../lib/time';
 import { playSound } from '../../../lib/audio';
 
 interface ClientHistorySectionProps {
@@ -61,29 +61,34 @@ function buildProfiles(transactions: Transaction[]): ClientProfile[] {
   return profiles.sort((a, b) => b.visitCount - a.visitCount);
 }
 
-function buildDailySummary(transactions: Transaction[]): DayEntry[] {
-  const dayMap = new Map<string, { names: Set<string>; sessions: number }>();
-
-  transactions.forEach(tx => {
-    const dateKey = new Date(tx.timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-    const entry = dayMap.get(dateKey) || { names: new Set<string>(), sessions: 0 };
-    entry.names.add((tx.clientName || 'WALK-IN').toUpperCase().trim());
-    entry.sessions++;
-    dayMap.set(dateKey, entry);
+// Build daily summary directly from sales_reports rows — report_date is already
+// a Manila YYYY-MM-DD string, so no timestamp parsing or timezone conversion needed.
+function buildDailySummaryFromReports(
+  reports: { reportDate: string; sessions: Transaction[] }[],
+  todayDate: string,
+  todayLiveSessions: Transaction[]
+): DayEntry[] {
+  const entries: DayEntry[] = reports.map(r => {
+    const names = new Set(r.sessions.map(tx => (tx.clientName || 'WALK-IN').toUpperCase().trim()));
+    return { dateKey: r.reportDate, clientCount: names.size, sessionCount: r.sessions.length };
   });
 
-  return Array.from(dayMap.entries())
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([dateKey, data]) => ({
-      dateKey,
-      clientCount: data.names.size,
-      sessionCount: data.sessions,
-    }));
+  // Prepend today's live transactions if not yet submitted as a report
+  const hasReportForToday = reports.some(r => r.reportDate === todayDate);
+  if (!hasReportForToday && todayLiveSessions.length > 0) {
+    const names = new Set(todayLiveSessions.map(tx => (tx.clientName || 'WALK-IN').toUpperCase().trim()));
+    entries.unshift({ dateKey: todayDate, clientCount: names.size, sessionCount: todayLiveSessions.length });
+  }
+
+  return entries.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 }
 
 function labelDateKey(dateKey: string): string {
-  const manilaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const manilaYesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const now = new Date();
+  const manilaToday = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const manilaYesterday = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   if (dateKey === manilaToday) return 'Today';
   if (dateKey === manilaYesterday) return 'Yesterday';
   const d = new Date(dateKey + 'T12:00:00');
@@ -181,7 +186,12 @@ const PreferredStaff: React.FC<{ txs: Transaction[] }> = ({ txs }) => {
 
 // ── Main Component ──────────────────────────────────────────────
 export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ branch }) => {
+  // allTransactions: used only for client-profile search
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  // reportRows: sales_reports rows with report_date + session_data for the daily summary
+  const [reportRows, setReportRows] = useState<{ reportDate: string; sessions: Transaction[] }[]>([]);
+  // todayLiveSessions: live transactions for today not yet submitted as a report
+  const [todayLiveSessions, setTodayLiveSessions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientProfile | null>(null);
@@ -192,40 +202,51 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const { data: liveData, error: liveError } = await supabase
-          .from(DB_TABLES.TRANSACTIONS)
-          .select('*')
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .order(DB_COLUMNS.TIMESTAMP, { ascending: false });
+        const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
 
-        if (liveError) throw liveError;
-
+        // 1. Sales reports — use report_date as the authoritative date key
         const { data: reportData, error: reportError } = await supabase
           .from(DB_TABLES.SALES_REPORTS)
-          .select(DB_COLUMNS.SESSION_DATA)
+          .select(`${DB_COLUMNS.REPORT_DATE}, ${DB_COLUMNS.SESSION_DATA}`)
           .eq(DB_COLUMNS.BRANCH_ID, branch.id)
           .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
-          .limit(50);
+          .limit(90);
 
         if (reportError) throw reportError;
 
-        let merged: Transaction[] = [...(liveData || [])];
-
-        reportData?.forEach(report => {
-          const sessions = typeof report[DB_COLUMNS.SESSION_DATA] === 'string'
-            ? JSON.parse(report[DB_COLUMNS.SESSION_DATA])
-            : (report[DB_COLUMNS.SESSION_DATA] || []);
-          if (Array.isArray(sessions)) merged = [...merged, ...sessions];
+        const rows: { reportDate: string; sessions: Transaction[] }[] = (reportData || []).map(r => {
+          const raw = typeof r[DB_COLUMNS.SESSION_DATA] === 'string'
+            ? JSON.parse(r[DB_COLUMNS.SESSION_DATA])
+            : (r[DB_COLUMNS.SESSION_DATA] || []);
+          return { reportDate: r[DB_COLUMNS.REPORT_DATE], sessions: Array.isArray(raw) ? raw : [] };
         });
 
+        // 2. Today's live transactions (may not have a report yet).
+        // Fetch the last 24h worth from the transactions table and filter to Manila today.
+        const cutoffIso = new Date(Date.now() - 86400000).toISOString();
+        const { data: recentTxs } = await supabase
+          .from(DB_TABLES.TRANSACTIONS)
+          .select('*')
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .gte(DB_COLUMNS.TIMESTAMP, cutoffIso)
+          .order(DB_COLUMNS.TIMESTAMP, { ascending: false });
+
+        const todaySessions = (recentTxs || []).filter(tx => toManilaDateStr(tx.timestamp) === manilaToday);
+
+        // 3. Flatten all sessions for profile search (dedupe by id)
         const seenIds = new Set<string>();
-        const unique = merged.filter(tx => {
-          if (seenIds.has(tx.id)) return false;
-          seenIds.add(tx.id);
-          return true;
+        const allTxs: Transaction[] = [];
+        [...todaySessions, ...rows.flatMap(r => r.sessions)].forEach(tx => {
+          if (tx.id && seenIds.has(tx.id)) return;
+          if (tx.id) seenIds.add(tx.id);
+          allTxs.push(tx);
         });
 
-        if (!cancelled) setAllTransactions(unique);
+        if (!cancelled) {
+          setReportRows(rows);
+          setTodayLiveSessions(todaySessions);
+          setAllTransactions(allTxs);
+        }
       } catch (err) {
         console.error('[ClientHistorySection] fetch error:', err);
       } finally {
@@ -237,8 +258,15 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     return () => { cancelled = true; };
   }, [branch.id]);
 
+  const manilaToday = useMemo(() =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()),
+  []);
+
   const allProfiles = useMemo(() => buildProfiles(allTransactions), [allTransactions]);
-  const dailySummary = useMemo(() => buildDailySummary(allTransactions), [allTransactions]);
+  const dailySummary = useMemo(
+    () => buildDailySummaryFromReports(reportRows, manilaToday, todayLiveSessions),
+    [reportRows, manilaToday, todayLiveSessions]
+  );
 
   const isSearching = searchQuery.trim().length > 0;
 

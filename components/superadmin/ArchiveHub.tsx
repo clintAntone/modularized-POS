@@ -1,20 +1,51 @@
 
-import React, { useState, useMemo } from 'react';
-import { Branch, SalesReport } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Branch, BranchVault, SalesReport } from '../../types';
 import { ReportsMasterSection } from '../dashboard/sections/ReportsMasterSection';
 import { playSound } from '../../lib/audio';
 import { toDateStr } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
+import { supabase } from '../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 
 interface ArchiveHubProps {
   branches: Branch[];
   salesReports: SalesReport[];
   employees?: any[];
   isReadOnly?: boolean;
+  onRefresh?: () => void;
 }
 
-export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, employees = [], isReadOnly }) => {
-  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, employees = [], isReadOnly, onRefresh }) => {
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('archive_filter_branches') || '[]'); } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('archive_filter_branches', JSON.stringify(selectedBranchIds));
+  }, [selectedBranchIds]);
+
+  const { data: branchVaults = [] } = useQuery<BranchVault[]>({
+    queryKey: ['all_branch_vaults'],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(`${DB_COLUMNS.BRANCH_ID}, ${DB_COLUMNS.VAULT_TARGET}, ${DB_COLUMNS.VAULT_BALANCE}, ${DB_COLUMNS.VAULT_START_DATE}`);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        branchId: r[DB_COLUMNS.BRANCH_ID],
+        target: Number(r[DB_COLUMNS.VAULT_TARGET] ?? 0),
+        balance: Number(r[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+        lastDepositedDate: null,
+        startDate: r[DB_COLUMNS.VAULT_START_DATE] ?? null,
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const consolidatedBranch = useMemo(() => ({
     id: 'all',
@@ -65,9 +96,12 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
             branch={activeBranch}
             salesReports={filteredReports}
             branches={branches}
+            branchVaults={branchVaults}
             employees={employees}
             canEdit={!isReadOnly}
             canValidate={!isReadOnly}
+            canDelete={!isReadOnly}
+            onDeleted={onRefresh}
         />
       </div>
   );

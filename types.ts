@@ -50,6 +50,19 @@ export interface Branch {
   owners?: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;
+  vaultEnabled?: boolean;
+}
+
+/**
+ * Vault / Rent Fund — stored in the `branch_vaults` table (one row per branch).
+ * Kept separate from Branch to avoid polluting the branches table with feature columns.
+ */
+export interface BranchVault {
+  branchId: string;
+  target: number;       // accumulation target (e.g. 15000)
+  balance: number;      // current balance
+  lastDepositedDate: string | null;    // guards against double-deposit on same day
+  startDate: string | null;            // date vault system was enabled for this branch (YYYY-MM-DD)
 }
 
 export interface Service {
@@ -69,7 +82,7 @@ export interface Service {
   canBeLoyalty?: boolean;
 }
 
-export type ExpenseCategory = 'OPERATIONAL' | 'PROVISION' | 'SETTLEMENT';
+export type ExpenseCategory = 'OPERATIONAL' | 'PROVISION' | 'SETTLEMENT' | 'VAULT_WITHDRAWAL' | 'VAULT_DEPOSIT' | 'VAULT_FUND_DEPOSIT' | 'VAULT_REMITTANCE';
 
 export interface Expense {
   id: string;
@@ -119,7 +132,6 @@ export interface Attendance {
   cashAdvance: number;
   createdAt: string;
   isHalfDay?: boolean;
-  isPosHandled?: boolean;
   isPaidDaily?: boolean;
   settledUnits?: number;
 }
@@ -133,8 +145,8 @@ export interface Employee {
   middleName?: string;
   lastName?: string;
   username?: string;
-  loginPin?: string;
-  pinSalt?: string;
+  /** True if this employee has a hashed PIN stored in the DB. The hash itself is never sent to clients. */
+  hasPinSet?: boolean;
   requestReset?: boolean;
   resetApproved?: boolean;
   role: string;
@@ -166,6 +178,10 @@ export interface SalesReport {
   finalizedBy?: string;
   isValidated?: boolean;
   notes?: string;
+  /** New vault system — automatic daily deposit amount for this report */
+  vaultDeposit?: number;
+  /** Vault balance snapshot after this day's deposit */
+  vaultBalanceSnapshot?: number;
 }
 
 export interface AuditLog {
@@ -184,7 +200,7 @@ export interface Request {
   id: string;
   branchId: string;
   timestamp: string;
-  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET';
+  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   data: any;
   requesterId: string;
@@ -235,15 +251,6 @@ export interface BillPayment {
 
 export type BillStatus = 'PAID' | 'OVERDUE' | 'DUE_SOON' | 'UPCOMING' | 'AS_NEEDED';
 
-export interface VaultCarryover {
-  id: string;
-  branchId: string;
-  amount: number;
-  effectiveDate: string;  // 'YYYY-MM-DD'
-  notes?: string;
-  recordedBy?: string;
-  createdAt: string;
-}
 
 export interface AuthState {
   user: {

@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Branch, Service, Employee } from '../../../../types';
 import { POSMode } from '../POSSection';
 import { POSServiceSelection } from './POSServiceSelection';
@@ -21,10 +21,36 @@ interface POSRegistryFormProps {
     isPaymongoEnabled?: boolean;
     onFinalize: () => void;
     onAbort: () => void;
+    clientNameHistory?: string[];
 }
 
 export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     const [activeTab, setActiveTab] = useState<'STANDARD' | 'LOYALTY'>('STANDARD');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const suggestionRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const suggestions = useMemo(() => {
+        const query = props.formData.client_name.trim().toUpperCase();
+        if (!query || !props.clientNameHistory?.length) return [];
+        return props.clientNameHistory.filter(name => name.includes(query) && name !== query).slice(0, 6);
+    }, [props.formData.client_name, props.clientNameHistory]);
+
+    useEffect(() => {
+        setHighlightedIndex(-1);
+    }, [suggestions]);
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node) &&
+                inputRef.current && !inputRef.current.contains(e.target as Node)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
 
     const standardServices = props.activeServices;
     const loyaltyServices = props.activeServices;
@@ -61,23 +87,65 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                             {props.mode === 'EDITING' && <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-[8px] font-bold uppercase border border-amber-100 tracking-widest animate-pulse">Correction Active</span>}
                         </div>
 
-                        <input
-                            value={props.formData.client_name}
-                            onChange={e =>
-                                props.setFormData((prev: any) => ({
-                                    ...prev,
-                                    client_name: e.target.value
-                                }))
-                            }
-                            onBlur={() =>
-                                props.setFormData((prev: any) => ({
-                                    ...prev,
-                                    client_name: prev.client_name.toUpperCase()
-                                }))
-                            }
-                            placeholder="CLIENT FULL NAME..."
-                            className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[24px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
-                        />
+                        <div className="relative">
+                            <input
+                                ref={inputRef}
+                                value={props.formData.client_name}
+                                onChange={e => {
+                                    props.setFormData((prev: any) => ({ ...prev, client_name: e.target.value }));
+                                    setShowSuggestions(true);
+                                }}
+                                onFocus={() => setShowSuggestions(true)}
+                                onBlur={() =>
+                                    props.setFormData((prev: any) => ({
+                                        ...prev,
+                                        client_name: prev.client_name.toUpperCase()
+                                    }))
+                                }
+                                onKeyDown={e => {
+                                    if (!showSuggestions || suggestions.length === 0) return;
+                                    if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        setHighlightedIndex(i => Math.min(i + 1, suggestions.length - 1));
+                                    } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        setHighlightedIndex(i => Math.max(i - 1, 0));
+                                    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+                                        e.preventDefault();
+                                        props.setFormData((prev: any) => ({ ...prev, client_name: suggestions[highlightedIndex] }));
+                                        setShowSuggestions(false);
+                                    } else if (e.key === 'Escape') {
+                                        setShowSuggestions(false);
+                                    }
+                                }}
+                                placeholder="CLIENT FULL NAME..."
+                                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[24px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+                            />
+                            {showSuggestions && suggestions.length > 0 && (
+                                <div
+                                    ref={suggestionRef}
+                                    className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                                >
+                                    {suggestions.map((name, i) => (
+                                        <button
+                                            key={name}
+                                            type="button"
+                                            onMouseDown={e => {
+                                                e.preventDefault();
+                                                props.setFormData((prev: any) => ({ ...prev, client_name: name }));
+                                                setShowSuggestions(false);
+                                                playSound('click');
+                                            }}
+                                            onMouseEnter={() => setHighlightedIndex(i)}
+                                            className={`w-full text-left px-5 py-3.5 text-[11px] font-black uppercase tracking-widest transition-colors flex items-center gap-3 ${i === highlightedIndex ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                                        >
+                                            <svg className="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            {name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Transaction Note (Optional)</label>

@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -17,6 +18,18 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      // Stamp the build timestamp into sw.js so every deploy gets a unique cache name.
+      // This forces the browser to install the new SW and evict all stale caches.
+      {
+        name: 'sw-version-stamp',
+        closeBundle() {
+          const swPath = path.resolve(__dirname, 'dist/sw.js');
+          if (!fs.existsSync(swPath)) return;
+          const stamped = fs.readFileSync(swPath, 'utf-8')
+            .replace('__BUILD_TS__', Date.now().toString());
+          fs.writeFileSync(swPath, stamped);
+        },
+      },
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

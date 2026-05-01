@@ -2,7 +2,7 @@
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { Branch, Employee } from '../../types';
-import { getEmployeeRole, getEmployeeAllowance } from '../../lib/payroll';
+import { getEmployeeAllowance } from '../../lib/payroll';
 import { getTrueISOString, getTrueManilaISOString } from '../../lib/time';
 
 /**
@@ -13,7 +13,6 @@ import { getTrueISOString, getTrueManilaISOString } from '../../lib/time';
 export const syncRelieverPayouts = async (branch: Branch, todayStr: string, employees: Employee[], hiddenStaffNames?: Set<string>) => {
     if (!navigator.onLine) return;
 
-    console.log(`[RelieverSync] Starting sync for branch ${branch.id} on ${todayStr}`);
 
     try {
         // 1. Fetch latest transactions AND attendance to ensure we have the most up-to-date data
@@ -34,7 +33,6 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
         if (txError) throw txError;
         if (attError) throw attError;
 
-        console.log(`[RelieverSync] Fetched ${latestTxs?.length || 0} transactions and ${latestAtt?.length || 0} attendance records`);
 
         const relieverData: Record<string, { commission: number, allowance: number, ot: number, late: number }> = {};
         
@@ -43,16 +41,20 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
             const empId = att.employee_id || att.employeeId;
             const emp = employees.find(e => e.id === empId);
             if (emp && emp.branchId !== branch.id) {
-                const role = getEmployeeRole(emp, branch.id);
                 const cfg = emp.branchAllowances?.[branch.id];
                 const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                if (!role.includes('MANAGER') && !excluded) {
+                const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                if (!isMainManager && !isTempManager && !excluded) {
                     const name = emp.name?.trim().toUpperCase();
                     if (name && !hiddenStaffNames?.has(name)) {
+                        // If a home-branch employee with this name exists, they are regular staff — not a reliever.
+                        const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === name && e.branchId === branch.id);
+                        if (homeBranchMatch) return;
                         let allowance = getEmployeeAllowance(emp, branch.id);
                         if (att.is_half_day === true || att.isHalfDay === true) allowance /= 2;
-                        relieverData[name] = { 
-                            commission: 0, 
+                        relieverData[name] = {
+                            commission: 0,
                             allowance,
                             ot: Number(att.ot_pay || att.otPay || 0),
                             late: Number(att.late_deduction || att.lateDeduction || 0)
@@ -66,39 +68,48 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
         (latestTxs || []).forEach(t => {
             const therapist = (t.therapist_name || t.therapistName)?.trim().toUpperCase();
             const bonesetter = (t.bonesetter_name || t.bonesetterName)?.trim().toUpperCase();
-            
+
             if (therapist && !hiddenStaffNames?.has(therapist)) {
-                const emp = employees.find(e => e.name?.trim().toUpperCase() === therapist);
-                if (emp && emp.branchId !== branch.id) {
-                    const role = getEmployeeRole(emp, branch.id);
-                    const cfg = emp.branchAllowances?.[branch.id];
-                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                    if (!role.includes('MANAGER') && !excluded) {
-                        if (!relieverData[therapist]) {
-                            relieverData[therapist] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
+                // If a home-branch employee with this name exists, they are regular staff — not a reliever.
+                const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === therapist && e.branchId === branch.id);
+                if (!homeBranchMatch) {
+                    const emp = employees.find(e => e.name?.trim().toUpperCase() === therapist);
+                    if (emp && emp.branchId !== branch.id) {
+                        const cfg = emp.branchAllowances?.[branch.id];
+                        const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                        const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                        const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                        if (!isMainManager && !isTempManager && !excluded) {
+                            if (!relieverData[therapist]) {
+                                relieverData[therapist] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
+                            }
+                            relieverData[therapist].commission += (Number(t.primary_commission || t.primaryCommission) || 0);
                         }
-                        relieverData[therapist].commission += (Number(t.primary_commission || t.primaryCommission) || 0);
                     }
                 }
             }
 
             if (bonesetter && !hiddenStaffNames?.has(bonesetter)) {
-                const emp = employees.find(e => e.name?.trim().toUpperCase() === bonesetter);
-                if (emp && emp.branchId !== branch.id) {
-                    const role = getEmployeeRole(emp, branch.id);
-                    const cfg = emp.branchAllowances?.[branch.id];
-                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                    if (!role.includes('MANAGER') && !excluded) {
-                        if (!relieverData[bonesetter]) {
-                            relieverData[bonesetter] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
+                // If a home-branch employee with this name exists, they are regular staff — not a reliever.
+                const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === bonesetter && e.branchId === branch.id);
+                if (!homeBranchMatch) {
+                    const emp = employees.find(e => e.name?.trim().toUpperCase() === bonesetter);
+                    if (emp && emp.branchId !== branch.id) {
+                        const cfg = emp.branchAllowances?.[branch.id];
+                        const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                        const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                        const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                        if (!isMainManager && !isTempManager && !excluded) {
+                            if (!relieverData[bonesetter]) {
+                                relieverData[bonesetter] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
+                            }
+                            relieverData[bonesetter].commission += (Number(t.secondary_commission || t.secondaryCommission) || 0);
                         }
-                        relieverData[bonesetter].commission += (Number(t.secondary_commission || t.secondaryCommission) || 0);
                     }
                 }
             }
         });
 
-        console.log(`[RelieverSync] Calculated data for ${Object.keys(relieverData).length} relievers:`, relieverData);
 
         const { data: existingExps, error: exError } = await supabase
             .from(DB_TABLES.EXPENSES)
@@ -119,7 +130,6 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
         // Handle deletions (if a reliever is no longer active and had an expense)
         const staleExps = (existingExps || []).filter(e => e.name.startsWith('RELIEVER PAYOUT:') && !relieverExpNames.has(e.name));
         for (const stale of staleExps) {
-            console.log(`[RelieverSync] Deleting stale expense: ${stale.name}`);
             syncPromises.push(supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, stale.id));
         }
 
@@ -130,7 +140,6 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
 
             if (amount <= 0) {
                 if (existing) {
-                    console.log(`[RelieverSync] Deleting zero-amount expense for ${name}`);
                     syncPromises.push(supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, existing.id));
                 }
                 continue;
@@ -138,7 +147,6 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
 
             if (existing) {
                 if (Math.abs(existing.amount - amount) > 0.01) {
-                    console.log(`[RelieverSync] Updating expense for ${name}: ${existing.amount} -> ${amount}`);
                     syncPromises.push(
                         supabase
                             .from(DB_TABLES.EXPENSES)
@@ -147,7 +155,6 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
                     );
                 }
             } else {
-                console.log(`[RelieverSync] Creating new expense for ${name}: ${amount}`);
                 const timestamp = getTrueManilaISOString();
                 syncPromises.push(
                     supabase
@@ -165,9 +172,7 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
         }
         if (syncPromises.length > 0) {
             await Promise.all(syncPromises);
-            console.log(`[RelieverSync] Successfully processed ${syncPromises.length} operations`);
         } else {
-            console.log(`[RelieverSync] No changes needed`);
         }
     } catch (err) {
         console.error('[RelieverSync] Error:', err);

@@ -126,16 +126,6 @@ export const useAuth = () => {
         }
 
         const newUser = { ...prev.user, role: effectiveRole, branchId, lastActive: now, sessionStart: now, loginPin: prev.user.loginPin };
-        
-        // Log Branch Switch as a type of login/activity
-        logAudit({
-          branchId: branchId,
-          activityType: 'BRANCH_SWITCH',
-          entityType: 'USER',
-          entityId: prev.user.employeeId || 'ADMIN',
-          description: `${prev.user.username || 'User'} switched to branch ${branchId}`,
-          performerName: prev.user.username || 'SYSTEM'
-        });
 
         return { user: newUser };
     });

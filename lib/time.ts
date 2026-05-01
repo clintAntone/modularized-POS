@@ -9,66 +9,57 @@ let isInitialized = false;
 
 export const syncWithServerTime = async () => {
   const PROXY_URL = '/api/time';
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const TIMEOUT_MS = 5000;
 
-  const attemptSync = async (url: string, isSupabase = false, name = '') => {
-    const startPerformance = performance.now();
-    const startWall = Date.now();
-    
-    const response = await fetch(url, { 
-      method: isSupabase ? 'HEAD' : 'GET',
-      cache: 'no-store',
-      headers: { 'Cache-Control': 'no-cache' }
-    });
-    
-    const endPerformance = performance.now();
-    
-    if (!response.ok && !isSupabase) throw new Error(`Failed to fetch from ${url}`);
-    
-    let serverTime: number;
+  const attemptSync = async (url: string, name: string): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    if (isSupabase || name === 'GOOGLE_HEADER') {
-      const dateHeader = response.headers.get('Date');
-      if (!dateHeader) throw new Error('No Date header in response');
-      serverTime = new Date(dateHeader).getTime();
-    } else {
+    try {
+      const startPerformance = performance.now();
+
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+        signal: controller.signal,
+      });
+
+      const endPerformance = performance.now();
+
+      if (!response.ok) throw new Error(`HTTP ${response.status} from ${name}`);
+
       const data = await response.json();
-      let serverTimeValue = data.timestamp || data.iso || data.datetime || data.dateTime;
+      let serverTimeValue = data.timestamp || data.iso || data.datetime || data.dateTime || data.currentDateTime;
       if (typeof serverTimeValue === 'string' && /^\d+$/.test(serverTimeValue)) {
-        serverTimeValue = parseInt(serverTimeValue);
+        serverTimeValue = parseInt(serverTimeValue, 10);
       }
-      serverTime = new Date(serverTimeValue).getTime();
-    }
+      const serverTime = new Date(serverTimeValue).getTime();
+      if (isNaN(serverTime)) throw new Error(`Invalid date from ${name}`);
 
-    if (isNaN(serverTime)) throw new Error('Invalid date received');
-    
-    const latency = (endPerformance - startPerformance) / 2;
-    
-    // Anchor the true time to performance.now() instead of Date.now()
-    initialServerTime = serverTime + latency;
-    initialPerformanceTime = endPerformance;
-    isInitialized = true;
-    
-    console.log(`🕒 Time Sync [${name || url}]: Anchored to Monotonic Clock (Latency: ${latency.toFixed(2)}ms)`);
-    return true;
+      const latency = (endPerformance - startPerformance) / 2;
+      initialServerTime = serverTime + latency;
+      initialPerformanceTime = endPerformance;
+      isInitialized = true;
+
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
   };
 
-  // Try in parallel for speed, but prioritize the most reliable ones
-  const urlsToTry = [
-    { url: PROXY_URL, isSupabase: false, name: 'LOCAL_PROXY' },
-    { url: 'https://worldtimeapi.org/api/timezone/Asia/Manila', isSupabase: false, name: 'WORLD_TIME_API' },
-    { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila', isSupabase: false, name: 'TIME_API_IO' },
-    { url: SUPABASE_URL, isSupabase: true, name: 'SUPABASE_HEADER' },
-    { url: 'https://www.google.com', isSupabase: true, name: 'GOOGLE_HEADER' }
-  ].filter(item => !!item.url);
+  // Sources: local proxy first (most reliable), then public fallbacks.
+  // Removed: worldtimeapi.org (CORS-blocked), Supabase root HEAD (401), google.com HEAD (Capacitor TypeError).
+  const sources = [
+    { url: PROXY_URL,                                                              name: 'LOCAL_PROXY'  },
+    { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila',       name: 'TIME_API_IO'  },
+  ];
 
   try {
-    // Use Promise.any to get the first successful sync
-    await Promise.any(urlsToTry.map(item => attemptSync(item.url, item.isSupabase, item.name)));
+    await Promise.any(sources.map(s => attemptSync(s.url, s.name)));
     return true;
-  } catch (e) {
-    console.error('❌ All time sync attempts failed or timed out. System will use local device time.');
-    // Fallback to wall clock if everything fails
+  } catch {
+    console.warn('⚠️ All time sync sources failed. Falling back to local device clock.');
     initialServerTime = Date.now();
     initialPerformanceTime = performance.now();
     return false;

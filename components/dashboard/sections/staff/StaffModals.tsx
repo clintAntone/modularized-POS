@@ -55,18 +55,23 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
     setHoldProgress(0);
     holdIntervalRef.current = setInterval(() => {
       setHoldProgress(prev => {
-        const next = prev + (TICK_MS / HOLD_DURATION_MS) * 100;
-        if (next >= 100 && !holdFiredRef.current) {
-          holdFiredRef.current = true;
-          clearInterval(holdIntervalRef.current!);
+        const next = Math.min(prev + (TICK_MS / HOLD_DURATION_MS) * 100, 100);
+        if (next >= 100 && holdIntervalRef.current) {
+          clearInterval(holdIntervalRef.current);
           holdIntervalRef.current = null;
-          setHoldProgress(100);
-          props.onTimeAction();
         }
-        return Math.min(next, 100);
+        return next;
       });
     }, TICK_MS);
   };
+
+  // Fire onTimeAction once when hold completes — outside the state updater to avoid setState-in-render
+  React.useEffect(() => {
+    if (holdProgress >= 100 && !holdFiredRef.current) {
+      holdFiredRef.current = true;
+      props.onTimeAction();
+    }
+  }, [holdProgress]);
 
   const cancelHold = () => {
     if (holdIntervalRef.current) {

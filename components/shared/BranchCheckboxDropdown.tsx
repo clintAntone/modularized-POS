@@ -31,9 +31,14 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = branches.filter(b =>
-    b.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = branches
+    .filter(b => b.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const aChecked = selectedIds.includes(a.id);
+      const bChecked = selectedIds.includes(b.id);
+      if (aChecked === bChecked) return 0;
+      return aChecked ? -1 : 1;
+    });
 
   const label =
     selectedIds.length === 0

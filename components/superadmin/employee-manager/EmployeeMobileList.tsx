@@ -3,6 +3,7 @@ import { Employee, Branch } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { RoleBadge } from './SharedComponents';
 import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../lib/payroll';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 interface EmployeeMobileListProps {
   employees: Employee[];
@@ -17,27 +18,40 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
       {employees.map(emp => {
-        const authorizedBranches = branches.filter(b => 
-          b.id === emp.branchId || 
+        const authorizedBranches = branches.filter(b =>
+          b.id === emp.branchId ||
           b.manager?.toUpperCase() === (emp.name || '').toUpperCase() ||
           (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any))
         ).map(b => ({
           name: b.name,
           isManager: b.manager?.toUpperCase() === (emp.name || '').toUpperCase()
         }));
-        
+
+        const branchRelation = (() => {
+          if (!currentBranchId) return null;
+          const b = branches.find(br => br.id === currentBranchId);
+          if (!b) return null;
+          if (b.manager?.toUpperCase() === (emp.name || '').toUpperCase()) return 'manager';
+          if (emp.branchId === currentBranchId) return 'regular';
+          if (emp.branchAllowances && typeof emp.branchAllowances === 'object' && currentBranchId in (emp.branchAllowances as any)) return 'reliever';
+          return null;
+        })();
+
         return (
-          <div 
-            key={emp.id} 
+          <div
+            key={emp.id}
             className={`bg-white p-4 ${UI_THEME.radius.card} border transition-all duration-500 flex flex-col justify-between group hover:shadow-lg hover:translate-y-[-2px] cursor-pointer relative overflow-hidden ${emp.isActive ? 'border-slate-200 hover:border-emerald-500' : 'border-slate-100 opacity-60 grayscale bg-slate-50/50'}`}
           >
             <div className="flex items-start gap-3 mb-3" onClick={() => onEdit?.(emp)}>
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-inner shrink-0 overflow-hidden ${emp.isActive ? 'bg-slate-100' : 'bg-white'}`}>
-                {emp.profile ? <img src={emp.profile} className="w-full h-full object-cover" alt={emp.name || ''} /> : <span className="font-black italic text-slate-300 text-sm">{getInitials(emp.name)}</span>}
+                <ProfileAvatar name={emp.name || ''} src={emp.profile} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-0.5">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <h3 className={`text-sm font-bold text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors`}>{emp.name || 'UNNAMED'}</h3>
+                    {branchRelation === 'manager' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-indigo-600 text-white uppercase tracking-widest">Manager</span>}
+                    {branchRelation === 'regular' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-widest">Regular</span>}
+                    {branchRelation === 'reliever' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-widest">Reliever</span>}
                     {emp.requestReset && <div className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></div>}
                 </div>
                 {emp.firstName && emp.lastName && (

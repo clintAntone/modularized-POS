@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { playSound } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 import { toDateStr } from '@/src/utils/reportUtils';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 
 import { getInitials, getEmployeeAllowance } from '../../lib/payroll';
 import { getTrueDate, getTrueManilaISOString } from '../../lib/time';
@@ -39,6 +40,10 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
     const [newExpenseName, setNewExpenseName] = useState('');
     const [newExpenseAmount, setNewExpenseAmount] = useState('');
+    const [newVaultDepositAmount, setNewVaultDepositAmount] = useState('');
+
+    // Vault start dates per branch (fetched once on mount)
+    const [branchVaultStartDates, setBranchVaultStartDates] = useState<Record<string, string | null>>({});
 
     // Handle click outside for custom dropdowns
     useEffect(() => {
@@ -52,6 +57,19 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Fetch vault start dates for all branches once on mount
+    useEffect(() => {
+        if (!supabase) return;
+        supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .select(`${DB_COLUMNS.BRANCH_ID}, ${DB_COLUMNS.VAULT_START_DATE}`)
+            .then(({ data }) => {
+                if (!data) return;
+                const map: Record<string, string | null> = {};
+                data.forEach((r: any) => { map[r[DB_COLUMNS.BRANCH_ID]] = r[DB_COLUMNS.VAULT_START_DATE] ?? null; });
+                setBranchVaultStartDates(map);
+            });
     }, []);
 
     const lastLoadedRef = useRef<{ branchId: string; date: string } | null>(null);
@@ -76,11 +94,17 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
             const branchEmployees = employees.filter(e => e.branchId === selectedBranchId && e.isActive);
 
+            const branch = branches.find(b => b.id === selectedBranchId);
+            const vaultStartDate = branchVaultStartDates[selectedBranchId] ?? null;
+            const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
+
             if (existingReport) {
                 setGrossSales(existingReport.grossSales);
                 setTotalExpenses(existingReport.totalExpenses);
                 setTotalSalary(existingReport.totalStaffPay);
                 setRentAndBills(existingReport.totalVaultProvision);
+
+                // Vault deposits always live in vault_data (both legacy PROVISION and modern VAULT_DEPOSIT)
                 setExpenseData(existingReport.expenseData || []);
                 setVaultData(existingReport.vaultData || []);
 
@@ -144,7 +168,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             setStatus('');
             lastLoadedRef.current = null;
         }
-    }, [selectedBranchId, selectedDate, salesReports, employees]);
+    }, [selectedBranchId, selectedDate, salesReports, employees, branchVaultStartDates]);
 
     const totalEmployeeNetPay = employeeEntries.reduce((sum, e) =>
         sum + Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction), 0
@@ -220,6 +244,10 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
         playSound('click');
     };
 
+    const selectedBranch = branches.find(b => b.id === selectedBranchId);
+    const selectedVaultStartDate = selectedBranchId ? (branchVaultStartDates[selectedBranchId] ?? null) : null;
+    const isLegacy = !(selectedBranch?.vaultEnabled) || !selectedVaultStartDate || selectedDate < selectedVaultStartDate;
+
     const addProvisionItem = () => {
         const amount = Number(selectedBranch?.dailyProvisionAmount) || 0;
         if (!amount) return;
@@ -230,6 +258,20 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             category: 'PROVISION',
             timestamp: `${selectedDate}T12:00:00Z`
         }]);
+        playSound('click');
+    };
+
+    const addVaultDepositItem = () => {
+        const amount = Number(newVaultDepositAmount);
+        if (!amount || amount <= 0) return;
+        setVaultData(prev => [...prev, {
+            id: `VDP-BF-${Date.now()}`,
+            name: 'VAULT DEPOSIT',
+            amount,
+            category: 'VAULT_DEPOSIT',
+            timestamp: `${selectedDate}T12:00:00Z`
+        }]);
+        setNewVaultDepositAmount('');
         playSound('click');
     };
 
@@ -300,6 +342,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 report_date: selectedDate,
                 gross_sales: Number(grossSales),
                 total_staff_pay: totalStaffPay,
+                // Expenses = operational only; vault deposits go to vault_data/total_vault_provision
                 total_expenses: derivedExpenses,
                 total_vault_provision: derivedVault,
                 net_roi: netRoi,
@@ -307,6 +350,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 session_data: isBackfillMode ? [] : (sourceReport?.sessionData || []),
                 staff_breakdown: staffBreakdown,
                 expense_data: expenseData,
+                // vault_data holds both PROVISION (legacy) and VAULT_DEPOSIT (modern) entries
                 vault_data: vaultData,
                 submitted_at: getTrueManilaISOString(),
                 sort_date: sortDate
@@ -314,6 +358,40 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
             const { error } = await supabase.from('sales_reports').upsert(reportData, { onConflict: 'id' });
             if (error) throw error;
+
+            // ── Sync branch_vaults.balance with the vault deposit delta ──────
+            // Only applies to non-legacy vault branches with VAULT_DEPOSIT entries.
+            const vaultStartDate = branchVaultStartDates[branch.id] ?? null;
+            const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
+            if (!reportIsLegacy && branch.vaultEnabled) {
+                const newVaultDepositTotal = vaultData
+                    .filter((e: any) => e.category === 'VAULT_DEPOSIT')
+                    .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+
+                const oldVaultDepositTotal = (sourceReport?.vaultData || [])
+                    .filter((e: any) => e.category === 'VAULT_DEPOSIT')
+                    .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+
+                const delta = newVaultDepositTotal - oldVaultDepositTotal;
+
+                if (delta !== 0) {
+                    // Fetch current balance then apply delta
+                    const { data: vaultRow } = await supabase
+                        .from(DB_TABLES.BRANCH_VAULTS)
+                        .select(DB_COLUMNS.VAULT_BALANCE)
+                        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+                        .maybeSingle();
+
+                    if (vaultRow) {
+                        const currentBalance = Number(vaultRow[DB_COLUMNS.VAULT_BALANCE] ?? 0);
+                        const { error: vaultErr } = await supabase
+                            .from(DB_TABLES.BRANCH_VAULTS)
+                            .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, currentBalance + delta) })
+                            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+                        if (vaultErr) throw vaultErr;
+                    }
+                }
+            }
 
             setStatus('Historical Ledger Synchronized Successfully');
             playSound('success');
@@ -327,8 +405,6 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             setIsProcessing(false);
         }
     };
-
-    const selectedBranch = branches.find(b => b.id === selectedBranchId);
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 pb-32 px-4 md:px-8">
@@ -585,47 +661,75 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 )}
             </div>
 
-            {/* Rent & Bills Deposit — itemized */}
+            {/* Rent & Bills Deposit (legacy) / Vault Deposit (vault-era) — itemized */}
             <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rent & Bills Deposit</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {isLegacy ? 'Rent & Bills Deposit' : 'Vault Deposit'}
+                    </span>
                     <div className="h-px flex-1 bg-slate-100"></div>
                     {derivedVault > 0 && (
-                        <span className="text-[10px] font-black text-indigo-600 tabular-nums">₱{derivedVault.toLocaleString()}</span>
+                        <span className={`text-[10px] font-black tabular-nums ${isLegacy ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                            ₱{derivedVault.toLocaleString()}
+                        </span>
                     )}
                 </div>
 
                 {vaultData.length > 0 && (
                     <div className="mb-3 space-y-1.5">
                         {vaultData.map((item, idx) => (
-                            <div key={item.id || idx} className="flex items-center gap-2 bg-indigo-50 rounded-xl px-3 py-2 border border-indigo-100">
-                                <span className="flex-1 text-[11px] font-bold text-indigo-700 uppercase truncate">{item.name}</span>
-                                <span className="text-[11px] font-black text-indigo-700 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
+                            <div key={item.id || idx} className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isLegacy ? 'bg-indigo-50 border-indigo-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                                <span className={`flex-1 text-[11px] font-bold uppercase truncate ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>{item.name}</span>
+                                <span className={`text-[11px] font-black tabular-nums shrink-0 ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>₱{Number(item.amount).toLocaleString()}</span>
                                 <button
                                     type="button"
                                     onClick={() => removeProvisionItem(idx)}
-                                    className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0"
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors shrink-0 ${isLegacy ? 'bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600' : 'bg-emerald-100 text-emerald-400 hover:bg-emerald-200 hover:text-emerald-600'}`}
                                 >×</button>
                             </div>
                         ))}
                     </div>
                 )}
 
-                <button
-                    type="button"
-                    onClick={addProvisionItem}
-                    disabled={!(Number(selectedBranch?.dailyProvisionAmount) > 0)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40"
-                >
-                    <span className="text-[11px] font-black uppercase tracking-widest">+ Add Deposit</span>
-                    {Number(selectedBranch?.dailyProvisionAmount) > 0 && (
-                        <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black tabular-nums">
-                            ₱{Number(selectedBranch?.dailyProvisionAmount).toLocaleString()}
-                        </span>
-                    )}
-                </button>
-                {!(Number(selectedBranch?.dailyProvisionAmount) > 0) && (
-                    <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+                {isLegacy ? (
+                    <>
+                        <button
+                            type="button"
+                            onClick={addProvisionItem}
+                            disabled={!(Number(selectedBranch?.dailyProvisionAmount) > 0)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40"
+                        >
+                            <span className="text-[11px] font-black uppercase tracking-widest">+ Add Deposit</span>
+                            {Number(selectedBranch?.dailyProvisionAmount) > 0 && (
+                                <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black tabular-nums">
+                                    ₱{Number(selectedBranch?.dailyProvisionAmount).toLocaleString()}
+                                </span>
+                            )}
+                        </button>
+                        {!(Number(selectedBranch?.dailyProvisionAmount) > 0) && (
+                            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+                        )}
+                    </>
+                ) : (
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">₱</span>
+                            <input
+                                type="number"
+                                placeholder="0"
+                                value={newVaultDepositAmount}
+                                onChange={e => setNewVaultDepositAmount(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVaultDepositItem(); } }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-[11px] font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={addVaultDepositItem}
+                            disabled={isReadOnly || !newVaultDepositAmount || Number(newVaultDepositAmount) <= 0}
+                            className="px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-[11px] font-black hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-30 shrink-0"
+                        >Add</button>
+                    </div>
                 )}
             </div>
 
@@ -646,7 +750,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         type="text"
                                         placeholder="SEARCH & ADD PERSONNEL BY NAME..."
                                         value={personnelSearch}
-                                        onChange={(e) => { setPersonnelSearch(e.target.value); setIsAddPersonnelOpen(true); }}
+                                        onChange={(e) => { setPersonnelSearch(e.target.value.toUpperCase()); setIsAddPersonnelOpen(true); }}
                                         onFocus={() => setIsAddPersonnelOpen(true)}
                                         className="w-full h-16 pl-14 pr-6 bg-white border-2 border-slate-100 rounded-[24px] text-[11px] font-black uppercase tracking-widest focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 outline-none transition-all placeholder:text-slate-300 shadow-sm"
                                     />
@@ -660,7 +764,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         <div className="max-h-[400px] overflow-y-auto no-scrollbar p-2">
                                             {employees
                                                 .filter(emp => emp.isActive && !employeeEntries.find(e => e.employeeId === emp.id))
-                                                .filter(emp => emp.name.toLowerCase().includes(personnelSearch.toLowerCase()))
+                                                .filter(emp => emp.name.toUpperCase().includes(personnelSearch))
                                                 .map(emp => (
                                                 <button
                                                     key={emp.id}

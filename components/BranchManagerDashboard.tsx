@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Branch, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole } from '../types';
+import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole } from '../types';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { UI_THEME } from '../constants/ui_designs';
 import { useBranchData } from './dashboard/hooks/useBranchData';
@@ -19,20 +19,20 @@ import { HowToSection } from './dashboard/sections/HowToSection';
 import { DeveloperSection } from './dashboard/sections/DeveloperSection';
 import { ClientHistorySection } from './dashboard/sections/ClientHistorySection';
 import { RemittanceSection } from './dashboard/sections/RemittanceSection';
-import { HeatmapSection } from './dashboard/sections/HeatmapSection';
 import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole, getEmployeeAllowance } from '../lib/payroll';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { supabase } from '../lib/supabase';
 import { getTrueDate, formatManilaDate, formatManilaTime, isTimeSynced, toManilaDateStr } from '../lib/time';
-import { 
-  AlertCircle, 
-  Clock, 
-  Store, 
-  Zap, 
-  ChevronRight, 
-  Lock
+import {
+  AlertCircle,
+  Clock,
+  Store,
+  Zap,
+  ChevronRight,
+  Lock,
+  Receipt,
 } from 'lucide-react';
 
 interface BranchManagerDashboardProps {
@@ -48,6 +48,7 @@ interface BranchManagerDashboardProps {
   auditLogs: AuditLog[];
   autoRefreshTime: string;
   isPaymongoEnabled?: boolean;
+  branchVault?: BranchVault | null;
   loading?: boolean;
   connStatus?: 'connecting' | 'connected' | 'error' | 'offline';
   pendingSyncCount?: number;
@@ -56,18 +57,24 @@ interface BranchManagerDashboardProps {
   onSyncStatusChange?: (isSyncing: boolean) => void;
 }
 
-export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'heatmap' | 'settings' | 'how_to' | 'backfill';
+export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill';
 
 const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) => {
   const [currentTime, setCurrentTime] = useState(getTrueDate());
   const [autoSyncStatus, setAutoSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
-  const [showStatusEnforcer, setShowStatusEnforcer] = useState(!props.branch.isOpen);
+  const todayForEnforcer = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(getTrueDate());
+  const hasTodayReportOnMount = !props.branch.isOpen && props.salesReports.some(
+    r => r.branchId === props.branch.id && r.reportDate === todayForEnforcer
+  );
+  const [showStatusEnforcer, setShowStatusEnforcer] = useState(!props.branch.isOpen && !hasTodayReportOnMount);
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const [showClosingWarning, setShowClosingWarning] = useState(false);
   const [hasDismissedWarning, setHasDismissedWarning] = useState(false);
-  const [showRemittanceOpenReminder, setShowRemittanceOpenReminder] = useState(false);
   const [showRemittanceCloseReminder, setShowRemittanceCloseReminder] = useState(false);
   const [showRemittanceFollowUpReminder, setShowRemittanceFollowUpReminder] = useState(false);
+  const [showVaultUnconfiguredNotif, setShowVaultUnconfiguredNotif] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const [isSwitchingOpen, setIsSwitchingOpen] = useState(false);
   const lastSyncTimeRef = useRef<string>(new Date().toISOString());
@@ -80,15 +87,16 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
   const branchEmployees = useMemo(() => {
     return props.employees.filter(e => {
+      if (!e.isActive) return false;
       const isHomeBranch = e.branchId === props.branch.id;
       const isAuthorized = e.branchAllowances && typeof e.branchAllowances === 'object' && props.branch.id in (e.branchAllowances as any);
       const isDesignatedManager = props.branch.manager?.toUpperCase() === (e.name || '').toUpperCase();
       const isTempManager = props.branch.tempManager?.toUpperCase() === (e.name || '').toUpperCase();
-      
+
       // Check if they have MANAGER role in branchAllowances for THIS branch
       const allowance = e.branchAllowances?.[props.branch.id];
       const hasManagerRole = allowance && typeof allowance === 'object' && allowance.role?.includes('MANAGER');
-      
+
       return isHomeBranch || isAuthorized || isDesignatedManager || isTempManager || hasManagerRole;
     });
   }, [props.employees, props.branch.id, props.branch.manager, props.branch.tempManager]);
@@ -101,26 +109,140 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   }, [branchEmployees, props.branch.id]);
 
   const [activeTab, setActiveTab] = useState<TabID>('pos');
+  const [mountedTabs, setMountedTabs] = useState<Set<TabID>>(new Set(['pos']));
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [pendingSwitchBranchId, setPendingSwitchBranchId] = useState<string | null>(null);
   const [unlockPin, setUnlockPin] = useState('');
   const [unlockError, setUnlockError] = useState('');
 
-  const [hasBills, setHasBills] = useState<boolean | null>(null);
-  const [showBillsGuide, setShowBillsGuide] = useState(false);
+  const [totalBillsAmount, setTotalBillsAmount] = useState(0);
   const [highlightDeposit, setHighlightDeposit] = useState(false);
 
+  // ── Device logging — upsert this device into device_logs on mount ────────
+  useEffect(() => {
+    const ua = navigator.userAgent;
+
+    // Browser
+    let browser = 'Unknown', browserVersion = '';
+    if (/Edg\//.test(ua)) { browser = 'Edge'; browserVersion = (ua.match(/Edg\/([\d.]+)/) || [])[1] || ''; }
+    else if (/Chrome\//.test(ua) && !/Chromium\//.test(ua)) { browser = 'Chrome'; browserVersion = (ua.match(/Chrome\/([\d.]+)/) || [])[1] || ''; }
+    else if (/Firefox\//.test(ua)) { browser = 'Firefox'; browserVersion = (ua.match(/Firefox\/([\d.]+)/) || [])[1] || ''; }
+    else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) { browser = 'Safari'; browserVersion = (ua.match(/Version\/([\d.]+)/) || [])[1] || ''; }
+    else if (/OPR\/|Opera\//.test(ua)) { browser = 'Opera'; browserVersion = (ua.match(/(?:OPR|Opera)\/([\d.]+)/) || [])[1] || ''; }
+
+    // OS
+    let os = 'Unknown';
+    if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+    else if (/Windows NT/.test(ua)) os = 'Windows';
+    else if (/iPhone|iPad|iPod/.test(ua)) os = /iPhone/.test(ua) ? 'iOS (iPhone)' : /iPad/.test(ua) ? 'iOS (iPad)' : 'iOS';
+    else if (/Android/.test(ua)) os = `Android ${(ua.match(/Android ([\d.]+)/) || [])[1] || ''}`.trim();
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+
+    // Device type
+    let deviceType = 'Desktop';
+    if (/iPhone|Android.*Mobile|Windows Phone/.test(ua)) deviceType = 'Mobile';
+    else if (/iPad|Android(?!.*Mobile)/.test(ua)) deviceType = 'Tablet';
+
+    // Device model — extracted from UA
+    let deviceModel = 'Unknown';
+    if (/iPhone/.test(ua)) deviceModel = 'iPhone';
+    else if (/iPad/.test(ua)) deviceModel = 'iPad';
+    else if (/Android/.test(ua)) {
+      const m = ua.match(/Android[\s\d.]+;\s*([^)]+)\)/);
+      if (m) deviceModel = m[1].trim();
+    } else if (/Macintosh/.test(ua)) deviceModel = 'Mac';
+    else if (/Windows NT/.test(ua)) deviceModel = 'Windows PC';
+
+    const screen = `${window.screen.width}x${window.screen.height}`;
+
+    // Stable per-device fingerprint stored in localStorage (persists across sessions)
+    const FP_KEY = 'hilot_pos_fp';
+    let fingerprintId = localStorage.getItem(FP_KEY);
+    if (!fingerprintId) {
+      fingerprintId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(FP_KEY, fingerprintId);
+    }
+
+    const deviceId = `${props.branch.id}_${browser}_${os}_${screen}`.replace(/\s+/g, '_');
+    const now = new Date().toISOString();
+
+    const doUpsert = (location: string | null) => {
+      supabase.from(DB_TABLES.DEVICE_LOGS)
+        .select('first_seen, session_count')
+        .eq('device_id', deviceId)
+        .maybeSingle()
+        .then(({ data: existing }) => {
+          const payload: Record<string, any> = {
+            device_id: deviceId,
+            branch_id: props.branch.id,
+            user_agent: ua,
+            browser,
+            browser_version: browserVersion,
+            os,
+            device_type: deviceType,
+            device_model: deviceModel,
+            screen_resolution: screen,
+            fingerprint_id: fingerprintId,
+            last_seen: now,
+            first_seen: existing?.first_seen ?? now,
+            session_count: (existing?.session_count ?? 0) + 1,
+          };
+          if (location) payload.location = location;
+          supabase.from(DB_TABLES.DEVICE_LOGS).upsert(payload, { onConflict: 'device_id' }).then(() => {});
+        });
+    };
+
+    // Request geolocation — best effort, gracefully skipped if denied/unavailable
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          // Reverse-geocode via OpenStreetMap Nominatim (no API key required)
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`)
+            .then(r => r.json())
+            .then(geo => {
+              const addr = geo?.address || {};
+              const location = [addr.city || addr.town || addr.village || addr.municipality, addr.state, addr.country_code?.toUpperCase()]
+                .filter(Boolean).join(', ');
+              doUpsert(location || `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+            })
+            .catch(() => doUpsert(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`));
+        },
+        () => doUpsert(null), // permission denied or unavailable
+        { timeout: 8000, maximumAge: 60 * 60 * 1000 } // cache location for 1 hour
+      );
+    } else {
+      doUpsert(null);
+    }
+  }, [props.branch.id]);
+
+  // ── Vault unconfigured notification (once per day, first login) ─────────
+  useEffect(() => {
+    if (!props.branch.vaultEnabled) return;
+    const hasTarget = (props.branchVault?.target ?? 0) > 0;
+    if (hasTarget) { setShowVaultUnconfiguredNotif(false); return; }
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const key = `vault_notif_${props.branch.id}_${today}`;
+    if (!localStorage.getItem(key)) {
+      setShowVaultUnconfiguredNotif(true);
+    }
+  }, [props.branch.id, props.branch.vaultEnabled, props.branchVault]);
+
+
+  // ── Total monthly bills amount (used by SalesTodaySection) ──────────────
   useEffect(() => {
     if (props.isRelief) return;
-    supabase
-      .from(DB_TABLES.BRANCH_BILLS)
-      .select('id', { count: 'exact', head: true })
+    supabase.from(DB_TABLES.BRANCH_BILLS)
+      .select('amount, category')
       .eq(DB_COLUMNS.BRANCH_ID, props.branch.id)
       .eq(DB_COLUMNS.IS_ACTIVE, true)
-      .then(({ count }) => {
-        const none = (count ?? 0) === 0;
-        setHasBills(!none);
-        if (none) setShowBillsGuide(true);
+      .then(({ data }) => {
+        const billsTotal = (data || [])
+          .filter((b: any) => b.category === 'MONTHLY' && Number(b.amount || 0) > 0)
+          .reduce((s: number, b: any) => s + Number(b.amount), 0);
+        setTotalBillsAmount(billsTotal);
       });
   }, [props.branch.id, props.isRelief]);
 
@@ -131,46 +253,14 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     } catch { return new Set(); }
   });
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(`hidden_staff_${props.branch.id}`, JSON.stringify([...hiddenStaffNames]));
+    } catch { /* storage quota exceeded — ignore */ }
+  }, [hiddenStaffNames, props.branch.id]);
+
   const { yearlyCycles } = useBranchData(props.branch, props.transactions, props.expenses);
 
-  const [unsettledPayrollCount, setUnsettledPayrollCount] = useState(0);
-
-  useEffect(() => {
-    const checkUnsettled = async () => {
-      try {
-        const { data } = await supabase
-          .from('payroll')
-          .select('settlement, status')
-          .eq('branch_id', props.branch.id);
-
-        const settledDates = new Set(
-          (data || []).filter(r => r.status === 'settled').map(r => r.settlement)
-        );
-
-        const toDateStr = (d: Date) => {
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${y}-${m}-${day}`;
-        };
-
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-
-        const count = yearlyCycles.filter(c => {
-          if (c.isFuture) return false;
-          const endDate = new Date(c.endDate);
-          endDate.setHours(23, 59, 59, 999);
-          if (endDate >= todayStart) return false; // skip current/future cycles
-          return !settledDates.has(toDateStr(new Date(c.startDate)));
-        }).length;
-
-        setUnsettledPayrollCount(count);
-      } catch { /* non-critical */ }
-    };
-
-    if (yearlyCycles.length > 0) checkUnsettled();
-  }, [yearlyCycles, props.branch.id]);
 
   const managedNodes = useMemo(() => {
     const empName = currentEmployee?.name?.toUpperCase() || props.user.username?.toUpperCase();
@@ -212,10 +302,33 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   useEffect(() => {
     if (props.branch.isOpen) {
       setShowStatusEnforcer(false);
+      return;
+    }
+
+    // Branch is closed — check if there's already a sales report for today.
+    // This happens when pg_cron auto-closes branches at midnight but the manager
+    // has already submitted a report today and is refreshing their POS.
+    const todayStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(getTrueDate());
+    const hasTodayReport = props.salesReports.some(
+      r => r.branchId === props.branch.id && r.reportDate === todayStr
+    );
+
+    if (hasTodayReport) {
+      // Silently re-open the branch so the popup never appears
+      supabase
+        .from(DB_TABLES.BRANCHES)
+        .update({ is_open: true })
+        .eq('id', props.branch.id)
+        .then(({ error }) => {
+          if (error) console.error('Auto re-open failed:', error);
+        });
+      setShowStatusEnforcer(false);
     } else {
       setShowStatusEnforcer(true);
     }
-  }, [props.branch.isOpen]);
+  }, [props.branch.isOpen, props.salesReports, props.branch.id]);
 
   // MAINTENANCE SENTINEL
   useEffect(() => {
@@ -275,7 +388,6 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   // REMITTANCE REMINDER: cutoff day (open + 1h before close) + follow-up next day if not submitted
   useEffect(() => {
     if (!props.branch.isOpen) {
-      setShowRemittanceOpenReminder(false);
       setShowRemittanceCloseReminder(false);
       setShowRemittanceFollowUpReminder(false);
       return;
@@ -290,12 +402,9 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     const isCutoffDay = manilaDOW === cutoff;
     const isFollowUpDay = manilaDOW === (cutoff + 1) % 7;
 
-    // ── Cutoff day reminders ──
+    // ── Cutoff day: only the 1-hour-before reminder ──
     if (isCutoffDay) {
       setShowRemittanceFollowUpReminder(false);
-      const openKey = `remittance_open_reminded_${manilaDateStr}`;
-      if (!localStorage.getItem(openKey)) setShowRemittanceOpenReminder(true);
-
       if (props.branch.closingTime) {
         const [closeH, closeM] = props.branch.closingTime.split(':').map(Number);
         const closingDate = getTrueDate();
@@ -311,21 +420,27 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
     // ── Day-after follow-up: only if remittance not yet submitted ──
     if (isFollowUpDay) {
-      setShowRemittanceOpenReminder(false);
       setShowRemittanceCloseReminder(false);
       const submittedLabel = localStorage.getItem(`remittance_submitted_${props.branch.id}`);
       const followUpKey = `remittance_followup_reminded_${manilaDateStr}`;
-      // Determine the cutoff period label we'd expect — if submitted label exists, skip
       if (!submittedLabel && !localStorage.getItem(followUpKey)) {
         setShowRemittanceFollowUpReminder(true);
       }
       return;
     }
 
-    setShowRemittanceOpenReminder(false);
     setShowRemittanceCloseReminder(false);
     setShowRemittanceFollowUpReminder(false);
   }, [currentTime, props.branch.isOpen, props.branch.weeklyCutoff, props.branch.closingTime, props.branch.id]);
+
+  // Auto-refresh the reports tab every 60 seconds while it's active
+  useEffect(() => {
+    if (activeTab !== 'sales_reports') return;
+    const interval = setInterval(() => {
+      props.onRefresh?.(true);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [activeTab, props.onRefresh]);
 
   const changeTab = (tabId: TabID) => {
     resumeAudioContext();
@@ -333,6 +448,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       if (tabId !== 'pos') {
         window.history.pushState({ tab: tabId }, '');
       }
+      setMountedTabs(prev => { const next = new Set(prev); next.add(tabId); return next; });
       setActiveTab(tabId);
       if (['salaries', 'reports_master', 'sales'].includes(tabId)) {
         props.onRefresh?.(true);
@@ -484,10 +600,9 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     }, 0);
 
     // Exclude RELIEVER PAYOUT expenses from the DB sum — they're already counted via relieverPay (live calculation).
-    // This prevents double-counting once syncRelieverPayouts creates the DB expense.
+    // VAULT_DEPOSIT is now stored in sales_reports.vault_data, not in expenses table.
     const nonRelieverOperationalExp = todayExps.filter(e => e.category === 'OPERATIONAL' && !e.name?.startsWith('RELIEVER PAYOUT:')).reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const operationalExp = nonRelieverOperationalExp + relieverPay;
-    const provisionExp = todayExps.filter(e => e.category === 'PROVISION').reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     const totalAllowances = Object.values(staffSummary).filter((item: any) => !item.isReliever).reduce((sum: any, item: any) => sum + (Number(item.allowance) || 0), 0);
 
@@ -502,13 +617,25 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
     const totalStaffLiability = regularStaffPay + totalAllowances + otAdditions - lateDeductions;
 
+    const vault = props.branchVault ?? null;
+    const isVaultActive = (props.branch.vaultEnabled ?? false) && vault !== null && vault.target > 0;
+    const vaultWithdrawal = todayExps
+      .filter(e => e.category === 'VAULT_WITHDRAWAL')
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const provisionExp = todayExps
+      .filter(e => e.category === 'PROVISION')
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
     return {
       gross,
       totalStaffLiability,
       totalCashAdvances,
       operationalExp,
+      vaultWithdrawal,
       provisionExp,
-      net: gross - operationalExp - provisionExp - totalStaffLiability
+      isVaultActive,
+      // net excludes vault provision — auto-save will merge it from the report
+      net: gross - operationalExp + vaultWithdrawal - provisionExp - totalStaffLiability
     };
   }, [todayTxs, todayExps, todayAtt, staffSummary, branchEmployees, props.branch.id]);
 
@@ -544,26 +671,60 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
       const reportId = `${props.branch.id}_${todayStr.replace(/-/g, '')}`;
 
-      console.log('[SalesReport] Saving report:', { gross: totals.gross, staffPay: totals.totalStaffLiability, opExp: totals.operationalExp, txCount: todayTxs.length, expCount: todayExps.length });
+      // Always fetch the existing report row before writing so any remote-only changes
+      // (vault deposits from another device, admin validation flags, etc.) are preserved
+      // rather than silently overwritten by this device's auto-save.
+      const { data: existingReport } = await supabase
+        .from(DB_TABLES.SALES_REPORTS)
+        .select(`${DB_COLUMNS.IS_VALIDATED}, ${DB_COLUMNS.TOTAL_VAULT_PROVISION}`)
+        .eq(DB_COLUMNS.ID, reportId)
+        .maybeSingle();
 
-      const payload = {
+      // If an admin has already validated today's report, don't let auto-save overwrite it.
+      if (existingReport?.[DB_COLUMNS.IS_VALIDATED]) {
+        prevTotalsRef.current = currentTotalsStr;
+        setAutoSyncStatus('synced');
+        return;
+      }
+
+      // For vault branches: vault_data and total_vault_provision are owned exclusively
+      // by the vault deposit flow (handleVaultDeposit). Auto-save must never touch them —
+      // omitting them from the upsert payload means Supabase leaves those columns as-is,
+      // eliminating the race condition where two simultaneous writes clobber each other.
+      const isVaultBranch = totals.isVaultActive;
+
+      // For vault branches, read the saved total_vault_provision so net_roi correctly
+      // reflects deposits the manager made (they aren't in todayExps).
+      const savedVaultProvision = isVaultBranch
+        ? Number(existingReport?.[DB_COLUMNS.TOTAL_VAULT_PROVISION] || 0)
+        : 0;
+
+      const basePayload = {
           [DB_COLUMNS.ID]: reportId,
           [DB_COLUMNS.BRANCH_ID]: props.branch.id,
           [DB_COLUMNS.REPORT_DATE]: todayStr,
           [DB_COLUMNS.SUBMITTED_AT]: new Date().toISOString(),
           [DB_COLUMNS.GROSS_SALES]: totals.gross,
           [DB_COLUMNS.TOTAL_STAFF_PAY]: totals.totalStaffLiability,
-          [DB_COLUMNS.TOTAL_EXPENSES]: totals.operationalExp,
-          [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totals.provisionExp,
-          [DB_COLUMNS.NET_ROI]: totals.net,
+          [DB_COLUMNS.TOTAL_EXPENSES]: Math.max(0, totals.operationalExp - (totals.vaultWithdrawal || 0)),
+          [DB_COLUMNS.NET_ROI]: totals.net - (isVaultBranch ? savedVaultProvision : totals.provisionExp),
           [DB_COLUMNS.SESSION_DATA]: todayTxs.map(t => ({
             ...t,
             settlement: t.paymentMethod?.toLowerCase() || 'cash'
           })),
           [DB_COLUMNS.STAFF_BREAKDOWN]: Object.values(staffSummary).map(({ txs, ...rest }: any) => rest),
-          [DB_COLUMNS.EXPENSE_DATA]: todayExps.filter(e => e.category === 'OPERATIONAL'),
-          [DB_COLUMNS.VAULT_DATA]: todayExps.filter(e => e.category !== 'OPERATIONAL')
+          [DB_COLUMNS.EXPENSE_DATA]: todayExps.filter(e => ['OPERATIONAL', 'VAULT_WITHDRAWAL'].includes(e.category)),
+          [DB_COLUMNS.VAULT_BALANCE_SNAPSHOT]: props.branchVault?.balance ?? 0,
         };
+
+      // Non-vault branches own their own vault-provision columns (expense-based deposits).
+      const payload = isVaultBranch
+        ? basePayload
+        : {
+            ...basePayload,
+            [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totals.provisionExp,
+            [DB_COLUMNS.VAULT_DATA]: todayExps.filter(e => !['OPERATIONAL', 'VAULT_FUND_DEPOSIT'].includes(e.category)),
+          };
         const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert(payload);
         if (error) throw error;
 
@@ -577,6 +738,12 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     }, 3000); // Increased to 3 seconds for better performance
     return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
   }, [totals, todayTxs.length, todayExps.length, todayAtt.length, props.branch.id, todayStr, staffSummary, props.loading]);
+
+  // ── Manila date helpers ──────────────────────────────────────────────────
+  const manilaDay = useMemo(() => {
+    const manila = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(getTrueDate());
+    return parseInt(manila.split('-')[2], 10);
+  }, [currentTime]);
 
   const handleToggleBranchStatus = async () => {
     setIsOpening(true);
@@ -640,13 +807,10 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     props.salesReports.some(r => r.branchId === props.branch.id && r.reportDate === todayStr)
   , [props.salesReports, props.branch.id, todayStr]);
 
-  const hasDailyProvision = useMemo(() =>
-    todayExps.some(e => e.category === 'PROVISION')
-  , [todayExps]);
 
   const handleUnlock = () => {
     playSound('click');
-    const managerPin = props.user.loginPin || currentEmployee?.loginPin;
+    const managerPin = props.user.loginPin;
     
     if (unlockPin === managerPin) {
       if (pendingSwitchBranchId && props.onSwitchBranch) {
@@ -668,26 +832,6 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     
     return (
       <div className="space-y-6">
-        {!todayReportExists && props.branch.isOpen && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <h4 className="text-[11px] font-black text-amber-900 uppercase tracking-tight">Daily Deposit Reminder</h4>
-              <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-widest leading-none mt-1">
-                You haven't submitted your daily sales report yet. Please ensure all deposits are recorded.
-              </p>
-            </div>
-            <button
-              onClick={() => { setActiveTab('sales'); playSound('click'); }}
-              className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-700 transition-colors"
-            >
-              Go to Sales
-            </button>
-          </div>
-        )}
-
         {showRemittanceCloseReminder && (
           <div className="bg-amber-600 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500 shadow-lg shadow-amber-200">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white shrink-0">
@@ -700,7 +844,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
               </p>
             </div>
             <button
-              onClick={() => { setActiveTab('remittance'); playSound('click'); }}
+              onClick={() => { changeTab('remittance'); playSound('click'); }}
               className="px-3 py-2 bg-white text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-50 transition-colors shrink-0"
             >
               Review
@@ -717,34 +861,6 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           </div>
         )}
 
-        {showRemittanceOpenReminder && !showRemittanceCloseReminder && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <h4 className="text-[11px] font-black text-amber-900 uppercase tracking-tight">Today is Your Remittance Cut-Off</h4>
-              <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-widest leading-none mt-1">
-                Please review and finalize your weekly remittance report before the period closes tonight.
-              </p>
-            </div>
-            <button
-              onClick={() => { setActiveTab('remittance'); playSound('click'); }}
-              className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
-            >
-              Review
-            </button>
-            <button
-              onClick={() => {
-                const manilaDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
-                localStorage.setItem(`remittance_open_reminded_${manilaDateStr}`, '1');
-                setShowRemittanceOpenReminder(false);
-              }}
-              className="w-7 h-7 bg-amber-100 hover:bg-amber-200 rounded-lg flex items-center justify-center text-amber-600 text-[12px] font-black shrink-0 transition-colors"
-              aria-label="Dismiss"
-            >✕</button>
-          </div>
-        )}
 
         {showRemittanceFollowUpReminder && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -758,7 +874,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
               </p>
             </div>
             <button
-              onClick={() => { setActiveTab('remittance'); playSound('click'); }}
+              onClick={() => { changeTab('remittance'); playSound('click'); }}
               className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
             >
               Go
@@ -775,115 +891,47 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           </div>
         )}
 
-        {unsettledPayrollCount > 0 && activeTab === 'salaries' && (
-          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3.5 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
-            <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600 shrink-0 text-sm">💸</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-black text-violet-900 uppercase tracking-tight">
-                {unsettledPayrollCount} Payroll {unsettledPayrollCount === 1 ? 'Cycle' : 'Cycles'} Pending Settlement
-              </p>
-              <p className="text-[9px] font-bold text-violet-500 uppercase tracking-widest mt-0.5">Staff payouts not yet marked as settled</p>
-            </div>
-            <button
-              onClick={() => { setActiveTab('salaries'); playSound('click'); }}
-              className="px-3 py-2 bg-violet-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-violet-700 transition-colors shrink-0"
-            >
-              Review
-            </button>
-          </div>
-        )}
-
-        {!hasDailyProvision && props.branch.isOpen && (props.branch.dailyProvisionAmount || 0) > 0 && activeTab === 'sales' && (
-          <div className="bg-rose-600 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500 shadow-lg shadow-rose-200">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white shrink-0">
-              <AlertCircle className="w-5 h-5" />
+        {showVaultUnconfiguredNotif && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
             </div>
             <div className="flex-1">
-              <h4 className="text-[12px] font-black text-white uppercase tracking-widest">⚠ Rent & Bills Not Logged</h4>
-              <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest leading-none mt-1">
-                Today's Daily R&B Provision (₱{(props.branch.dailyProvisionAmount || 0).toLocaleString()}) has not been recorded yet.
+              <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-tight">Vault Fund Not Configured</h4>
+              <p className="text-[10px] font-bold text-indigo-700/80 uppercase tracking-widest leading-none mt-1">
+                Your vault fund has no target set. Contact your admin to configure it.
               </p>
             </div>
             <button
               onClick={() => {
-                playSound('click');
-                setHighlightDeposit(true);
-                setTimeout(() => {
-                  document.getElementById('daily-deposit-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 50);
-                setTimeout(() => setHighlightDeposit(false), 3500);
+                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                localStorage.setItem(`vault_notif_${props.branch.id}_${today}`, '1');
+                setShowVaultUnconfiguredNotif(false);
               }}
-              className="px-4 py-2 bg-white text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-rose-50 transition-colors shrink-0"
-            >
-              Log Now
-            </button>
+              className="w-7 h-7 bg-indigo-100 hover:bg-indigo-200 rounded-lg flex items-center justify-center text-indigo-600 text-[12px] font-black shrink-0 transition-colors"
+              aria-label="Dismiss"
+            >✕</button>
           </div>
         )}
 
-        {(() => {
-          switch (activeTab) {
-            case 'pos': return <POSSection {...props} attendance={props.attendance} todayStr={todayStr} isClosedMode={isClosedMode} isPaymongoEnabled={props.isPaymongoEnabled} onSyncStatusChange={props.onSyncStatusChange} loading={props.loading} hiddenStaffNames={hiddenStaffNames} />;
-            case 'sales': return <SalesTodaySection {...props} user={props.user} todayStr={todayStr} setActiveTab={setActiveTab as any} connStatus={props.connStatus} pendingSyncCount={props.pendingSyncCount} hiddenStaffNames={hiddenStaffNames} setHiddenStaffNames={setHiddenStaffNames} isClosedMode={isClosedMode} onRefresh={props.onRefresh} loading={props.loading} highlightDeposit={highlightDeposit} />;
-            case 'staff': return <StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={isClosedMode} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} />;
-            case 'clients': return <ClientHistorySection branch={props.branch} />;
-            case 'remittance': return <RemittanceSection branch={props.branch} salesReports={props.salesReports} />;
-            case 'heatmap': return <HeatmapSection branch={props.branch} salesReports={props.salesReports} />;
-            case 'expenses_hub': return (
-                <ExpensesManagerSection 
-                    branch={props.branch} 
-                    expenses={props.expenses} 
-                    salesReports={props.salesReports} 
-                    isClosedMode={isClosedMode} 
-                    onRefresh={props.onRefresh} 
-                    onSyncStatusChange={props.onSyncStatusChange} 
-                />
-            );
-            case 'monthly_bills': return (
-                <MonthlyBillsSection
-                    user={props.user}
-                    branch={props.branch}
-                    expenses={props.expenses}
-                    salesReports={props.salesReports}
-                    isClosedMode={isClosedMode}
-                    onRefresh={props.onRefresh}
-                />
-            );
-            case 'expense_reports': return (
-              <ExpenseLedgerSection
-                branch={props.branch}
-                expenses={props.expenses}
-                salesReports={props.salesReports}
-              />
-            );
-            case 'salaries': return <PayrollSection {...props} attendance={props.attendance} onRefresh={() => props.onRefresh?.(true)} />;
-            case 'sales_reports': return <ReportsMasterSection branch={props.branch} salesReports={props.salesReports} branches={props.branches} employees={props.employees} />;
-            case 'backfill': return (
-              <BackfillRequestSection 
-                branch={props.branch} 
-                employees={branchEmployees} 
-                transactions={props.transactions}
-                expenses={props.expenses}
-                attendance={props.attendance}
-                salesReports={props.salesReports}
-                onRefresh={props.onRefresh} 
-              />
-            );
-            case 'settings': return (
-                <SettingsSection
-                    user={props.user}
-                    branch={props.branch}
-                    branches={props.branches}
-                    todayTxs={todayTxs}
-                    todayAtt={todayAtt}
-                    todayReportExists={todayReportExists}
-                    employees={props.employees}
-                    onRefresh={props.onRefresh}
-                />
-            );
-            case 'how_to': return <HowToSection role={UserRole.BRANCH_MANAGER} />;
-            default: return null;
-          }
-        })()}
+
+
+        {/* Each tab is mounted once on first visit and kept alive (hidden when inactive) to preserve form state */}
+        {mountedTabs.has('pos') && <div className={activeTab !== 'pos' ? 'hidden' : ''}><POSSection {...props} attendance={props.attendance} todayStr={todayStr} isClosedMode={isClosedMode} isPaymongoEnabled={props.isPaymongoEnabled} onSyncStatusChange={props.onSyncStatusChange} loading={props.loading} hiddenStaffNames={hiddenStaffNames} /></div>}
+        {mountedTabs.has('sales') && <div className={activeTab !== 'sales' ? 'hidden' : ''}><SalesTodaySection {...props} user={props.user} todayStr={todayStr} setActiveTab={setActiveTab as any} connStatus={props.connStatus} pendingSyncCount={props.pendingSyncCount} hiddenStaffNames={hiddenStaffNames} setHiddenStaffNames={setHiddenStaffNames} isClosedMode={isClosedMode} onRefresh={props.onRefresh} loading={props.loading} totalBillsAmount={totalBillsAmount} /></div>}
+        {mountedTabs.has('staff') && <div className={activeTab !== 'staff' ? 'hidden' : ''}><StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={isClosedMode} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} /></div>}
+        {mountedTabs.has('clients') && <div className={activeTab !== 'clients' ? 'hidden' : ''}><ClientHistorySection branch={props.branch} /></div>}
+        {mountedTabs.has('remittance') && <div className={activeTab !== 'remittance' ? 'hidden' : ''}><RemittanceSection branch={props.branch} salesReports={props.salesReports} /></div>}
+        {mountedTabs.has('expenses_hub') && <div className={activeTab !== 'expenses_hub' ? 'hidden' : ''}><ExpensesManagerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} isClosedMode={isClosedMode} onRefresh={props.onRefresh} onSyncStatusChange={props.onSyncStatusChange} /></div>}
+        {mountedTabs.has('monthly_bills') && <div className={activeTab !== 'monthly_bills' ? 'hidden' : ''}><MonthlyBillsSection branch={props.branch} branchVault={props.branchVault} salesReports={props.salesReports} isClosedMode={isClosedMode} onRefresh={props.onRefresh} /></div>}
+        {mountedTabs.has('expense_reports') && <div className={activeTab !== 'expense_reports' ? 'hidden' : ''}><ExpenseLedgerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} /></div>}
+        {mountedTabs.has('salaries') && <div className={activeTab !== 'salaries' ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={() => props.onRefresh?.(true)} /></div>}
+        {mountedTabs.has('sales_reports') && <div className={activeTab !== 'sales_reports' ? 'hidden' : ''}><ReportsMasterSection branch={props.branch} salesReports={props.salesReports} branches={props.branches} employees={props.employees} branchVault={props.branchVault} /></div>}
+        {mountedTabs.has('backfill') && <div className={activeTab !== 'backfill' ? 'hidden' : ''}><BackfillRequestSection branch={props.branch} branchVault={props.branchVault} employees={branchEmployees} transactions={props.transactions} expenses={props.expenses} attendance={props.attendance} salesReports={props.salesReports} onRefresh={props.onRefresh} /></div>}
+        {mountedTabs.has('settings') && <div className={activeTab !== 'settings' ? 'hidden' : ''}><SettingsSection user={props.user} branch={props.branch} branches={props.branches} todayTxs={todayTxs} todayAtt={todayAtt} todayReportExists={todayReportExists} employees={props.employees} branchVault={props.branchVault} onRefresh={props.onRefresh} /></div>}
+        {mountedTabs.has('how_to') && <div className={activeTab !== 'how_to' ? 'hidden' : ''}><HowToSection role={UserRole.BRANCH_MANAGER} /></div>}
       </div>
     );
   };
@@ -893,6 +941,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   }, [props.branch.name]);
 
   return (
+    <>
       <div className="pb-32 min-h-screen bg-slate-50">
         {showClosingWarning && (
             <div className={UI_THEME.layout.modalWrapper}>
@@ -907,7 +956,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
                 {/* Pre-closing checklist */}
                 <div className="space-y-3 mb-8 text-left">
-                  {/* Sales Report / Deposit */}
+                  {/* Sales Report */}
                   <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${todayReportExists ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-[14px] ${todayReportExists ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
                       {todayReportExists ? '✓' : '!'}
@@ -915,12 +964,12 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
                     <div className="flex-1 min-w-0">
                       <p className={`text-[11px] font-black uppercase tracking-tight ${todayReportExists ? 'text-emerald-800' : 'text-rose-800'}`}>Daily Sales Report</p>
                       <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${todayReportExists ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        {todayReportExists ? 'Deposit recorded — you\'re good' : 'Not submitted yet — deposit required'}
+                        {todayReportExists ? 'Submitted — you\'re good' : 'Not submitted yet — required before closing'}
                       </p>
                     </div>
                     {!todayReportExists && (
                       <button
-                        onClick={() => { setActiveTab('sales'); setShowClosingWarning(false); setHasDismissedWarning(true); playSound('click'); }}
+                        onClick={() => { changeTab('sales'); setShowClosingWarning(false); setHasDismissedWarning(true); playSound('click'); }}
                         className="px-3 py-2 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0"
                       >
                         Go
@@ -928,28 +977,43 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
                     )}
                   </div>
 
-                  {/* Rent & Bills Provision */}
-                  {(props.branch.dailyProvisionAmount || 0) > 0 && (
-                    <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${hasDailyProvision ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-[14px] ${hasDailyProvision ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
-                        {hasDailyProvision ? '✓' : '!'}
+                  {/* Vault Fund reminder — shown for all vault-enabled branches when there's something to remit */}
+                  {props.branch.vaultEnabled && props.branchVault && totals.net > 0 && (() => {
+                    const hasTarget = props.branchVault!.target > 0;
+                    const targetReached = hasTarget && props.branchVault!.balance >= props.branchVault!.target;
+                    // vault provision is now tracked via sales_reports.total_vault_provision;
+                    // use vault balance change as a proxy for "deposited today"
+                    const depositedToday = props.branchVault!.balance > 0;
+                    const done = targetReached || depositedToday;
+                    return (
+                      <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${done ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-[14px] ${done ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                          {done ? '✓' : '!'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] font-black uppercase tracking-tight ${done ? 'text-emerald-800' : 'text-amber-900'}`}>Vault Fund</p>
+                          <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${done ? 'text-emerald-600' : 'text-amber-700'}`}>
+                            {targetReached
+                              ? `Target reached — ₱${props.branchVault!.balance.toLocaleString()} / ₱${props.branchVault!.target.toLocaleString()}`
+                              : depositedToday
+                                ? `Balance ₱${props.branchVault!.balance.toLocaleString()}${hasTarget ? ` / Target ₱${props.branchVault!.target.toLocaleString()}` : ''}`
+                                : hasTarget
+                                  ? `No remittance yet · Balance ₱${props.branchVault!.balance.toLocaleString()} / Target ₱${props.branchVault!.target.toLocaleString()}`
+                                  : `No remittance yet — remit to vault before closing`
+                            }
+                          </p>
+                        </div>
+                        {!done && (
+                          <button
+                            onClick={() => { changeTab('sales'); setShowClosingWarning(false); setHasDismissedWarning(true); playSound('click'); }}
+                            className="px-3 py-2 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0"
+                          >
+                            Go
+                          </button>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[11px] font-black uppercase tracking-tight ${hasDailyProvision ? 'text-emerald-800' : 'text-rose-800'}`}>Rent & Bills Provision</p>
-                        <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${hasDailyProvision ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {hasDailyProvision ? `₱${(props.branch.dailyProvisionAmount || 0).toLocaleString()} logged` : `₱${(props.branch.dailyProvisionAmount || 0).toLocaleString()} not recorded yet`}
-                        </p>
-                      </div>
-                      {!hasDailyProvision && (
-                        <button
-                          onClick={() => { setActiveTab('expenses_hub'); setShowClosingWarning(false); setHasDismissedWarning(true); playSound('click'); }}
-                          className="px-3 py-2 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0"
-                        >
-                          Go
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -1070,72 +1134,15 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
 
           <BranchNavbar
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={changeTab}
               enableShiftTracking={props.branch.enableShiftTracking || false}
               isRelief={props.isRelief}
-              showBillsAlert={hasBills === false}
+              showBillsAlert={false}
+              vaultEnabled={props.branch.vaultEnabled ?? false}
           />
         </div>
 
-        {/* Bills Setup Guide Modal */}
-        {showBillsGuide && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-sm rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-300">
-              {/* Header */}
-              <div className="bg-slate-900 px-6 pt-6 pb-5 text-white relative overflow-hidden">
-                <div className="absolute -top-6 -right-6 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="w-10 h-10 bg-amber-400/20 rounded-xl flex items-center justify-center mb-3">
-                  <span className="text-xl">🧾</span>
-                </div>
-                <h3 className="text-[15px] font-black uppercase tracking-tight leading-tight">Monthly Bills Not Set Up</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configuration Required</p>
-              </div>
 
-              {/* Body */}
-              <div className="px-6 py-5 space-y-4">
-                <p className="text-[12px] font-medium text-slate-600 leading-relaxed">
-                  Track your recurring branch expenses so you never miss a payment. Set up bills for things like:
-                </p>
-                <ul className="space-y-2">
-                  {['Rent', 'Electricity', 'Water', 'Internet / Cable', 'Other dues'].map(item => (
-                    <li key={item} className="flex items-center gap-2.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-widest">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Arrow hint */}
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-                  <span className="text-amber-500 text-base animate-bounce">↑</span>
-                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
-                    Find it under <span className="text-amber-900">Monthly Bills</span> in the nav
-                  </p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="px-6 pb-6 flex gap-2">
-                <button
-                  onClick={() => setShowBillsGuide(false)}
-                  className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 border border-slate-200 transition-all"
-                >
-                  Later
-                </button>
-                <button
-                  onClick={() => {
-                    setShowBillsGuide(false);
-                    setActiveTab('monthly_bills');
-                    playSound('click');
-                  }}
-                  className="flex-[2] py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-amber-500 transition-all shadow-lg active:scale-95"
-                >
-                  Set Up Now →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {showUnlockModal && (
           <div className={UI_THEME.layout.modalWrapper}>
@@ -1181,6 +1188,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           {renderContent()}
         </div>
       </div>
+    </>
   );
 };
 

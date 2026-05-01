@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { SalesReport, Expense, Branch } from '../../../../types';
+import { SalesReport, Expense, Branch, BranchVault } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 import { toDateStr, getWeekRange, parseDate } from '@/src/utils/reportUtils';
@@ -11,7 +11,6 @@ import { ExpenseDetailModal } from '../sales-today/ExpenseDetailModal';
 import { ReportEditorModal } from '../../../superadmin/ReportEditorModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { toPng } from 'html-to-image';
 import { supabase } from '../../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../../constants/db_schema';
 
@@ -25,9 +24,11 @@ interface ReportDashboardModalProps {
   canValidate?: boolean;
   branch?: Branch;
   branches?: Branch[];
+  branchVaults?: BranchVault[];
+  vaultStartDate?: string | null;
 }
 
-export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report, constituents = [], branchName, employees = [], onClose, canEdit, canValidate = false, branch, branches = [] }) => {
+export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report, constituents = [], branchName, employees = [], onClose, canEdit, canValidate = false, branch, branches = [], branchVaults = [], vaultStartDate }) => {
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [drilldownReport, setDrilldownReport] = useState<SalesReport | null>(null);
   const [drilldownConstituents, setDrilldownConstituents] = useState<SalesReport[]>([]);
@@ -40,17 +41,73 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   useEffect(() => {
     setMounted(true);
-    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
     };
   }, []);
 
   const isAggregate = constituents.length > 0;
 
-  const vaultWithdrawals = useMemo(() => (report.vaultData || []).filter((e: any) => e.category === 'SETTLEMENT'), [report.vaultData]);
-  const vaultContributions = useMemo(() => (report.vaultData || []).filter((e: any) => e.category === 'PROVISION'), [report.vaultData]);
-  const operationalExpenses = useMemo(() => (report.expenseData || []).filter((e: any) => e.category === 'OPERATIONAL'), [report.expenseData]);
+  const reportDateStr = report.reportDate?.slice(0, 10) ?? '';
+  const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
+  const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
+  const isLegacy = !reportBranchVaultEnabled || !resolvedVaultStartDate || reportDateStr < resolvedVaultStartDate;
+
+  // Derive net operational expense from report-level fields (avoids relying on expenseData snapshot).
+  // Formula: gross − netRoi − totalStaffPay − totalVaultProvision
+  // Works for both legacy (totalVaultProvision = provision) and non-legacy (totalVaultProvision = vault deposit).
+  const getConstituentCashOut = (r: SalesReport): number => {
+    return Math.max(0, r.grossSales - r.netRoi - r.totalStaffPay - Number(r.totalVaultProvision || 0));
+  };
+
+  // Vault deposit for non-legacy constituents — stored as totalVaultProvision
+  const getConstituentVaultDeposit = (r: SalesReport): number => {
+    if (getConstituentIsLegacy(r)) return 0;
+    return Number(r.totalVaultProvision || 0);
+  };
+
+  // Per-constituent legacy check using each branch's own vault start date and vaultEnabled flag
+  const getConstituentIsLegacy = (r: SalesReport) => {
+    const constituentBranch = branches.find(b => b.id === r.branchId);
+    if (!constituentBranch?.vaultEnabled) return true;
+    const startDate = branchVaults.find(v => v.branchId === r.branchId)?.startDate ?? null;
+    return !startDate || r.reportDate < startDate;
+  };
+
+  // For legacy constituents, totalVaultProvision stores the sum of PROVISION (rent & bills) expenses.
+  // For non-legacy constituents, return 0 — vault deposits are tracked separately.
+  const getConstituentProvision = (r: SalesReport): number => {
+    if (!getConstituentIsLegacy(r)) return 0;
+    return Number(r.totalVaultProvision || 0);
+  };
+
+  const rentAndBillsEntries = useMemo(() => [
+    ...(report.vaultData || []).filter((e: any) => e.category === 'PROVISION'),
+    ...(report.expenseData || []).filter((e: any) => e.category === 'PROVISION'),
+  ], [report.vaultData, report.expenseData]);
+  const vaultDepositEntries = useMemo(() =>
+    (report.vaultData || []).filter((e: any) => e.category === 'VAULT_DEPOSIT'),
+  [report.vaultData]);
+  const operationalExpenses = useMemo(() =>
+    (report.expenseData || []).filter((e: any) => e.category === 'OPERATIONAL'),
+  [report.expenseData]);
+  const vaultWithdrawalTotal = useMemo(() =>
+    (report.expenseData || [])
+      .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
+      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0),
+  [report.expenseData]);
+  const vaultCoveredExpTotal = useMemo(() => {
+    const expenseData = report.expenseData || [];
+    const withdrawalNames = new Set(
+      expenseData
+        .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
+        .map((e: any) => (e.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase())
+    );
+    return expenseData
+      .filter((e: any) => e.category === 'OPERATIONAL' && withdrawalNames.has((e.name || '').trim().toUpperCase()))
+      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+  }, [report.expenseData]);
 
   const displayDate = useMemo(() => {
     if (isAggregate) return report.reportDate;
@@ -144,6 +201,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
       doc.setTextColor(15, 23, 42);
       doc.text('FINANCIAL SUMMARY', 14, 40);
 
+      const provisionLabel = isLegacy ? 'Provision (Rent & Bills)' : 'Vault Deposit';
       autoTable(doc, {
         startY: 43,
         head: [['Metric', 'Amount']],
@@ -151,9 +209,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           ['Gross Sales', `PHP ${Number(report.grossSales || 0).toLocaleString()}`],
           ['  - Cash Payments', `PHP ${financialBreakdown.cashTotal.toLocaleString()}`],
           ['  - GCash Payments', `PHP ${financialBreakdown.gcashTotal.toLocaleString()}`],
-          ['Operational Expenses', `PHP ${Number(report.totalExpenses || 0).toLocaleString()}`],
+          ['Operational Expenses (Net)', `PHP ${Number(report.totalExpenses || 0).toLocaleString()}`],
           ['Staff Payroll', `PHP ${Number(report.totalStaffPay || 0).toLocaleString()}`],
-          ['Vault Reserve', `PHP ${Number(report.totalVaultProvision || 0).toLocaleString()}`],
+          [provisionLabel, `PHP ${Number(report.totalVaultProvision || 0).toLocaleString()}`],
           ['Net ROI', `PHP ${Number(report.netRoi || 0).toLocaleString()}`],
         ],
         theme: 'striped',
@@ -174,15 +232,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
         autoTable(doc, {
           startY: currentY + 3,
-          head: [['Date', 'Gross', 'Payroll', 'Expenses', 'Vault', 'Net ROI']],
-          body: constituents.sort((a,b) => (a.reportDate || '').localeCompare(b.reportDate || '')).map(sub => [
-            new Date(sub.reportDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase(),
-            `PHP ${sub.grossSales.toLocaleString()}`,
-            `PHP ${sub.totalStaffPay.toLocaleString()}`,
-            `PHP ${sub.totalExpenses.toLocaleString()}`,
-            `PHP ${sub.totalVaultProvision.toLocaleString()}`,
-            `PHP ${sub.netRoi.toLocaleString()}`
-          ]),
+          head: [['Date', 'Gross', 'Payroll', 'Expenses', 'Provision', 'Net ROI']],
+          body: constituents.sort((a,b) => (a.reportDate || '').localeCompare(b.reportDate || '')).map(sub => {
+            const subIsLegacy = getConstituentIsLegacy(sub);
+            const subExp = getConstituentCashOut(sub);
+            const subProvision = subIsLegacy ? getConstituentProvision(sub) : getConstituentVaultDeposit(sub);
+            const provisionNote = subIsLegacy ? 'R&B' : 'VD';
+            return [
+              new Date(sub.reportDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase(),
+              `PHP ${sub.grossSales.toLocaleString()}`,
+              `PHP ${sub.totalStaffPay.toLocaleString()}`,
+              `PHP ${subExp.toLocaleString()}`,
+              subProvision > 0 ? `PHP ${subProvision.toLocaleString()} (${provisionNote})` : '—',
+              `PHP ${sub.netRoi.toLocaleString()}`
+            ];
+          }),
           theme: 'grid',
           headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] },
           styles: { fontSize: 8 },
@@ -301,59 +365,110 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         currentY = 20;
       }
 
-      // 6. Operational Expenses
+      // 6. Expenses
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
       doc.text('OPERATIONAL EXPENSES', 14, currentY);
 
-      const expenseBody = (report.expenseData || []).map(e => [
-        (e.name || '').toUpperCase(),
-        `-PHP ${Number(e.amount || 0).toLocaleString()}`
-      ]);
+      // For non-legacy: show OPERATIONAL items with vault coverage note; exclude VAULT_WITHDRAWAL rows.
+      // For legacy: show all non-provision expense entries.
+      const allExpenseData = report.expenseData || [];
+      const vaultWithdrawalEntries = allExpenseData.filter((e: any) => e.category === 'VAULT_WITHDRAWAL');
+      const vaultWithdrawalMap: Record<string, number> = {};
+      vaultWithdrawalEntries.forEach((e: any) => {
+        const expName = (e.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase();
+        vaultWithdrawalMap[expName] = (vaultWithdrawalMap[expName] ?? 0) + Number(e.amount || 0);
+      });
+
+      const operationalOnlyEntries = allExpenseData.filter((e: any) => e.category === 'OPERATIONAL');
+      const expenseBody = operationalOnlyEntries.map((e: any) => {
+        const name = (e.name || '').toUpperCase();
+        const amt = Number(e.amount || 0);
+        const vaultCovered = vaultWithdrawalMap[name] ?? 0;
+        const cashOut = amt - vaultCovered;
+        const note = vaultCovered > 0 ? ` (PHP ${vaultCovered.toLocaleString()} from vault)` : '';
+        return [name + note, `-PHP ${cashOut.toLocaleString()}`];
+      });
 
       autoTable(doc, {
         startY: currentY + 3,
-        head: [['Expense Item', 'Amount']],
+        head: [['Expense Item', 'Cash Out']],
         body: expenseBody.length > 0 ? expenseBody : [['No expenses recorded', '—']],
         theme: 'grid',
         headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
         styles: { fontSize: 8 },
-        columnStyles: {
-          1: { halign: 'right', fontStyle: 'bold' }
-        },
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
         rowPageBreak: 'avoid'
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 10;
+
+      // 6b. Vault Withdrawals (non-legacy only — vault-covered expense portions)
+      if (!isLegacy && vaultWithdrawalEntries.length > 0) {
+        if (currentY > 250) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text('VAULT-COVERED EXPENSES', 14, currentY);
+        const withdrawalBody = vaultWithdrawalEntries.map((e: any) => [
+          (e.name || '').replace(/^VAULT:\s*/i, '').toUpperCase(),
+          `PHP ${Number(e.amount || 0).toLocaleString()}`
+        ]);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['Expense Item', 'Vault Used']],
+          body: withdrawalBody,
+          theme: 'grid',
+          headStyles: { fillColor: [180, 83, 9], textColor: [255, 255, 255] },
+          styles: { fontSize: 8 },
+          columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+          rowPageBreak: 'avoid'
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
 
       if (currentY > 250) {
         doc.addPage();
         currentY = 20;
       }
 
-      // 7. Rent & Bills Deposit
+      // 7. Provision: Rent & Bills (legacy) / Vault Deposits (non-legacy)
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text('RENT & BILLS DEPOSIT', 14, currentY);
-
-      const vaultBody = (report.vaultData || []).map(e => [
-        (e.name || '').toUpperCase(),
-        e.category === 'PROVISION' ? 'DEPOSIT' : 'WITHDRAWAL',
-        `${e.category === 'PROVISION' ? '+' : '-'}PHP ${Number(e.amount || 0).toLocaleString()}`
-      ]);
-
-      autoTable(doc, {
-        startY: currentY + 3,
-        head: [['Item', 'Type', 'Amount']],
-        body: vaultBody.length > 0 ? vaultBody : [['No vault entries recorded', '', '—']],
-        theme: 'grid',
-        headStyles: { fillColor: [67, 56, 202], textColor: [255, 255, 255] },
-        styles: { fontSize: 8 },
-        columnStyles: {
-          2: { halign: 'right', fontStyle: 'bold' }
-        },
-        rowPageBreak: 'avoid'
-      });
+      if (isLegacy) {
+        doc.text('PROVISION — RENT & BILLS', 14, currentY);
+        const rentBody = rentAndBillsEntries.map((e: any) => [
+          (e.name || '').toUpperCase(),
+          `-PHP ${Number(e.amount || 0).toLocaleString()}`
+        ]);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['Item', 'Amount']],
+          body: rentBody.length > 0 ? rentBody : [['No rent & bills recorded', '—']],
+          theme: 'grid',
+          headStyles: { fillColor: [67, 56, 202], textColor: [255, 255, 255] },
+          styles: { fontSize: 8 },
+          columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+          rowPageBreak: 'avoid'
+        });
+      } else {
+        doc.text('PROVISION — VAULT DEPOSITS', 14, currentY);
+        const vaultBody = vaultDepositEntries.map((e: any) => {
+          const ts = e.timestamp
+            ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))
+            : '—';
+          return [ts, `PHP ${Number(e.amount || 0).toLocaleString()}`];
+        });
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['Time', 'Amount Deposited']],
+          body: vaultBody.length > 0 ? vaultBody : [['No vault deposits recorded', '—']],
+          theme: 'grid',
+          headStyles: { fillColor: [67, 56, 202], textColor: [255, 255, 255] },
+          styles: { fontSize: 8 },
+          columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+          rowPageBreak: 'avoid'
+        });
+      }
 
       doc.save(`REPORT_${branchName.replace(/\s+/g, '_')}_${report.reportDate.replace(/\s+/g, '_')}.pdf`);
       playSound('success');
@@ -411,7 +526,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2-0 01-2-2V5a2 2-0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2-0 01-2 2z" /></svg>
                 </div>
-                <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export to PDF?</h4>
+                <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                   Generate and download the report for {branchName}?
                 </p>
@@ -478,29 +593,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 ) : (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 )}
-                <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Save PDF'}</span>
+                <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
               </button>
 
-              {canValidate && !isAggregate && (
-                <button
-                  onClick={handleValidate}
-                  disabled={isValidating}
-                  className={`flex items-center gap-2 px-3 md:px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50 ${
-                    report.isValidated
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                  }`}
-                >
-                  {isValidating ? (
-                    <div className={`w-4 h-4 border-2 rounded-full animate-spin ${report.isValidated ? 'border-white/20 border-t-white' : 'border-emerald-200 border-t-emerald-600'}`}></div>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                  )}
-                  <span className="hidden md:inline">
-                    {isValidating ? 'Saving...' : report.isValidated ? 'Validated' : 'Validate'}
-                  </span>
-                </button>
-              )}
 
               <button onClick={onClose} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 active:scale-90 transition-all border border-slate-100 shadow-sm">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -511,19 +606,30 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           {/* DASHBOARD CONTENT */}
           <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 no-scrollbar pb-32 print:hidden">
 
-            <SalesKPIStrip
-                gross={Number(report.grossSales || 0)}
-                cashTotal={financialBreakdown.cashTotal}
-                gcashTotal={financialBreakdown.gcashTotal}
-                operationalExp={Number(report.totalExpenses || 0)}
-                finalStaffPayTotal={Number(report.totalStaffPay || 0)}
-                provisionExp={Number(report.totalVaultProvision || 0)}
-                net={Number(report.netRoi || 0)}
-                totalAllowances={financialBreakdown.allowances}
-                otAdditions={financialBreakdown.ot}
-                lateDeductions={financialBreakdown.late}
-                totalCashAdvances={financialBreakdown.advances}
-            />
+            {(() => {
+              const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+              // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
+              const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
+              return (
+                <SalesKPIStrip
+                    gross={Number(report.grossSales || 0)}
+                    cashTotal={financialBreakdown.cashTotal}
+                    gcashTotal={financialBreakdown.gcashTotal}
+                    operationalExp={Number(report.totalExpenses || 0) + vaultWithdrawalTotal}
+                    rentAndBillsTotal={rentAndBillsTotal}
+                    vaultDeposit={kpiIsLegacy ? 0 : Number(report.totalVaultProvision || 0)}
+                    vaultWithdrawal={vaultWithdrawalTotal}
+                    vaultCoveredExp={vaultCoveredExpTotal}
+                    finalStaffPayTotal={Number(report.totalStaffPay || 0)}
+                    net={Number(report.netRoi || 0)}
+                    totalAllowances={financialBreakdown.allowances}
+                    otAdditions={financialBreakdown.ot}
+                    lateDeductions={financialBreakdown.late}
+                    totalCashAdvances={financialBreakdown.advances}
+                    isLegacy={kpiIsLegacy}
+                />
+              );
+            })()}
 
             {isAggregate ? (
                 <div className="space-y-6">
@@ -542,7 +648,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                           <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Gross Yield</th>
                           <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Staff Payroll</th>
                           <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Operational Exp</th>
-                          <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Vault Reserve</th>
+                          <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Vault Deposit</th>
                           <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Net ROI</th>
                         </tr>
                         </thead>
@@ -587,12 +693,15 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             const weekGross = group.constituents.reduce((sum, r) => sum + r.grossSales, 0);
                             const weekPayroll = group.constituents.reduce((sum, r) => sum + r.totalStaffPay, 0);
                             const weekExp = group.constituents.reduce((sum, r) => sum + r.totalExpenses, 0);
-                            const weekVault = group.constituents.reduce((sum, r) => sum + r.totalVaultProvision, 0);
+                            const weekCashOut = group.constituents.reduce((sum, r) => sum + getConstituentCashOut(r), 0);
+                            const weekVault = group.constituents.reduce((sum, r) => sum + getConstituentProvision(r), 0);
+                            const weekVaultDeposit = group.constituents.reduce((sum, r) => sum + getConstituentVaultDeposit(r), 0);
                             const weekRoi = group.constituents.reduce((sum, r) => sum + r.netRoi, 0);
                             const clippedStart = new Date(Math.max(group.weekStart.getTime(), parseDate(report.sortDate!).getTime()));
                             const clippedEnd = new Date(Math.min(group.weekEnd.getTime(), parseDate(report.periodEnd!).getTime()));
                             const dateRangeLabel = `${clippedStart.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} — ${clippedEnd.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}`;
 
+                            const weekIsLegacy = group.constituents.some(c => getConstituentIsLegacy(c));
                             return (
                                 <PerformanceRow
                                     key={key}
@@ -601,8 +710,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                     branchName={branchName}
                                     gross={weekGross}
                                     pay={weekPayroll}
-                                    exp={weekExp}
+                                    exp={weekCashOut}
                                     vault={weekVault}
+                                    vaultDeposit={weekVaultDeposit}
+                                    isLegacy={weekIsLegacy}
                                     net={weekRoi}
                                     onClick={() => {
                                       playSound('click');
@@ -686,17 +797,28 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
                           const sub = group.report;
                           const isConsolidatedDay = group.constituents.length > 1;
-
+                          const subBranch = branches.find(b => b.id === sub.branchId);
+                          const subIsLegacy = isConsolidatedDay
+                            ? group.constituents.some(c => getConstituentIsLegacy(c))
+                            : getConstituentIsLegacy(sub);
                           return (
                               <PerformanceRow
                                   key={sub.id}
                                   label={label}
                                   sublabel={isConsolidatedDay ? `${group.constituents.length} TERMINALS CONSOLIDATED` : `TRACE: ${sub.id.slice(-8).toUpperCase()}`}
-                                  branchName={isConsolidatedDay ? "NETWORK CONSOLIDATED" : (branches.find(b => b.id === sub.branchId)?.name || branchName)}
+                                  branchName={isConsolidatedDay ? "NETWORK CONSOLIDATED" : (subBranch?.name || branchName)}
                                   gross={sub.grossSales}
                                   pay={sub.totalStaffPay}
-                                  exp={sub.totalExpenses}
-                                  vault={sub.totalVaultProvision}
+                                  exp={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + getConstituentCashOut(c), 0)
+                                    : getConstituentCashOut(sub)}
+                                  vault={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + getConstituentProvision(c), 0)
+                                    : getConstituentProvision(sub)}
+                                  vaultDeposit={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0)
+                                    : getConstituentVaultDeposit(sub)}
+                                  isLegacy={subIsLegacy}
                                   net={sub.netRoi}
                                   onClick={() => {
                                     playSound('click');
@@ -712,7 +834,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 </div>
             ) : (
                 <>
-                  <SessionLogs transactions={report.sessionData || []} />
+                  <SessionLogs transactions={report.sessionData || []} services={branch?.services ?? []} />
 
                   <div className="space-y-4">
                     <h4 className={`${UI_THEME.text.label} ml-4`}>Staff Performance Matrix</h4>
@@ -761,7 +883,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                 <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
                                   <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${isReliever ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                     {s.profile ? (
-                                      <img src={s.profile} alt={resolvedName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      <img
+                                        src={s.profile}
+                                        alt={resolvedName}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                        onError={e => { e.currentTarget.style.display = 'none'; }}
+                                      />
                                     ) : (
                                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                     )}
@@ -823,50 +951,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 space-y-4">
-                      <h4 className={`${UI_THEME.text.label} ml-4`}>Vault Archive</h4>
-                      <div className="space-y-3">
-                        {vaultContributions.map((e: any) => (
+                  {isLegacy ? (
+                    /* Legacy: two-column layout — Vault Archive (left) + Operational Outflows (right) */
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                      <div className="lg:col-span-4 space-y-4">
+                        <h4 className={`${UI_THEME.text.label} ml-4`}>Vault Archive</h4>
+                        <div className="space-y-3">
+                          {rentAndBillsEntries.map((e: any) => (
                             <div
-                                key={e.id}
-                                onClick={() => { playSound('click'); setViewingExpense(e); }}
-                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-500 transition-all cursor-pointer group flex items-center justify-between"
+                              key={e.id}
+                              onClick={() => { playSound('click'); setViewingExpense(e); }}
+                              className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-500 transition-all cursor-pointer group flex items-center justify-between"
                             >
                               <div className="flex items-center gap-3 overflow-hidden">
-                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors`}>
-                                  ↓
-                                </div>
-                                <div className="overflow-hidden">
-                                  <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none mb-1.5">{e.name}</p>
-                                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
-                                    {(() => {
-                                      // Treat the timestamp as Philippine time
-                                      const date = new Date(e.timestamp);
-                                      return new Intl.DateTimeFormat('en-US', {
-                                        timeZone: 'Asia/Manila',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                      }).format(date);
-                                    })()}
-                                  </p>
-                                </div>
-                              </div>
-                              <p className={`text-sm font-bold tabular-nums text-emerald-700`}>
-                                +₱{Number(e.amount || 0).toLocaleString()}
-                              </p>
-                            </div>
-                        ))}
-                        {vaultWithdrawals.map((e: any) => (
-                            <div
-                                key={e.id}
-                                onClick={() => { playSound('click'); setViewingExpense(e); }}
-                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-500 transition-all cursor-pointer group flex items-center justify-between"
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-rose-50 text-rose-500 group-hover:bg-rose-600 group-hover:text-white transition-colors`}>
-                                  ↑
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
                                 </div>
                                 <div className="overflow-hidden">
                                   <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none mb-1.5">{e.name}</p>
@@ -875,53 +974,82 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   </p>
                                 </div>
                               </div>
-                              <p className={`text-sm font-bold tabular-nums text-rose-600`}>
-                                +₱{Number(e.amount || 0).toLocaleString()}
-                              </p>
+                              <p className="text-sm font-bold tabular-nums text-emerald-700">+₱{Number(e.amount || 0).toLocaleString()}</p>
                             </div>
-                        ))}
-                        {(!report.vaultData || report.vaultData.length === 0) && (
+                          ))}
+                          {rentAndBillsEntries.length === 0 && (
                             <div className="py-12 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20"><p className={UI_THEME.text.metadata}>Empty Archive</p></div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="lg:col-span-8 space-y-4">
-                      <h4 className={`${UI_THEME.text.label} ml-4`}>Operational Outflows</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {operationalExpenses.map((e: any) => (
+                      <div className="lg:col-span-8 space-y-4">
+                        <h4 className={`${UI_THEME.text.label} ml-4`}>Operational Outflows</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {operationalExpenses.map((e: any) => (
                             <div
-                                key={e.id}
-                                onClick={() => { playSound('click'); setViewingExpense(e); }}
-                                className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group flex items-center justify-between"
+                              key={e.id}
+                              onClick={() => { playSound('click'); setViewingExpense(e); }}
+                              className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group flex items-center justify-between hover:border-rose-200"
                             >
                               <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-9 h-9 bg-slate-50 text-slate-300 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">🧾</div>
+                                <div className="w-9 h-9 bg-rose-50 border border-rose-100 text-rose-400 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
+                              </div>
                                 <div className="overflow-hidden">
                                   <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none mb-1">{e.name}</p>
                                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
-                                    {(() => {
-                                      // Treat the timestamp as Philippine time
-                                      const date = new Date(e.timestamp);
-                                      return new Intl.DateTimeFormat('en-US', {
-                                        timeZone: 'Asia/Manila',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                      }).format(date);
-                                    })()}
+                                    {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))}
                                   </p>
                                 </div>
                               </div>
                               <p className="text-sm font-bold text-rose-600 tabular-nums">₱{Number(e.amount || 0).toLocaleString()}</p>
                             </div>
-                        ))}
-                        {(!report.expenseData || report.expenseData.length === 0) && (
+                          ))}
+                          {operationalExpenses.length === 0 && (
                             <div className="col-span-full py-12 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20"><p className={UI_THEME.text.metadata}>No Outflows Logged</p></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Non-legacy: unified Operational Outflows (expenses + vault deposits from vault_data) */
+                    <div className="space-y-4">
+                      <h4 className={`${UI_THEME.text.label} ml-4`}>Operational Outflows</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[...vaultDepositEntries, ...operationalExpenses]
+                          .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+                          .map((e: any) => {
+                          const isVaultDeposit = e.category === 'VAULT_DEPOSIT';
+                          return (
+                            <div
+                              key={e.id}
+                              onClick={() => { playSound('click'); setViewingExpense(e); }}
+                              className={`p-4 bg-white rounded-2xl border shadow-sm hover:shadow-xl transition-all cursor-pointer group flex items-center justify-between ${isVaultDeposit ? 'border-indigo-100 hover:border-indigo-300' : 'border-slate-100 hover:border-rose-200'}`}
+                            >
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isVaultDeposit ? 'bg-indigo-50 border border-indigo-100 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-rose-50 border border-rose-100 text-rose-400 group-hover:bg-rose-600 group-hover:text-white'}`}>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
+                                </div>
+                                <div className="overflow-hidden">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none">{e.name}</p>
+                                    {isVaultDeposit && <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-1.5 py-0.5 rounded-full shrink-0">Vault</span>}
+                                  </div>
+                                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
+                                    {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className={`text-sm font-bold tabular-nums ${isVaultDeposit ? 'text-indigo-600' : 'text-rose-600'}`}>−₱{Number(e.amount || 0).toLocaleString()}</p>
+                            </div>
+                          );
+                        })}
+                        {operationalExpenses.length === 0 && (
+                          <div className="col-span-full py-12 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20"><p className={UI_THEME.text.metadata}>No Outflows Logged</p></div>
                         )}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </>
             )}
 
@@ -1094,9 +1222,38 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               </table>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 break-inside-avoid">
+            <div className="break-inside-avoid">
               <div className="space-y-2">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vault Archive</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Operational Outflows</h4>
+                <table className="w-full border-collapse border border-slate-200 text-[9px]">
+                  <thead>
+                  <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                    <th className="border border-slate-200 px-2 py-1.5 text-left">Expense</th>
+                    {!isLegacy && <th className="border border-slate-200 px-2 py-1.5 text-center">Type</th>}
+                    <th className="border border-slate-200 px-2 py-1.5 text-right">Amount</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  {[...vaultDepositEntries, ...operationalExpenses]
+                    .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+                    .map((e: any) => {
+                      const isVaultDep = e.category === 'VAULT_DEPOSIT';
+                      return (
+                        <tr key={e.id} className="break-inside-avoid">
+                          <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{e.name}</td>
+                          {!isLegacy && <td className="border border-slate-200 px-2 py-1.5 text-center text-[7px] uppercase tracking-widest text-slate-400">{isVaultDep ? 'Vault' : 'Expense'}</td>}
+                          <td className={`border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums ${isVaultDep ? 'text-indigo-600' : 'text-rose-600'}`}>₱{Number(e.amount || 0).toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {isLegacy && rentAndBillsEntries.length > 0 && (
+              <div className="space-y-2 break-inside-avoid">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Rent & Bills</h4>
                 <table className="w-full border-collapse border border-slate-200 text-[9px]">
                   <thead>
                   <tr className="bg-slate-50 font-bold uppercase tracking-widest">
@@ -1105,41 +1262,16 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   </tr>
                   </thead>
                   <tbody>
-                  {(report.vaultData || []).map((e: any) => (
-                      <tr key={e.id} className="break-inside-avoid">
-                        <td className="border border-slate-200 px-2 py-1.5">
-                          <div className="font-bold uppercase">{e.name}</div>
-                          <div className="text-[7px] text-slate-400 uppercase tracking-widest">{e.category}</div>
-                        </td>
-                        <td className={`border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums ${e.category === 'PROVISION' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {e.category === 'PROVISION' ? '+' : '-'}₱{Number(e.amount || 0).toLocaleString()}
-                        </td>
-                      </tr>
-                  ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Operational Outflows</h4>
-                <table className="w-full border-collapse border border-slate-200 text-[9px]">
-                  <thead>
-                  <tr className="bg-slate-50 font-bold uppercase tracking-widest">
-                    <th className="border border-slate-200 px-2 py-1.5 text-left">Expense</th>
-                    <th className="border border-slate-200 px-2 py-1.5 text-right">Amount</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  {(report.expenseData || []).map((e: any) => (
+                  {rentAndBillsEntries.map((e: any) => (
                       <tr key={e.id} className="break-inside-avoid">
                         <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{e.name}</td>
-                        <td className="border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums text-rose-600">₱{Number(e.amount || 0).toLocaleString()}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums text-indigo-600">₱{Number(e.amount || 0).toLocaleString()}</td>
                       </tr>
                   ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            )}
           </div>
 
           {/* FOOTER ACTIONS */}

@@ -52,7 +52,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [branchSearch, setBranchSearch] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
   const [globalServiceSearch, setGlobalServiceSearch] = useState('');
@@ -596,6 +596,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       onPageChange={setCurrentPage}
                       totalItems={filteredServices.length}
                       itemsPerPage={itemsPerPage}
+                      onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
                     />
                   </div>
                   <button onClick={() => handleExportPDF()} className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0`}>

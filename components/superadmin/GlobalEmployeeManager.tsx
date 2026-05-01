@@ -51,7 +51,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -204,7 +204,6 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             await updateBranch.mutateAsync({
                 id: target.branchId,
                 [DB_COLUMNS.IS_PIN_CHANGED]: false,
-                [DB_COLUMNS.IS_OPEN]: false,
                 [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString()
             });
         }
@@ -606,7 +605,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 </button>
                 {isRoleDropdownOpen && (
                   <div className={`absolute top-[calc(100%+8px)] left-0 sm:right-0 sm:left-auto w-56 bg-white border border-slate-200 rounded-2xl ${UI_THEME.shadows.extreme} overflow-hidden z-[1000] p-1.5 animate-in zoom-in-95 duration-200 backdrop-blur-xl`}>
-                    {['all', 'MANAGER', 'THERAPIST', 'BONESETTER', 'TRAINEE'].map(role => (
+                    {['all', 'MANAGER', 'THERAPIST', 'BONESETTER'].map(role => (
                       <button 
                         key={role} 
                         onClick={() => { setRoleFilter(role); setIsRoleDropdownOpen(false); }} 
@@ -708,6 +707,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 onPageChange={setCurrentPage}
                 totalItems={filteredEmployees.length}
                 itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
 
@@ -721,7 +721,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             ) : (
               <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Employees'}</span>
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
           </button>
         </div>
 
@@ -740,7 +740,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                   onClick={() => handleExportPDF(true)}
                   className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  Confirm Print
+                  Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}
@@ -759,6 +759,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
         <EmployeeMobileList
           employees={paginatedEmployees}
@@ -766,6 +767,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
       </div>
 

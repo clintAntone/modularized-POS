@@ -33,7 +33,7 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
 
                     <div className="flex items-center justify-between gap-4 bg-white/5 p-4 rounded-[24px] border border-white/10 shadow-inner">
                         <div className="flex-1 overflow-hidden">
-                            {isPinChanged && !showPin ? (
+                            {isPinChanged ? (
                                 <div className="flex gap-3 items-center h-10 ml-2">
                                     {[1, 2, 3, 4, 5, 6].map((i) => (
                                         <div key={i} className="w-3 h-3 bg-white/30 rounded-full border border-white/10 shadow-inner"></div>
@@ -45,16 +45,6 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
                                 </p>
                             )}
                         </div>
-
-                        {isPinChanged && (
-                            <button
-                                onClick={() => setShowPin(!showPin)}
-                                className="text-white/60 hover:text-white transition-all p-4 rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 active:scale-95 shrink-0 shadow-lg"
-                                title={showPin ? 'Hide Key' : 'Reveal Key'}
-                            >
-                                {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                            </button>
-                        )}
                     </div>
                 </div>
 

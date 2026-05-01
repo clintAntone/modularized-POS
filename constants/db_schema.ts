@@ -12,16 +12,16 @@ export const DB_TABLES = {
   SALES_REPORTS: 'sales_reports',
   AUDIT_LOGS: 'audit_logs',
   SYSTEM_CONFIG: 'system_config',
-  PAYROLL: 'payroll',
   SERVICE_CATALOGS: 'service_catalogs',
   REQUESTS: 'requests',
   BRANCH_BILLS: 'branch_bills',
   BILL_PAYMENTS: 'bill_payments',
   BILLS_CATALOG: 'bills_catalog',
-  VAULT_CARRYOVER: 'vault_carryover',
+  BRANCH_VAULTS: 'branch_vaults',
   REMITTANCE_ADJUSTMENTS: 'remittance_adjustments',
   REMITTANCE_SUBMISSIONS: 'remittance_submissions',
-  PORTAL_USERS: 'portal_users'
+  PORTAL_USERS: 'portal_users',
+  DEVICE_LOGS: 'device_logs',
 };
 
 export const DB_COLUMNS = {
@@ -51,6 +51,7 @@ export const DB_COLUMNS = {
   OWNERS: 'owners',
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',
+  VAULT_ENABLED: 'vault_enabled',
 
   // Transactions
   CLIENT_NAME: 'client_name',
@@ -104,7 +105,6 @@ export const DB_COLUMNS = {
   OT_PAY: 'ot_pay',
   CASH_ADVANCE: 'cash_advance',
   IS_HALF_DAY: 'is_half_day',
-  IS_POS_HANDLED: 'is_pos_handled',
   IS_PAID_DAILY: 'is_paid_daily',
   SETTLED_UNITS: 'settled_units',
 
@@ -157,9 +157,6 @@ export const DB_COLUMNS = {
   SUGGESTED_AMOUNT: 'suggested_amount',
   CREATED_BY: 'created_by',
 
-  // Vault Carryover
-  EFFECTIVE_DATE: 'effective_date',
-
   // Remittance Adjustments & Submissions
   PERIOD_LABEL: 'period_label',
   SUBMITTED_BY: 'submitted_by',
@@ -176,5 +173,30 @@ export const DB_COLUMNS = {
   REQUESTER_ID: 'requester_id',
   REQUESTER_NAME: 'requester_name',
   REVIEWED_BY: 'reviewed_by',
-  REVIEW_NOTE: 'review_note'
+  REVIEW_NOTE: 'review_note',
+
+  // Branch Vaults (dedicated table — one row per branch)
+  VAULT_TARGET: 'target',
+  VAULT_BALANCE: 'balance',
+  VAULT_LAST_DEPOSITED_DATE: 'last_deposited_date',
+  VAULT_START_DATE: 'start_date',
+
+  // Sales Reports — vault snapshot columns
+  VAULT_DEPOSIT: 'vault_deposit',
+  VAULT_BALANCE_SNAPSHOT: 'vault_balance_snapshot',
+
+  // Device Logs
+  DEVICE_ID: 'device_id',
+  USER_AGENT: 'user_agent',
+  BROWSER: 'browser',
+  BROWSER_VERSION: 'browser_version',
+  OS: 'os',
+  DEVICE_TYPE: 'device_type',
+  SCREEN_RESOLUTION: 'screen_resolution',
+  FIRST_SEEN: 'first_seen',
+  LAST_SEEN: 'last_seen',
+  SESSION_COUNT: 'session_count',
+  DEVICE_MODEL: 'device_model',
+  LOCATION: 'location',
+  FINGERPRINT_ID: 'fingerprint_id',
 } as const;

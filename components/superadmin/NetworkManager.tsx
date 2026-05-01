@@ -27,7 +27,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const filteredBranches = useMemo(() => {
     let res = [...branches];
@@ -251,6 +251,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                 onPageChange={setCurrentPage}
                 totalItems={filteredBranches.length}
                 itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
 
@@ -264,7 +265,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             ) : (
               <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Branches'}</span>
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
           </button>
         </div>
 
@@ -283,7 +284,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                   onClick={() => handleExportPDF(true)}
                   className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  Confirm Print
+                  Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}

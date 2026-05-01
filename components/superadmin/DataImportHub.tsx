@@ -71,7 +71,7 @@ export const DataImportHub: React.FC = () => {
         return obj;
       });
 
-      const conflictTarget = tableName === 'system_config' ? 'key' : (tableName === 'payroll' ? 'branch_id,settlement' : 'id');
+      const conflictTarget = tableName === 'system_config' ? 'key' : 'id';
       results.push({ tableName, count: parsedData.length, data: parsedData, conflictTarget });
     }
     return results;

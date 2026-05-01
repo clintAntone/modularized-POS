@@ -260,8 +260,19 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
 
       {/* USER LIST */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+        <div className="space-y-3 animate-in fade-in duration-300">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-11 h-11 bg-slate-200/60 rounded-xl animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-2/5" />
+                  <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
+                </div>
+              </div>
+              <div className="w-16 h-8 bg-slate-200/60 rounded-xl animate-pulse shrink-0" />
+            </div>
+          ))}
         </div>
       ) : users.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center">

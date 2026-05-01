@@ -74,7 +74,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           .from('payroll')
           .select('branch_id, settlement, status')
           .eq('branch_id', branch.id);
-        
+
         if (!error && data) {
           const statuses: Record<string, string> = {};
           data.forEach(item => {
@@ -92,7 +92,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
     // Cache logo for immediate favicon sync on next load
     if (branch.id && transactions.length > 0) {
-        // We use a heuristic: if we have branch data, the global logo is likely loaded
         const logo = document.querySelector('link[rel="icon"]')?.getAttribute('href');
         if (logo && logo.startsWith('http')) {
             localStorage.setItem('hilot_system_logo', logo);
@@ -140,7 +139,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         .maybeSingle();
 
       let error;
-      const payload = { 
+      const payload = {
         branch_id: branch.id,
         settlement: startDateStr,
         status: nextStatus,
@@ -198,7 +197,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === dateStr);
       if (report && report.staffBreakdown) {
         report.staffBreakdown.forEach((s: any) => {
-          const empId = s.employeeId;
           const comm = Number(s.commission) || 0;
           const allw = Number(s.allowance) || 0;
           const att = s.attendance;
@@ -233,8 +231,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           if (!empId) return;
 
           if (!summary[empId]) {
-            // Prefer the name recorded in staff_breakdown at report time;
-            // only fall back to the employees table if the breakdown name is missing.
             const breakdownName = (s.staffName || s.name || '').trim();
             const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
               ? breakdownName.toUpperCase()
@@ -272,7 +268,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           summary[empId].ot += dOt;
           summary[empId].late += dLate;
           summary[empId].advance += dAdv;
-          
+
           if (isPaidDaily) {
             summary[empId].isPaidDaily = true;
             if (summary[empId].isAllDaysSettled === undefined) summary[empId].isAllDaysSettled = true;
@@ -324,7 +320,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           const ot = Number(att?.otPay || att?.ot_pay || 0);
           const late = Number(att?.lateDeduction || att?.late_deduction || 0);
           const adv = Number(att?.cashAdvance || att?.cash_advance || 0);
-          // Prefer the name recorded in staff_breakdown at report time
           const breakdownName = (s.staffName || s.name || '').trim();
           const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
             ? breakdownName.toUpperCase()
@@ -371,24 +366,24 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
-      
+
       const doc = new jsPDF();
-      
+
       doc.setFontSize(18);
       doc.setTextColor(15, 23, 42);
       doc.text(`WEEK ${selectedCycle.id} PAYROLL AUDIT`, 14, 22);
-      
+
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
       doc.text(`Period: ${selectedCycle.start} - ${selectedCycle.end}`, 14, 28);
       doc.text(`Branch: ${branch.name}`, 14, 34);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
-      
+
       const totalPayout = groupedCycleData.reduce((sum, g) => sum + g.dailyTotal, 0);
       doc.setFontSize(14);
       doc.setTextColor(16, 185, 129);
       doc.text(`TOTAL AGGREGATED PAYOUT: P${totalPayout.toLocaleString()}`, 14, 52);
-      
+
       // Staff Summary Table
       const staffData = staffCycleSummary.map((s: any) => [
         s.name.toUpperCase(),
@@ -396,23 +391,24 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         `P${s.commission.toLocaleString()}`,
         `P${s.allowance.toLocaleString()}`,
         `P${s.ot.toLocaleString()}`,
-        `P${(s.late + s.advance).toLocaleString()}`,
+        `P${s.late.toLocaleString()}`,
+        `P${s.advance.toLocaleString()}`,
         `P${s.netPay.toLocaleString()}`
       ]);
-      
+
       autoTable(doc, {
         startY: 60,
-        head: [['Staff Name', 'Sess.', 'Comm.', 'Allw.', 'OT', 'Ded.', 'Net Pay']],
+        head: [['Staff Name', 'Sess.', 'Comm.', 'Allw.', 'OT', 'Late', 'Cash Adv.', 'Net Pay']],
         body: staffData,
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], fontSize: 9 },
         styles: { fontSize: 8 },
         columnStyles: {
-          0: { cellWidth: 50 },
-          6: { fontStyle: 'bold', halign: 'right' }
+          0: { cellWidth: 45 },
+          7: { fontStyle: 'bold', halign: 'right' }
         }
       });
-      
+
       doc.save(`Payroll_Audit_Week_${selectedCycle.id}_${branch.name.replace(/\s+/g, '_')}.pdf`);
       playSound('success');
     } catch (err) {
@@ -441,8 +437,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           )}
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 no-print">
-            <button 
-              onClick={() => { setSelectedCycleId(null); setExpandedGroupId(null); playSound('click'); }} 
+            <button
+              onClick={() => { setSelectedCycleId(null); setExpandedGroupId(null); playSound('click'); }}
               className="flex items-center justify-center sm:justify-start gap-3 px-6 py-4 sm:py-2.5 bg-white border border-slate-200 rounded-2xl sm:rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm group active:scale-95"
             >
               <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
@@ -533,12 +529,11 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                         <div className="px-4 py-2">
                           {group.staff.map((s) => {
                             const finalPay = (s.totalCommission + s.allowance + s.ot - s.late) - s.advance;
-                            const empId = s.employeeId || s.name;
+                            const empId = (s as any).employeeId || s.name;
                             const isExpanded = expandedGroupId === `${group.date}-${empId}`;
-                            
-                            // Check if this specific day for this staff is settled
-                            const staffSummary = staffCycleSummary.find(ss => ss.employeeId === s.employeeId);
-                            const dayData = staffSummary?.dailyBreakdown?.find(d => d.date === group.date);
+
+                            const staffSummaryItem = staffCycleSummary.find((ss: any) => ss.employeeId === (s as any).employeeId);
+                            const dayData = staffSummaryItem?.dailyBreakdown?.find((d: any) => d.date === group.date);
                             const isDaySettled = dayData?.isDaySettled || isSettled;
 
                             return (
@@ -565,22 +560,26 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
                                   {isExpanded && (
                                       <div className="px-8 pb-5 pt-1 space-y-4 animate-in fade-in duration-300">
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                                           <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Base Commission</p>
+                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Commission</p>
                                             <p className="text-[13px] font-bold text-slate-700 tabular-nums">₱{s.totalCommission.toLocaleString()}</p>
                                           </div>
                                           <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Daily Allowance</p>
+                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Allowance</p>
                                             <p className="text-[13px] font-bold text-slate-700 tabular-nums">₱{s.allowance.toLocaleString()}</p>
                                           </div>
                                           <div className="space-y-0.5">
                                             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">OT Bonus</p>
-                                            <p className="text-[13px] font-bold text-emerald-600 tabular-nums">₱{s.ot.toLocaleString()}</p>
+                                            <p className="text-[13px] font-bold text-emerald-600 tabular-nums">+₱{s.ot.toLocaleString()}</p>
                                           </div>
                                           <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Deductions (Late)</p>
+                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Late Deduction</p>
                                             <p className="text-[13px] font-bold text-rose-500 tabular-nums">−₱{s.late.toLocaleString()}</p>
+                                          </div>
+                                          <div className="space-y-0.5">
+                                            <p className="text-[7px] font-bold text-indigo-400 uppercase tracking-widest">Cash Advance</p>
+                                            <p className="text-[13px] font-bold text-indigo-600 tabular-nums">−₱{s.advance.toLocaleString()}</p>
                                           </div>
                                         </div>
                                       </div>
@@ -677,43 +676,51 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         </div>
 
         {filteredCycles.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredCycles.map(cycle => {
-                const cycleStartDateStr = getLocalDateStr(new Date(cycle.startDate));
-                const settlementKey = `settlement_${branch.id}_${cycleStartDateStr}`;
-                const isSettled = settlementStatuses[settlementKey] === 'settled';
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const cycleEnd = new Date(cycle.endDate);
+                cycleEnd.setHours(0, 0, 0, 0);
+                const isProcessed = cycleEnd < today;
 
                 return (
                   <div key={cycle.id} onClick={() => { setSelectedCycleId(Number(cycle.id)); playSound('click'); }} className="group cursor-pointer transition-all">
-                    <div className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col justify-between h-full gap-6 group-hover:shadow-xl transition-all duration-500 relative overflow-hidden ${
-                      isSettled ? 'border-emerald-500/30' : 'border-slate-100 group-hover:border-emerald-500'
+                    <div className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col justify-between h-full gap-6 group-hover:shadow-lg transition-all duration-300 relative overflow-hidden ${
+                      isProcessed ? 'border-emerald-500/30 group-hover:border-emerald-500' : 'border-amber-400/40 group-hover:border-amber-400'
                     }`}>
-                      <div className={`absolute top-0 right-0 w-24 h-24 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2 transition-colors ${
-                        isSettled ? 'bg-emerald-500/10' : 'bg-emerald-500/5 group-hover:bg-emerald-500/10'
-                      }`}></div>
+                      <div className={`absolute top-0 right-0 w-28 h-28 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 ${
+                        isProcessed ? 'bg-emerald-500/10' : 'bg-amber-400/10'
+                      }`} />
 
                       <div className="space-y-1.5 relative z-10">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className={`w-1.5 h-1.5 rounded-full ${isSettled ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                            <h3 className={`font-bold text-sm uppercase tracking-tight transition-colors ${isSettled ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-600'}`}>Week {cycle.id} Registry</h3>
+                            <span className={`w-2 h-2 rounded-full ${isProcessed ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
+                            <h3 className={`font-bold text-sm uppercase tracking-tight ${isProcessed ? 'text-emerald-700' : 'text-amber-600'}`}>Week {cycle.id} Registry</h3>
                           </div>
-                          {isSettled && (
-                            <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-widest">Settled</span>
-                          )}
+                          <span className={`text-[7px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${
+                            isProcessed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {isProcessed ? 'Processed' : 'In Progress'}
+                          </span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80">{cycle.start} — {cycle.end}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cycle.start} — {cycle.end}</p>
                       </div>
 
                       <div className="flex items-end justify-between relative z-10">
                         <div className="space-y-0.5">
-                          <p className={`text-2xl font-bold tracking-tighter leading-none ${isSettled ? 'text-emerald-700' : 'text-emerald-600'}`}>₱{calculateCycleTotalPay(cycle).toLocaleString()}</p>
-                          <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">Paid Ledger</p>
+                          <p className={`text-2xl font-bold tracking-tighter leading-none ${isProcessed ? 'text-emerald-700' : 'text-amber-600'}`}>₱{calculateCycleTotalPay(cycle).toLocaleString()}</p>
+                          <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">{isProcessed ? 'Paid Ledger' : 'Running Total'}</p>
                         </div>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                          isSettled ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-300 group-hover:bg-emerald-600 group-hover:text-white'
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                          isProcessed ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-500'
                         }`}>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                          {isProcessed ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          )}
                         </div>
                       </div>
                     </div>

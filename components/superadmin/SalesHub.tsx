@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Branch, SalesReport, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -20,23 +21,29 @@ type SortKey = 'gross' | 'net' | 'sessions' | 'name';
 
 export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, employees, onRefresh }) => {
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(getTrueDate()));
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState<string>(() => localStorage.getItem('live_filter_search') || '');
   const [lastSync, setLastSync] = useState<Date>(getTrueDate());
   const [mobileSortBy, setMobileSortBy] = useState<SortKey>('gross');
   const [selectedReport, setSelectedReport] = useState<{ report: SalesReport; branch: Branch } | null>(null);
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('all');
   const [managerFilter, setManagerFilter] = useState<'all' | 'has_manager' | 'no_manager'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'compliant' | 'uncompliant'>('all');
+  const [missedDaysThreshold, setMissedDaysThreshold] = useState<number | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
+  const [isLateOpenExpanded, setIsLateOpenExpanded] = useState(false);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page on search/sort change
-  }, [searchTerm, mobileSortBy, selectedDate, managerFilter, liveFilter]);
+  }, [searchTerm, mobileSortBy, selectedDate, managerFilter, liveFilter, missedDaysThreshold]);
+
+  useEffect(() => {
+    localStorage.setItem('live_filter_search', searchTerm);
+  }, [searchTerm]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -51,6 +58,25 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
     setSelectedDate(toDateStr(d));
     playSound('click');
   };
+
+  // Compute consecutive days without a report (going back from Manila today) per branch
+  const missedDaysMap = useMemo(() => {
+    const manilaToday = toDateStr(getTrueDate());
+    const map: Record<string, number> = {};
+    branches.forEach(branch => {
+      let count = 0;
+      const d = new Date(manilaToday + 'T12:00:00');
+      for (let i = 0; i < 60; i++) {
+        const dateStr = toDateStr(d);
+        const hasReport = salesReports.some(r => r.branchId === branch.id && r.reportDate === dateStr);
+        if (hasReport) break;
+        count++;
+        d.setDate(d.getDate() - 1);
+      }
+      map[branch.id] = count;
+    });
+    return map;
+  }, [branches, salesReports]);
 
   const branchStats = useMemo(() => {
     // Ensure we process ALL branches in the registry
@@ -68,12 +94,21 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
         sessionCount: report ? (report.sessionData?.length || 0) : 0,
         gross: report?.grossSales || 0,
         staffPay: report?.totalStaffPay || 0,
-        operational: report?.totalExpenses || 0,
-        vault: report?.totalVaultProvision || 0,
+        isLegacy: !branch.vaultEnabled,
+        operational: !branch.vaultEnabled
+          ? (report?.totalExpenses || 0)
+          : (report?.totalExpenses || 0) + (report?.totalVaultProvision || 0),
+        vault: !branch.vaultEnabled ? (report?.totalVaultProvision || 0) : 0,
         net: report?.netRoi || 0,
-        rawReport: report
+        rawReport: report,
+        missedDays: missedDaysMap[branch.id] ?? 0,
       };
     });
+
+    // Apply Missed Days Filter
+    if (missedDaysThreshold !== null) {
+      stats = stats.filter(b => b.missedDays >= missedDaysThreshold);
+    }
 
     // Apply Live Filter
     if (liveFilter !== 'all') {
@@ -106,7 +141,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
       if (mobileSortBy === 'name') return (a.name || '').localeCompare(b.name || '');
       return (b[mobileSortBy] || 0) - (a[mobileSortBy] || 0);
     });
-  }, [branches, salesReports, selectedDate, mobileSortBy, searchTerm, managerFilter, liveFilter, complianceFilter]);
+  }, [branches, salesReports, selectedDate, mobileSortBy, searchTerm, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
 
   const paginatedStats = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -126,6 +161,25 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
       sessions: acc.sessions + curr.sessionCount
     }), { gross: 0, staffPay: 0, operational: 0, vault: 0, net: 0, sessions: 0 });
   }, [branchStats]);
+
+  const lateToOpenBranches = useMemo(() => {
+    const manilaToday = toDateStr(getTrueDate());
+    if (selectedDate !== manilaToday) return [];
+    const manilaTime = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(lastSync);
+    return branches.filter(branch => {
+      if (!branch.isEnabled) return false;
+      if (branch.isOpen) return false;
+      if (!branch.openingTime) return false;
+      if ((branch.name || '').toUpperCase().includes('TEST')) return false;
+      return manilaTime > branch.openingTime;
+    });
+  }, [branches, selectedDate, lastSync]);
+
 
   const formattedDisplayDate = useMemo(() => {
     const d = parseDate(selectedDate);
@@ -225,7 +279,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
       ['Total Gross Yield', `P${networkTotals.gross.toLocaleString()}`],
       ['Total Payroll', `P${networkTotals.staffPay.toLocaleString()}`],
       ['Total Expenses', `P${networkTotals.operational.toLocaleString()}`],
-      ['Total Rent and Bills', `P${networkTotals.vault.toLocaleString()}`],
+      ['Total Vault Fund', `P${networkTotals.vault.toLocaleString()}`],
       ['Total Net ROI', `P${networkTotals.net.toLocaleString()}`]
     ];
 
@@ -260,10 +314,10 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
   };
 
   return (
-      <div className={`animate-in fade-in duration-500 space-y-6 pb-32`}>
-        {showDownloadConfirm && (
-          <div className="fixed inset-0 z-[10000] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 space-y-6 animate-in zoom-in duration-300">
+    <div className={`animate-in fade-in duration-500 space-y-6 pb-32`}>
+        {showDownloadConfirm && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/95 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowDownloadConfirm(false)}>
+            <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 space-y-6 animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-inner">📄</div>
               <div className="text-center space-y-2">
                 <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Confirm Export</h4>
@@ -272,13 +326,13 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                 </p>
               </div>
               <div className="flex flex-col gap-2">
-                <button 
+                <button
                   onClick={handleExportPDF}
                   className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg hover:bg-emerald-700 transition-all active:scale-95"
                 >
-                  Confirm Download
+                  Confirm Export
                 </button>
-                <button 
+                <button
                   onClick={() => setShowDownloadConfirm(false)}
                   className="w-full bg-slate-100 text-slate-400 font-black py-4 rounded-xl uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all"
                 >
@@ -286,7 +340,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
         {selectedReport && (
             <ReportDashboardModal
@@ -342,7 +397,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
             >
               <svg className={`w-4 h-4 transition-transform duration-300 ${isFiltersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
               <span className="hidden sm:inline">{isFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
-              {(managerFilter !== 'all' || liveFilter !== 'all' || complianceFilter !== 'all') && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
+              {(managerFilter !== 'all' || liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
             </button>
           </div>
 
@@ -379,7 +434,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                 </div>
               </div>
 
-              {/* — Secondary: 4 segmented toggle groups in a 2×2 grid on mobile, 4-col on desktop — */}
+              {/* — Secondary: filter groups — */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 {/* Live Status */}
                 <div className="space-y-1.5">
@@ -429,6 +484,26 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                   </div>
                 </div>
 
+                {/* Inactive Branches */}
+                <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
+                  <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1">No Report For</p>
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
+                    {([null, 3, 5, 7, 14, 30] as (number | null)[]).map((val) => (
+                      <button
+                        key={val ?? 'all'}
+                        onClick={() => { setMissedDaysThreshold(val); playSound('click'); }}
+                        className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                          missedDaysThreshold === val
+                            ? val === null ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {val === null ? 'Off' : `${val}d+`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Sort */}
                 <div className="space-y-1.5">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sort By</p>
@@ -449,7 +524,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
               </div>
 
               {/* Active filters summary chips */}
-              {(liveFilter !== 'all' || complianceFilter !== 'all' || managerFilter !== 'all') && (
+              {(liveFilter !== 'all' || complianceFilter !== 'all' || managerFilter !== 'all' || missedDaysThreshold !== null) && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {liveFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[9px] font-black text-emerald-700 uppercase tracking-widest">
@@ -469,8 +544,14 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                       <button onClick={() => setManagerFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
                     </span>
                   )}
+                  {missedDaysThreshold !== null && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 rounded-full text-[9px] font-black text-rose-700 uppercase tracking-widest">
+                      No report {missedDaysThreshold}d+
+                      <button onClick={() => setMissedDaysThreshold(null)} className="hover:text-rose-500 transition-colors">✕</button>
+                    </span>
+                  )}
                   <button
-                    onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setManagerFilter('all'); playSound('click'); }}
+                    onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setManagerFilter('all'); setMissedDaysThreshold(null); playSound('click'); }}
                     className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors px-2"
                   >
                     Clear all
@@ -481,6 +562,42 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
           )}
         </div>
 
+        {/* LATE TO OPEN PANEL */}
+        {lateToOpenBranches.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => setIsLateOpenExpanded(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-amber-400 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-sm">⚠</div>
+                <div className="text-left">
+                  <p className="text-[11px] font-black text-amber-900 uppercase tracking-widest">
+                    Late to Open — {lateToOpenBranches.length} {lateToOpenBranches.length === 1 ? 'Branch' : 'Branches'}
+                  </p>
+                  <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest mt-0.5">
+                    Should be open based on configured opening time
+                  </p>
+                </div>
+              </div>
+              <svg className={`w-4 h-4 text-amber-500 transition-transform duration-300 ${isLateOpenExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                <path d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isLateOpenExpanded && (
+              <div className="border-t border-amber-200 px-5 py-3 flex flex-wrap gap-2">
+                {lateToOpenBranches.map(branch => (
+                  <div key={branch.id} className="flex items-center gap-2 bg-white border border-amber-200 rounded-xl px-3 py-2 shadow-sm">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{branch.name}</span>
+                    <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">since {branch.openingTime}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
             <Pagination
@@ -489,6 +606,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                 onPageChange={setCurrentPage}
                 totalItems={branchStats.length}
                 itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
 
@@ -521,7 +639,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
           </div>
 
           <div className={`flex-1 min-w-[200px] bg-white p-6 sm:p-8 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className={`${UI_THEME.text.metadata} opacity-40 uppercase tracking-widest`}>Rent and Bills</p>
+            <p className={`${UI_THEME.text.metadata} opacity-40 uppercase tracking-widest`}>Rent & Bills</p>
             <p className={`font-bold text-indigo-600 mt-3 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
           </div>
         </div>
@@ -538,7 +656,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                 <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Gross Yield</th>
                 <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Payroll</th>
                 <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Expenses</th>
-                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Rent and Bills</th>
+                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Rent & Bills</th>
                 <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Net ROI</th>
               </tr>
               </thead>
@@ -554,7 +672,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${b.isEnabled ? 'bg-slate-100 text-slate-500' : 'bg-rose-50 text-rose-300 grayscale'}`}>🏢</div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-bold text-slate-900 uppercase text-sm tracking-tight truncate group-hover:text-emerald-700 transition-colors">{b.name}</p>
                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">NODE: {b.id.slice(0, 8).toUpperCase()}</p>
                           </div>
@@ -608,6 +726,11 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
         </div>
 
         {/* MOBILE CARD VIEW */}
+        <div className="md:hidden flex items-center gap-3 px-3">
+          <div className="flex-1 h-px bg-slate-200"></div>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Branch Sales Reports</span>
+          <div className="flex-1 h-px bg-slate-200"></div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden px-3">
           {paginatedStats.map((b) => (
               <div
@@ -630,7 +753,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                     <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Gross</p><p className="text-[12px] sm:text-base font-bold text-slate-900 tabular-nums truncate">₱{b.gross.toLocaleString()}</p></div>
                     <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Payroll</p><p className="text-[12px] sm:text-base font-bold text-amber-600 tabular-nums truncate">₱{b.staffPay.toLocaleString()}</p></div>
                     <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Expenses</p><p className="text-[12px] sm:text-base font-bold text-rose-500 tabular-nums truncate">₱{b.operational.toLocaleString()}</p></div>
-                    <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Rent and Bills</p><p className="text-[12px] sm:text-base font-bold text-indigo-700 tabular-nums truncate">₱{b.vault.toLocaleString()}</p></div>
+                    {b.isLegacy && <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p><p className="text-[12px] sm:text-base font-bold text-indigo-700 tabular-nums truncate">₱{b.vault.toLocaleString()}</p></div>}
                   </div>
                   <div className={`p-3 rounded-xl flex items-center justify-between ${b.net >= 0 ? 'bg-slate-900' : 'bg-rose-50'}`}>
                     <span className={`text-[9px] font-bold uppercase tracking-widest ${b.net >= 0 ? 'text-white/40' : 'text-rose-400'}`}>ROI</span>

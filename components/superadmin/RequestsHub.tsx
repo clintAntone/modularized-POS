@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Request, Employee, Branch, Transaction, Attendance, SalesReport } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -53,6 +53,15 @@ const TYPE_META: Record<string, { label: string; color: string; icon: React.Reac
       </svg>
     ),
   },
+  DISABLE_EMPLOYEE: {
+    label: 'Disable Employee',
+    color: 'bg-slate-50 text-slate-700 border-slate-200',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+      </svg>
+    ),
+  },
 };
 
 const STATUS_STYLE = {
@@ -67,6 +76,26 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteRevealId, setDeleteRevealId] = useState<string | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startHold = useCallback((cardId: string) => {
+    holdTimerRef.current = setTimeout(() => {
+      setDeleteRevealId(cardId);
+    }, 600);
+  }, []);
+
+  const cancelHold = useCallback(() => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+  }, []);
+
+  // Auto-dismiss delete button after 4s
+  useEffect(() => {
+    if (!deleteRevealId) return;
+    const t = setTimeout(() => setDeleteRevealId(null), 4000);
+    return () => clearTimeout(t);
+  }, [deleteRevealId]);
 
   const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
 
@@ -93,7 +122,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const { error } = await supabase.from(DB_TABLES.ATTENDANCE).insert(request.data);
           if (error) throw error;
         } else if (request.type === 'BACKFILL_REPORT') {
-          const { grossSales, totalExpenses, totalVaultProvision, staffBreakdown, reportDate } = request.data;
+          const { grossSales, totalExpenses, totalVaultProvision, staffBreakdown, reportDate, expenseData, vaultData } = request.data;
           const totalStaffPay = staffBreakdown.reduce((s: number, p: any) =>
             s + (p.salary || 0) + (p.commission || 0) + (p.otPay || 0) + (p.allowance || 0) - (p.lateDeduction || 0), 0);
           const netRoi = grossSales - totalExpenses - totalVaultProvision - totalStaffPay;
@@ -111,8 +140,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.NET_ROI]: netRoi,
             [DB_COLUMNS.STAFF_BREAKDOWN]: staffBreakdown,
             [DB_COLUMNS.SESSION_DATA]: existingReport?.sessionData || [],
-            [DB_COLUMNS.EXPENSE_DATA]: existingReport?.expenseData || [],
-            [DB_COLUMNS.VAULT_DATA]: existingReport?.vaultData || [],
+            [DB_COLUMNS.EXPENSE_DATA]: expenseData || existingReport?.expenseData || [],
+            [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
             [DB_COLUMNS.IS_VALIDATED]: existingReport?.isValidated || false,
           });
           if (error) throw error;
@@ -121,11 +150,34 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             .update({ [DB_COLUMNS.REQUEST_RESET]: true, [DB_COLUMNS.RESET_APPROVED]: true })
             .eq(DB_COLUMNS.ID, request.data.employeeId);
           if (error) throw error;
+        } else if (request.type === 'DISABLE_EMPLOYEE') {
+          const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
+            .update({ [DB_COLUMNS.IS_ACTIVE]: false })
+            .eq(DB_COLUMNS.ID, request.data.employeeId);
+          if (error) throw error;
+        }
+        // For BACKFILL_REPORT, snapshot the pre-approval values so the Approved tab can show Before/After
+        const approvalDataPatch: Record<string, any> = {};
+        if (request.type === 'BACKFILL_REPORT') {
+          const preReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === request.data?.reportDate);
+          if (preReport) {
+            approvalDataPatch[DB_COLUMNS.DATA] = {
+              ...request.data,
+              previousReport: {
+                grossSales: preReport.grossSales,
+                totalStaffPay: preReport.totalStaffPay,
+                totalExpenses: preReport.totalExpenses,
+                totalVaultProvision: preReport.totalVaultProvision,
+                netRoi: preReport.netRoi,
+              },
+            };
+          }
         }
         await supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'APPROVED',
           [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
           [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
+          ...approvalDataPatch,
         }).eq(DB_COLUMNS.ID, request.id);
         playSound('success');
       } else {
@@ -145,6 +197,24 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     } catch (err) {
       console.error(err);
       alert('Action failed. Check connection.');
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
+    setIsProcessing(id);
+    try {
+      const { error } = await supabase.from(DB_TABLES.REQUESTS).delete().eq(DB_COLUMNS.ID, id);
+      if (error) throw error;
+      playSound('success');
+      onRefresh?.();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete request. Check connection.');
     } finally {
       setIsProcessing(null);
     }
@@ -229,6 +299,42 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         document.body
       )}
 
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setDeleteConfirmId(null)}>
+          <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-8 text-center space-y-5">
+              <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
+                <svg className="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Delete Request?</h3>
+                <p className="text-[11px] font-bold text-slate-500 leading-relaxed">This will permanently remove the request. This action cannot be undone.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteRequest}
+                  disabled={!!isProcessing}
+                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -296,71 +402,50 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             return (
               <div
                 key={request.id}
-                className={`bg-white rounded-[28px] shadow-sm border overflow-hidden transition-shadow hover:shadow-md ${
+                className={`bg-white rounded-[24px] shadow-sm border overflow-hidden transition-shadow hover:shadow-md select-none ${
                   hasConflict ? 'border-rose-200' :
-                  request.status === 'PENDING' ? 'border-amber-200' :
-                  request.status === 'APPROVED' ? 'border-emerald-200' :
+                  request.status === 'PENDING' ? 'border-amber-100' :
+                  request.status === 'APPROVED' ? 'border-emerald-100' :
                   'border-slate-100'
                 }`}
+                onPointerDown={() => startHold(request.id)}
+                onPointerUp={cancelHold}
+                onPointerLeave={cancelHold}
+                onPointerCancel={cancelHold}
               >
-                {/* Card top strip */}
-                <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
+                {/* Card header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Type icon */}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${meta.color}`}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${meta.color}`}>
                       {meta.icon}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{meta.label}</span>
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${STATUS_STYLE[request.status as keyof typeof STATUS_STYLE] || ''}`}>
-                          {request.status}
-                        </span>
-                        {hasConflict && (
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-700 border border-rose-200 animate-pulse">
-                            ⚠ Conflict
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5 truncate">
+                      <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{meta.label}</span>
+                      <p className="text-[10px] font-medium text-slate-400 mt-0.5 truncate">
                         {branch?.name || 'Unknown Branch'}
                       </p>
                     </div>
                   </div>
-
-                  {/* Action buttons */}
-                  {request.status === 'PENDING' && !isReadOnly && (
-                    <div className="flex gap-2 shrink-0 ml-4">
-                      <button
-                        onClick={() => triggerConfirm(request, 'REJECT')}
-                        disabled={!!isProcessing}
-                        className="px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-all disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => triggerConfirm(request, 'APPROVE')}
-                        disabled={!!isProcessing}
-                        className="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {isProcessing === request.id
-                          ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                          : <>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              Approve
-                            </>
-                        }
-                      </button>
-                    </div>
+                  {deleteRevealId === request.id && !isReadOnly && (
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={() => { setDeleteRevealId(null); setDeleteConfirmId(request.id); }}
+                      disabled={!!isProcessing}
+                      className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 border border-rose-200 transition-all animate-in zoom-in-75 duration-150 disabled:opacity-50 shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   )}
                 </div>
 
-                <div className="p-6 space-y-5">
+                <div className="px-5 py-4 space-y-4">
 
                   {/* Target date — prominent for backfills */}
                   {formattedTargetDate && (
-                    <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                         <svg className="w-4.5 h-4.5 w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" style={{color:'#4338ca'}}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -396,28 +481,64 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                   )}
 
                   {/* Detail body */}
-                  {request.type === 'BACKFILL_REPORT' ? (
+                  {request.type === 'BACKFILL_REPORT' ? (() => {
+                    // For approved requests, use the snapshot saved at approval time.
+                    // For pending requests, look up the live report.
+                    const snapshot = request.data?.previousReport;
+                    const liveReport = !snapshot
+                      ? salesReports.find(r => r.branchId === request.branchId && r.reportDate === request.data?.reportDate)
+                      : null;
+                    const prior = snapshot ?? liveReport;
+
+                    const newStaffPay = request.data.staffBreakdown?.reduce((s: number, p: any) =>
+                      s + (p.salary || 0) + (p.commission || 0) + (p.otPay || 0) + (p.allowance || 0) - (p.lateDeduction || 0), 0) || 0;
+                    const newRoi = (request.data.grossSales || 0) - (request.data.totalExpenses || 0) - (request.data.totalVaultProvision || 0) - newStaffPay;
+
+                    const rows: { label: string; before: number | null; after: number; roiColor?: boolean }[] = [
+                      { label: 'Gross Sales',  before: prior?.grossSales ?? null,         after: request.data.grossSales || 0 },
+                      { label: 'Staff Pay',    before: prior?.totalStaffPay ?? null,       after: newStaffPay },
+                      { label: 'Expenses',     before: prior?.totalExpenses ?? null,       after: request.data.totalExpenses || 0 },
+                      { label: 'Provision',    before: prior?.totalVaultProvision ?? null, after: request.data.totalVaultProvision || 0 },
+                      { label: 'Net ROI',      before: prior?.netRoi ?? null,              after: newRoi, roiColor: true },
+                    ];
+
+                    return (
                     <div className="space-y-4">
-                      {/* Financial tiles */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {[
-                          { label: 'Gross Sales',   value: request.data.grossSales || 0,           dark: false },
-                          { label: 'Expenses',      value: request.data.totalExpenses || 0,         dark: false },
-                          { label: 'Rent / Bills',  value: request.data.totalVaultProvision || 0,   dark: false },
-                          {
-                            label: 'Projected ROI',
-                            value: (request.data.grossSales || 0) - (request.data.totalExpenses || 0) - (request.data.totalVaultProvision || 0) -
-                              (request.data.staffBreakdown?.reduce((s: number, p: any) => s + (p.salary || 0) + (p.commission || 0) + (p.otPay || 0) + (p.allowance || 0) - (p.lateDeduction || 0), 0) || 0),
-                            dark: true,
-                          },
-                        ].map(({ label, value, dark }) => (
-                          <div key={label} className={`rounded-2xl p-4 border ${dark ? 'bg-slate-900 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
-                            <p className={`text-base font-black tabular-nums ${dark ? (value >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-900'}`}>
-                              {fmt(value)}
-                            </p>
+                      {/* Before / After summary */}
+                      <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                        {/* Column headers */}
+                        <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100">
+                          <div className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Metric</div>
+                          <div className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right border-l border-slate-100">
+                            {prior ? 'Before' : '—'}
                           </div>
-                        ))}
+                          <div className="px-4 py-2.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100">After</div>
+                        </div>
+                        {rows.map(({ label, before, after, roiColor }) => {
+                          const changed = before !== null && before !== after;
+                          const delta = before !== null ? after - before : null;
+                          return (
+                            <div key={label} className={`grid grid-cols-3 border-b border-slate-50 last:border-0 ${changed ? 'bg-amber-50/40' : ''}`}>
+                              <div className="px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest">{label}</div>
+                              <div className="px-4 py-3 text-right border-l border-slate-100">
+                                {before !== null
+                                  ? <span className={`text-[13px] font-black tabular-nums ${changed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{fmt(before)}</span>
+                                  : <span className="text-[11px] text-slate-300">—</span>
+                                }
+                              </div>
+                              <div className="px-4 py-3 text-right border-l border-slate-100 flex flex-col items-end gap-0.5">
+                                <span className={`text-[13px] font-black tabular-nums ${
+                                  roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900'
+                                }`}>{fmt(after)}</span>
+                                {delta !== null && changed && (
+                                  <span className={`text-[9px] font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                    {delta > 0 ? '+' : ''}{fmt(delta)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
 
                       {/* Staff breakdown */}
@@ -442,9 +563,23 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">
-                                      S:{s.salary} · C:{s.commission} · OT:{s.otPay} · A:{s.allowance} · L:-{s.lateDeduction}
-                                    </p>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {[
+                                        { k: 'Base', v: s.salary },
+                                        { k: 'Com', v: s.commission },
+                                        { k: 'OT', v: s.otPay },
+                                        { k: 'Allow', v: s.allowance },
+                                      ].filter(x => x.v > 0).map(x => (
+                                        <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[9px] font-bold">
+                                          {x.k} ₱{x.v.toLocaleString()}
+                                        </span>
+                                      ))}
+                                      {s.lateDeduction > 0 && (
+                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded text-[9px] font-bold">
+                                          −Late ₱{s.lateDeduction.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <span className="text-sm font-black text-slate-900 shrink-0 tabular-nums">{fmt(total)}</span>
                                 </div>
@@ -462,7 +597,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         </div>
                       )}
                     </div>
-                  ) : request.type === 'PASSWORD_RESET' ? (
+                    );
+                  })() : request.type === 'PASSWORD_RESET' ? (
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Request Details</p>
                       {request.data.employeeId && (
@@ -472,15 +608,147 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         <p className="text-sm text-slate-600 italic">"{request.data.reason}"</p>
                       )}
                     </div>
+                  ) : request.type === 'DISABLE_EMPLOYEE' ? (
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Disable Request</p>
+                      {request.data.employeeName && (
+                        <p className="text-sm font-semibold text-slate-700">Employee: <span className="font-black text-slate-900">{request.data.employeeName}</span></p>
+                      )}
+                      {request.data.reason && (
+                        <p className="text-sm text-slate-600 italic">"{request.data.reason}"</p>
+                      )}
+                    </div>
+                  ) : request.type === 'BACKFILL_TRANSACTION' ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        {request.data.amount != null && (
+                          <div className="rounded-2xl p-4 bg-slate-900 border border-white/5">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Amount</p>
+                            <p className="text-base font-black tabular-nums text-emerald-400">{fmt(request.data.amount)}</p>
+                          </div>
+                        )}
+                        {request.data.service && (
+                          <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Service</p>
+                            <p className="text-sm font-black text-slate-900 uppercase truncate">{request.data.service}</p>
+                          </div>
+                        )}
+                        {request.data.quantity != null && (
+                          <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quantity</p>
+                            <p className="text-sm font-black text-slate-900">{request.data.quantity}</p>
+                          </div>
+                        )}
+                        {request.data.discount != null && request.data.discount > 0 && (
+                          <div className="rounded-2xl p-4 bg-rose-50 border border-rose-100">
+                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1.5">Discount</p>
+                            <p className="text-sm font-black text-rose-700">{fmt(request.data.discount)}</p>
+                          </div>
+                        )}
+                      </div>
+                      {request.data.employeeId && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                          <p className="text-xs font-black text-indigo-700 uppercase tracking-widest">
+                            {employees.find(e => e.id === request.data.employeeId)?.name || request.data.employeeId}
+                          </p>
+                        </div>
+                      )}
+                      {request.data.notes && (
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                          <p className="text-sm text-slate-700 font-medium italic">"{request.data.notes}"</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : request.type === 'BACKFILL_ATTENDANCE' ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        {request.data.employeeId && (
+                          <div className="col-span-2 flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                              <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Employee</p>
+                              <p className="text-sm font-black text-indigo-900 uppercase">
+                                {employees.find(e => e.id === request.data.employeeId)?.name || request.data.employeeId}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {request.data.clockIn && (
+                          <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock In</p>
+                            <p className="text-sm font-black text-slate-900 tabular-nums">{request.data.clockIn}</p>
+                          </div>
+                        )}
+                        {request.data.clockOut && (
+                          <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock Out</p>
+                            <p className="text-sm font-black text-slate-900 tabular-nums">{request.data.clockOut}</p>
+                          </div>
+                        )}
+                        {request.data.isHalfDay != null && (
+                          <div className={`rounded-2xl p-4 border ${request.data.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ${request.data.isHalfDay ? 'text-amber-500' : 'text-slate-400'}`}>Day Type</p>
+                            <p className={`text-sm font-black ${request.data.isHalfDay ? 'text-amber-700' : 'text-slate-900'}`}>{request.data.isHalfDay ? 'Half Day' : 'Full Day'}</p>
+                          </div>
+                        )}
+                        {request.data.overtimeHours != null && request.data.overtimeHours > 0 && (
+                          <div className="rounded-2xl p-4 bg-emerald-50 border border-emerald-100">
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">Overtime</p>
+                            <p className="text-sm font-black text-emerald-900">{request.data.overtimeHours}h</p>
+                          </div>
+                        )}
+                      </div>
+                      {request.data.notes && (
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                          <p className="text-sm text-slate-700 font-medium italic">"{request.data.notes}"</p>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Raw Payload</p>
-                      <pre className="text-xs font-mono text-slate-600 whitespace-pre-wrap overflow-x-auto">
-                        {JSON.stringify(request.data, null, 2)}
-                      </pre>
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Request Details</p>
+                      <div className="space-y-1.5">
+                        {Object.entries(request.data as Record<string, any>).map(([k, v]) => (
+                          <div key={k} className="flex items-start gap-2 text-xs">
+                            <span className="font-black text-slate-400 uppercase tracking-widest shrink-0 min-w-[100px]">{k.replace(/_/g, ' ')}</span>
+                            <span className="font-medium text-slate-700 break-all">{typeof v === 'object' ? JSON.stringify(v) : String(v ?? '—')}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
+
+                {/* Action footer — pending only */}
+                {request.status === 'PENDING' && !isReadOnly && (
+                  <div className="flex gap-2 px-5 py-4 border-t border-slate-100" onPointerDown={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => triggerConfirm(request, 'REJECT')}
+                      disabled={!!isProcessing}
+                      className="flex-1 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => triggerConfirm(request, 'APPROVE')}
+                      disabled={!!isProcessing}
+                      className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isProcessing === request.id
+                        ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        : <>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Approve
+                          </>
+                      }
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })

@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Branch, Employee, Transaction, Expense, Attendance, SalesReport } from '../../../types';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Branch, BranchVault, Employee, Transaction, Expense, Attendance, SalesReport } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
@@ -9,6 +9,7 @@ import { toManilaDateStr } from '../../../lib/time';
 
 interface BackfillRequestSectionProps {
   branch: Branch;
+  branchVault?: BranchVault | null;
   employees: Employee[];
   transactions: Transaction[];
   expenses: Expense[];
@@ -19,6 +20,7 @@ interface BackfillRequestSectionProps {
 
 export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   branch,
+  branchVault,
   employees,
   transactions,
   expenses,
@@ -27,6 +29,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   onRefresh
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [extraStaff, setExtraStaff] = useState<Employee[]>([]);
+  const [personnelSearch, setPersonnelSearch] = useState('');
+  const [isPersonnelOpen, setIsPersonnelOpen] = useState(false);
+  const personnelDropdownRef = useRef<HTMLDivElement>(null);
 
   const yesterday = useMemo(() => {
     const d = new Date();
@@ -48,7 +54,44 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
     });
   }, [employees, branch.id]);
 
+  const allStaff = useMemo(() => [...branchStaff, ...extraStaff], [branchStaff, extraStaff]);
+
+  const personnelResults = useMemo(() => {
+    if (!personnelSearch.trim()) return [];
+    const q = personnelSearch.toLowerCase();
+    const existingIds = new Set(allStaff.map(e => e.id));
+    return employees.filter(e => e.isActive && !existingIds.has(e.id) && e.name.toLowerCase().includes(q));
+  }, [personnelSearch, employees, allStaff]);
+
+  const handleAddStaff = (emp: Employee) => {
+    setExtraStaff(prev => [...prev, emp]);
+    const baseAllowance = getEmployeeAllowance(emp, branch.id);
+    setStaffPayroll(prev => ({
+      ...prev,
+      [emp.id]: { salary: (emp.salary || 0).toString(), commission: '0', ot: '0', late: '0', allowance: baseAllowance.toString(), cashAdvance: '0', isHalfDay: false }
+    }));
+    setPersonnelSearch('');
+    setIsPersonnelOpen(false);
+  };
+
+  const handleRemoveStaff = (empId: string) => {
+    setExtraStaff(prev => prev.filter(e => e.id !== empId));
+    setStaffPayroll(prev => {
+      const next = { ...prev };
+      delete next[empId];
+      return next;
+    });
+  };
+
   const depositAmount = Number(branch.dailyProvisionAmount) || 0;
+  const [newVaultDepositAmount, setNewVaultDepositAmount] = useState('');
+
+  // If vault_enabled is off, always use legacy mode regardless of start_date.
+  const isLegacy = useMemo(() => {
+    if (!branch.vaultEnabled) return true;
+    const startDate = branchVault?.startDate ?? null;
+    return !startDate || formData.date < startDate;
+  }, [branch.vaultEnabled, branchVault?.startDate, formData.date]);
 
   useEffect(() => {
     if (!formData.date) return;
@@ -65,6 +108,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       setProvisionItems(existingReport.vaultData || []);
 
       const payroll: Record<string, any> = {};
+      const restoredRelievers: Employee[] = [];
+      const branchStaffIds = new Set(branchStaff.map(e => e.id));
       existingReport.staffBreakdown?.forEach((b: any) => {
         payroll[b.employeeId] = {
           salary: (b.salary || 0).toString(),
@@ -75,7 +120,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           cashAdvance: (b.cashAdvance || 0).toString(),
           isHalfDay: !!b.isHalfDay
         };
+        if (b.isReliever && !branchStaffIds.has(b.employeeId)) {
+          const emp = employees.find(e => e.id === b.employeeId);
+          if (emp) restoredRelievers.push(emp);
+        }
       });
+      setExtraStaff(restoredRelievers);
       setStaffPayroll(payroll);
       return;
     }
@@ -86,6 +136,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
     const gross = dayTxs.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
     setFormData(prev => ({ ...prev, grossSales: gross > 0 ? gross.toString() : '', notes: '' }));
+    setExtraStaff([]);
     setExpenseItems(dayExps.filter(e => e.category === 'OPERATIONAL'));
     setProvisionItems(dayExps.filter(e => e.category === 'PROVISION'));
 
@@ -157,11 +208,23 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
   const removeProvisionItem = (idx: number) => setProvisionItems(prev => prev.filter((_, i) => i !== idx));
 
+  const addVaultDepositItem = () => {
+    const amount = Number(newVaultDepositAmount);
+    if (!amount || amount <= 0) return;
+    const id = Math.random().toString(36).substr(2, 9);
+    setProvisionItems(prev => [...prev, {
+      id, branchId: branch.id, name: 'VAULT DEPOSIT',
+      amount, category: 'VAULT_DEPOSIT', timestamp: new Date().toISOString()
+    } as Expense]);
+    setNewVaultDepositAmount('');
+    playSound('click');
+  };
+
   const totals = useMemo(() => {
     const gross = Number(formData.grossSales) || 0;
     const ops = expenseItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const bills = provisionItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const staffPay = Object.values(staffPayroll).reduce((sum: number, d: any) => {
+    const staffPay = Object.values(staffPayroll).reduce<number>((sum, d: any) => {
       return sum + (Number(d.salary) || 0) + (Number(d.commission) || 0) + (Number(d.ot) || 0) + (Number(d.allowance) || 0) - (Number(d.late) || 0);
     }, 0);
     return { gross, ops, bills, staffPay, net: gross - ops - bills - staffPay };
@@ -183,18 +246,21 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         [DB_COLUMNS.DATA]: {
           reportDate: formData.date,
           grossSales: totals.gross,
+          // Expenses = operational only; vault deposits go to vault_data/total_vault_provision
           totalExpenses: totals.ops,
           totalVaultProvision: totals.bills,
           expenseData: expenseItems,
+          // provisionItems holds both PROVISION (legacy) and VAULT_DEPOSIT (modern) entries
           vaultData: provisionItems,
           staffBreakdown: Object.entries(staffPayroll).map(([empId, data]: [string, any]) => {
             const emp = employees.find(e => e.id === empId);
+            const isReliever = extraStaff.some(e => e.id === empId);
             return {
               employeeId: empId, name: emp?.name || 'Unknown',
               salary: Number(data.salary) || 0, commission: Number(data.commission) || 0,
               otPay: Number(data.ot) || 0, lateDeduction: Number(data.late) || 0,
               allowance: Number(data.allowance) || 0, cashAdvance: Number(data.cashAdvance) || 0,
-              isHalfDay: !!data.isHalfDay
+              isHalfDay: !!data.isHalfDay, isReliever
             };
           }),
           notes: formData.notes
@@ -331,48 +397,75 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           )}
         </div>
 
-        {/* Rent & Bills Deposit */}
+        {/* Rent & Bills Deposit (legacy) / Vault Deposit (vault-era) */}
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rent & Bills Deposit</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              {isLegacy ? 'Rent & Bills Deposit' : 'Vault Deposit'}
+            </span>
             <div className="h-px flex-1 bg-slate-100"></div>
             {totals.bills > 0 && (
-              <span className="text-[10px] font-black text-indigo-600 tabular-nums">₱{totals.bills.toLocaleString()}</span>
+              <span className={`text-[10px] font-black tabular-nums ${isLegacy ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                ₱{totals.bills.toLocaleString()}
+              </span>
             )}
           </div>
 
-          {/* Provision items list */}
           {provisionItems.length > 0 && (
             <div className="mb-3 space-y-1.5">
               {provisionItems.map((item, idx) => (
-                <div key={item.id || idx} className="flex items-center gap-2 bg-indigo-50 rounded-xl px-3 py-2 border border-indigo-100">
-                  <span className="flex-1 text-[11px] font-bold text-indigo-700 uppercase truncate">{item.name}</span>
-                  <span className="text-[11px] font-black text-indigo-700 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
+                <div key={item.id || idx} className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isLegacy ? 'bg-indigo-50 border-indigo-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                  <span className={`flex-1 text-[11px] font-bold uppercase truncate ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>{item.name}</span>
+                  <span className={`text-[11px] font-black tabular-nums shrink-0 ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>₱{Number(item.amount).toLocaleString()}</span>
                   <button
                     type="button"
                     onClick={() => removeProvisionItem(idx)}
-                    className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0"
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors shrink-0 ${isLegacy ? 'bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600' : 'bg-emerald-100 text-emerald-400 hover:bg-emerald-200 hover:text-emerald-600'}`}
                   >×</button>
                 </div>
               ))}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={addProvisionItem}
-            disabled={depositAmount <= 0}
-            className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40 group"
-          >
-            <span className="text-[11px] font-black uppercase tracking-widest">+ Add Deposit</span>
-            {depositAmount > 0 && (
-              <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black tabular-nums">
-                ₱{depositAmount.toLocaleString()}
-              </span>
-            )}
-          </button>
-          {depositAmount <= 0 && (
-            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+          {isLegacy ? (
+            <>
+              <button
+                type="button"
+                onClick={addProvisionItem}
+                disabled={depositAmount <= 0}
+                className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40 group"
+              >
+                <span className="text-[11px] font-black uppercase tracking-widest">+ Add Deposit</span>
+                {depositAmount > 0 && (
+                  <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black tabular-nums">
+                    ₱{depositAmount.toLocaleString()}
+                  </span>
+                )}
+              </button>
+              {depositAmount <= 0 && (
+                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+              )}
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">₱</span>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={newVaultDepositAmount}
+                  onChange={e => setNewVaultDepositAmount(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVaultDepositItem(); } }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-[11px] font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addVaultDepositItem}
+                disabled={!newVaultDepositAmount || Number(newVaultDepositAmount) <= 0}
+                className="px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-[11px] font-black hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-30 shrink-0"
+              >Add</button>
+            </div>
           )}
         </div>
 
@@ -383,6 +476,43 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             <div className="h-px flex-1 bg-slate-100"></div>
             {totals.staffPay > 0 && (
               <span className="text-[10px] font-black text-amber-600 tabular-nums">−₱{totals.staffPay.toLocaleString()}</span>
+            )}
+          </div>
+
+          {/* Reliever search */}
+          <div className="mb-4 relative" ref={personnelDropdownRef}>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input
+                  type="text"
+                  placeholder="Search & add reliever by name..."
+                  value={personnelSearch}
+                  onChange={e => { setPersonnelSearch(e.target.value); setIsPersonnelOpen(true); }}
+                  onFocus={() => setIsPersonnelOpen(true)}
+                  onBlur={() => setTimeout(() => setIsPersonnelOpen(false), 150)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-[11px] font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
+                />
+              </div>
+            </div>
+            {isPersonnelOpen && personnelResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto no-scrollbar">
+                {personnelResults.map(emp => (
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onMouseDown={() => handleAddStaff(emp)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-50 transition-colors text-left"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-black shrink-0">{emp.name[0]}</div>
+                    <div>
+                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role} · {emp.branchId}</p>
+                    </div>
+                    <span className="ml-auto text-[8px] font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-lg uppercase tracking-widest">RELIEVER</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
@@ -403,14 +533,25 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {branchStaff.map(emp => {
+                {allStaff.map(emp => {
+                  const isReliever = extraStaff.some(e => e.id === emp.id);
                   const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
                   const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
                   return (
-                    <tr key={emp.id} className={`hover:bg-slate-50/50 transition-colors ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50/40' : ''}`}>
+                    <tr key={emp.id} className={`hover:bg-slate-50/50 transition-colors ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50/40' : ''} ${isReliever ? 'bg-violet-50/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{emp.role}</p>
+                              {isReliever && <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever</span>}
+                            </div>
+                          </div>
+                          {isReliever && (
+                            <button type="button" onClick={() => handleRemoveStaff(emp.id)} className="ml-auto w-5 h-5 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0">×</button>
+                          )}
+                        </div>
                       </td>
                       {(['salary', 'commission', 'ot', 'late', 'allowance'] as const).map(field => (
                         <td key={field} className="px-2 py-2">
@@ -459,17 +600,24 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
-            {branchStaff.map(emp => {
+            {allStaff.map(emp => {
+              const isReliever = extraStaff.some(e => e.id === emp.id);
               const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
               const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
               return (
-                <div key={emp.id} className={`rounded-xl border overflow-hidden ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                <div key={emp.id} className={`rounded-xl border overflow-hidden ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50 border-amber-200' : isReliever ? 'bg-violet-50/50 border-violet-200' : 'bg-slate-50 border-slate-100'}`}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-inherit">
                     <div>
-                      <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                        {isReliever && <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever</span>}
+                      </div>
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
                     </div>
                     <div className="flex items-center gap-3">
+                      {isReliever && (
+                        <button type="button" onClick={() => handleRemoveStaff(emp.id)} className="w-6 h-6 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[11px] font-black transition-colors">×</button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleHalfDayToggle(emp.id, emp)}

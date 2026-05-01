@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Branch, Transaction, Expense, Service, AuditLog, SalesReport, Employee, Attendance, UserRole, AuthState, PortalPermissions } from '../../types';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Branch, Transaction, Expense, AuditLog, SalesReport, Employee, Attendance, UserRole, AuthState, PortalPermissions } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -21,16 +21,16 @@ import { ExpensesHub } from './ExpensesHub';
 import { PayrollHub } from './PayrollHub';
 import { RequestsHub } from './RequestsHub';
 import { WeeklyRemittancesHub } from './WeeklyRemittancesHub';
-import { BillsCatalogHub } from './BillsCatalogHub';
+import { VaultFundHub } from './VaultFundHub';
 import { PortalUsersSection } from './PortalUsersSection';
+import { DevicesHub } from './DevicesHub';
 import { HowToSection } from '../dashboard/sections/HowToSection';
 import { SuperAdminNavbar } from '../navigation/SuperAdminNavbar';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { hashPin, generateSalt } from '../../lib/crypto';
 import { toDateStr } from '@/src/utils/reportUtils';
-import { getTrueDate, formatManilaDate, formatManilaTime, isTimeSynced, getTrueISOString } from '../../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime } from '../../lib/time';
 import { useUpdateBranch, useDeleteBranch, useAddBranch, useServiceCatalogs, useUpdateEmployee } from '../../hooks/useNetworkData';
-import { logAudit } from '../../lib/audit';
 
 interface ConfirmState {
   isOpen: boolean;
@@ -58,7 +58,7 @@ interface SuperAdminDashboardProps {
   permissions?: PortalPermissions; // undefined = superadmin (full access)
 }
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills' | 'portal_users';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices';
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branches, transactions, expenses, auditLogs, salesReports, employees, attendance, requests, onRefresh, onSyncStatusChange, permissions }) => {
   const isPortalUser = !!permissions;
@@ -190,6 +190,63 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
     allowedBranchIds ? requests.filter((r: any) => allowedBranchIds.includes(r.branchId)) : requests,
   [requests, allowedBranchIds]);
 
+  // ── Suspicious Activity Popup ────────────────────────────────────────────
+  const [dismissedFlagIds, setDismissedFlagIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('dismissed_security_flags') || '[]')); }
+    catch { return new Set(); }
+  });
+
+  const recentHighFlags = useMemo(() => {
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+    const recentLogs = scopedAuditLogs.filter(l => new Date(l.timestamp).getTime() >= cutoff);
+    const branchName = (id: string) => branches.find(b => b.id === id)?.name || 'UNKNOWN';
+
+    type FlagItem = { id: string; title: string; detail: string; branchName: string; latestTimestamp: string };
+    const flags: FlagItem[] = [];
+
+    // Tx edited 5+ times
+    const txUpdates: Record<string, AuditLog[]> = {};
+    recentLogs.filter(l => l.entityType === 'TRANSACTION' && l.activityType === 'UPDATE' && l.entityId)
+      .forEach(l => { (txUpdates[l.entityId] = txUpdates[l.entityId] || []).push(l); });
+    Object.entries(txUpdates).forEach(([entityId, logs]) => {
+      if (logs.length >= 5)
+        flags.push({ id: `tx-edit-${entityId}`, title: 'Transaction edited repeatedly', detail: `Sale record edited ${logs.length}× — ${[...new Set(logs.map(l => l.performerName || 'SYSTEM'))].join(', ')}`, branchName: branchName(logs[0].branchId), latestTimestamp: logs[0].timestamp });
+    });
+
+    // High-value deletion ₱2000+
+    recentLogs.filter(l => l.activityType === 'DELETE' && (l.amount || 0) >= 2000)
+      .forEach(l => flags.push({ id: `hv-del-${l.id}`, title: 'High-value record deleted', detail: `₱${(l.amount || 0).toLocaleString()} entry removed — ${l.description}`, branchName: branchName(l.branchId), latestTimestamp: l.timestamp }));
+
+    // 6+ deletions from same branch
+    const delByBranch: Record<string, AuditLog[]> = {};
+    recentLogs.filter(l => l.activityType === 'DELETE')
+      .forEach(l => { const k = l.branchId || '__central__'; (delByBranch[k] = delByBranch[k] || []).push(l); });
+    Object.entries(delByBranch).forEach(([bId, logs]) => {
+      if (logs.length >= 6)
+        flags.push({ id: `mass-del-${bId}`, title: 'Mass deletion detected', detail: `${logs.length} records deleted — ${[...new Set(logs.map(l => l.entityType))].join(', ')}`, branchName: bId === '__central__' ? 'CENTRAL' : branchName(bId), latestTimestamp: logs[0].timestamp });
+    });
+
+    return flags.filter(f => !dismissedFlagIds.has(f.id));
+  }, [scopedAuditLogs, branches, dismissedFlagIds]);
+
+  const dismissFlag = useCallback((id: string) => {
+    setDismissedFlagIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem('dismissed_security_flags', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
+  const dismissAllFlags = useCallback(() => {
+    const ids = recentHighFlags.map(f => f.id);
+    setDismissedFlagIds(prev => {
+      const next = new Set([...prev, ...ids]);
+      try { localStorage.setItem('dismissed_security_flags', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, [recentHighFlags]);
+
   const { data: serviceCatalogsData, refetch: refetchCatalogs } = useServiceCatalogs();
 
   const masterCatalogs = useMemo(() => {
@@ -226,7 +283,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
       const tempManagerChanged = oldTempManagerName !== newTempManagerName;
 
       const hasManager = (updated.manager && updated.manager.trim() !== '') || (updated.tempManager && updated.tempManager.trim() !== '');
-      const finalIsOpen = hasManager ? updated.isOpen : false;
+      // Always use the live DB value of isOpen — never let a stale editor session close an open branch.
+      // Only force-close if the manager is explicitly being removed.
+      const currentIsOpen = branches.find(b => b.id === updated.id)?.isOpen ?? false;
+      const finalIsOpen = hasManager ? currentIsOpen : false;
 
       await updateBranch.mutateAsync({
         id: updated.id,
@@ -242,7 +302,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         [DB_COLUMNS.OPENING_TIME]: updated.openingTime,
         [DB_COLUMNS.CLOSING_TIME]: updated.closingTime,
         [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || []),
-        [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null
+        [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null,
+        [DB_COLUMNS.VAULT_ENABLED]: updated.vaultEnabled ?? false
       });
 
       // Handle Manager Role Persistence
@@ -407,16 +468,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         [DB_COLUMNS.IS_ENABLED]: !currentlyEnabled
       });
 
-      const b = branches.find(br => br.id === id);
-      await logAudit({
-        branchId: id,
-        activityType: 'UPDATE',
-        entityType: 'BRANCH',
-        entityId: id,
-        description: `Branch access ${currentlyEnabled ? 'SUSPENDED' : 'RESTORED'} for ${b?.name}`,
-        performerName: user.username
-      });
-
       onRefresh?.(true);
     } catch (e) {
       console.error(e);
@@ -430,15 +481,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         id: branch.id,
         [DB_COLUMNS.PIN]: newPin,
         [DB_COLUMNS.IS_PIN_CHANGED]: false
-      });
-
-      await logAudit({
-        branchId: branch.id,
-        activityType: 'UPDATE',
-        entityType: 'SECURITY',
-        entityId: branch.id,
-        description: `Access PIN reset by SuperAdmin for ${branch.name}`,
-        performerName: user.username
       });
 
       onRefresh?.(true);
@@ -467,16 +509,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
     try {
       const b = branches.find(br => br.id === id);
       await deleteBranch.mutateAsync(id);
-
-      await logAudit({
-        branchId: null,
-        activityType: 'DELETE',
-        entityType: 'BRANCH',
-        entityId: id,
-        description: `Branch ERASED: ${b?.name}`,
-        performerName: user.username
-      });
-
       onRefresh?.(true);
     } catch (e) {
       console.error(e);
@@ -499,16 +531,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
       }, { onConflict: DB_COLUMNS.KEY });
 
       if (error) throw error;
-
-      const b = branches.find(br => br.id === branchId);
-      await logAudit({
-        branchId: branchId,
-        activityType: 'UPDATE',
-        entityType: 'SECURITY',
-        entityId: branchId,
-        description: `Remote session termination triggered by SuperAdmin for ${b?.name}`,
-        performerName: user.username
-      });
 
       onRefresh?.(true);
     } catch (e) {
@@ -535,15 +557,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         [DB_COLUMNS.IS_ENABLED]: true,
         [DB_COLUMNS.CYCLE_START_DATE]: toDateStr(getTrueDate()),
         [DB_COLUMNS.WEEKLY_CUTOFF]: '0'
-      });
-
-      await logAudit({
-        branchId: id,
-        activityType: 'CREATE',
-        entityType: 'BRANCH',
-        entityId: id,
-        description: `New physical branch DEPLOYED: ${cleanName}`,
-        performerName: user.username
       });
 
       setNewBranchName('');
@@ -595,15 +608,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
       const { error } = await supabase.from(DB_TABLES.BRANCHES).insert(newBranches);
       if (error) throw error;
 
-      await logAudit({
-        branchId: 'SYSTEM',
-        activityType: 'CREATE',
-        entityType: 'BRANCH',
-        entityId: 'BULK',
-        description: `Bulk registered ${newBranches.length} branches`,
-        performerName: user.username
-      });
-
       playSound('success');
       setShowBulkAddModal(false);
       setBulkInput('');
@@ -640,10 +644,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
               }}
           />
       );
-      case 'sales_hub': return <SalesHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} onRefresh={onRefresh} />;
+      case 'sales_hub': return null; // kept alive below
       case 'analytics': return <AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} />;
       case 'employees': return <GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} />;
-      case 'archive': return <ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} isReadOnly={isReadOnly} />;
+      case 'archive': return <ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} />;
       case 'settings': return <SettingsHub onRefresh={onRefresh} />;
       case 'audit': return <GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} />;
       case 'attendance': return <AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
@@ -651,10 +655,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
       case 'expenses': return <ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} />;
       case 'backfill': return <MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
       case 'remittances': return <WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
-      case 'bills': return <BillsCatalogHub branches={scopedBranches} isReadOnly={isReadOnly} />;
+      case 'vault': return <VaultFundHub branches={scopedBranches} salesReports={scopedSalesReports} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} />;
       case 'requests': return <RequestsHub requests={scopedRequests} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} />;
       case 'how_to': return <HowToSection role={UserRole.SUPERADMIN} />;
       case 'portal_users': return <PortalUsersSection currentUserId={user.employeeId} branches={branches} />;
+      case 'devices': return <DevicesHub branches={branches} />;
       default: return null;
     }
   };
@@ -812,8 +817,65 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, branche
         )}
 
         <main className={`flex-1 ${UI_THEME.layout.mainPadding} ${UI_THEME.layout.maxContent} w-full pb-32 pt-4 md:pt-8`}>
-          {renderContent()}
+          {/* SalesHub kept always-mounted so search/filter state is preserved across tab switches */}
+          <div className={activeTab !== 'sales_hub' ? 'hidden' : ''}>
+            <SalesHub branches={scopedBranches} salesReports={scopedSalesReports} employees={scopedEmployees} onRefresh={onRefresh} />
+          </div>
+          {activeTab !== 'sales_hub' && renderContent()}
         </main>
+
+        {/* ── Suspicious Activity Banner ────────────────────────────────────── */}
+        {recentHighFlags.length > 0 && !isPortalUser && (
+          <div className="fixed bottom-4 right-4 z-[9990] w-80 no-print animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-slate-900 rounded-2xl shadow-2xl border border-rose-500/30 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.25em]">Security Alert</p>
+                    <p className="text-[10px] font-black text-white leading-tight">{recentHighFlags.length} suspicious {recentHighFlags.length === 1 ? 'activity' : 'activities'} detected</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { handleTabChange('audit'); dismissAllFlags(); }}
+                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-white font-black text-[9px] uppercase tracking-widest rounded-xl transition-all active:scale-95"
+                  >
+                    View Audit
+                  </button>
+                  <button
+                    onClick={dismissAllFlags}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-400 hover:text-white transition-all"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </div>
+              {/* Flag list */}
+              <div className="max-h-52 overflow-y-auto divide-y divide-white/5">
+                {recentHighFlags.map(flag => (
+                  <div key={flag.id} className="flex items-start gap-3 px-4 py-3 group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1.5 shrink-0 animate-pulse" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-white uppercase tracking-wide leading-tight">{flag.title}</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5 leading-snug line-clamp-2">{flag.detail}</p>
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{flag.branchName}</p>
+                    </div>
+                    <button
+                      onClick={() => dismissFlag(flag.id)}
+                      className="w-5 h-5 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-500 hover:text-white transition-all shrink-0 mt-0.5"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* My Account modal — portal users only */}
         {showMyAccount && isPortalUser && (

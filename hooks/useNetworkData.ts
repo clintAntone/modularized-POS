@@ -30,6 +30,7 @@ const mapDbBranch = (db: any): Branch => ({
         try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
     })(),
     refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
+    vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
 });
 
 const mapDbEmployee = (db: any): Employee => ({
@@ -40,8 +41,7 @@ const mapDbEmployee = (db: any): Employee => ({
     middleName: db[DB_COLUMNS.MIDDLE_NAME],
     lastName: db[DB_COLUMNS.LAST_NAME],
     username: db[DB_COLUMNS.USERNAME],
-    loginPin: db[DB_COLUMNS.LOGIN_PIN],
-    pinSalt: db[DB_COLUMNS.PIN_SALT],
+    hasPinSet: Boolean(db[DB_COLUMNS.LOGIN_PIN]),
     requestReset: Boolean(db[DB_COLUMNS.REQUEST_RESET]),
     role: db[DB_COLUMNS.ROLE],
     allowance: Number(db[DB_COLUMNS.ALLOWANCE] || 0),
@@ -408,7 +408,6 @@ export const useDeleteEmployee = () => {
                 { table: DB_TABLES.ATTENDANCE, column: DB_COLUMNS.EMPLOYEE_ID },
                 { table: DB_TABLES.TRANSACTIONS, column: DB_COLUMNS.THERAPIST_ID },
                 { table: DB_TABLES.TRANSACTIONS, column: DB_COLUMNS.BONESETTER_ID },
-                { table: DB_TABLES.PAYROLL, column: DB_COLUMNS.EMPLOYEE_ID },
             ];
 
             for (const item of tablesToNullify) {
@@ -462,14 +461,12 @@ export const useUpdateBranch = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (branch: any) => {
-            console.log('[useUpdateBranch] Updating branch:', branch.id, branch);
             const { id, ...updates } = branch;
             const { data, error } = await supabase.from(DB_TABLES.BRANCHES).update(updates).eq(DB_COLUMNS.ID, id).select().single();
             if (error) {
                 console.error('[useUpdateBranch] Error updating branch:', error);
                 throw error;
             }
-            console.log('[useUpdateBranch] Branch updated successfully:', data);
             return data;
         },
         onSuccess: () => {
@@ -490,7 +487,6 @@ export const useDeleteBranch = () => {
                 DB_TABLES.EXPENSES,
                 DB_TABLES.ATTENDANCE,
                 DB_TABLES.SALES_REPORTS,
-                DB_TABLES.PAYROLL,
             ];
 
             for (const table of tablesToNullify) {
@@ -504,18 +500,8 @@ export const useDeleteBranch = () => {
                     // If nullification fails (e.g. NOT NULL constraint), we delete the records
                     // to allow branch decommissioning, as per user request.
                     if (updateError) {
-                        // Special check for Payroll which might use 'branch' column
-                        if (table === DB_TABLES.PAYROLL) {
-                            await supabase.from(table).update({ [DB_COLUMNS.BRANCH]: null }).eq(DB_COLUMNS.BRANCH, id);
-                        }
-                        
                         console.warn(`[useDeleteBranch] Could not nullify branch_id in ${table}, deleting records to unblock:`, updateError);
                         await supabase.from(table).delete().eq(DB_COLUMNS.BRANCH_ID, id);
-                        
-                        // Also try deleting with 'branch' column for Payroll if branch_id delete failed
-                        if (table === DB_TABLES.PAYROLL) {
-                            await supabase.from(table).delete().eq(DB_COLUMNS.BRANCH, id);
-                        }
                     }
                 } catch (e) {
                     console.warn(`[useDeleteBranch] Failed to handle ${table}:`, e);

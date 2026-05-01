@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase';
 export const paymongoService = {
   async createLink(data: { amount: number, description: string, remarks: string }) {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    console.log(`💳 PayMongo: Creating link via ${apiBase || 'local server'}...`);
 
     try {
       // 1. Try Local Server API (server.ts)
@@ -24,7 +23,6 @@ export const paymongoService = {
 
     // 2. Fallback to Supabase Function (if deployed)
     try {
-      console.log("🔄 Trying Supabase Function fallback...");
       const { data: response, error } = await supabase.functions.invoke('paymongo-handler', {
         body: { action: 'create-link', ...data }
       });

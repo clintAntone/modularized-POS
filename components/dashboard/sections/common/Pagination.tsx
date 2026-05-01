@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { UI_THEME } from '../../../../constants/ui_designs';
+import React, { useState, useEffect, useRef } from 'react';
 import { playSound } from '../../../../lib/audio';
 
 interface PaginationProps {
@@ -8,6 +7,8 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
   totalItems: number;
   itemsPerPage: number;
+  onItemsPerPageChange?: (n: number) => void;
+  itemsPerPageOptions?: number[];
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -15,9 +16,13 @@ export const Pagination: React.FC<PaginationProps> = ({
   totalPages,
   onPageChange,
   totalItems,
-  itemsPerPage
+  itemsPerPage,
+  onItemsPerPageChange,
+  itemsPerPageOptions = [10, 25, 50, 100],
 }) => {
   const [isMobile, setIsMobile] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640);
@@ -26,6 +31,16 @@ export const Pagination: React.FC<PaginationProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
     playSound('click');
@@ -33,32 +48,68 @@ export const Pagination: React.FC<PaginationProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
-
   const maxVisiblePages = isMobile ? 3 : 5;
 
   return (
-    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-hidden">
-      <div className="flex-1 min-w-0 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center whitespace-nowrap overflow-hidden">
-        <span className="hidden sm:inline">Showing </span>
-        <span className="text-slate-900 mx-0.5 sm:mx-1">{startItem}</span>
-        <span className="mx-0.5">-</span>
-        <span className="text-slate-900 mx-0.5 sm:mx-1">{endItem}</span>
-        <span className="hidden sm:inline"> of </span>
-        <span className="inline sm:hidden mx-0.5">/</span>
-        <span className="text-slate-900 mx-0.5 sm:mx-1">{totalItems}</span>
-        <span className="hidden sm:inline"> entries</span>
+    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-visible">
+
+      {/* Items-per-page custom dropdown */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {onItemsPerPageChange && (
+          <div ref={dropdownRef} className="relative shrink-0">
+            <button
+              onClick={() => { setDropdownOpen(p => !p); playSound('click'); }}
+              className="h-8 px-3 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors group"
+            >
+              <span className="text-[10px] font-black text-slate-700 tabular-nums">{itemsPerPage}</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">/ page</span>
+              <svg
+                className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute left-0 bottom-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden min-w-[110px] animate-in fade-in zoom-in-95 duration-100">
+                <div className="p-1.5 space-y-0.5">
+                  {itemsPerPageOptions.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        playSound('click');
+                        onItemsPerPageChange(n);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-[10px] font-black transition-all ${
+                        itemsPerPage === n
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>{n}</span>
+                      <span className={`text-[8px] font-bold uppercase tracking-widest ${itemsPerPage === n ? 'text-slate-400' : 'text-slate-300'}`}>
+                        per page
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      
+
+      {/* Page buttons */}
       {totalPages > 1 ? (
         <div className="flex items-center justify-end gap-1 sm:gap-2 no-scrollbar py-0.5 shrink-0 ml-auto">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
             className={`p-1.5 rounded-lg border transition-all shrink-0 ${
-              currentPage === 1 
-                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
+              currentPage === 1
+                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
             }`}
           >
@@ -69,10 +120,8 @@ export const Pagination: React.FC<PaginationProps> = ({
 
           <div className="flex items-center gap-1 shrink-0">
             {Array.from({ length: Math.min(maxVisiblePages, totalPages) }, (_, i) => {
-              // Show pages around current page
               let pageNum = currentPage;
               const half = Math.floor(maxVisiblePages / 2);
-              
               if (totalPages <= maxVisiblePages) {
                 pageNum = i + 1;
               } else if (currentPage <= half + 1) {
@@ -82,7 +131,6 @@ export const Pagination: React.FC<PaginationProps> = ({
               } else {
                 pageNum = currentPage - half + i;
               }
-
               return (
                 <button
                   key={pageNum}
@@ -103,8 +151,8 @@ export const Pagination: React.FC<PaginationProps> = ({
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
             className={`p-1.5 rounded-lg border transition-all shrink-0 ${
-              currentPage === totalPages 
-                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
+              currentPage === totalPages
+                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
             }`}
           >

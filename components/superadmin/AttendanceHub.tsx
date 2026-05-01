@@ -32,7 +32,8 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
   const [isResetting, setIsResetting] = useState<string | null>(null);
   const [deleteConfirmLog, setDeleteConfirmLog] = useState<Attendance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const itemsPerPage = 15;
+  const [resetConfirmLog, setResetConfirmLog] = useState<Attendance | null>(null);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'
@@ -57,10 +58,10 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
     }
 
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      res = res.filter(a => 
-        a.staffName.toLowerCase().includes(term) || 
-        (branches.find(b => b.id === a.branchId)?.name || '').toLowerCase().includes(term)
+      const term = searchTerm.trim();
+      res = res.filter(a =>
+        a.staffName.toUpperCase().includes(term) ||
+        (branches.find(b => b.id === a.branchId)?.name || '').toUpperCase().includes(term)
       );
     }
 
@@ -119,8 +120,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
       alert("Attendance records for previous days cannot be reset. Only today's active logs are adjustable.");
       return;
     }
-    if (!confirm(`Are you sure you want to RESET the clock-out for ${log.staffName}? This will mark them as "In Progress" again.`)) return;
-    
+    setResetConfirmLog(log);
+  };
+
+  const confirmResetClockOut = async () => {
+    if (!resetConfirmLog) return;
+    const log = resetConfirmLog;
+    setResetConfirmLog(null);
     setIsResetting(log.id);
     try {
       const { error } = await supabase
@@ -245,7 +251,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
             <input
               type="text"
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value.toUpperCase())}
               placeholder="Search staff or branch..."
               className="w-full h-10 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[12px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all"
             />
@@ -289,6 +295,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
               onPageChange={setCurrentPage}
               totalItems={filteredAttendance.length}
               itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
           {/* Mobile-only export button — desktop shows it in the header */}
@@ -600,6 +607,50 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
           </div>
         </div>
       </div>
+      {/* Reset Clock-Out Confirmation Modal */}
+      {resetConfirmLog && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-8 text-center space-y-5">
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto">
+                <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Reset Clock-Out?</h3>
+                <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+                  This will clear the clock-out time for
+                </p>
+                <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight">
+                  {resetConfirmLog.staffName}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  and mark them as "In Progress" again.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => { playSound('click'); setResetConfirmLog(null); }}
+                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmResetClockOut}
+                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteConfirmLog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">

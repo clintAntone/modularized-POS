@@ -91,18 +91,23 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
       doc.text(`P${data.ot.toLocaleString()}`, 80, 89, { align: 'right' });
       
       doc.setTextColor(15, 23, 42);
-      doc.text(`Total Deductions:`, 14, 96);
+      doc.text(`Late Deductions:`, 14, 96);
       doc.setTextColor(225, 29, 72); // rose-600
-      doc.text(`-P${(data.late + data.advance).toLocaleString()}`, 80, 96, { align: 'right' });
+      doc.text(`-P${data.late.toLocaleString()}`, 80, 96, { align: 'right' });
+
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Cash Advance:`, 14, 103);
+      doc.setTextColor(99, 102, 241); // indigo-500
+      doc.text(`-P${data.advance.toLocaleString()}`, 80, 103, { align: 'right' });
       
       doc.setDrawColor(16, 185, 129);
       doc.setLineWidth(0.5);
-      doc.line(14, 102, 80, 102);
-      
+      doc.line(14, 109, 80, 109);
+
       doc.setFontSize(14);
       doc.setTextColor(16, 185, 129);
-      doc.text(`NET PAYOUT:`, 14, 112);
-      doc.text(`P${data.netPay.toLocaleString()}`, 80, 112, { align: 'right' });
+      doc.text(`NET PAYOUT:`, 14, 119);
+      doc.text(`P${data.netPay.toLocaleString()}`, 80, 119, { align: 'right' });
       
       // Daily Breakdown Table
       const tableData = data.dailyBreakdown?.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(day => [
@@ -110,23 +115,25 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
         `P${day.commission.toLocaleString()}`,
         `P${day.allowance.toLocaleString()}`,
         `P${day.ot.toLocaleString()}`,
-        `P${(day.late + day.advance).toLocaleString()}`,
+        `P${day.late.toLocaleString()}`,
+        `P${day.advance.toLocaleString()}`,
         `P${day.net.toLocaleString()}`
       ]) || [];
-      
+
       autoTable(doc, {
-        startY: 125,
-        head: [['Date', 'Comm.', 'Allw.', 'OT', 'Ded.', 'Net']],
+        startY: 132,
+        head: [['Date', 'Comm.', 'Allw.', 'OT', 'Late', 'Cash Adv.', 'Net']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], fontSize: 9, halign: 'center' },
         columnStyles: {
-          0: { cellWidth: 35 },
+          0: { cellWidth: 32 },
           1: { halign: 'right' },
           2: { halign: 'right' },
           3: { halign: 'right' },
           4: { halign: 'right' },
-          5: { halign: 'right', fontStyle: 'bold' }
+          5: { halign: 'right' },
+          6: { halign: 'right', fontStyle: 'bold' }
         },
         styles: { fontSize: 8 }
       });
@@ -170,7 +177,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
 
             <div className="p-6 md:p-10 space-y-8">
               {/* SUMMARY CARDS */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Commission</p>
                   <p className="text-lg font-bold text-slate-900 tabular-nums">₱{data.commission.toLocaleString()}</p>
@@ -184,8 +191,12 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
                   <p className="text-lg font-bold text-emerald-700 tabular-nums">₱{data.ot.toLocaleString()}</p>
                 </div>
                 <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-                  <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest mb-1">Total Deductions</p>
-                  <p className="text-lg font-bold text-rose-700 tabular-nums">₱{(data.late + data.advance).toLocaleString()}</p>
+                  <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest mb-1">Late Deductions</p>
+                  <p className="text-lg font-bold text-rose-700 tabular-nums">₱{data.late.toLocaleString()}</p>
+                </div>
+                <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                  <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Cash Advance</p>
+                  <p className="text-lg font-bold text-indigo-700 tabular-nums">₱{data.advance.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -201,7 +212,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
                         <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Commission</th>
                         <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Allowance</th>
                         <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">OT</th>
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Deductions</th>
+                        <th className="p-4 text-[9px] font-bold text-rose-400 uppercase tracking-widest text-right">Late</th>
+                        <th className="p-4 text-[9px] font-bold text-indigo-400 uppercase tracking-widest text-right">Cash Adv.</th>
                         <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Net</th>
                       </tr>
                       </thead>
@@ -214,7 +226,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
                             <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums">₱{day.commission.toLocaleString()}</td>
                             <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums">₱{day.allowance.toLocaleString()}</td>
                             <td className="p-4 text-[11px] font-bold text-emerald-600 text-right tabular-nums">₱{day.ot.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-rose-500 text-right tabular-nums">₱{(day.late + day.advance).toLocaleString()}</td>
+                            <td className="p-4 text-[11px] font-bold text-rose-500 text-right tabular-nums">₱{day.late.toLocaleString()}</td>
+                            <td className="p-4 text-[11px] font-bold text-indigo-600 text-right tabular-nums">₱{day.advance.toLocaleString()}</td>
                             <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums bg-slate-50/30">₱{day.net.toLocaleString()}</td>
                           </tr>
                       ))}

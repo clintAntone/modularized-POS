@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Transaction } from '../../../../types';
-
+import { Transaction, Service } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 
 interface SessionLogsProps {
   transactions: Transaction[];
+  /** Branch services used for price lookup — avoids a broken DB query */
+  services?: Service[];
 }
 
 const container = {
@@ -23,12 +24,32 @@ const item = {
   show: { opacity: 1, x: 0 }
 };
 
-export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions }) => {
+export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [] }) => {
+  // Build a price lookup map from branch services (in-memory, no DB round-trip)
+  const serviceMap = useMemo(() => (
+    Object.fromEntries(services.map(s => [s.id, s]))
+  ), [services]);
+
+  // Returns [{name, price}] for a transaction's services
+  const getServiceItems = (t: Transaction) => {
+    const ids = t.serviceId ? t.serviceId.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const names = t.serviceName.split('+').map(s => s.trim());
+    if (ids.length === 0) return names.map(name => ({ name, price: null as number | null }));
+    return ids.map((id, idx) => ({
+      name: names[idx] ?? id,
+      price: serviceMap[id]?.price ?? null,
+    }));
+  };
+
   return (
       <div className="space-y-4">
-        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-4">Archived Session Log</h4>
+        <div>
+          <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
+          <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Lists of clients today</p>
+        </div>
 
-        <div className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden print:overflow-visible`}>
+        <div
+            className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden print:overflow-visible`}>
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto no-scrollbar print:overflow-visible">
             <table className="w-full text-left text-[12px] min-w-[900px] print:min-w-0">
@@ -77,14 +98,19 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions }) => {
                         {t.clientName}
                       </td>
 
-                      {/* SERVICE: Standardized to medium slate-600 */}
-                      <td className="px-8 py-5 font-bold text-slate-600 uppercase tracking-tight text-[11px] max-w-[200px] break-words leading-tight">
-                        <div className="flex flex-col gap-1">
-                          {t.serviceName.split('+').map((srv, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5">
-                                <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                                <span>{srv.trim()}</span>
+                      {/* SERVICE: with per-service price */}
+                      <td className="px-8 py-5 font-bold text-slate-600 uppercase tracking-tight text-[11px] max-w-[240px] break-words leading-tight">
+                        <div className="flex flex-col gap-1.5">
+                          {getServiceItems(t).map((srv, idx) => (
+                            <div key={idx} className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></div>
+                                <span className="truncate">{srv.name}</span>
                               </div>
+                              {srv.price !== null && (
+                                <span className="text-slate-400 font-semibold tabular-nums shrink-0">₱{srv.price.toLocaleString()}</span>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </td>
@@ -198,11 +224,16 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions }) => {
                   </div>
 
                   <div className="bg-slate-50 rounded-2xl p-4 space-y-3 border border-slate-100">
-                    <div className="flex flex-wrap gap-1.5">
-                      {t.serviceName.split('+').map((srv, idx) => (
-                        <span key={idx} className="text-[9px] font-black text-slate-600 bg-white px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-tight">
-                          {srv.trim()}
-                        </span>
+                    <div className="flex flex-col gap-1.5">
+                      {getServiceItems(t).map((srv, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-black text-slate-600 bg-white px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-tight">
+                            {srv.name}
+                          </span>
+                          {srv.price !== null && (
+                            <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0">₱{srv.price.toLocaleString()}</span>
+                          )}
+                        </div>
                       ))}
                     </div>
                     

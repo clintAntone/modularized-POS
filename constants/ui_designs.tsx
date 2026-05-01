@@ -38,7 +38,7 @@ export const UI_THEME = {
     sectionMargin: 'space-y-6 sm:space-y-10',
     
     // Standard Modal Constraints
-    modalWrapper: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in duration-200',
+    modalWrapper: 'fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/95 no-print animate-in fade-in duration-200',
     modalStandard: 'w-full max-w-md bg-white shadow-2xl animate-in zoom-in-95 duration-300',
     modalLarge: 'w-full max-w-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-300',
     modalFull: 'w-full max-w-7xl bg-white shadow-2xl animate-in zoom-in-95 duration-300',

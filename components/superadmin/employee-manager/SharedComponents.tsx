@@ -42,10 +42,16 @@ export const WorkplaceAuthorizationGrid = ({
 }) => {
   const [search, setSearch] = React.useState('');
   
-  const filteredBranches = branches.filter(b => 
-    b.name.toLowerCase().includes(search.toLowerCase()) ||
-    b.manager?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredBranches = branches
+    .filter(b =>
+      b.name.toLowerCase().includes(search.toLowerCase()) ||
+      b.manager?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aSelected = authorizedIds.includes(a.id) ? 0 : 1;
+      const bSelected = authorizedIds.includes(b.id) ? 0 : 1;
+      return aSelected - bSelected;
+    });
 
   const selectedCount = authorizedIds.length;
 

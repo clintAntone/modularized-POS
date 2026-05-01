@@ -4,6 +4,7 @@ import { UI_THEME } from '../../../constants/ui_designs';
 import { RoleBadge } from './SharedComponents';
 import { playSound } from '../../../lib/audio';
 import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../lib/payroll';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -31,15 +32,25 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
           </thead>
           <tbody className="divide-y divide-slate-100">
             {employees.map(emp => {
-              const authorizedBranches = branches.filter(b => 
-                b.id === emp.branchId || 
+              const authorizedBranches = branches.filter(b =>
+                b.id === emp.branchId ||
                 b.manager?.toUpperCase() === (emp.name || '').toUpperCase() ||
                 (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any))
               ).map(b => ({
                 name: b.name,
                 isManager: b.manager?.toUpperCase() === (emp.name || '').toUpperCase()
               }));
-              
+
+              const branchRelation = (() => {
+                if (!currentBranchId) return null;
+                const b = branches.find(br => br.id === currentBranchId);
+                if (!b) return null;
+                if (b.manager?.toUpperCase() === (emp.name || '').toUpperCase()) return 'manager';
+                if (emp.branchId === currentBranchId) return 'regular';
+                if (emp.branchAllowances && typeof emp.branchAllowances === 'object' && currentBranchId in (emp.branchAllowances as any)) return 'reliever';
+                return null;
+              })();
+
               return (
                 <tr
                   key={emp.id}
@@ -48,10 +59,15 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                   <td className="px-8 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg overflow-hidden shrink-0 shadow-inner ${emp.isActive ? 'bg-slate-100' : 'bg-slate-50'}`}>
-                        {emp.profile ? <img src={emp.profile} className="w-full h-full object-cover" alt={emp.name || ''} /> : <span className="font-bold italic text-slate-300">{getInitials(emp.name)}</span>}
+                        <ProfileAvatar name={emp.name || ''} src={emp.profile} />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{emp.name || 'UNNAMED'}</p>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{emp.name || 'UNNAMED'}</p>
+                          {branchRelation === 'manager' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-indigo-600 text-white uppercase tracking-widest shrink-0">Manager</span>}
+                          {branchRelation === 'regular' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-widest shrink-0">Regular</span>}
+                          {branchRelation === 'reliever' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-widest shrink-0">Reliever</span>}
+                        </div>
                         {emp.firstName && emp.lastName && (
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                             {emp.firstName} {emp.middleName ? emp.middleName + ' ' : ''}{emp.lastName}

@@ -51,7 +51,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
   const [useExistingAccount, setUseExistingAccount] = useState(false);
 
   const hasExistingAccount = useMemo(() => {
-    return !!(identifiedManager?.loginPin || (identifiedManager as any)?.login_pin);
+    return !!(identifiedManager?.hasPinSet || (identifiedManager as any)?.login_pin);
   }, [identifiedManager]);
 
   useEffect(() => {

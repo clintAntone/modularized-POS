@@ -69,7 +69,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
               onSelect={(name) => {
                 const updates: Partial<Branch> = { manager: name };
                 if (!name || name.trim() === '') {
-                  updates.isOpen = false; 
+                  updates.isOpen = false;
                 }
                 onUpdate(updates);
               }}

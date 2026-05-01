@@ -20,7 +20,6 @@ if (isPlaceholder(supabaseUrl) || isPlaceholder(supabaseAnonKey)) {
   console.error("❌ Supabase credentials missing or using placeholders! The application will not be able to load data.");
   console.warn("Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set correctly in your environment variables.");
 } else {
-  console.log("📡 Supabase client initialized with URL:", supabaseUrl.substring(0, 20) + "...");
 }
 
 // Create client only if URL is provided and not a placeholder to prevent crash

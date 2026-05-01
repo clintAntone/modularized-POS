@@ -4,8 +4,9 @@ import { Attendance, Employee } from '../../../../types';
 import { RoleBadge } from './RoleBadge';
 import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../../lib/payroll';
 import { UI_THEME } from '../../../../constants/ui_designs';
-import { Key, Pencil, AlertCircle } from 'lucide-react';
+import { Key, Pencil } from 'lucide-react';
 import { playSound } from '../../../../lib/audio';
+import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 
 const LONG_PRESS_MS = 800;
 
@@ -21,6 +22,7 @@ interface StaffCardProps {
   onTimeAction: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onPromote?: (emp: Employee) => void;
+  onRequestDisable?: (emp: Employee) => void;
 }
 
 export const StaffCard: React.FC<StaffCardProps> = ({
@@ -35,6 +37,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onTimeAction,
   onReset,
   onPromote,
+  onRequestDisable,
 }) => {
   const isOngoing = shiftState === 'ONGOING';
   const isCompleted = shiftState === 'COMPLETED';
@@ -73,14 +76,14 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
   return (
     <div
-      className={`${isOngoing ? 'bg-emerald-50' : 'bg-slate-100'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none ${
+      className={`${isOngoing ? 'bg-emerald-50' : 'bg-white'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none ${
         !isActive
-          ? 'grayscale opacity-60 border-slate-100'
+          ? 'grayscale opacity-60 border-slate-200'
           : isLongPressing
           ? 'border-indigo-400 ring-4 ring-indigo-400/20 scale-[0.98]'
           : isOngoing
-          ? 'border-emerald-500 shadow-xl ring-4 ring-emerald-500/5'
-          : 'border-slate-100 hover:border-emerald-300 hover:shadow-2xl'
+          ? 'border-emerald-400 shadow-xl ring-4 ring-emerald-500/10'
+          : 'border-slate-200 hover:border-emerald-400 hover:shadow-lg'
       }`}
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
@@ -153,11 +156,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
        <div className="p-5 sm:p-8 flex-1 flex flex-col">
           <div className="flex justify-between items-start mb-4 sm:mb-8">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-[32px] overflow-hidden bg-slate-50 border-4 border-white shadow-xl transition-transform group-hover:scale-110 duration-500">
-              {emp.profile ? (
-                <img src={emp.profile} className="w-full h-full object-cover" alt="p" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl font-black text-slate-200 italic">{getInitials(emp.name)}</div>
-              )}
+              <ProfileAvatar name={emp.name} src={emp.profile} initialsClassName="text-3xl" />
             </div>
             <div className="flex gap-2">
                {onReset && (
@@ -169,6 +168,19 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                    title="Reset Credentials"
                  >
                    <Key className="w-4 h-4" strokeWidth={3} />
+                 </button>
+               )}
+               {onRequestDisable && isActive && !isMainManager && !isTempManager && (
+                 <button
+                   onMouseDown={e => e.stopPropagation()}
+                   onTouchStart={e => e.stopPropagation()}
+                   onClick={() => onRequestDisable(emp)}
+                   className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-amber-500 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                   title="Request to Disable"
+                 >
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                   </svg>
                  </button>
                )}
                <button
@@ -202,7 +214,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             </div>
           </div>
 
-          <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+          <div className="mt-auto pt-6 border-t border-slate-100 flex items-center justify-between">
              <div className="space-y-1">
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
                   {emp.branchAllowances?.[branchId] ? 'Override Rate' : 'Base Rate'}

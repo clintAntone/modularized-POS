@@ -1,14 +1,18 @@
-const CACHE_NAME = 'hilot-cache-v1';
+// __BUILD_TS__ is replaced by the Vite `sw-version-stamp` plugin at build time.
+// Every `npm run build` produces a unique cache name, which forces the browser to
+// install the new SW and run the activate handler that deletes all old caches.
+const CACHE_NAME = 'hilot-cache-__BUILD_TS__';
 
-// App shell files to cache on install (adjust paths to match your build output)
+// DO NOT precache index.html or '/'.
+// index.html has no hash in its filename, so caching it here would serve stale HTML
+// even when the server sends Cache-Control: no-cache. Navigation requests always go
+// to the network; the SW only caches Vite-hashed static assets (JS, CSS, images).
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
 ];
 
-// Install: cache the app shell
+// Install: cache only the non-HTML shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
@@ -16,7 +20,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: remove old caches
+// Activate: delete every cache except the current one
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -26,45 +30,69 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network first, fall back to cache
+// Fetch strategy:
+//  - Navigation (HTML pages): always network, never cache — ensures index.html is always fresh
+//  - Supabase API: always network, never cache
+//  - Hashed assets (JS/CSS/images): cache-first, update cache on success
+//  - Anything else: network-first, fall back to cache
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests for same-origin or CDN assets
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // Let Supabase API calls go straight to network, never cache them
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+  // Never intercept Supabase API traffic
   if (url.hostname.includes('supabase')) return;
 
+  // Navigation requests (index.html) → pure network, no caching
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        // Offline only: serve the cached shell as a last resort
+        caches.match('/index.html')
+      )
+    );
+    return;
+  }
+
+  // Vite-hashed assets have a content hash in the path, safe to cache forever
+  const isHashedAsset = /\/assets\/.*\.(js|css|woff2?|png|jpg|svg|webp)(\?.*)?$/.test(url.pathname);
+
+  if (isHashedAsset) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response.ok) cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // Everything else: network-first, cache as fallback
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok && (url.pathname.match(/\.(js|css|png|jpg|svg|woff2?)$/) || url.pathname === '/')) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (response.ok) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
         }
         return response;
       })
-      .catch(() => {
-        // Offline fallback: serve from cache
-        return caches.match(event.request).then((cached) => {
-          if (cached) return cached;
-          // For navigation requests offline, serve the app shell
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-        });
-      })
+      .catch(() => caches.match(event.request))
   );
 });
 
-// Push notifications (existing)
+// Push notifications
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   self.registration.showNotification(data.title || 'Hilot Center', {
     body: data.body || '',
     icon: '/icon-192.png',
-    badge: '/icon-192.png'
+    badge: '/icon-192.png',
   });
 });

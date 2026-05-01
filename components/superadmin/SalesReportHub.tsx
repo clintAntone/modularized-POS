@@ -257,23 +257,18 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                   </div>
                 </div>
 
-                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 relative bg-white">
-                  <div className="flex justify-between items-center min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gross Yield</p>
-                    <p className="text-[14px] font-black text-slate-900 tabular-nums">₱{row.gross.toLocaleString()}</p>
-                  </div>
-                  <div className="flex justify-between items-center min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Payroll</p>
-                    <p className="text-[14px] font-black text-amber-600 tabular-nums">₱{row.salary.toLocaleString()}</p>
-                  </div>
-                  <div className="flex justify-between items-center min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expenses</p>
-                    <p className="text-[14px] font-black text-rose-500 tabular-nums">₱{row.expenses.toLocaleString()}</p>
-                  </div>
-                  <div className="flex justify-between items-center min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vault (R&B)</p>
-                    <p className="text-[14px] font-black text-indigo-700 tabular-nums">₱{row.vault.toLocaleString()}</p>
-                  </div>
+                <div className="px-4 py-3 space-y-2 bg-white">
+                  {[
+                    { label: 'Gross Yield', value: row.gross, color: 'text-slate-900' },
+                    { label: 'Payroll',     value: row.salary,   color: 'text-amber-600' },
+                    { label: 'Expenses',    value: row.expenses, color: 'text-rose-500' },
+                    { label: 'Vault / R&B', value: row.vault,    color: 'text-indigo-600' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between gap-4">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{label}</p>
+                      <p className={`text-[13px] font-black tabular-nums ${color}`}>₱{value.toLocaleString()}</p>
+                    </div>
+                  ))}
                 </div>
 
                 <div className={`mx-3 mb-3 p-3.5 rounded-lg flex items-center justify-between transition-all duration-300 ${row.net >= 0 ? 'bg-[#0F172A]' : 'bg-rose-50 border border-rose-100'}`}>

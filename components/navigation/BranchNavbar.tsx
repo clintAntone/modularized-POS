@@ -20,7 +20,6 @@ import {
   MoreHorizontal,
   X,
   UserSearch,
-  CalendarDays
 } from 'lucide-react';
 
 interface BranchNavbarProps {
@@ -29,6 +28,7 @@ interface BranchNavbarProps {
   enableShiftTracking: boolean;
   isRelief: boolean;
   showBillsAlert?: boolean;
+  vaultEnabled?: boolean;
 }
 
 const c = "w-[19px] h-[19px]";
@@ -46,7 +46,6 @@ const Icons = {
   developer: <Code className={c} />,
   how_to: <HelpCircle className={c} />,
   backfill: <Upload className={c} />,
-  heatmap: <CalendarDays className={c} />,
   more: <MoreHorizontal className="w-6 h-6 sm:w-5 sm:h-5" />
 };
 
@@ -55,7 +54,7 @@ const Icons = {
 const estimateTabWidth = (label: string) => 62 + label.length * 9;
 const MORE_BUTTON_WIDTH = 96; // "More" button estimated width
 
-export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false }) => {
+export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false, vaultEnabled = false }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   // containerWidth tracks the actual pixel width of the desktop nav strip
   const [containerWidth, setContainerWidth] = useState(
@@ -63,6 +62,11 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
   );
   const [showMoreModal, setShowMoreModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [starredIds, setStarredIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('more_starred_tabs') || '[]')); }
+    catch { return new Set(); }
+  });
+  const starLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,12 +99,11 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     const tabs = [
       { id: 'pos',             label: 'POS',            icon: Icons.pos,             desc: 'Session Registry',    color: 'bg-emerald-50 text-emerald-600', group: 'Operations' },
       { id: 'sales',           label: 'Sales',          icon: Icons.sales,           desc: 'Daily Performance',   color: 'bg-emerald-50 text-emerald-600', group: 'Operations' },
-      { id: 'staff',           label: 'Staff',          icon: Icons.staff,           desc: 'Personnel Roster',    color: 'bg-indigo-50 text-indigo-600',   group: 'Personnel'  },
+      { id: 'staff',           label: enableShiftTracking ? 'Attendance' : 'Staff', icon: Icons.staff, desc: enableShiftTracking ? 'Shift Tracking' : 'Personnel Roster', color: 'bg-indigo-50 text-indigo-600', group: 'Personnel' },
       { id: 'sales_reports',   label: 'Sales Reports',  icon: Icons.archive,         desc: 'Historical Data',     color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
-      { id: 'heatmap',         label: 'Performance',    icon: Icons.heatmap,         desc: 'Daily Performance',   color: 'bg-emerald-50 text-emerald-600', group: 'Reports'    },
-      { id: 'remittance',      label: 'Remittance',     icon: Icons.payroll,         desc: 'Weekly Distributions',color: 'bg-indigo-50 text-indigo-600',   group: 'Finance'    },
+{ id: 'remittance',      label: 'Remittance',     icon: Icons.payroll,         desc: 'Weekly Distributions',color: 'bg-indigo-50 text-indigo-600',   group: 'Finance'    },
       { id: 'salaries',        label: 'Payroll',        icon: Icons.payroll,         desc: 'Cycle Audit',         color: 'bg-rose-50 text-rose-600',       group: 'Finance'    },
-      { id: 'monthly_bills',   label: 'Monthly Bills',  icon: Icons.vault,           desc: 'Settle Dues',         color: 'bg-rose-50 text-rose-600',       group: 'Finance'    },
+      { id: 'monthly_bills',   label: 'Vault Fund',     icon: Icons.vault,           desc: 'Bills & Vault',       color: 'bg-emerald-50 text-emerald-600', group: 'Finance'    },
       { id: 'clients',         label: 'Clients',        icon: Icons.clients,         desc: 'Client Lookup',       color: 'bg-indigo-50 text-indigo-600',   group: 'Personnel'  },
       { id: 'expense_reports', label: 'Expense Reports',icon: Icons.expenses_ledger, desc: 'Financial History',   color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
       { id: 'backfill',        label: 'Backfill',       icon: Icons.backfill,        desc: 'Request Data Entry',  color: 'bg-amber-50 text-amber-600',     group: 'Reports'    },
@@ -108,11 +111,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       { id: 'settings',        label: 'Settings',       icon: Icons.settings,        desc: 'Node Config',         color: 'bg-rose-50 text-rose-600',       group: 'System'     },
     ];
     
+    const hidden = new Set<string>();
     if (isRelief) {
-      const restrictedTabs = ['settings', 'salaries', 'expense_reports', 'monthly_bills'];
-      return tabs.filter(t => !restrictedTabs.includes(t.id));
+      ['settings', 'salaries', 'expense_reports', 'monthly_bills'].forEach(id => hidden.add(id));
     }
-    return tabs;
+    if (!vaultEnabled) hidden.add('monthly_bills');
+    return hidden.size > 0 ? tabs.filter(t => !hidden.has(t.id)) : tabs;
   }, [enableShiftTracking, isRelief]);
 
   const tabGroups = useMemo(() => {
@@ -129,11 +133,23 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
   }, [masterTabRegistry]);
 
   const { visibleTabs, overflowTabs, isMoreActive } = useMemo(() => {
-    // Mobile: always show a fixed set in the bottom nav
+    // Mobile: dynamically fit as many tabs as the pill width allows.
+    // Pill available width = screenWidth - 32px (container px-4) - 16px (pill px-2) = screenWidth - 48px.
+    // Each button slot is ~60px (min-w-[56px] + justify-around spacing allowance).
     if (windowWidth < 640) {
-      const mobileVisibleIds = ['pos', 'sales', 'staff'];
-      const visible = masterTabRegistry.filter(t => mobileVisibleIds.includes(t.id));
-      const overflow = masterTabRegistry.filter(t => !mobileVisibleIds.includes(t.id));
+      const pillWidth = windowWidth - 48;
+      // Use 68px slot width so that 360px+ phones (pillWidth=312) fit 4 slots → 3 visible + More.
+      // Buttons use flex-1 so they expand evenly regardless of this estimate.
+      const slotWidth = 68;
+      const maxSlots = Math.floor(pillWidth / slotWidth);
+      // If everything fits, skip the MORE button
+      if (maxSlots >= masterTabRegistry.length) {
+        return { visibleTabs: masterTabRegistry, overflowTabs: [], isMoreActive: false };
+      }
+      // Reserve 1 slot for the MORE button
+      const visibleCount = Math.max(1, maxSlots - 1);
+      const visible = masterTabRegistry.slice(0, visibleCount);
+      const overflow = masterTabRegistry.slice(visibleCount);
       return { visibleTabs: visible, overflowTabs: overflow, isMoreActive: overflow.some(t => t.id === activeTab) };
     }
 
@@ -162,6 +178,16 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     const overflow = masterTabRegistry.slice(fitCount);
     return { visibleTabs: visible, overflowTabs: overflow, isMoreActive: overflow.some(t => t.id === activeTab) };
   }, [masterTabRegistry, activeTab, windowWidth, containerWidth]);
+
+  const toggleStar = (id: string) => {
+    setStarredIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      try { localStorage.setItem('more_starred_tabs', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+    playSound('click');
+  };
 
   const handleTabClick = (id: string) => {
     resumeAudioContext();
@@ -220,14 +246,14 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       ) : (
         /* MOBILE NAV - REFINED WITH MORE BUTTON */
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4">
-          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-[32px] shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center justify-around transition-all duration-500">
+          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-[32px] shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;
               return (
-                <button 
-                  key={tab.id} 
+                <button
+                  key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative shrink-0 min-w-[56px] ${isActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
+                  className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
                 >
                   <div className={`transition-all duration-300 ${isActive ? 'text-emerald-400' : 'text-white'}`}>{tab.icon}</div>
                   <span className={`text-[8px] font-bold uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{tab.label}</span>
@@ -239,7 +265,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
             {overflowTabs.length > 0 && (
               <button
                 onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative shrink-0 min-w-[56px] ${isMoreActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
+                className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isMoreActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
               >
                 <div className="relative">
                   <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-400' : 'text-white'}`}>{Icons.more}</div>
@@ -273,46 +299,100 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
             </div>
 
             <div className="p-4 sm:p-12 sm:pt-8 space-y-10">
-              {tabGroups.map(group => {
-                const groupOverflowTabs = group.tabs.filter(t => overflowTabs.some(ot => ot.id === t.id));
-                if (groupOverflowTabs.length === 0) return null;
-                
+              {(() => {
+                const renderTile = (item: any) => {
+                  const isStarred = starredIds.has(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleTabClick(item.id)}
+                      onPointerDown={() => {
+                        starLongPressRef.current = setTimeout(() => {
+                          toggleStar(item.id);
+                          starLongPressRef.current = null;
+                        }, 600);
+                      }}
+                      onPointerUp={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
+                      onPointerLeave={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
+                      onPointerCancel={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
+                      style={{ transform: 'translateZ(0)' }}
+                      className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu select-none ${
+                        isStarred
+                          ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
+                          : activeTab === item.id
+                            ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                            : showBillsAlert && item.id === 'monthly_bills'
+                              ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
+                              : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 bg-slate-50/50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
+                        {item.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-[11px] sm:text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1.5 group-hover:text-emerald-600 transition-colors duration-200">{item.label}</h4>
+                        <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
+                      </div>
+                      {isStarred && (
+                        <div className="absolute top-2.5 right-2.5">
+                          <svg className="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        </div>
+                      )}
+                      {!isStarred && activeTab === item.id && (
+                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+                      )}
+                      {showBillsAlert && item.id === 'monthly_bills' && activeTab !== item.id && !isStarred && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-amber-400 text-white rounded-full px-2 py-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span className="text-[7px] font-black uppercase tracking-widest">Setup</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                };
+
+                const allOverflow = overflowTabs;
+                const starredItems = allOverflow.filter(t => starredIds.has(t.id));
+
                 return (
-                  <div key={group.name} className="space-y-5">
-                    <div className="flex items-center gap-4 px-2">
-                      <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em] whitespace-nowrap">{group.name}</h5>
-                      <div className="h-px flex-1 bg-slate-100"></div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
-                      {groupOverflowTabs.map(item => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleTabClick(item.id)}
-                          style={{ transform: 'translateZ(0)' }}
-                          className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu ${activeTab === item.id ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : showBillsAlert && item.id === 'monthly_bills' ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 bg-slate-50/50'}`}
-                        >
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
-                            {item.icon}
+                  <>
+                    {/* ── Favorites section ── */}
+                    {starredItems.length > 0 && (
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-4 px-2">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                            <h5 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] whitespace-nowrap">Favorites</h5>
                           </div>
-                          <div>
-                            <h4 className="text-[11px] sm:text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1.5 group-hover:text-emerald-600 transition-colors duration-200">{item.label}</h4>
-                            <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
+                          <div className="h-px flex-1 bg-amber-100"></div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
+                          {starredItems.map(renderTile)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Original groups (excluding starred items) ── */}
+                    {tabGroups.map(group => {
+                      const groupOverflowTabs = group.tabs.filter(t =>
+                        overflowTabs.some(ot => ot.id === t.id) && !starredIds.has(t.id)
+                      );
+                      if (groupOverflowTabs.length === 0) return null;
+                      return (
+                        <div key={group.name} className="space-y-5">
+                          <div className="flex items-center gap-4 px-2">
+                            <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em] whitespace-nowrap">{group.name}</h5>
+                            <div className="h-px flex-1 bg-slate-100"></div>
                           </div>
-                          {activeTab === item.id && (
-                            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                          )}
-                          {showBillsAlert && item.id === 'monthly_bills' && activeTab !== item.id && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-amber-400 text-white rounded-full px-2 py-0.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                              <span className="text-[7px] font-black uppercase tracking-widest">Setup</span>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
+                            {groupOverflowTabs.map(renderTile)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
                 );
-              })}
+              })()}
             </div>
           </div>
         </div>,
