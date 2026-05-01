@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en" class="bg-[#f8fafc]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Fallback cache-busting for hosts where mod_headers is inactive (e.g. Hostinger shared).
+         The .htaccess Cache-Control header is the authoritative setting; these are a safety net. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- PRIMARY METADATA -->
+    <title>Hilot Center</title>
+    <meta name="title" content="Hilot Center">
+    <meta name="description" content="Professional Enterprise POS and Multi-Branch Management Terminal.">
+    <meta name="author" content="Clint Antone Raro">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#065f46">
+
+    <!-- DYNAMIC FAVICON (Emoji Data URI as Fallback) -->
+    <link rel="icon" id="dynamic-favicon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💆</text></svg>">
+    
+    <script>
+        // Immediate Favicon Sync from Cache
+        (function() {
+            const cachedLogo = localStorage.getItem('hilot_system_logo');
+            if (cachedLogo) {
+                const favicon = document.getElementById('dynamic-favicon');
+                if (favicon) favicon.href = cachedLogo;
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-datepicker@7.6.0/dist/react-datepicker.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Inter:wght@100..900&family=Space+Grotesk:wght@300..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Lexend:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" crossorigin="anonymous">
+    <style>
+        :root {
+            --app-bg: #f8fafc;
+        }
+        html, body {
+            background-color: var(--app-bg);
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        @media print {
+            @page {
+                size: A3;
+                margin: 10mm;
+            }
+            #root {
+                display: block !important;
+                min-height: auto !important;
+                height: auto !important;
+            }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; height: auto !important; min-height: 0 !important; overflow: visible !important; color: black !important; }
+            html { height: auto !important; overflow: visible !important; }
+            #root, #root > div { height: auto !important; display: block !important; background: white !important; }
+
+            /* Hide everything except the modal if it's open */
+            body.modal-open #root > div > header,
+            body.modal-open #root > div > div.sticky {
+                display: none !important;
+            }
+
+            /* Use visibility to hide the background while keeping the modal (which is a child) printable */
+            body.modal-open #root > div > main {
+                visibility: hidden !important;
+            }
+
+            /* If a modal is open, we want to print ONLY the modal content */
+            body.modal-open .fixed.inset-0 {
+                visibility: visible !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                display: block !important;
+                background: white !important;
+                padding: 0 !important;
+                z-index: auto !important;
+            }
+
+            .print-container { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
+            [class*="rounded-"] {
+                border-radius: 4px !important;
+                border: 1px solid #e2e8f0 !important;
+            }
+            .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+            table { font-size: 10px !important; width: 100% !important; border-collapse: collapse !important; }
+            th, td { border-bottom: 1px solid #f1f5f9 !important; }
+
+            /* Force visibility for printed elements */
+            .animate-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+            /* Page breaks */
+            .page-break { page-break-before: always; }
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0); opacity: 0; }
+            10% { opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        @keyframes float-slow {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            33% { transform: translate(10%, -5%) rotate(5deg) scale(1.1); }
+            66% { transform: translate(-5%, 8%) rotate(-5deg) scale(0.9); }
+            100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+        }
+
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        @keyframes premium-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { transform: scale(1.03); box-shadow: 0 0 20px 4px rgba(16, 185, 129, 0.2); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+        }
+
+        @keyframes spin-stop-flip {
+            0% { transform: rotate(0deg) scaleX(1); }
+            1% { transform: rotate(360deg) scaleX(1); }
+            40% { transform: rotate(360deg) scaleX(-1); }
+            80% { transform: rotate(360deg) scaleX(1); }
+            100% { transform: rotate(360deg) scaleX(1); }
+        }
+
+        /* NO SCROLLBAR UTILITY */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<div id="root" class="min-h-full w-full flex flex-col"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
