@@ -4,10 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
 
-interface ConfigItem {
-  key: string;
-  value: string;
-}
+interface ConfigItem { key: string; value: string; }
 
 const FONT_OPTIONS = [
   { name: 'Outfit', value: 'Outfit' },
@@ -17,211 +14,220 @@ const FONT_OPTIONS = [
   { name: 'JetBrains Mono', value: 'JetBrains Mono' },
   { name: 'Montserrat', value: 'Montserrat' },
   { name: 'Lexend', value: 'Lexend' },
-  { name: 'Plus Jakarta Sans', value: 'Plus Jakarta Sans' }
+  { name: 'Plus Jakarta Sans', value: 'Plus Jakarta Sans' },
 ];
 
-interface SystemConfigHubProps {
-  onRefresh?: (quiet?: boolean) => void;
-}
+interface SystemConfigHubProps { onRefresh?: (quiet?: boolean) => void; }
+
+// Toggle
+const Toggle: React.FC<{ value: boolean; onChange: () => void; disabled?: boolean }> = ({ value, onChange, disabled }) => (
+  <button onClick={onChange} disabled={disabled}
+    className={`relative rounded-full transition-all duration-300 disabled:opacity-40 shrink-0 ${value ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-200'}`}
+    style={{ height: '24px', width: '44px' }}>
+    <span className={`absolute top-[3px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all duration-300 ${value ? 'left-[23px]' : 'left-[3px]'}`} />
+  </button>
+);
+
+// Section card
+const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({ title, subtitle, children }) => (
+  <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4">
+    <div>
+      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+      {subtitle && <p className="text-[11px] text-slate-500 mt-1">{subtitle}</p>}
+    </div>
+    {children}
+  </div>
+);
+
+// Row inside a section
+const Row: React.FC<{ label: string; desc?: string; children: React.ReactNode }> = ({ label, desc, children }) => (
+  <div className="flex items-center gap-4 py-3 border-t border-slate-50">
+    <div className="flex-1 min-w-0">
+      <p className="text-[12px] font-bold text-slate-800">{label}</p>
+      {desc && <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>}
+    </div>
+    <div className="shrink-0">{children}</div>
+  </div>
+);
 
 export const SystemConfigHub: React.FC<SystemConfigHubProps> = ({ onRefresh }) => {
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState<string | null>(null);
-  
-  // Local form state to prevent lag
   const [localAppName, setLocalAppName] = useState('');
   const [localVersion, setLocalVersion] = useState('');
   const [localAuditTime, setLocalAuditTime] = useState('');
+  const [localMaintenanceEnd, setLocalMaintenanceEnd] = useState('');
+  const [brandingSaved, setBrandingSaved] = useState(false);
 
   const fetchConfigs = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*');
+    const { data } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*');
     if (data) {
-      const configMap = data.map((d: any) => ({ key: d[DB_COLUMNS.KEY], value: d[DB_COLUMNS.VALUE] }));
-      setConfigs(configMap);
-      
-      // Initialize local state
-      const appName = configMap.find(c => c.key === 'app_name')?.value || 'Hilot Center - Core';
-      const version = configMap.find(c => c.key === 'version')?.value || '1.0.0';
-      const auditTime = configMap.find(c => c.key === 'auto_refresh_daily_audit')?.value || '00:00';
-      
-      setLocalAppName(appName);
-      setLocalVersion(version);
-      setLocalAuditTime(auditTime);
+      const map = data.map((d: any) => ({ key: d[DB_COLUMNS.KEY], value: d[DB_COLUMNS.VALUE] }));
+      setConfigs(map);
+      setLocalAppName(map.find(c => c.key === 'app_name')?.value || 'Hilot Center - Core');
+      setLocalVersion(map.find(c => c.key === 'version')?.value || '1.0.0');
+      setLocalAuditTime(map.find(c => c.key === 'auto_refresh_daily_audit')?.value || '00:00');
+      // "YYYY-MM-DD HH:MM" → datetime-local needs "YYYY-MM-DDTHH:MM"
+      const rawEnd = map.find(c => c.key === 'maintenance_end_date')?.value || '';
+      setLocalMaintenanceEnd(rawEnd ? rawEnd.replace(' ', 'T') : '');
     }
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchConfigs();
-  }, []);
+  useEffect(() => { fetchConfigs(); }, []);
 
   const handleUpdate = async (key: string, value: string) => {
     setIsSaving(key);
     try {
-      const { error } = await supabase
-        .from(DB_TABLES.SYSTEM_CONFIG)
+      const { error } = await supabase.from(DB_TABLES.SYSTEM_CONFIG)
         .upsert({ [DB_COLUMNS.KEY]: key, [DB_COLUMNS.VALUE]: value }, { onConflict: DB_COLUMNS.KEY });
-      
       if (error) throw error;
-      
-      setConfigs(prev => {
-        const exists = prev.some(c => c.key === key);
-        if (exists) {
-          return prev.map(c => c.key === key ? { ...c, value } : c);
-        }
-        return [...prev, { key, value }];
-      });
+      setConfigs(prev => prev.some(c => c.key === key)
+        ? prev.map(c => c.key === key ? { ...c, value } : c)
+        : [...prev, { key, value }]);
       playSound('success');
-      if (onRefresh) onRefresh(true);
-    } catch (err) {
-      playSound('warning');
-    } finally {
-      setIsSaving(null);
-    }
+      onRefresh?.(true);
+    } catch { playSound('warning'); }
+    finally { setIsSaving(null); }
   };
 
-  const getConfigValue = (key: string, fallback: string) => {
-    return configs.find(c => c.key === key)?.value || fallback;
+  const get = (key: string, fallback = '') => configs.find(c => c.key === key)?.value ?? fallback;
+  const bool = (key: string) => get(key, 'false') === 'true';
+
+  const handleSaveBranding = async () => {
+    await handleUpdate('app_name', localAppName);
+    await handleUpdate('version', localVersion);
+    setBrandingSaved(true);
+    setTimeout(() => setBrandingSaved(false), 2500);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 opacity-30">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-4"></div>
-        <p className="text-[10px] font-bold uppercase tracking-widest">Accessing Mainframe...</p>
-      </div>
-    );
-  }
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-24 opacity-30">
+      <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-500 pb-32">
-      {/* SYSTEM HEARTBEAT CARD */}
-      <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[32px] sm:rounded-[44px] border border-slate-100 shadow-sm space-y-6 sm:space-y-8">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-600 text-white rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-lg">🕛</div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 uppercase tracking-tighter">Maintenance Heartbeat</h3>
-            <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Scheduled Daily Branch Refresh</p>
-          </div>
-        </div>
+    <div className="space-y-4">
 
-        <div className="p-4 sm:p-6 bg-slate-50 rounded-[24px] sm:rounded-[32px] border border-slate-100 space-y-4 sm:space-y-6">
-          <div className="space-y-2">
-            <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Daily Audit Reset Time (Manila)</label>
-            <div className="flex gap-2 sm:gap-3">
-              <input 
-                type="time"
-                value={localAuditTime}
-                onChange={(e) => setLocalAuditTime(e.target.value)}
-                className="flex-1 p-4 sm:p-5 bg-white border-2 border-transparent rounded-xl sm:rounded-2xl font-bold text-lg sm:text-xl outline-none focus:border-emerald-500 transition-all shadow-sm"
-              />
-              <button 
-                onClick={() => handleUpdate('auto_refresh_daily_audit', localAuditTime)}
-                disabled={isSaving === 'auto_refresh_daily_audit'}
-                className="bg-slate-900 px-4 sm:px-6 flex items-center justify-center rounded-xl sm:rounded-2xl shrink-0 hover:bg-slate-800 transition-colors active:scale-95"
-              >
-                 {isSaving === 'auto_refresh_daily_audit' ? (
-                   <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                 ) : (
-                   <span className="text-[8px] sm:text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Sync</span>
-                 )}
+      {/* Maintenance */}
+      <Section title="Maintenance" subtitle="Scheduled system operations">
+        <Row label="Daily Audit Reset" desc="Branch auto-close time (Manila timezone)">
+          <div className="flex items-center gap-2">
+            <input type="time" value={localAuditTime} onChange={e => setLocalAuditTime(e.target.value)}
+              className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
+            <button onClick={() => handleUpdate('auto_refresh_daily_audit', localAuditTime)}
+              disabled={isSaving === 'auto_refresh_daily_audit'}
+              className="h-9 px-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shadow-sm">
+              {isSaving === 'auto_refresh_daily_audit' ? '…' : 'Sync'}
+            </button>
+          </div>
+        </Row>
+
+        <Row
+          label="Maintenance Mode"
+          desc={bool('maintenance_mode') ? 'Portal is currently offline — users see the maintenance page' : 'Portal is live'}
+        >
+          <Toggle
+            value={bool('maintenance_mode')}
+            onChange={() => handleUpdate('maintenance_mode', bool('maintenance_mode') ? 'false' : 'true')}
+            disabled={isSaving === 'maintenance_mode'}
+          />
+        </Row>
+
+        <Row label="Maintenance End Date" desc="Optional countdown shown to users (Manila time)">
+          <div className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={localMaintenanceEnd}
+              onChange={e => setLocalMaintenanceEnd(e.target.value)}
+              className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all"
+            />
+            <button
+              onClick={() => {
+                // Save as "YYYY-MM-DD HH:MM" (replace T back to space, drop seconds if present)
+                const val = localMaintenanceEnd
+                  ? localMaintenanceEnd.replace('T', ' ').slice(0, 16)
+                  : '';
+                handleUpdate('maintenance_end_date', val);
+              }}
+              disabled={isSaving === 'maintenance_end_date'}
+              className="h-9 px-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shadow-sm">
+              {isSaving === 'maintenance_end_date' ? '…' : 'Set'}
+            </button>
+            {localMaintenanceEnd && (
+              <button
+                onClick={() => { setLocalMaintenanceEnd(''); handleUpdate('maintenance_end_date', ''); }}
+                disabled={isSaving === 'maintenance_end_date'}
+                className="h-9 px-3 rounded-2xl bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all disabled:opacity-40">
+                Clear
               </button>
-            </div>
+            )}
           </div>
-          <p className="text-[8px] sm:text-[9px] font-medium text-slate-400 leading-relaxed italic px-2 uppercase">
-            Note: The system force-closes branches daily to ensure ledger integrity.
+        </Row>
+      </Section>
+
+      {/* Branding */}
+      <Section title="Branding" subtitle="Network identity across all branch interfaces">
+        <Row label="Application Name" desc="Displayed in the app header and login screen">
+          <input value={localAppName} onChange={e => setLocalAppName(e.target.value)}
+            className="w-40 sm:w-48 h-9 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
+        </Row>
+        <Row label="Build Version" desc="Version string shown in the app footer">
+          <input value={localVersion} onChange={e => setLocalVersion(e.target.value)}
+            className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
+        </Row>
+        <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+          <p className="text-[10px] text-slate-400 italic">
+            {brandingSaved ? <span className="text-emerald-500 font-bold not-italic">✓ Saved.</span> : 'Changes apply instantly across connected branches.'}
           </p>
-        </div>
-      </div>
-
-      {/* CORE BRANDING CARD */}
-      <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[32px] sm:rounded-[44px] border border-slate-100 shadow-sm space-y-6 sm:space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-900 text-white rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-lg">🏷️</div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 uppercase tracking-tighter">Network Branding</h3>
-              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Global Branch Identity</p>
-            </div>
-          </div>
-          <button 
-            onClick={async () => {
-              await handleUpdate('app_name', localAppName);
-              await handleUpdate('version', localVersion);
-            }}
+          <button onClick={handleSaveBranding}
             disabled={isSaving === 'app_name' || isSaving === 'version'}
-            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
-          >
-            {isSaving === 'app_name' || isSaving === 'version' ? 'Saving...' : 'Save Branding'}
+            className="h-9 px-5 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shadow-sm">
+            Save Branding
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <div className="space-y-2">
-              <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Application Name</label>
-              <input 
-                value={localAppName}
-                onChange={(e) => setLocalAppName(e.target.value)}
-                className="w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-xl sm:rounded-2xl font-bold text-[10px] sm:text-xs uppercase outline-none focus:border-indigo-500 transition-all shadow-inner"
-              />
-           </div>
-           <div className="space-y-2">
-              <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Build Version</label>
-              <input 
-                value={localVersion}
-                onChange={(e) => setLocalVersion(e.target.value)}
-                className="w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-xl sm:rounded-2xl font-bold text-[10px] sm:text-xs uppercase outline-none focus:border-indigo-500 transition-all shadow-inner"
-              />
-           </div>
-        </div>
-
-        <div className="space-y-4 pt-4 border-t border-slate-50">
-           <div className="space-y-2">
-              <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Global Typography (Font Family)</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                 {FONT_OPTIONS.map(font => (
-                   <button
-                     key={font.value}
-                     onClick={() => handleUpdate('font_family', font.value)}
-                     className={`p-2.5 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all text-center ${getConfigValue('font_family', 'Outfit') === font.value ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200'}`}
-                   >
-                     <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tighter" style={{ fontFamily: font.value }}>{font.name}</span>
-                   </button>
-                 ))}
-              </div>
-              <p className="text-[8px] font-medium text-slate-400 italic px-1 uppercase">Changes apply instantly across all connected branches.</p>
-           </div>
-        </div>
-      </div>
-
-      {/* PAYMENT GATEWAY CARD */}
-      <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[32px] sm:rounded-[44px] border border-slate-100 shadow-sm space-y-6 sm:space-y-8">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-inner">💳</div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 uppercase tracking-tighter">Payment Gateway</h3>
-            <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Digital Settlement Configuration</p>
+        {/* Font picker */}
+        <div className="pt-3 border-t border-slate-50 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] font-bold text-slate-800">Font Family</p>
+            <p className="text-[10px] text-slate-400">Active: <span className="font-bold text-slate-600">{get('font_family', 'Outfit')}</span></p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {FONT_OPTIONS.map(font => {
+              const active = get('font_family', 'Outfit') === font.value;
+              return (
+                <button key={font.value} onClick={() => handleUpdate('font_family', font.value)}
+                  className={`py-2 px-2 rounded-2xl border-2 text-center transition-all ${active ? 'bg-slate-900 border-slate-900 text-white shadow-sm' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200 hover:bg-white'}`}>
+                  <span className="text-[10px] font-bold block truncate" style={{ fontFamily: font.value }}>{font.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+      </Section>
 
-        <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 flex items-center justify-between">
-          <div className="space-y-1">
-            <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight">PayMongo Integration</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Enable GCash, Maya, and Card Payments</p>
-          </div>
-          <button
-            onClick={() => handleUpdate('paymongo_enabled', getConfigValue('paymongo_enabled', 'false') === 'true' ? 'false' : 'true')}
-            className={`w-14 h-8 rounded-full transition-all relative ${getConfigValue('paymongo_enabled', 'false') === 'true' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'bg-slate-300'}`}
-          >
-            <div className={`absolute top-1.5 w-5 h-5 bg-white rounded-full transition-all ${getConfigValue('paymongo_enabled', 'false') === 'true' ? 'left-7.5' : 'left-1.5'}`}></div>
-          </button>
-        </div>
-        <p className="text-[8px] font-medium text-slate-400 leading-relaxed italic px-2 uppercase">
-          Note: Disabling PayMongo will hide the digital payment option from all POS branches.
-        </p>
-      </div>
+      {/* Integrations */}
+      <Section title="Integrations" subtitle="Third-party service connections">
+        <Row label="PayMongo" desc="Enables GCash, Maya, and card payments in POS">
+          <Toggle value={bool('paymongo_enabled')}
+            onChange={() => handleUpdate('paymongo_enabled', bool('paymongo_enabled') ? 'false' : 'true')}
+            disabled={isSaving === 'paymongo_enabled'} />
+        </Row>
+      </Section>
+
+      {/* Announcements */}
+      <Section title="Announcements" subtitle="Manager-facing notifications">
+        <Row label="Show What's New" desc="Display update changelog to branch managers on next login">
+          <Toggle value={bool('display_changes')}
+            onChange={() => handleUpdate('display_changes', bool('display_changes') ? 'false' : 'true')}
+            disabled={isSaving === 'display_changes'} />
+        </Row>
+      </Section>
+
     </div>
   );
 };

@@ -130,7 +130,7 @@ export const IntelHub: React.FC<IntelHubProps> = ({
   };
 
   return (
-    <div className="space-y-10 md:space-y-12 animate-in fade-in duration-700 px-2 sm:px-4 max-w-[1400px] mx-auto">
+    <div className="space-y-10 md:space-y-12 px-2 sm:px-4 max-w-[1400px] mx-auto">
       {/* AI CONSULTATION BAR */}
       <div className="bg-slate-900 rounded-[48px] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/5 mx-2">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-emerald-500 animate-pulse"></div>

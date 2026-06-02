@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 
 export const paymongoService = {
   async createLink(data: { amount: number, description: string, remarks: string }) {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+    const apiBase = import.meta.env.VITE_SUPABASE_URL || '';
 
     try {
       // 1. Try Local Server API (server.ts)
@@ -37,7 +37,7 @@ export const paymongoService = {
   },
 
   async checkStatus(linkId: string) {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+    const apiBase = import.meta.env.VITE_SUPABASE_URL || '';
     try {
       const response = await fetch(`${apiBase}/api/paymongo/link/${linkId}`);
       if (response.ok) return await response.json();

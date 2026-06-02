@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ShieldOff, ShieldCheck, LogOut, KeyRound, Trash2 } from 'lucide-react';
 
 interface ConnectivityControlsProps {
   isEnabled: boolean;
@@ -18,37 +19,45 @@ export const ConnectivityControls: React.FC<ConnectivityControlsProps> = ({
   if (isReadOnly) return null;
 
   return (
-    <section className="space-y-4 pt-6 border-t border-slate-100 animate-in fade-in duration-700">
-      <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-[0.25em] ml-1">Master Access Connectivity</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-         <button
-           disabled={isSaving || (!isEnabled && isManagerUnassigned)}
-           onClick={onToggle}
-           className={`w-full py-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all shadow-sm active:scale-95 ${isEnabled ? 'border-amber-100 text-amber-600 bg-amber-50/50 hover:bg-amber-100' : 'border-emerald-100 text-emerald-600 bg-emerald-50/50 hover:bg-emerald-100'} ${(!isEnabled && isManagerUnassigned) ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : ''}`}
-         >
-           {isEnabled ? '🔒 SUSPEND ACCESS' : '🔓 RESTORE ACCESS'}
-         </button>
-         <button
-           disabled={isSaving}
-           onClick={onForceLogout}
-           className="w-full py-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest bg-rose-600 text-white border border-rose-700 hover:bg-rose-700 active:scale-95 transition-all shadow-lg"
-         >
-           📡 FORCE LOGOUT ALL
-         </button>
-         <button
-           disabled={isSaving}
-           onClick={onResetPin}
-           className="w-full py-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 active:scale-95 transition-all shadow-sm"
-         >
-           🔄 RESET PIN
-         </button>
-         <button
-           disabled={isSaving}
-           onClick={onDelete}
-           className="w-full py-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 active:scale-95 transition-all shadow-sm"
-         >
-           🗑️ DELETE
-         </button>
+    <section className="space-y-3 pt-6 border-t border-slate-100">
+      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Branch Controls</h4>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          disabled={isSaving || (!isEnabled && isManagerUnassigned)}
+          onClick={onToggle}
+          className={`flex items-center justify-center gap-2 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+            isEnabled
+              ? 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'
+              : 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+          } ${(!isEnabled && isManagerUnassigned) ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          {isEnabled ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          {isEnabled ? 'Suspend' : 'Restore'}
+        </button>
+        <button
+          disabled={isSaving}
+          onClick={onForceLogout}
+          className="flex items-center justify-center gap-2 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 active:scale-95 transition-all"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Logout
+        </button>
+        <button
+          disabled={isSaving}
+          onClick={onResetPin}
+          className="flex items-center justify-center gap-2 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 active:scale-95 transition-all"
+        >
+          <KeyRound className="w-3.5 h-3.5" />
+          Reset PIN
+        </button>
+        <button
+          disabled={isSaving}
+          onClick={onDelete}
+          className="flex items-center justify-center gap-2 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest text-rose-500 bg-rose-50 border border-rose-100 hover:bg-rose-100 active:scale-95 transition-all"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete
+        </button>
       </div>
     </section>
   );

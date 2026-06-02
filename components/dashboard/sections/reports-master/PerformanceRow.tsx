@@ -54,13 +54,13 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 onClick={onClick}
                 className={`hidden md:flex group transition-all cursor-pointer border-b border-slate-100 last:border-0 items-center ${isLegacy ? 'bg-slate-50/60' : 'bg-white'}`}
             >
-                <div className="px-8 py-5 w-[18%]">
+                <div className="px-8 py-5 w-[15%]">
                     <div className="flex flex-col">
                         <span className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors whitespace-nowrap">{label}</span>
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70">{sublabel}</span>
                     </div>
                 </div>
-                <div className="px-6 py-5 w-[22%]">
+                <div className="px-6 py-5 w-[17%]">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 text-lg shadow-inner shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
                             🏢
@@ -71,10 +71,10 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                         </div>
                     </div>
                 </div>
-                <div className="px-6 py-5 w-[11%] text-right font-bold text-slate-900 text-[15px] tabular-nums whitespace-nowrap">₱{gross.toLocaleString()}</div>
-                <div className="px-6 py-5 w-[11%] text-right font-semibold text-amber-600 text-[15px] tabular-nums whitespace-nowrap">₱{pay.toLocaleString()}</div>
-                <div className="px-6 py-5 w-[11%] text-right font-semibold text-rose-500 text-[15px] tabular-nums whitespace-nowrap">₱{exp.toLocaleString()}</div>
-                <div className="px-6 py-5 w-[11%] text-right">
+                <div className="px-6 py-5 w-[13%] text-right font-bold text-slate-900 text-[15px] tabular-nums whitespace-nowrap">₱{gross.toLocaleString()}</div>
+                <div className="px-6 py-5 w-[13%] text-right font-semibold text-amber-600 text-[15px] tabular-nums whitespace-nowrap">₱{pay.toLocaleString()}</div>
+                <div className="px-6 py-5 w-[13%] text-right font-semibold text-rose-500 text-[15px] tabular-nums whitespace-nowrap">₱{exp.toLocaleString()}</div>
+                <div className="px-6 py-5 w-[13%] text-right">
                     <div className="flex flex-col items-end gap-0.5">
                         <span className="font-semibold text-indigo-600 text-[15px] tabular-nums whitespace-nowrap">
                             ₱{vaultColValue.toLocaleString()}
@@ -101,45 +101,42 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
             {/* ── Mobile Card View ── */}
             <div
                 onClick={onClick}
-                className={`md:hidden rounded-[20px] border shadow-sm mb-3 overflow-hidden active:scale-[0.98] transition-all cursor-pointer ${isLegacy ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200'}`}
+                className="md:hidden rounded-2xl border border-slate-100 shadow-sm mb-3 overflow-hidden active:scale-[0.98] transition-all cursor-pointer bg-white"
             >
-                {/* Top accent bar */}
-                <div className={`h-1 w-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-
                 {/* Header */}
-                <div className="px-4 pt-3 pb-3 flex items-start justify-between gap-2">
+                <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 truncate">{branchName}</p>
-                        <h3 className="text-[16px] font-black text-slate-900 uppercase tracking-tight leading-snug">{label}</h3>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{sublabel}</p>
+                        <p className="text-[8px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-0.5 truncate">{branchName}</p>
+                        <h3 className="text-[17px] font-black text-slate-900 uppercase tracking-tight leading-none">{label}</h3>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">{sublabel}</p>
                     </div>
-                    <span className={`shrink-0 mt-0.5 px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                    <span className={`shrink-0 mt-0.5 px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest ${
                         isPositive
-                            ? 'bg-white text-emerald-600 border-emerald-200'
-                            : 'bg-rose-50 text-rose-600 border-rose-200'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200'
                     }`}>
                         {isPositive ? 'Growth' : 'Deficit'}
                     </span>
                 </div>
 
-                {/* 3-column metrics */}
-                <div className="grid grid-cols-3 border-t border-slate-100">
-                    <div className="px-3 py-3">
+                {/* 3-column metrics — colored tiles */}
+                <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+                    <div className="bg-slate-50 rounded-xl px-3 py-2.5">
                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross</p>
-                        <p className="text-[13px] font-black text-slate-900 tabular-nums leading-none">₱{gross.toLocaleString()}</p>
+                        <p className="text-[12px] font-black text-slate-900 tabular-nums leading-none">₱{gross.toLocaleString()}</p>
                     </div>
-                    <div className="px-3 py-3 border-x border-slate-100">
+                    <div className="bg-amber-50/60 rounded-xl px-3 py-2.5">
                         <p className="text-[7px] font-black text-amber-500 uppercase tracking-widest mb-1">Salary</p>
-                        <p className="text-[13px] font-black text-amber-500 tabular-nums leading-none">₱{pay.toLocaleString()}</p>
+                        <p className="text-[12px] font-black text-amber-600 tabular-nums leading-none">₱{pay.toLocaleString()}</p>
                     </div>
-                    <div className="px-3 py-3">
-                        <p className="text-[7px] font-black text-rose-500 uppercase tracking-widest mb-1">Expenses</p>
-                        <p className="text-[13px] font-black text-rose-500 tabular-nums leading-none">₱{exp.toLocaleString()}</p>
+                    <div className="bg-rose-50/60 rounded-xl px-3 py-2.5">
+                        <p className="text-[7px] font-black text-rose-400 uppercase tracking-widest mb-1">Expenses</p>
+                        <p className="text-[12px] font-black text-rose-500 tabular-nums leading-none">₱{exp.toLocaleString()}</p>
                     </div>
                 </div>
 
-                {/* Dark footer: Vault column + Net ROI */}
-                <div className="flex items-center justify-between px-4 py-3.5 bg-slate-900">
+                {/* Floating dark footer */}
+                <div className="flex items-center justify-between px-4 py-3.5 bg-slate-900 mx-2 mb-2 rounded-2xl">
                     <div>
                         <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
                             {isLegacy ? 'Rent & Bills' : 'Vault Deposit'}
@@ -148,11 +145,7 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                     </div>
                     <div className="text-right">
                         <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Net ROI</p>
-                        <p className={`font-black tabular-nums leading-none ${isPositive ? 'text-emerald-400' : 'text-rose-400'} ${
-                            Math.abs(net).toLocaleString().length > 9 ? 'text-base' :
-                            Math.abs(net).toLocaleString().length > 7 ? 'text-lg' :
-                            'text-xl'
-                        }`}>
+                        <p className={`font-black tabular-nums leading-none text-xl ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}
                         </p>
                     </div>

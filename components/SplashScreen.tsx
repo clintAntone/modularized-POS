@@ -24,7 +24,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   // After 15 s of spinning, auto-run the diagnostic
   useEffect(() => {
-    if (elapsed === 15 && diagState === 'idle') {
+    if (elapsed === 8 && diagState === 'idle') {
       runDiagnostic();
     }
   }, [elapsed, diagState]);
@@ -56,7 +56,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       setSupabaseOk(false);
       const msg = err?.message || '';
       if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
-        setDiagDetail('Your connection reached the internet but could not reach the app server. This may be a firewall, VPN, or mobile data restriction blocking the connection.');
+        setDiagDetail('Your internet is working but the app server is unreachable. This is most commonly caused by your ISP\'s DNS not recognizing the server address. Changing to a public DNS (Google or Cloudflare) usually fixes this immediately.');
       } else {
         setDiagDetail(`Server error: ${msg || 'Unknown error'}. Try refreshing or contact your admin.`);
       }
@@ -96,9 +96,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           )}
         </div>
 
-        {/* Diagnostic panel — appears after 15 s */}
-        {elapsed >= 15 && (
-          <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm animate-in fade-in duration-500">
+        {/* Diagnostic panel — appears after 8 s */}
+        {elapsed >= 8 && (
+          <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">
               {diagState === 'running' ? 'Checking connection…' : 'Taking longer than expected'}
             </p>
@@ -142,14 +142,32 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   </div>
                 )}
                 {internet && supabaseOk === false && (
-                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[10px] text-rose-800 leading-relaxed">
-                    <p className="font-black uppercase tracking-widest mb-1">Try this:</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Disconnect and reconnect to WiFi</li>
-                      <li>Try using mobile data instead</li>
-                      <li>If on shared WiFi, try another network</li>
-                      <li>Contact your admin if it persists</li>
-                    </ol>
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[10px] text-rose-800 leading-relaxed space-y-2">
+                    <p className="font-black uppercase tracking-widest">Most likely fix — Change DNS:</p>
+                    <div className="space-y-1">
+                      <p className="font-bold">Android (easiest — works on all networks):</p>
+                      <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                        <li>Settings → Connections → More connection settings</li>
+                        <li>Private DNS → Private DNS provider hostname</li>
+                        <li>Type: <span className="font-mono font-bold">dns.google</span> → Save</li>
+                      </ol>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold">Android (per WiFi network):</p>
+                      <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                        <li>Settings → WiFi → long-press your network → Modify</li>
+                        <li>Advanced Options → IP settings: Static</li>
+                        <li>DNS 1: <span className="font-mono font-bold">8.8.8.8</span> &nbsp; DNS 2: <span className="font-mono font-bold">8.8.4.4</span></li>
+                      </ol>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold">iPhone:</p>
+                      <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                        <li>Settings → WiFi → tap ⓘ next to your network</li>
+                        <li>Configure DNS → Manual → add <span className="font-mono font-bold">8.8.8.8</span></li>
+                      </ol>
+                    </div>
+                    <p className="border-t border-rose-200 pt-2 text-rose-700">Other things to try: disconnect/reconnect WiFi, switch to mobile data, or use a different network.</p>
                   </div>
                 )}
                 {internet && supabaseOk === true && (

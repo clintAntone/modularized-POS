@@ -494,7 +494,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
+    <div className="space-y-6">
 
       {/* Toast */}
       {toast && (

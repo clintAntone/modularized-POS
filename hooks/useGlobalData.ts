@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole } from '../types';
+import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole, EmployeeComplaint } from '../types';
 import { APP_NAME } from '../constants';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { supabase } from '../lib/supabase';
@@ -9,9 +9,82 @@ import { getTrueDate } from '../lib/time';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
+// Explicit column lists — avoids over-fetching with select('*')
+const COLS = {
+    branches: [
+        DB_COLUMNS.ID, DB_COLUMNS.NAME, DB_COLUMNS.PIN, DB_COLUMNS.IS_PIN_CHANGED,
+        DB_COLUMNS.IS_ENABLED, DB_COLUMNS.IS_OPEN, DB_COLUMNS.IS_OPEN_DATE,
+        DB_COLUMNS.MANAGER, DB_COLUMNS.TEMP_MANAGER, DB_COLUMNS.SERVICES,
+        DB_COLUMNS.WEEKLY_CUTOFF, DB_COLUMNS.CYCLE_START_DATE, DB_COLUMNS.DAILY_PROVISION_AMOUNT,
+        DB_COLUMNS.ENABLE_SHIFT_TRACKING, DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
+        DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
+    ].join(','),
+    employees: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.NAME, DB_COLUMNS.FIRST_NAME,
+        DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
+        DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
+        DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
+        DB_COLUMNS.DETAILS,
+    ].join(','),
+    transactions: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.CLIENT_NAME, DB_COLUMNS.THERAPIST_NAME, DB_COLUMNS.THERAPIST_ID,
+        DB_COLUMNS.BONESETTER_NAME, DB_COLUMNS.BONESETTER_ID,
+        DB_COLUMNS.SERVICE_ID, DB_COLUMNS.SERVICE_NAME, DB_COLUMNS.BASE_PRICE,
+        DB_COLUMNS.DISCOUNT, DB_COLUMNS.VOUCHER_VALUE,
+        DB_COLUMNS.PRIMARY_COMMISSION, DB_COLUMNS.SECONDARY_COMMISSION,
+        DB_COLUMNS.TOTAL, DB_COLUMNS.PAYMENT_METHOD, DB_COLUMNS.PAYMENT_STATUS,
+        DB_COLUMNS.PAYMONGO_LINK_ID, DB_COLUMNS.NOTE,
+    ].join(','),
+    expenses: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.NAME, DB_COLUMNS.AMOUNT, DB_COLUMNS.CATEGORY, DB_COLUMNS.RECEIPT_IMAGE,
+    ].join(','),
+    salesReports: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
+        DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
+        DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
+        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.EXPENSE_DATA,
+        DB_COLUMNS.VAULT_DATA,
+    ].join(','),
+    vaultTransactions: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
+        DB_COLUMNS.AMOUNT, DB_COLUMNS.NAME, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.PERFORMED_BY, DB_COLUMNS.RECEIPT_IMAGE, DB_COLUMNS.CREATED_AT,
+    ].join(','),
+    auditLogs: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.ACTIVITY_TYPE, DB_COLUMNS.ENTITY_TYPE, DB_COLUMNS.ENTITY_ID,
+        DB_COLUMNS.DESCRIPTION, DB_COLUMNS.AMOUNT, DB_COLUMNS.PERFORMER_NAME,
+    ].join(','),
+    attendance: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
+        DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
+        DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
+        DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
+    ].join(','),
+    requests: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.TYPE, DB_COLUMNS.STATUS, DB_COLUMNS.DATA,
+        DB_COLUMNS.REQUESTER_ID, DB_COLUMNS.REQUESTER_NAME,
+        DB_COLUMNS.REVIEWED_BY, DB_COLUMNS.REVIEW_NOTE, DB_COLUMNS.UPDATED_AT,
+    ].join(','),
+    branchVault: [
+        DB_COLUMNS.BRANCH_ID, DB_COLUMNS.VAULT_TARGET, DB_COLUMNS.VAULT_BALANCE,
+        DB_COLUMNS.VAULT_INITIAL_BALANCE, DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE, DB_COLUMNS.VAULT_START_DATE,
+    ].join(','),
+    employeeComplaints: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID, DB_COLUMNS.EMPLOYEE_NAME,
+        DB_COLUMNS.REPORT_TYPE, DB_COLUMNS.INCIDENT_DATE, DB_COLUMNS.DESCRIPTION,
+        DB_COLUMNS.FILED_BY_ID, DB_COLUMNS.FILED_BY_NAME, DB_COLUMNS.FILED_AT,
+        DB_COLUMNS.STATUS, DB_COLUMNS.ACTION_TAKEN, DB_COLUMNS.JUDGMENT, DB_COLUMNS.RESOLUTION,
+        DB_COLUMNS.REVIEWED_BY, DB_COLUMNS.REVIEWED_AT,
+    ].join(','),
+};
+
 export const useGlobalData = (auth: AuthState) => {
     const queryClient = useQueryClient();
-    const [systemLogo, setSystemLogo] = useState<string | null>(null);
+    const [systemLogo, setSystemLogo] = useState<string | null>(() => localStorage.getItem('hilot_cached_logo'));
     const [systemVersion, setSystemVersion] = useState<string | null>(null);
     const [dynamicAppName, setDynamicAppName] = useState<string>(APP_NAME);
     const [autoRefreshTime, setAutoRefreshTime] = useState<string>('00:00');
@@ -120,9 +193,7 @@ export const useGlobalData = (auth: AuthState) => {
         return {
             id: db[DB_COLUMNS.ID],
             name: db[DB_COLUMNS.NAME],
-            // Only expose the setup PIN for branches that haven't completed initial setup yet.
-            // Once isPinChanged = true, the setup PIN is no longer used and should not be sent to clients.
-            pin: db[DB_COLUMNS.IS_PIN_CHANGED] ? '' : (db[DB_COLUMNS.PIN] || ''),
+            pin: db[DB_COLUMNS.PIN] || '',
             isPinChanged: Boolean(db[DB_COLUMNS.IS_PIN_CHANGED]),
             isEnabled: Boolean(db[DB_COLUMNS.IS_ENABLED]),
             isOpen: Boolean(db[DB_COLUMNS.IS_OPEN]),
@@ -146,6 +217,11 @@ export const useGlobalData = (auth: AuthState) => {
             })(),
             refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
             vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
+            cutoffHistory: (() => {
+                const raw = db[DB_COLUMNS.CUTOFF_HISTORY];
+                if (!raw) return [];
+                try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); } catch { return []; }
+            })(),
         };
     };
 
@@ -178,6 +254,7 @@ export const useGlobalData = (auth: AuthState) => {
             isActive: db[DB_COLUMNS.IS_ACTIVE] !== false,
             profile: db[DB_COLUMNS.PROFILE],
             branchAllowances,
+            details: db[DB_COLUMNS.DETAILS] || null,
             timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
         };
     };
@@ -187,12 +264,13 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['branches'],
         queryFn: async () => {
             if (!supabase) return [];
-            const { data, error } = await supabase.from(DB_TABLES.BRANCHES).select('*').order(DB_COLUMNS.NAME, { ascending: true });
+            const { data, error } = await supabase.from(DB_TABLES.BRANCHES).select(COLS.branches).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbBranch);
         },
         enabled: !!supabase,
-        staleTime: 5 * 60 * 1000
+        staleTime: 0,
+        gcTime: 0,
     });
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
@@ -201,7 +279,7 @@ export const useGlobalData = (auth: AuthState) => {
             if (!supabase) return [];
             // Fetch all employees to ensure we get those authorized via branch_allowances
             // Filtering is handled client-side in the components
-            const { data, error } = await supabase.from(DB_TABLES.EMPLOYEES).select('*').order(DB_COLUMNS.NAME, { ascending: true });
+            const { data, error } = await supabase.from(DB_TABLES.EMPLOYEES).select(COLS.employees).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbEmployee);
         },
@@ -217,7 +295,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.TRANSACTIONS).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(2000);
+            let query = supabase.from(DB_TABLES.TRANSACTIONS).select(COLS.transactions).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(2000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -248,7 +326,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.EXPENSES).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(1000);
+            let query = supabase.from(DB_TABLES.EXPENSES).select(COLS.expenses).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(1000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -269,9 +347,10 @@ export const useGlobalData = (auth: AuthState) => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
-            const lookbackYmd = lookbackDate.toISOString().split('T')[0];
+            const lbd = lookbackDate;
+            const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
 
-            let query = supabase.from(DB_TABLES.SALES_REPORTS).select('*').order(DB_COLUMNS.REPORT_DATE, { ascending: false }).gte(DB_COLUMNS.REPORT_DATE, lookbackYmd).limit(2000);
+            let query = supabase.from(DB_TABLES.SALES_REPORTS).select(COLS.salesReports).order(DB_COLUMNS.REPORT_DATE, { ascending: false }).gte(DB_COLUMNS.REPORT_DATE, lookbackYmd).limit(2000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -282,17 +361,49 @@ export const useGlobalData = (auth: AuthState) => {
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
                 totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
                 netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
-                isValidated: r[DB_COLUMNS.IS_VALIDATED] ?? false,
                 sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
                 staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
                 vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
-                vaultDeposit: Number(r[DB_COLUMNS.VAULT_DEPOSIT] ?? 0),
-                vaultBalanceSnapshot: Number(r[DB_COLUMNS.VAULT_BALANCE_SNAPSHOT] ?? 0),
             }));
         },
         enabled: !!supabase && !!auth.user,
         staleTime: 2 * 60 * 1000
+    });
+
+    const { data: vaultTransactions = [] } = useQuery({
+        queryKey: ['vaultTransactions', auth.user?.branchId],
+        queryFn: async () => {
+            if (!supabase) return [];
+            const lookback = new Date();
+            lookback.setDate(lookback.getDate() - 90);
+            const lookbackIso = lookback.toISOString();
+            let query = supabase
+                .from(DB_TABLES.VAULT_TRANSACTIONS)
+                .select(COLS.vaultTransactions)
+                .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+                .gte(DB_COLUMNS.CREATED_AT, lookbackIso)
+                .limit(2000);
+            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
+                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+            }
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data || []).map((r: any) => ({
+                id: r[DB_COLUMNS.ID],
+                branchId: r[DB_COLUMNS.BRANCH_ID],
+                reportId: r[DB_COLUMNS.REPORT_ID] ?? null,
+                type: r[DB_COLUMNS.TYPE],
+                amount: Number(r[DB_COLUMNS.AMOUNT] ?? 0),
+                name: r[DB_COLUMNS.NAME] ?? null,
+                timestamp: r[DB_COLUMNS.TIMESTAMP],
+                performedBy: r[DB_COLUMNS.PERFORMED_BY] ?? null,
+                receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
+                createdAt: r[DB_COLUMNS.CREATED_AT],
+            }));
+        },
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000,
     });
 
     const { data: auditLogs = [], isLoading: auditLogsLoading, error: auditLogsError } = useQuery({
@@ -303,7 +414,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.AUDIT_LOGS).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(500);
+            let query = supabase.from(DB_TABLES.AUDIT_LOGS).select(COLS.auditLogs).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -327,7 +438,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.ATTENDANCE).select('*').order(DB_COLUMNS.CLOCK_IN, { ascending: false }).gte(DB_COLUMNS.CLOCK_IN, lookbackIso).limit(1000);
+            let query = supabase.from(DB_TABLES.ATTENDANCE).select(COLS.attendance).order(DB_COLUMNS.CLOCK_IN, { ascending: false }).gte(DB_COLUMNS.CLOCK_IN, lookbackIso).limit(1000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -354,7 +465,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.REQUESTS).select('*').order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso);
+            let query = supabase.from(DB_TABLES.REQUESTS).select(COLS.requests).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -378,6 +489,42 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 2 * 60 * 1000
     });
 
+    const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({
+        queryKey: ['employeeComplaints', auth.user?.branchId],
+        queryFn: async (): Promise<EmployeeComplaint[]> => {
+            if (!supabase) return [];
+            let query = supabase
+                .from(DB_TABLES.EMPLOYEE_COMPLAINTS)
+                .select(COLS.employeeComplaints)
+                .order(DB_COLUMNS.FILED_AT, { ascending: false });
+            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
+                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+            }
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data || []).map((c: any) => ({
+                id: c[DB_COLUMNS.ID],
+                branchId: c[DB_COLUMNS.BRANCH_ID],
+                employeeId: c[DB_COLUMNS.EMPLOYEE_ID],
+                employeeName: c[DB_COLUMNS.EMPLOYEE_NAME],
+                reportType: c[DB_COLUMNS.REPORT_TYPE],
+                incidentDate: c[DB_COLUMNS.INCIDENT_DATE],
+                description: c[DB_COLUMNS.DESCRIPTION],
+                filedById: c[DB_COLUMNS.FILED_BY_ID],
+                filedByName: c[DB_COLUMNS.FILED_BY_NAME],
+                filedAt: c[DB_COLUMNS.FILED_AT],
+                status: c[DB_COLUMNS.STATUS] as EmployeeComplaint['status'],
+                actionTaken: (c[DB_COLUMNS.ACTION_TAKEN] ?? 'NONE') as EmployeeComplaint['actionTaken'],
+                judgment: c[DB_COLUMNS.JUDGMENT] ?? undefined,
+                resolution: c[DB_COLUMNS.RESOLUTION] ?? undefined,
+                reviewedBy: c[DB_COLUMNS.REVIEWED_BY] ?? undefined,
+                reviewedAt: c[DB_COLUMNS.REVIEWED_AT] ?? undefined,
+            }));
+        },
+        enabled: !!supabase && !!auth.user,
+        staleTime: 2 * 60 * 1000,
+    });
+
     // Branch vault — one row per branch, loaded for branch managers only
     const { data: branchVault = null } = useQuery<BranchVault | null>({
         queryKey: ['branchVault', auth.user?.branchId],
@@ -385,7 +532,7 @@ export const useGlobalData = (auth: AuthState) => {
             if (!supabase || !auth.user?.branchId) return null;
             const { data, error } = await supabase
                 .from(DB_TABLES.BRANCH_VAULTS)
-                .select('*')
+                .select(COLS.branchVault)
                 .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
                 .maybeSingle();
             if (error) throw error;
@@ -394,6 +541,7 @@ export const useGlobalData = (auth: AuthState) => {
                 branchId: data[DB_COLUMNS.BRANCH_ID],
                 target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
                 balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+                initialBalance: Number(data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
                 lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
                 startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
             };
@@ -465,6 +613,7 @@ export const useGlobalData = (auth: AuthState) => {
                     }
                 }
                 setSystemLogo(logoVal);
+                localStorage.setItem('hilot_cached_logo', logoVal);
             }
         }
     }, []);
@@ -524,6 +673,8 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => refreshDatabase('salesReports'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_CATALOGS }, () => refreshDatabase('service_catalogs'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEE_COMPLAINTS }, () => refreshDatabase('employeeComplaints'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.VAULT_TRANSACTIONS }, () => refreshDatabase('vaultTransactions'))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.AUDIT_LOGS }, () => refreshDatabase('auditLogs'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SYSTEM_CONFIG }, () => fetchSystemConfig())
             .subscribe((status) => {
@@ -548,7 +699,7 @@ export const useGlobalData = (auth: AuthState) => {
 
     return {
         branches, transactions, expenses, attendance, employees,
-        salesReports, auditLogs, requests, branchVault,
+        salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,
         pendingSyncCount, forceLogoutRegistry, displayChanges, refreshDatabase

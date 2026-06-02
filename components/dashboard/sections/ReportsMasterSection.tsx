@@ -1,21 +1,23 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Branch, BranchVault, SalesReport } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from '../../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 
 // Modular Imports
 import { ReportFilters } from './reports-master/ReportFilters';
 import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
-import { Pagination } from './common/Pagination';
 import { toDateStr, getWeekRange, getReportMonth, parseDate } from '@/src/utils/reportUtils';
 
 interface ReportsMasterProps {
   branch: Branch;
   salesReports: SalesReport[];
+  isLoading?: boolean;
   branches?: Branch[];
   branchVaults?: BranchVault[];
   employees?: any[];
@@ -33,7 +35,7 @@ type SortOrder = 'asc' | 'desc';
 // Helper to get ISO Week number
 // Removed local helpers as they are now in reportUtils
 
-export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, salesReports, branches = [], branchVaults = [], employees = [], canEdit = false, canValidate = false, branchVault = null, canDelete = false, onDeleted }) => {
+export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, salesReports, isLoading = false, branches = [], branchVaults = [], employees = [], canEdit = false, canValidate = false, branchVault = null, canDelete = false, onDeleted }) => {
   // Merge single branchVault into the array so per-branch lookups work even in branch-manager view
   const effectiveBranchVaults = branchVaults.length > 0
     ? branchVaults
@@ -46,21 +48,46 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   const [sortField, setSortField] = useState<SortField>('identity');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showWeeklyBreakdown, setShowWeeklyBreakdown] = useState(false);
   
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  // Infinite scroll state
+  const PAGE_SIZE = 25;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const [isExporting, setIsExporting] = useState(false);
   const [showPrintConfirm, setShowPrintConfirm] = useState(false);
   const [showMissingPanel, setShowMissingPanel] = useState(false);
+  const [showMissingSidebar, setShowMissingSidebar] = useState(false);
+
+  // Debounce search: wait 300 ms after the user stops typing before filtering
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page on view/filter change
-  }, [view, searchQuery, startDate, endDate]);
+    setVisibleCount(PAGE_SIZE); // Reset on view/filter change
+  }, [view, debouncedSearchQuery, startDate, endDate]);
+
+  // IntersectionObserver to load more when sentinel enters viewport
+  const loadMore = useCallback(() => {
+    setVisibleCount(c => c + PAGE_SIZE);
+  }, []);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      entries => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   useEffect(() => {
     if (selectedReport) {
@@ -98,9 +125,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       // 1. Branch filter
       if (branch.id !== 'all' && r.branchId !== branch.id) return false;
 
-      // 2. Cycle Start Date Filter (Always apply per-branch if available)
+      // 2. Resolve the target branch (used for week grouping)
       const targetBranch = branches.find(b => b.id === r.branchId) || (branch.id === r.branchId ? branch : null);
-      if (targetBranch?.cycleStartDate && r.reportDate < targetBranch.cycleStartDate) return false;
 
       const reportDate = parseDate(r.reportDate);
       if (isNaN(reportDate.getTime())) return false;
@@ -110,8 +136,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       if (endDate && r.reportDate > endDate) return false;
 
       // 4. Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toUpperCase();
+      if (debouncedSearchQuery.trim()) {
+        const q = debouncedSearchQuery.toUpperCase();
         const branchName = (branches.find(b => b.id === r.branchId)?.name || '').toUpperCase();
         
         // Exact match for branch name if it's a short word, or standard includes
@@ -167,8 +193,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
         const isConsolidated = branch.id === 'all' && !showWeeklyBreakdown;
 
         key = isConsolidated
-            ? `W${weekIndex}-${weekStart.getMonth() + 1}-${weekStart.getFullYear()}`
-            : `${r.branchId}-W${weekIndex}-${weekStart.getMonth() + 1}-${weekStart.getFullYear()}`;
+            ? `${toDateStr(weekStart)}`
+            : `${r.branchId}-${toDateStr(weekStart)}`;
         label = weekLabel;
         sortDate = toDateStr(weekStart);
         periodEnd = toDateStr(weekEnd);
@@ -176,7 +202,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       } else {
         const { month, year } = getReportMonth(d);
 
-        key = branch.id === 'all'
+        const isConsolidatedMonthly = branch.id === 'all' && !showWeeklyBreakdown;
+        key = isConsolidatedMonthly
             ? `${year}-M${month}`
             : `${r.branchId}-${year}-M${month}`;
         label = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
@@ -186,7 +213,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       }
 
       if (!aggregated[key]) {
-        const isConsolidated = branch.id === 'all' && (view !== 'weekly' || !showWeeklyBreakdown);
+        const isConsolidated = branch.id === 'all' && !showWeeklyBreakdown;
         aggregated[key] = {
           ...r,
           id: key,
@@ -252,7 +279,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       displayData: Object.values(aggregated),
       groupedConstituents: subGroups
     };
-  }, [salesReports, branch.id, view, searchQuery, startDate, endDate, branches, showWeeklyBreakdown]);
+  }, [salesReports, branch.id, view, debouncedSearchQuery, startDate, endDate, branches, showWeeklyBreakdown]);
 
   const sortedData = useMemo(() => {
     return [...displayData].sort((a, b) => {
@@ -270,10 +297,17 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
         case 'roi': valA = a.netRoi; valB = b.netRoi; break;
         default: valA = a.reportDate; valB = b.reportDate;
       }
+      let primary: number;
       if (typeof valA === 'string') {
-        return sortOrder === 'asc' ? (valA || '').localeCompare(valB || '') : (valB || '').localeCompare(valA || '');
+        primary = sortOrder === 'asc' ? (valA || '').localeCompare(valB || '') : (valB || '').localeCompare(valA || '');
+      } else {
+        primary = sortOrder === 'asc' ? valA - valB : valB - valA;
       }
-      return sortOrder === 'asc' ? valA - valB : valB - valA;
+      // Tiebreaker: sort by branch name asc when primary values are equal
+      if (primary !== 0) return primary;
+      const nameA = branches.find(br => br.id === a.branchId)?.name || '';
+      const nameB = branches.find(br => br.id === b.branchId)?.name || '';
+      return nameA.localeCompare(nameB);
     });
   }, [displayData, sortField, sortOrder, branches]);
 
@@ -383,40 +417,123 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     }
   };
 
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return sortedData.slice(start, start + itemsPerPage);
-  }, [sortedData, currentPage]);
+  const visibleData = useMemo(() => sortedData.slice(0, visibleCount), [sortedData, visibleCount]);
 
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  // Fresh-fetch cache: keyed by report ID, populated lazily as rows become visible
+  const [freshReports, setFreshReports] = useState<Record<string, SalesReport>>({});
 
-  // Missing reports: branches with no report for yesterday only (today excluded — branches may not be open yet).
+  // Reset cache whenever the parent reloads the source data
+  useEffect(() => { setFreshReports({}); }, [salesReports]);
+
+  // Maps a raw Supabase row (snake_case) to the SalesReport shape (camelCase)
+  const mapRawReport = (r: any): SalesReport => ({
+    id: r[DB_COLUMNS.ID],
+    branchId: r[DB_COLUMNS.BRANCH_ID],
+    reportDate: r[DB_COLUMNS.REPORT_DATE],
+    submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
+    grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0),
+    totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
+    totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
+    totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
+    netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+    sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
+    staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
+    expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
+    vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
+  });
+
+  // Batch-fetch fresh data for newly-visible daily reports
+  useEffect(() => {
+    if (view !== 'daily' || !visibleData.length || !supabase) return;
+    const idsToFetch = visibleData
+      .map(r => r.id)
+      .filter(id => !freshReports[id] && !id.includes('-'));
+    if (!idsToFetch.length) return;
+
+    supabase
+      .from(DB_TABLES.SALES_REPORTS)
+      .select('*')
+      .in(DB_COLUMNS.ID, idsToFetch)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        setFreshReports(prev => {
+          const next = { ...prev };
+          data.forEach((raw: any) => {
+            const mapped = mapRawReport(raw);
+            next[mapped.id] = mapped;
+          });
+          return next;
+        });
+      });
+  }, [visibleData, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply fresh overrides for the daily table view
+  const visibleDataWithFresh = useMemo(
+    () => view === 'daily'
+      ? visibleData.map(r => freshReports[r.id] ?? r)
+      : visibleData,
+    [visibleData, freshReports, view]
+  );
+
+  // Missing reports: days within the current weekly cycle (cycleStart → yesterday) with no report.
+  // Each branch has its own cutoff day — cycle starts the day after cutoff.
   const missingBranches = useMemo(() => {
     const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-    const yesterdayDate = new Date(manilaToday + 'T12:00:00+08:00');
+    const todayDate = new Date(manilaToday + 'T12:00:00+08:00');
+    const todayDOW = todayDate.getDay();
+
+    const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().slice(0, 10);
+    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
 
     const targetBranches = (branch.id === 'all' ? branches : branches.filter(b => b.id === branch.id))
       .filter(b => !b.name.toUpperCase().includes('TEST'));
     const result: { branch: Branch; missingDates: string[] }[] = [];
 
     targetBranches.forEach(b => {
-      const missingDates = [yesterday].filter(d => {
-        if (b.cycleStartDate && d < b.cycleStartDate) return false;
-        const report = salesReports.find(r => r.branchId === b.id && r.reportDate === d);
-        if (!report) return true;
-        // Treat as missing if all key fields are zero (empty/placeholder report)
-        return report.grossSales === 0 && report.totalStaffPay === 0 && report.totalExpenses === 0 && report.netRoi === 0;
-      });
+      // Cycle starts the day after the weekly cutoff
+      const cutoff = Number(b.weeklyCutoff ?? 0);
+      const cycleStartDOW = (cutoff + 1) % 7;
+
+      // How many days ago did the current cycle start?
+      const daysAgo = (todayDOW - cycleStartDOW + 7) % 7;
+
+      // If daysAgo === 0, cycle just started today — nothing to check yet
+      if (daysAgo === 0) return;
+
+      const cycleStart = new Date(todayDate);
+      cycleStart.setDate(cycleStart.getDate() - daysAgo);
+      const cycleStartStr = cycleStart.toISOString().slice(0, 10);
+
+      // Respect the branch's overall data start date
+      const effectiveStart = (b.cycleStartDate && b.cycleStartDate > cycleStartStr)
+        ? b.cycleStartDate
+        : cycleStartStr;
+
+      // Walk each day from effectiveStart → yesterday and find missing ones
+      const missingDates: string[] = [];
+      const cursor = new Date(effectiveStart + 'T12:00:00+08:00');
+
+      while (cursor <= yesterdayDate) {
+        const dateStr = cursor.toISOString().slice(0, 10);
+        const report = salesReports.find(r => r.branchId === b.id && r.reportDate === dateStr);
+        if (!report) missingDates.push(dateStr);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
       if (missingDates.length > 0) result.push({ branch: b, missingDates });
     });
 
     return result.sort((a, b) => b.missingDates.length - a.missingDates.length);
   }, [branches, branch.id, salesReports]);
 
+  // A filter is active when the user has typed a search, selected dates, or narrowed to a single branch.
+  // Showing "missing reports" while filtered is misleading — hide it.
+  const isFiltered = !!(debouncedSearchQuery.trim() || startDate || endDate || branch.id !== 'all');
+
+
   return (
-      <div className={`space-y-6 md:space-y-8 animate-in fade-in duration-500 ${UI_THEME.layout.maxContent}`}>
+      <div className={`${UI_THEME.layout.maxContent} flex flex-col lg:flex-row gap-6 lg:gap-8 lg:items-start`}>
         {selectedReport && (
             <ReportDashboardModal
                 report={selectedReport}
@@ -436,6 +553,9 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
             />
         )}
 
+        {/* ── Main content ─────────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-6 md:space-y-8">
+
         <ReportFilters
             view={view}
             setView={setView}
@@ -452,10 +572,9 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
             isNetworkView={branch.id === 'all'}
         />
 
-        {/* Missing Reports Panel */}
-        {missingBranches.length > 0 && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50/40 overflow-hidden">
-            {/* Header row */}
+        {/* Missing Reports — mobile/tablet inline panel (hidden when filtered or read-only) */}
+        {missingBranches.length > 0 && !isFiltered && canEdit && (
+          <div className="lg:hidden rounded-2xl border border-rose-200 bg-rose-50/40 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                 <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -480,11 +599,9 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 </svg>
               </button>
             </div>
-
-            {/* Expanded branch cards */}
             {showMissingPanel && (
               <div className="px-4 pb-4 pt-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {missingBranches.map(({ branch: b, missingDates }) => (
                     <div key={b.id} className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
                       <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide truncate">{b.name}</p>
@@ -492,7 +609,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                         {missingDates.map(d => (
                           <span key={d} className="flex items-center gap-1 text-[9px] font-bold text-amber-700">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                            Yesterday
+                            {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         ))}
                       </div>
@@ -506,27 +623,22 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         <div className="flex flex-row items-center gap-4 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
-            <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={sortedData.length}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-            />
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+              Showing {Math.min(visibleCount, sortedData.length).toLocaleString()} of {sortedData.length.toLocaleString()} reports
+            </p>
           </div>
 
           <button
             onClick={() => handleExportPDF()}
             disabled={isExporting || sortedData.length === 0}
-            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`flex items-center gap-2 h-9 px-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : (
-              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
+            <span>{isExporting ? 'Exporting…' : 'Export PDF'}</span>
           </button>
         </div>
 
@@ -564,26 +676,46 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
-        <ReportTable
-            reports={paginatedData}
-            branches={branches}
-            branchVaults={branchVaults}
-            viewMode={view}
-            currentBranchId={branch.id}
-            sortField={sortField}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-            vaultStartDate={branchVault?.startDate ?? null}
-            canDelete={canDelete}
-            onDeleted={onDeleted}
-            onSelect={(r) => {
-              playSound('click');
-              setSelectedReport(r);
-              if (view !== 'daily') {
-                setConstituents(groupedConstituents[r.id] || []);
-              }
-            }}
-        />
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="w-10 h-10 border-[3px] border-slate-100 border-t-slate-400 rounded-full animate-spin" />
+            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Loading reports…</p>
+          </div>
+        ) : (
+          <>
+            <ReportTable
+                reports={visibleDataWithFresh}
+                branches={branches}
+                branchVaults={branchVaults}
+                viewMode={view}
+                currentBranchId={branch.id}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                vaultStartDate={branchVault?.startDate ?? null}
+                canDelete={canDelete}
+                onDeleted={onDeleted}
+                onSelect={(r) => {
+                  playSound('click');
+                  setSelectedReport(r);
+                  if (view !== 'daily') {
+                    setConstituents(groupedConstituents[r.id] || []);
+                  }
+                }}
+            />
+
+            {/* Infinite scroll sentinel */}
+            {visibleCount < sortedData.length && (
+              <div ref={sentinelRef} className="flex justify-center py-6">
+                <div className="flex gap-1.5">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="flex flex-col items-center gap-2 pt-8 opacity-20 group">
           <div className="flex gap-2">
@@ -591,6 +723,65 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           </div>
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.5em]">Network Data Finalized v3.2</p>
         </div>
+
+        </div>{/* end main content */}
+
+        {/* ── Missing reports floating toggle (desktop only) — does NOT affect table width ── */}
+        {branch.id === 'all' && !isFiltered && canEdit && missingBranches.length > 0 && (
+          <div className="hidden lg:block shrink-0 sticky top-24">
+            <div className="relative">
+              {/* Toggle pill */}
+              <button
+                onClick={() => { setShowMissingSidebar(p => !p); playSound('click'); }}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-rose-200 rounded-2xl shadow-sm hover:bg-rose-50 transition-colors whitespace-nowrap"
+              >
+                <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shrink-0" />
+                <span className="text-[9px] font-black text-rose-700 uppercase tracking-widest">
+                  {missingBranches.length} Missing
+                </span>
+                <svg
+                  className={`w-3 h-3 text-rose-400 transition-transform duration-200 ${showMissingSidebar ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Floating dropdown — absolutely positioned, doesn't push table */}
+              {showMissingSidebar && (
+                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl z-50">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest leading-none">Missing Reports</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Within current weekly cycle</p>
+                  </div>
+                  <div className="divide-y divide-slate-50 max-h-[50vh] overflow-y-auto">
+                    {missingBranches.map(({ branch: b, missingDates }) => (
+                      <div key={b.id} className="px-4 py-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+                            <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                          </div>
+                          <p className="text-[10px] font-black text-slate-800 uppercase truncate leading-none flex-1">{b.name}</p>
+                          <span className="text-[8px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full shrink-0">{missingDates.length}d</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 pl-8">
+                          {missingDates.map(d => (
+                            <span key={d} className="text-[8px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
+                              {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
   );
 };

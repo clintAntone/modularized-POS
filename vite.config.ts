@@ -41,14 +41,15 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
-            'vendor-utils': ['@supabase/supabase-js', 'clsx'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-supabase': ['@supabase/supabase-js'],
             'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html-to-image'],
-            'vendor-ui': ['react-datepicker']
+            'vendor-ui': ['react-datepicker', 'qrcode.react', 'lucide-react'],
           }
         }
       }

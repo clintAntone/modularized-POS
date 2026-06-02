@@ -18,6 +18,7 @@ interface PayrollSectionProps {
 }
 
 interface TherapistSummary {
+  employeeId: string;
   name: string;
   count: number;
   totalCommission: number;
@@ -197,6 +198,18 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === dateStr);
       if (report && report.staffBreakdown) {
         report.staffBreakdown.forEach((s: any) => {
+          // Skip relievers — they are paid by their home branch.
+          // Exception: this branch's designated manager/tempManager are always included.
+          const staffDisplayName = (s.staffName || s.name || '').trim().toUpperCase();
+          const isThisBranchManager =
+            branch.manager?.toUpperCase() === staffDisplayName ||
+            branch.tempManager?.toUpperCase() === staffDisplayName;
+          if (!isThisBranchManager) {
+            const emp = employees.find((e: Employee) => e.id === s.employeeId);
+            const isCrossBranch = s.isReliever === true || (emp && emp.branchId !== branch.id);
+            if (isCrossBranch && !(emp && emp.branchId === branch.id)) return;
+          }
+
           const comm = Number(s.commission) || 0;
           const allw = Number(s.allowance) || 0;
           const att = s.attendance;
@@ -211,139 +224,174 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     return totalNetPayout;
   };
 
+  // Helper: apply the reliever filter consistently across both memos.
+  // Excluded if: the employee is cross-branch AND is not this branch's manager/tempManager
+  // AND has no branchAllowances entry here (which would mean they were legitimately configured
+  // for this branch, e.g. mid-cycle transfer).
+  // Uses live employee data as fallback for old records where isReliever may not have been
+  // set correctly (e.g. cross-branch managers saved before the branch-specific manager fix).
+  const isRelieverExcluded = (s: any) => {
+    const displayName = (s.staffName || s.name || '').trim().toUpperCase();
+    // Always keep this branch's designated manager and temp manager
+    const isThisBranchManager =
+      branch.manager?.toUpperCase() === displayName ||
+      branch.tempManager?.toUpperCase() === displayName;
+    if (isThisBranchManager) return false;
+
+    const emp = employees.find((e: Employee) => e.id === s.employeeId);
+
+    // Determine if cross-branch: trust the stored flag first, fall back to live employee data
+    const isCrossBranch = s.isReliever === true || (emp && emp.branchId !== branch.id);
+    if (!isCrossBranch) return false;
+
+    // Exception: employee was transferred to this branch mid-cycle — their branchId now
+    // matches but old records still carry isReliever: true. Keep them in payroll.
+    if (emp && emp.branchId === branch.id) return false;
+
+    return true;
+  };
+
+  // salesReports for this branch within the selected cycle — single shared filter.
+  const cycleReports = useMemo(() => {
+    if (!selectedCycle) return [];
+    // startDate/endDate are Date objects from useBranchData; convert to YYYY-MM-DD strings
+    // so the comparison against r.reportDate (which is a string) works correctly.
+    const cycleStartStr = getLocalDateStr(new Date(selectedCycle.startDate));
+    const cycleEndStr = getLocalDateStr(new Date(selectedCycle.endDate));
+    return salesReports.filter(r =>
+      r.branchId === branch.id &&
+      r.reportDate >= cycleStartStr &&
+      r.reportDate <= cycleEndStr &&
+      Array.isArray(r.staffBreakdown) &&
+      r.staffBreakdown.length > 0
+    );
+  }, [selectedCycle, branch.id, salesReports]);
+
+  // Daily paid records: one entry per date, built directly from staffBreakdown.
+  // Each staff entry carries attendance metadata so staffCycleSummary can derive from this
+  // without re-reading cycleReports, guaranteeing weekly totals == sum of daily records.
+  const groupedCycleData = useMemo(() => {
+    return cycleReports.map(report => {
+      const dateKey = report.reportDate;
+      const staffMap: Record<string, any> = {};
+
+      report.staffBreakdown.forEach((s: any) => {
+        const empId = s.employeeId;
+        if (!empId || isRelieverExcluded(s)) return;
+
+        const att = s.attendance;
+        const count = Number(s.count) || 0;
+        const comm = Number(s.commission) || 0;
+        const allw = Number(s.allowance) || 0;
+        const ot = Number(att?.otPay || att?.ot_pay || 0);
+        const late = Number(att?.lateDeduction || att?.late_deduction || 0);
+        const adv = Number(att?.cashAdvance || att?.cash_advance || 0);
+        const isPaidDaily = !!(att?.isPaidDaily || att?.is_paid_daily);
+        const settledUnits = Number(att?.settledUnits || att?.settled_units || 0);
+        const isDaySettled = isPaidDaily && count > 0 && count === settledUnits;
+
+        const breakdownName = (s.staffName || s.name || '').trim();
+        const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
+          ? breakdownName.toUpperCase()
+          : resolveEmployeeName(empId, employees, attendance, transactions, salesReports, breakdownName).toUpperCase();
+
+        staffMap[empId] = {
+          employeeId: empId,
+          name: resolvedName,
+          count, totalCommission: comm, allowance: allw, ot, late, advance: adv,
+          isPaidDaily, isDaySettled,
+        };
+      });
+
+      const staffList = Object.values(staffMap).sort(
+        (a, b) => ((b.totalCommission + b.allowance + b.ot - b.late) - b.advance) -
+                  ((a.totalCommission + a.allowance + a.ot - a.late) - a.advance)
+      );
+      return {
+        date: dateKey,
+        staff: staffList,
+        dailyTotal: staffList.reduce((sum, s) => sum + (s.totalCommission + s.allowance + s.ot - s.late) - s.advance, 0),
+      };
+    })
+    .filter(g => g.staff.length > 0)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  }, [cycleReports, employees]);
+
+  // Personnel Weekly Totals:
+  // Step 1 — collect every unique employee that appears in Daily Paid Records.
+  // Step 2 — for each employee, walk every day in the daily records.
+  // Step 3 — if they have a record that day, add it to their summary.
   const staffCycleSummary = useMemo(() => {
     if (!selectedCycle) return [];
-    const summary: Record<string, any> = {};
 
-    const cycleStart = new Date(selectedCycle.startDate);
-    const cycleEnd = new Date(selectedCycle.endDate);
-    let iter = new Date(cycleStart);
-    iter.setHours(0,0,0,0);
-    const normalizedEnd = new Date(cycleEnd);
-    normalizedEnd.setHours(23,59,59,999);
+    // Step 1: unique employees listed in daily paid records
+    const employeeMap: Record<string, { name: string; employeeId: string }> = {};
+    groupedCycleData.forEach(({ staff }) => {
+      staff.forEach((s: any) => {
+        if (s.employeeId && !employeeMap[s.employeeId]) {
+          employeeMap[s.employeeId] = { name: s.name, employeeId: s.employeeId };
+        }
+      });
+    });
 
-    while (iter <= normalizedEnd) {
-      const dateKey = getLocalDateStr(iter);
-      const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === dateKey);
-      if (report && report.staffBreakdown) {
-        report.staffBreakdown.forEach((s: any) => {
-          const empId = s.employeeId;
-          if (!empId) return;
+    // Step 2 & 3: for each employee, find their record on each day
+    return Object.values(employeeMap).map(({ name, employeeId: empId }) => {
+      let sessions = 0, commission = 0, allowance = 0, ot = 0, late = 0, advance = 0;
+      let isPaidDaily = false;
+      let isAllDaysSettled: boolean | undefined = undefined;
+      const dailyBreakdown: any[] = [];
 
-          if (!summary[empId]) {
-            const breakdownName = (s.staffName || s.name || '').trim();
-            const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
-              ? breakdownName.toUpperCase()
-              : resolveEmployeeName(empId, employees, attendance, transactions, salesReports, breakdownName).toUpperCase();
-            summary[empId] = {
-              name: resolvedName,
-              employeeId: empId,
-              sessions: 0,
-              commission: 0,
-              allowance: 0,
-              ot: 0,
-              late: 0,
-              advance: 0,
-              netPay: 0,
-              branchName: branch.name,
-              period: `${selectedCycle.start} - ${selectedCycle.end}`,
-              dailyBreakdown: []
-            };
-          }
-          const att = s.attendance;
-          const isPaidDaily = att?.isPaidDaily || att?.is_paid_daily || false;
-          const settledUnits = Number(att?.settledUnits || att?.settled_units || 0);
-          const currentCount = Number(s.count) || 0;
-          const isDaySettled = isPaidDaily && currentCount > 0 && currentCount === settledUnits;
+      groupedCycleData.forEach(({ date: dateKey, staff }) => {
+        const dayRecord = staff.find((s: any) => s.employeeId === empId);
+        if (!dayRecord) return; // no record for this employee on this day
 
-          const dComm = Number(s.commission) || 0;
-          const dAllw = Number(s.allowance) || 0;
-          const dOt = Number(att?.otPay || att?.ot_pay || 0);
-          const dLate = Number(att?.lateDeduction || att?.late_deduction || 0);
-          const dAdv = Number(att?.cashAdvance || att?.cash_advance || 0);
+        sessions += dayRecord.count;
+        commission += dayRecord.totalCommission;
+        allowance += dayRecord.allowance;
+        ot += dayRecord.ot;
+        late += dayRecord.late;
+        advance += dayRecord.advance;
 
-          summary[empId].sessions += currentCount;
-          summary[empId].commission += dComm;
-          summary[empId].allowance += dAllw;
-          summary[empId].ot += dOt;
-          summary[empId].late += dLate;
-          summary[empId].advance += dAdv;
+        if (dayRecord.isPaidDaily) {
+          isPaidDaily = true;
+          if (isAllDaysSettled === undefined) isAllDaysSettled = true;
+          if (!dayRecord.isDaySettled) isAllDaysSettled = false;
+        }
 
-          if (isPaidDaily) {
-            summary[empId].isPaidDaily = true;
-            if (summary[empId].isAllDaysSettled === undefined) summary[empId].isAllDaysSettled = true;
-            if (!isDaySettled) summary[empId].isAllDaysSettled = false;
-          }
-
-          summary[empId].dailyBreakdown.push({
-            date: dateKey,
-            commission: dComm,
-            allowance: dAllw,
-            ot: dOt,
-            late: dLate,
-            advance: dAdv,
-            isPaidDaily,
-            isDaySettled,
-            net: (dComm + dAllw + dOt - dLate) - dAdv
-          });
+        dailyBreakdown.push({
+          date: dateKey,
+          commission: dayRecord.totalCommission,
+          allowance: dayRecord.allowance,
+          ot: dayRecord.ot,
+          late: dayRecord.late,
+          advance: dayRecord.advance,
+          isPaidDaily: dayRecord.isPaidDaily,
+          isDaySettled: dayRecord.isDaySettled,
+          net: (dayRecord.totalCommission + dayRecord.allowance + dayRecord.ot - dayRecord.late) - dayRecord.advance,
         });
-      }
-      iter.setDate(iter.getDate() + 1);
-    }
+      });
 
-    return Object.values(summary).map(s => ({
-      ...s,
-      netPay: (s.commission + s.allowance + s.ot - s.late) - s.advance,
-      isSettled: s.isPaidDaily ? (s.isAllDaysSettled && s.sessions > 0) : false
-    })).sort((a, b) => b.netPay - a.netPay);
-  }, [selectedCycle, branch.id, branch.name, salesReports, employees]);
+      const netPay = (commission + allowance + ot - late) - advance;
+      const emp = employees.find((e: Employee) => e.id === empId);
+      const formattedEmpId = emp?.timestamp
+        ? (() => {
+            const d = new Date(emp.timestamp);
+            return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`.toUpperCase();
+          })()
+        : undefined;
 
-  const groupedCycleData = useMemo(() => {
-    if (!selectedCycle) return [];
-    const dateGroups: Record<string, Record<string, TherapistSummary>> = {};
-    const cycleStart = new Date(selectedCycle.startDate);
-    const cycleEnd = new Date(selectedCycle.endDate);
-    let iter = new Date(cycleStart);
-    iter.setHours(0, 0, 0, 0);
-    const normalizedEnd = new Date(cycleEnd);
-    normalizedEnd.setHours(23, 59, 59, 999);
-    while (iter <= normalizedEnd) {
-      const dateKey = getLocalDateStr(iter);
-      const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === dateKey);
-      if (report && report.staffBreakdown) {
-        dateGroups[dateKey] = {};
-        report.staffBreakdown.forEach((s: any) => {
-          const empId = s.employeeId;
-          if (!empId) return;
-
-          const att = s.attendance;
-          const ot = Number(att?.otPay || att?.ot_pay || 0);
-          const late = Number(att?.lateDeduction || att?.late_deduction || 0);
-          const adv = Number(att?.cashAdvance || att?.cash_advance || 0);
-          const breakdownName = (s.staffName || s.name || '').trim();
-          const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
-            ? breakdownName.toUpperCase()
-            : resolveEmployeeName(empId, employees, attendance, transactions, salesReports, breakdownName).toUpperCase();
-          dateGroups[dateKey][empId] = {
-            name: resolvedName,
-            count: Number(s.count) || 0,
-            totalCommission: Number(s.commission) || 0,
-            allowance: Number(s.allowance) || 0,
-            ot, late, advance: adv
-          };
-        });
-      }
-      iter.setDate(iter.getDate() + 1);
-    }
-    return Object.entries(dateGroups)
-        .map(([date, staffMap]) => ({
-          date,
-          staff: Object.values(staffMap).sort((a, b) => ((b.totalCommission + b.allowance + b.ot - b.late) - b.advance) - ((a.totalCommission + a.allowance + a.ot - a.late) - a.advance)),
-          dailyTotal: Object.values(staffMap).reduce((sum, s) => sum + (s.totalCommission + s.allowance + s.ot - s.late) - s.advance, 0)
-        }))
-        .filter(group => group.staff.length > 0)
-        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [selectedCycle, branch.id, salesReports, employees]);
+      return {
+        name, employeeId: empId, formattedEmpId,
+        sessions, commission, allowance, ot, late, advance, netPay,
+        branchName: branch.name,
+        period: `${selectedCycle.start} - ${selectedCycle.end}`,
+        isPaidDaily,
+        isAllDaysSettled,
+        dailyBreakdown,
+        isSettled: isPaidDaily ? (isAllDaysSettled === true && sessions > 0) : false,
+      };
+    }).sort((a, b) => b.netPay - a.netPay);
+  }, [selectedCycle, groupedCycleData, branch.name, employees]);
 
   const toggleExpand = (date: string, empId: string) => {
     playSound('click');
@@ -436,164 +484,121 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               />
           )}
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 no-print">
+          <div className="flex items-center justify-between gap-3 no-print">
             <button
               onClick={() => { setSelectedCycleId(null); setExpandedGroupId(null); playSound('click'); }}
-              className="flex items-center justify-center sm:justify-start gap-3 px-6 py-4 sm:py-2.5 bg-white border border-slate-200 rounded-2xl sm:rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm group active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-sm group active:scale-95"
             >
-              <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-              <span className="text-[11px] font-bold uppercase tracking-widest">Back to cycles</span>
+              <svg className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+              <span className="text-[10px] font-bold uppercase tracking-widest">Cycles</span>
             </button>
 
-            <div className="grid grid-cols-2 sm:flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {isCycleComplete && (
                 <button
                     onClick={() => handleToggleSettlement(selectedCycle)}
                     disabled={isUpdatingSettlement}
-                    className={`flex items-center justify-center gap-2 px-4 py-4 sm:py-2.5 rounded-2xl sm:rounded-xl transition-all shadow-sm border active:scale-95 ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shadow-sm border active:scale-95 ${
                       isSettled
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                         : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800'
                     }`}
                 >
-                  <div className={`w-2 h-2 rounded-full ${isSettled ? 'bg-emerald-500 animate-pulse' : 'bg-white/50'}`}></div>
-                  <span className="text-[11px] font-bold uppercase tracking-widest truncate">
-                    {isUpdatingSettlement ? 'Updating...' : (isSettled ? 'Settled' : 'Settle')}
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSettled ? 'bg-emerald-500 animate-pulse' : 'bg-white/50'}`}></div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                    {isUpdatingSettlement ? '...' : (isSettled ? 'Settled' : 'Settle')}
                   </span>
                 </button>
               )}
 
               <button
                   onClick={() => handleExportCyclePDF()}
-                  className="flex items-center justify-center gap-2 px-4 py-4 sm:py-2.5 bg-white border border-slate-200 text-slate-900 rounded-2xl sm:rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-sm active:scale-95"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="2.5" /></svg>
-                <span className="text-[11px] font-bold uppercase tracking-widest">Save PDF</span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="2.5" /></svg>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Save PDF</span>
               </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-8 md:p-12 bg-[#0F172A] text-white relative overflow-hidden">
-              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold uppercase tracking-tighter leading-none">Week {selectedCycle.id} Audit</h2>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-80">{selectedCycle.start} — {selectedCycle.end}</p>
+          {/* Header strip */}
+          <div className="relative bg-[#0F172A] rounded-3xl px-8 md:px-10 py-8 overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-emerald-500/5 pointer-events-none" />
+            <div className="absolute -bottom-8 right-24 w-32 h-32 rounded-full bg-emerald-500/5 pointer-events-none" />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
-                <div className="text-left md:text-right border-t md:border-t-0 md:border-l border-white/5 pt-3 md:pt-0 md:pl-10">
-                  <p className="text-5xl md:text-6xl font-bold text-emerald-400 tracking-tighter leading-none">₱{totalPayout.toLocaleString()}</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2">Aggregated Net Payout</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5 md:p-10 space-y-10">
-              <div className="space-y-4">
-                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-4">Personnel Weekly Totals</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {staffCycleSummary.map((s: any) => (
-                      <div key={s.employeeId || s.name} className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 flex items-center justify-between group hover:bg-white hover:border-emerald-500 transition-all duration-300 shadow-sm">
-                        <div className="flex items-center gap-4 overflow-hidden">
-                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">{getInitials(s.name)}</div>
-                          <div className="overflow-hidden">
-                            <div className="flex items-center gap-2">
-                              <p className="text-[13px] font-bold text-slate-900 uppercase truncate">{s.name}</p>
-                              {(s.isSettled || isSettled) && (
-                                <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md uppercase tracking-widest">Settled</span>
-                              )}
-                            </div>
-                            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">₱{s.netPay.toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <button
-                            onClick={() => { playSound('click'); setSelectedStaffPayslip({ ...s, isSettled: s.isSettled || isSettled }); }}
-                            className="p-3 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all group-hover:scale-105"
-                            title="Generate Payslip"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        </button>
-                      </div>
-                  ))}
+                <div>
+                  <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.3em]">Payroll Audit · Week {selectedCycle.id}</p>
+                  <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-tight mt-0.5">{selectedCycle.start} — {selectedCycle.end}</h2>
                 </div>
               </div>
-
-              <div className="space-y-6">
-                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-4">Daily Paid Records</h4>
-                <div className="divide-y divide-slate-100 border border-slate-100 rounded-[32px] overflow-hidden">
-                  {groupedCycleData.map((group) => (
-                      <div key={group.date} className="flex flex-col bg-white">
-                        <div className="px-8 py-6 flex justify-between items-center bg-slate-50/50">
-                          <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">{new Date(group.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</h4>
-                          <span className="text-lg font-bold text-slate-900 tracking-tighter">₱{group.dailyTotal.toLocaleString()}</span>
-                        </div>
-                        <div className="px-4 py-2">
-                          {group.staff.map((s) => {
-                            const finalPay = (s.totalCommission + s.allowance + s.ot - s.late) - s.advance;
-                            const empId = (s as any).employeeId || s.name;
-                            const isExpanded = expandedGroupId === `${group.date}-${empId}`;
-
-                            const staffSummaryItem = staffCycleSummary.find((ss: any) => ss.employeeId === (s as any).employeeId);
-                            const dayData = staffSummaryItem?.dailyBreakdown?.find((d: any) => d.date === group.date);
-                            const isDaySettled = dayData?.isDaySettled || isSettled;
-
-                            return (
-                                <div key={`${group.date}-${empId}`} className={`transition-all duration-300 ${isExpanded ? 'bg-slate-50 rounded-[22px] my-3' : 'mb-1 hover:bg-emerald-50/40 rounded-xl'}`}>
-                                  <button onClick={() => toggleExpand(group.date, empId)} className="w-full text-left p-4 md:px-8 flex items-center justify-between gap-4 group">
-                                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border transition-all ${isExpanded ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}><span className="text-[11px] font-bold italic">{s.count}</span></div>
-                                      <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-[12px] font-bold uppercase truncate block transition-colors ${isExpanded ? 'text-emerald-700' : 'text-slate-600'}`}>{s.name}</span>
-                                          {isDaySettled && (
-                                            <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md uppercase tracking-widest">Settled</span>
-                                          )}
-                                        </div>
-                                        <div className="flex flex-wrap gap-1.5 mt-1">
-                                          {s.ot > 0 && <span className="text-[7px] font-bold text-emerald-600 uppercase px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-100">OT +{s.ot}</span>}
-                                          {s.late > 0 && <span className="text-[7px] font-bold text-rose-600 uppercase px-1.5 py-0.5 bg-rose-50 rounded border border-rose-100">LATE -{s.late}</span>}
-                                          {s.advance > 0 && <span className="text-[7px] font-bold text-indigo-600 uppercase px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-200">ADV -{s.advance}</span>}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <p className={`text-base font-bold tracking-tighter tabular-nums ${isExpanded ? 'text-emerald-700' : 'text-slate-900'}`}>₱{finalPay.toLocaleString()}</p>
-                                  </button>
-
-                                  {isExpanded && (
-                                      <div className="px-8 pb-5 pt-1 space-y-4 animate-in fade-in duration-300">
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                                          <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Commission</p>
-                                            <p className="text-[13px] font-bold text-slate-700 tabular-nums">₱{s.totalCommission.toLocaleString()}</p>
-                                          </div>
-                                          <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Allowance</p>
-                                            <p className="text-[13px] font-bold text-slate-700 tabular-nums">₱{s.allowance.toLocaleString()}</p>
-                                          </div>
-                                          <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">OT Bonus</p>
-                                            <p className="text-[13px] font-bold text-emerald-600 tabular-nums">+₱{s.ot.toLocaleString()}</p>
-                                          </div>
-                                          <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Late Deduction</p>
-                                            <p className="text-[13px] font-bold text-rose-500 tabular-nums">−₱{s.late.toLocaleString()}</p>
-                                          </div>
-                                          <div className="space-y-0.5">
-                                            <p className="text-[7px] font-bold text-indigo-400 uppercase tracking-widest">Cash Advance</p>
-                                            <p className="text-[13px] font-bold text-indigo-600 tabular-nums">−₱{s.advance.toLocaleString()}</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                  )}
-                                </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                  ))}
+              <div className="flex items-center gap-8 border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-8 ml-[60px] sm:ml-0">
+                <div>
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Headcount</p>
+                  <p className="text-2xl font-black text-white tabular-nums">{staffCycleSummary.length}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Net Payout</p>
+                  <p className="text-2xl font-black text-emerald-400 tabular-nums">₱{totalPayout.toLocaleString()}</p>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Payslip table */}
+          {staffCycleSummary.length > 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              {/* Column headers — Employee ID hidden on mobile */}
+              <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_120px] items-center px-4 sm:px-6 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Employee ID</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Name</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Salary</p>
+              </div>
+
+              {/* Rows */}
+              <div className="divide-y divide-slate-50">
+                {staffCycleSummary.map((s: any) => (
+                  <div
+                    key={s.employeeId || s.name}
+                    onClick={() => { playSound('click'); setSelectedStaffPayslip({ ...s, isSettled: s.isSettled || isSettled }); }}
+                    className="grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_120px] items-center px-4 sm:px-6 py-3.5 cursor-pointer group hover:bg-emerald-50/50 transition-colors"
+                  >
+                    <p className="text-[9px] font-mono font-bold text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px] shrink-0 group-hover:bg-emerald-600 transition-colors">
+                        {getInitials(s.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] sm:text-[12px] font-bold text-slate-800 uppercase truncate leading-tight">{s.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[9px] text-slate-400">{s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
+                          {(s.isSettled || isSettled) && <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Settled</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[13px] font-black text-slate-900 tabular-nums group-hover:text-emerald-700 transition-colors">₱{s.netPay.toLocaleString()}</p>
+                      {s.advance > 0 && <p className="text-[8px] font-bold text-rose-400 tabular-nums">−₱{s.advance.toLocaleString()} adv</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer — total only, no count */}
+              <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-slate-900">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Payout</p>
+                <p className="text-[15px] font-black text-emerald-400 tabular-nums">₱{staffCycleSummary.reduce((sum: number, s: any) => sum + s.netPay, 0).toLocaleString()}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-40">
+              <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No records for this period</p>
+            </div>
+          )}
         </div>
     );
   }

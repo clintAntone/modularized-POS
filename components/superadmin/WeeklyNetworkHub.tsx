@@ -153,7 +153,7 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-32">
+    <div className="space-y-6 pb-32">
       {/* COMMAND BAR */}
       <div className={`bg-white p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm space-y-6`}>
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">

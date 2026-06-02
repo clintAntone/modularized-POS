@@ -64,8 +64,8 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                                         >
                                             <div className="flex flex-col h-full justify-between gap-1 relative z-10">
                                                 <div className="flex justify-between items-start gap-2">
-                                                    <p className={`font-bold text-[11px] sm:text-[13px] uppercase leading-tight tracking-tight ${
-                                                        isSelected ? 'text-white' : 'text-slate-900 group-hover:text-emerald-700'
+                                                    <p className={`font-black text-[13px] sm:text-[15px] uppercase leading-tight tracking-tight underline underline-offset-2 decoration-1 ${
+                                                        isSelected ? 'text-white decoration-white/30' : 'text-slate-900 decoration-slate-300 group-hover:text-emerald-700 group-hover:decoration-emerald-300'
                                                     }`}>{s.name}</p>
                                                     {isLoyaltyMode && !isSelected && (
                                                         <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest border border-emerald-100">Reward</span>
@@ -92,7 +92,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                     ))}
                 </div>
             ) : (
-                <div className="py-16 px-8 text-center bg-slate-50 rounded-[36px] border-2 border-dashed border-slate-200 animate-in fade-in duration-700">
+                <div className="py-16 px-8 text-center bg-slate-50 rounded-[36px] border-2 border-dashed border-slate-200">
                     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package className="w-8 h-8 text-slate-300" />
                     </div>

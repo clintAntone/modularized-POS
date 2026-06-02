@@ -68,27 +68,60 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
   const recentBranches = useMemo(() => {
     return recentIds
       .map(id => branches.find(b => b.id === id))
-      .filter((b): b is Branch => !!b && b.isEnabled);
+      .filter((b): b is Branch => !!b);
   }, [recentIds, branches]);
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col relative overflow-hidden">
-      {/* Screen-Saver Like Animated Background */}
+    <div
+      className="min-h-screen w-full flex flex-col relative overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #f0fdf4 100%)' }}
+    >
+      {/* Background Design Layer */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          {/* Subtle Grain Texture Overlay */}
-          <div className="absolute inset-0 bg-grain z-10"></div>
-          
-          {/* Drifting Fluid Blobs */}
-          <div className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-100/30 blur-[120px] rounded-full animate-float-slow" style={{ animationDuration: '30s' }}></div>
-          <div className="absolute bottom-[-15%] right-[-10%] w-[55vw] h-[55vw] bg-indigo-100/30 blur-[150px] rounded-full animate-float-slow" style={{ animationDuration: '35s', animationDelay: '-10s', animationDirection: 'reverse' }}></div>
-          <div className="absolute top-[30%] right-[10%] w-[40vw] h-[40vw] bg-emerald-50/40 blur-[100px] rounded-full animate-float-slow" style={{ animationDuration: '40s', animationDelay: '-5s' }}></div>
-          <div className="absolute bottom-[20%] left-[5%] w-[35vw] h-[35vw] bg-indigo-50/20 blur-[130px] rounded-full animate-float-slow" style={{ animationDuration: '28s', animationDelay: '-15s' }}></div>
-          
-          {/* Pulsating Orbs */}
-          <div className="absolute top-[10%] left-[20%] w-4 h-4 bg-emerald-400/20 blur-xl rounded-full animate-pulse-slow"></div>
-          <div className="absolute bottom-[25%] right-[30%] w-6 h-6 bg-indigo-400/20 blur-xl rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+
+          {/* Subtle dot grid */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #a5b4fc 1px, transparent 1px)',
+              backgroundSize: '32px 32px',
+              opacity: 0.18,
+            }}
+          />
+
+          {/* Large decorative arc — top-right corner */}
+          <svg className="absolute -top-32 -right-32 w-[520px] h-[520px] opacity-[0.06]" viewBox="0 0 520 520" fill="none">
+            <circle cx="520" cy="0" r="300" stroke="#6366f1" strokeWidth="1.5" fill="none" />
+            <circle cx="520" cy="0" r="380" stroke="#6366f1" strokeWidth="1" fill="none" />
+            <circle cx="520" cy="0" r="460" stroke="#6366f1" strokeWidth="0.5" fill="none" />
+          </svg>
+
+          {/* Large decorative arc — bottom-left corner */}
+          <svg className="absolute -bottom-24 -left-24 w-[420px] h-[420px] opacity-[0.05]" viewBox="0 0 420 420" fill="none">
+            <circle cx="0" cy="420" r="220" stroke="#10b981" strokeWidth="1.5" fill="none" />
+            <circle cx="0" cy="420" r="300" stroke="#10b981" strokeWidth="1" fill="none" />
+          </svg>
+
+          {/* Center radial fade — keeps content area clean */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(ellipse 70% 60% at 50% 35%, rgba(248,250,252,0.85) 30%, transparent 100%)',
+            }}
+          />
       </div>
       
+      {/* Hamburger — top-left (toggles credits) */}
+      <button
+        onClick={() => { playSound('click'); setShowCredits(prev => !prev); }}
+        className="fixed top-5 left-5 z-[1100] w-10 h-10 bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-2xl flex flex-col items-center justify-center gap-[5px] shadow-sm hover:bg-white hover:shadow-md transition-all active:scale-95"
+        aria-label="Menu"
+      >
+        <span className="w-4 h-[1.5px] bg-slate-500 rounded-full" />
+        <span className="w-4 h-[1.5px] bg-slate-500 rounded-full" />
+        <span className="w-2.5 h-[1.5px] bg-slate-500 rounded-full self-start ml-3" />
+      </button>
+
       <div className="max-w-3xl mx-auto w-full relative z-10 flex-1 flex flex-col pt-10 px-4 sm:px-6">
         {/* BRANDING HEADER */}
          <div className="flex flex-col items-center mb-10">
@@ -206,33 +239,60 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                    <div className="h-px flex-1 bg-slate-300/30"></div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 gap-2">
                   {items.map(b => (
-                    <button 
-                      key={b.id} 
-                      onClick={() => handleNodeSelect(b.id)} 
-                      className="w-full bg-white/70 backdrop-blur-md p-5 rounded-[24px] text-left group transition-all border border-white/60 shadow-sm hover:shadow-2xl hover:border-emerald-400 hover:bg-white hover:translate-x-1 active:scale-[0.99] flex items-center justify-between overflow-hidden relative"
+                    <button
+                      key={b.id}
+                      onClick={() => handleNodeSelect(b.id)}
+                      className={`w-full backdrop-blur-md rounded-[20px] text-left transition-all border shadow-sm flex items-center justify-between overflow-hidden relative group cursor-pointer ${
+                        b.isEnabled
+                          ? 'bg-white/80 border-slate-100/80 hover:shadow-md hover:bg-white hover:border-slate-200 active:scale-[0.99]'
+                          : 'bg-white/60 border-rose-100/60 hover:shadow-md hover:bg-white active:scale-[0.99]'
+                      }`}
                     >
-                      <div className="flex items-center gap-5 min-w-0 flex-1">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-inner bg-slate-50 text-slate-300 group-hover:bg-emerald-600 group-hover:text-white shrink-0`}>
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                      {/* Red ribbon for suspended */}
+                      {!b.isEnabled && (
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose-400 rounded-r-full" />
+                      )}
+
+                      <div className="flex items-center gap-4 min-w-0 flex-1 pl-5 pr-3 py-4">
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
+                          b.isEnabled
+                            ? 'bg-slate-50 text-slate-400 group-hover:bg-slate-900 group-hover:text-white'
+                            : 'bg-rose-50 text-rose-300 group-hover:bg-rose-500 group-hover:text-white'
+                        }`}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                         </div>
-                        <div className="min-w-0 pr-4">
-                          <h3 className="font-bold uppercase text-[15px] tracking-tight leading-tight truncate text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        <div className="min-w-0">
+                          <h3 className={`font-bold uppercase text-[14px] tracking-tight leading-tight truncate transition-colors ${
+                            b.isEnabled ? 'text-slate-900 group-hover:text-slate-700' : 'text-slate-600 group-hover:text-slate-800'
+                          }`}>
                             {b.name.replace(/BRANCH - /i, '')}
                           </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">TRACE-HC{b.id.slice(0,4).toUpperCase()}</span>
-                             <div className={`w-1 h-1 rounded-full ${b.isOpen ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' : 'bg-slate-200'}`}></div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[8px] font-black text-slate-300 font-mono tracking-widest">TRACE-HC{b.id.slice(0,4).toUpperCase()}</span>
+                            {b.isEnabled
+                              ? <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isOpen ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                              : <span className="text-[7px] font-black text-rose-400 uppercase tracking-widest">Suspended</span>
+                            }
                           </div>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-4 shrink-0">
-                         <span className="text-[9px] font-black text-slate-300 group-hover:text-emerald-500 transition-colors uppercase tracking-widest hidden sm:block">Link Terminal</span>
-                         <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-200 group-hover:text-emerald-500 group-hover:border-emerald-100 transition-all">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg>
-                         </div>
+
+                      <div className="flex items-center gap-3 pr-4 shrink-0">
+                        {!b.isEnabled && (
+                          <span className="text-[9px] font-black text-rose-300 group-hover:text-rose-500 transition-colors uppercase tracking-widest hidden sm:block">Access Suspended</span>
+                        )}
+                        {b.isEnabled && (
+                          <span className="text-[9px] font-black text-slate-300 group-hover:text-slate-500 transition-colors uppercase tracking-widest hidden sm:block">Link Terminal</span>
+                        )}
+                        <div className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                          b.isEnabled
+                            ? 'border-slate-100 text-slate-300 group-hover:text-slate-600 group-hover:border-slate-200'
+                            : 'border-rose-100 text-rose-300 group-hover:text-rose-500 group-hover:border-rose-200'
+                        }`}>
+                          <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg>
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -242,24 +302,18 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
           </div>
         </div>
 
-        {/* FOOTER BUILD INFO */}
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc] to-transparent z-[110]">
-           <div className="max-w-3xl mx-auto flex justify-between items-center">
-              <button 
-                onClick={() => { playSound('click'); setShowCredits(true); }}
-                className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em] hover:text-emerald-600 transition-colors pointer-events-auto"
-              >
-                Node Network v{version || '1.0'}
-              </button>
-              <div className="flex gap-1 opacity-30">
-                 {[1,2,3].map(i => <div key={i} className="w-1 h-1 rounded-full bg-slate-400"></div>)}
-              </div>
-           </div>
-        </div>
+        {/* FOOTER — just bottom padding spacer for scroll */}
+        <div className="h-16" />
 
         {showCredits && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300">
-            <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto no-scrollbar">
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300 cursor-pointer"
+            onClick={() => setShowCredits(false)}
+          >
+            <div
+              className="w-full max-w-lg max-h-[88vh] overflow-y-auto no-scrollbar cursor-default py-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DeveloperSection version={version} onClose={() => setShowCredits(false)} />
             </div>
           </div>

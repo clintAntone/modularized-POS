@@ -21,20 +21,22 @@ interface ReportDashboardModalProps {
   employees?: any[];
   onClose: () => void;
   canEdit?: boolean;
-  canValidate?: boolean;
   branch?: Branch;
   branches?: Branch[];
   branchVaults?: BranchVault[];
   vaultStartDate?: string | null;
 }
 
-export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report, constituents = [], branchName, employees = [], onClose, canEdit, canValidate = false, branch, branches = [], branchVaults = [], vaultStartDate }) => {
+export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report: reportProp, constituents: constituentsProp = [], branchName, employees = [], onClose, canEdit, branch, branches = [], branchVaults = [], vaultStartDate }) => {
+  const [report, setReport] = useState<SalesReport>(reportProp);
+  const [constituents, setConstituents] = useState<SalesReport[]>(constituentsProp);
+  const [vaultDepositTxs, setVaultDepositTxs] = useState<any[]>([]);
+  const [isFetchingLatest, setIsFetchingLatest] = useState(!reportProp.id.includes('-')); // skip for synthetic aggregate IDs
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [drilldownReport, setDrilldownReport] = useState<SalesReport | null>(null);
   const [drilldownConstituents, setDrilldownConstituents] = useState<SalesReport[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
   const [mounted, setMounted] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
@@ -46,6 +48,71 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
       document.body.style.overflow = '';
     };
   }, []);
+
+  // Always fetch the latest report data on open — avoids showing stale cached props
+  useEffect(() => {
+    const isAggregateSyntheticId = reportProp.id.includes('-') && !reportProp.id.match(/^[0-9a-f-]{36}$/i);
+    if (isAggregateSyntheticId) { setIsFetchingLatest(false); return; }
+    if (!supabase) { setIsFetchingLatest(false); return; }
+
+    (async () => {
+      setIsFetchingLatest(true);
+      try {
+        const [{ data, error }, { data: vaultTxData }] = await Promise.all([
+          supabase
+            .from(DB_TABLES.SALES_REPORTS)
+            .select('*')
+            .eq(DB_COLUMNS.ID, reportProp.id)
+            .single(),
+          // Also fetch vault_transactions deposits for this report date/branch
+          // so total_vault_provision is always accurate even if auto-save was stale
+          supabase
+            .from(DB_TABLES.VAULT_TRANSACTIONS)
+            .select('id, amount, name, timestamp, performed_by')
+            .eq(DB_COLUMNS.BRANCH_ID, reportProp.branchId)
+            .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+            .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00`)
+            .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999`),
+        ]);
+        if (error || !data) return;
+
+        // Derive vault provision directly from vault_transactions (source of truth)
+        const liveVaultProvision = (vaultTxData || []).reduce(
+          (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
+        );
+        const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
+        // Use whichever is larger — protects against stale auto-save
+        const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
+
+        const dbNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
+        // If vault provision was under-counted in DB, adjust net ROI accordingly
+        const provisionDelta = resolvedVaultProvision - dbVaultProvision;
+        const resolvedNetRoi = dbNetRoi - provisionDelta;
+
+        setVaultDepositTxs(vaultTxData || []);
+        setReport({
+          id: data[DB_COLUMNS.ID],
+          branchId: data[DB_COLUMNS.BRANCH_ID],
+          reportDate: data[DB_COLUMNS.REPORT_DATE],
+          submittedAt: data[DB_COLUMNS.SUBMITTED_AT],
+          grossSales: Number(data[DB_COLUMNS.GROSS_SALES] ?? 0),
+          totalStaffPay: Number(data[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
+          totalExpenses: Number(data[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
+          totalVaultProvision: resolvedVaultProvision,
+          netRoi: resolvedNetRoi,
+          sessionData: data[DB_COLUMNS.SESSION_DATA] ?? [],
+          staffBreakdown: data[DB_COLUMNS.STAFF_BREAKDOWN] ?? [],
+          expenseData: data[DB_COLUMNS.EXPENSE_DATA] ?? [],
+          vaultData: data[DB_COLUMNS.VAULT_DATA] ?? [],
+          reportType: reportProp.reportType,
+          sortDate: reportProp.sortDate,
+          periodEnd: reportProp.periodEnd,
+        });
+      } catch { /* silent — fall back to prop data */ } finally {
+        setIsFetchingLatest(false);
+      }
+    })();
+  }, [reportProp.id]);
 
   const isAggregate = constituents.length > 0;
 
@@ -59,6 +126,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   // Works for both legacy (totalVaultProvision = provision) and non-legacy (totalVaultProvision = vault deposit).
   const getConstituentCashOut = (r: SalesReport): number => {
     return Math.max(0, r.grossSales - r.netRoi - r.totalStaffPay - Number(r.totalVaultProvision || 0));
+  };
+
+  // ROI-only operational expense — mirrors the same logic as ReportTable.tsx.
+  // Uses r.totalExpenses as base (already ROI-only when VAULT_WITHDRAWAL records exist),
+  // with a from_vault fallback for transition-period reports.
+  const getConstituentROIExp = (r: SalesReport): number => {
+    const base = Number(r.totalExpenses || 0);
+    if (getConstituentIsLegacy(r)) return base;
+    const expData: any[] = r.expenseData || [];
+    const hasVaultRecords = expData.some(e => e.category === 'VAULT_WITHDRAWAL');
+    if (hasVaultRecords) return base; // totalExpenses is already ROI-only
+    const vaultCovered = expData
+      .filter(e => e.category === 'OPERATIONAL')
+      .reduce((s, e) => s + Number(e.from_vault || 0), 0);
+    return Math.max(0, base - vaultCovered);
   };
 
   // Vault deposit for non-legacy constituents — stored as totalVaultProvision
@@ -92,21 +174,58 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const operationalExpenses = useMemo(() =>
     (report.expenseData || []).filter((e: any) => e.category === 'OPERATIONAL'),
   [report.expenseData]);
-  const vaultWithdrawalTotal = useMemo(() =>
-    (report.expenseData || [])
+  const vaultWithdrawalTotal = useMemo(() => {
+    const expenseData = report.expenseData || [];
+    // Primary: sum VAULT_WITHDRAWAL category records
+    const fromRecords = expenseData
       .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
-      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0),
-  [report.expenseData]);
+      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+    if (fromRecords > 0) return fromRecords;
+    // Fallback: sum from_vault fields on OPERATIONAL expenses (newer annotated format)
+    return expenseData
+      .filter((e: any) => e.category === 'OPERATIONAL')
+      .reduce((s: number, e: any) => s + (Number(e.from_vault) || 0), 0);
+  }, [report.expenseData]);
+
+  // Total displayed in KPI strip. When VAULT_WITHDRAWAL records exist, total_expenses column
+  // stores ROI-only so we add them back. When using the from_vault fallback, OPERATIONAL
+  // amounts already include the vault portion so we sum expense_data directly.
+  const displayOperationalExp = useMemo(() => {
+    const expenseData = report.expenseData || [];
+    const hasVaultRecords = expenseData.some((e: any) => e.category === 'VAULT_WITHDRAWAL');
+    if (hasVaultRecords) {
+      return Number(report.totalExpenses || 0) + vaultWithdrawalTotal;
+    }
+    const opSum = expenseData
+      .filter((e: any) => e.category === 'OPERATIONAL')
+      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+    return opSum > 0 ? opSum : Number(report.totalExpenses || 0);
+  }, [report.expenseData, report.totalExpenses, vaultWithdrawalTotal]);
+  // vault-covered = sum of VAULT_WITHDRAWAL expense amounts (the actual vault-funded portion).
+  // Summing the matched OPERATIONAL amounts was wrong when only part of an expense is vault-covered.
   const vaultCoveredExpTotal = useMemo(() => {
     const expenseData = report.expenseData || [];
-    const withdrawalNames = new Set(
-      expenseData
-        .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
-        .map((e: any) => (e.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase())
-    );
-    return expenseData
-      .filter((e: any) => e.category === 'OPERATIONAL' && withdrawalNames.has((e.name || '').trim().toUpperCase()))
+    // Primary: VAULT_WITHDRAWAL records carry the exact vault-funded amount
+    const fromRecords = expenseData
+      .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
       .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+    if (fromRecords > 0) return fromRecords;
+    // Fallback: from_vault annotations on OPERATIONAL records (older format)
+    return expenseData
+      .filter((e: any) => e.category === 'OPERATIONAL')
+      .reduce((s: number, e: any) => s + (Number(e.from_vault) || 0), 0);
+  }, [report.expenseData]);
+
+  // Maps expense name → vault amount covered (e.g. "ELECTRICITY" → 300)
+  const vaultCoverageMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    (report.expenseData || [])
+      .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
+      .forEach((e: any) => {
+        const expName = (e.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase();
+        map[expName] = (map[expName] ?? 0) + (Number(e.amount) || 0);
+      });
+    return map;
   }, [report.expenseData]);
 
   const displayDate = useMemo(() => {
@@ -124,7 +243,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
       gcashTotal: 0
     };
 
-    (report.staffBreakdown || []).forEach((s: any) => {
+    (report.staffBreakdown || []).filter((s: any) => !s.isReliever).forEach((s: any) => {
       breakdown.allowances += Number(s.allowance || 0);
       breakdown.ot += Number(s.attendance?.otPay || s.attendance?.ot_pay || 0);
       breakdown.late += Number(s.attendance?.lateDeduction || s.attendance?.late_deduction || 0);
@@ -144,25 +263,22 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     return breakdown;
   }, [report.staffBreakdown, report.sessionData]);
 
-  const handleValidate = async () => {
-    if (isValidating) return;
-    setIsValidating(true);
-    playSound('click');
-    try {
-      const { error } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .update({ [DB_COLUMNS.IS_VALIDATED]: true })
-        .eq(DB_COLUMNS.ID, report.id);
-      if (error) throw error;
-      playSound('success');
-      onClose();
-    } catch (err) {
-      console.error('Validation failed:', err);
-      playSound('warning');
-    } finally {
-      setIsValidating(false);
-    }
-  };
+  // Recompute staff pay excluding relievers — fixes legacy reports where totalStaffPay
+  // was stored including reliever allowances/commissions before the reliever-as-expense model.
+  const displayStaffPay = useMemo(() => {
+    if (!report.staffBreakdown?.length) return Number(report.totalStaffPay || 0);
+    return (report.staffBreakdown as any[])
+      .filter((s: any) => !s.isReliever)
+      .reduce((sum: number, s: any) => {
+        const att = s.attendance;
+        return sum
+          + (Number(s.commission) || 0)
+          + (Number(s.allowance) || 0)
+          + (Number(att?.otPay || att?.ot_pay) || 0)
+          - (Number(att?.lateDeduction || att?.late_deduction) || 0);
+      }, 0);
+  }, [report.staffBreakdown, report.totalStaffPay]);
+
 
   const handleExportPDF = async (confirmed = false) => {
     if (!confirmed) {
@@ -176,6 +292,29 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     playSound('click');
 
     try {
+      // Re-fetch fresh report data so totals (totalExpenses, netRoi, etc.) are never stale
+      let freshReport = report;
+      if (!isAggregate && supabase) {
+        const { data: freshData } = await supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .select('*')
+          .eq(DB_COLUMNS.ID, report.id)
+          .maybeSingle();
+        if (freshData) {
+          freshReport = {
+            ...report,
+            totalExpenses: Number(freshData[DB_COLUMNS.TOTAL_EXPENSES] ?? report.totalExpenses),
+            totalStaffPay: Number(freshData[DB_COLUMNS.TOTAL_STAFF_PAY] ?? report.totalStaffPay),
+            totalVaultProvision: Number(freshData[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? report.totalVaultProvision),
+            netRoi: Number(freshData[DB_COLUMNS.NET_ROI] ?? report.netRoi),
+            grossSales: Number(freshData[DB_COLUMNS.GROSS_SALES] ?? report.grossSales),
+            expenseData: typeof freshData[DB_COLUMNS.EXPENSE_DATA] === 'string'
+              ? JSON.parse(freshData[DB_COLUMNS.EXPENSE_DATA])
+              : (freshData[DB_COLUMNS.EXPENSE_DATA] || report.expenseData),
+          };
+        }
+      }
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -202,18 +341,35 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
       doc.text('FINANCIAL SUMMARY', 14, 40);
 
       const provisionLabel = isLegacy ? 'Provision (Rent & Bills)' : 'Vault Deposit';
+
+      // Use freshReport for all financial figures — avoids stale React Query cache
+      // total_expenses is stored as ROI-only; full operational = totalExpenses + vault covered
+      const freshRoiOperational = Number(freshReport.totalExpenses || 0);
+      const freshExpenseData: any[] = typeof freshReport.expenseData === 'string'
+        ? JSON.parse(freshReport.expenseData)
+        : (freshReport.expenseData || []);
+      const freshVaultCoveredFromRecords = freshExpenseData
+        .filter((e: any) => e.category === 'VAULT_WITHDRAWAL')
+        .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+      const freshTotalOperational = freshVaultCoveredFromRecords > 0
+        ? freshRoiOperational + freshVaultCoveredFromRecords
+        : freshExpenseData.filter((e: any) => e.category === 'OPERATIONAL').reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0) || freshRoiOperational;
+      const vaultCoveredInPDF = Math.max(0, freshTotalOperational - freshRoiOperational);
+
+      const summaryBody: [string, string][] = [
+        ['Gross Sales', `PHP ${Number(freshReport.grossSales || 0).toLocaleString()}`],
+        ['  - Cash Payments', `PHP ${financialBreakdown.cashTotal.toLocaleString()}`],
+        ['  - GCash Payments', `PHP ${financialBreakdown.gcashTotal.toLocaleString()}`],
+        ['Operational Expenses (from ROI)', `PHP ${freshRoiOperational.toLocaleString()}`],
+        ...(vaultCoveredInPDF > 0 ? [['  + Vault Covered', `PHP ${vaultCoveredInPDF.toLocaleString()}`] as [string, string]] : []),
+        ['Staff Payroll', `PHP ${displayStaffPay.toLocaleString()}`],
+        [provisionLabel, `PHP ${Number(freshReport.totalVaultProvision || 0).toLocaleString()}`],
+        ['Net ROI', `PHP ${Number(freshReport.netRoi || 0).toLocaleString()}`],
+      ];
       autoTable(doc, {
         startY: 43,
         head: [['Metric', 'Amount']],
-        body: [
-          ['Gross Sales', `PHP ${Number(report.grossSales || 0).toLocaleString()}`],
-          ['  - Cash Payments', `PHP ${financialBreakdown.cashTotal.toLocaleString()}`],
-          ['  - GCash Payments', `PHP ${financialBreakdown.gcashTotal.toLocaleString()}`],
-          ['Operational Expenses (Net)', `PHP ${Number(report.totalExpenses || 0).toLocaleString()}`],
-          ['Staff Payroll', `PHP ${Number(report.totalStaffPay || 0).toLocaleString()}`],
-          [provisionLabel, `PHP ${Number(report.totalVaultProvision || 0).toLocaleString()}`],
-          ['Net ROI', `PHP ${Number(report.netRoi || 0).toLocaleString()}`],
-        ],
+        body: summaryBody,
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 9 },
@@ -235,7 +391,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           head: [['Date', 'Gross', 'Payroll', 'Expenses', 'Provision', 'Net ROI']],
           body: constituents.sort((a,b) => (a.reportDate || '').localeCompare(b.reportDate || '')).map(sub => {
             const subIsLegacy = getConstituentIsLegacy(sub);
-            const subExp = getConstituentCashOut(sub);
+            const subExp = getConstituentROIExp(sub);
             const subProvision = subIsLegacy ? getConstituentProvision(sub) : getConstituentVaultDeposit(sub);
             const provisionNote = subIsLegacy ? 'R&B' : 'VD';
             return [
@@ -327,7 +483,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           const baseAllw = Number(s.allowance || 0);
           const finalPay = baseComm + baseAllw + ot - late;
           const resolvedName = employees.find(e => e.id === s.employeeId)?.name || s.name || 'Unknown Staff';
-          const isReliever = s.isReliever || (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
+          const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
           const isHalfDay = s.attendance?.isHalfDay || s.attendance?.is_half_day || false;
 
           let displayName = resolvedName.toUpperCase();
@@ -452,7 +608,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         });
       } else {
         doc.text('PROVISION — VAULT DEPOSITS', 14, currentY);
-        const vaultBody = vaultDepositEntries.map((e: any) => {
+        // vault_data is always [] for vault branches — use vaultDepositTxs (from vault_transactions) instead
+        const depositSource = vaultDepositTxs.length > 0 ? vaultDepositTxs : vaultDepositEntries;
+        const vaultBody = depositSource.map((e: any) => {
           const ts = e.timestamp
             ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))
             : '—';
@@ -507,6 +665,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         }}
         canEdit={canEdit}
         branch={branch}
+        branches={branches}
+        branchVaults={branchVaults}
+        vaultStartDate={vaultStartDate}
     />;
   }
 
@@ -576,7 +737,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-600 whitespace-nowrap">{branchName} Node</span>
                   <span className="text-slate-200 hidden sm:inline">/</span>
                   <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-slate-400 opacity-40 whitespace-nowrap">
-                    {isAggregate ? `${constituents.length} PERIOD UNITS` : `ID: ${report.id.slice(-8).toUpperCase()}`}
+                    {isAggregate ? `${constituents.length} PERIOD UNITS` : `ID: ${report.id}`}
                  </span>
                 </div>
               </div>
@@ -615,12 +776,12 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     gross={Number(report.grossSales || 0)}
                     cashTotal={financialBreakdown.cashTotal}
                     gcashTotal={financialBreakdown.gcashTotal}
-                    operationalExp={Number(report.totalExpenses || 0) + vaultWithdrawalTotal}
+                    operationalExp={displayOperationalExp}
                     rentAndBillsTotal={rentAndBillsTotal}
                     vaultDeposit={kpiIsLegacy ? 0 : Number(report.totalVaultProvision || 0)}
                     vaultWithdrawal={vaultWithdrawalTotal}
                     vaultCoveredExp={vaultCoveredExpTotal}
-                    finalStaffPayTotal={Number(report.totalStaffPay || 0)}
+                    finalStaffPayTotal={displayStaffPay}
                     net={Number(report.netRoi || 0)}
                     totalAllowances={financialBreakdown.allowances}
                     otAdditions={financialBreakdown.ot}
@@ -693,7 +854,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             const weekGross = group.constituents.reduce((sum, r) => sum + r.grossSales, 0);
                             const weekPayroll = group.constituents.reduce((sum, r) => sum + r.totalStaffPay, 0);
                             const weekExp = group.constituents.reduce((sum, r) => sum + r.totalExpenses, 0);
-                            const weekCashOut = group.constituents.reduce((sum, r) => sum + getConstituentCashOut(r), 0);
+                            const weekCashOut = group.constituents.reduce((sum, r) => sum + getConstituentROIExp(r), 0);
                             const weekVault = group.constituents.reduce((sum, r) => sum + getConstituentProvision(r), 0);
                             const weekVaultDeposit = group.constituents.reduce((sum, r) => sum + getConstituentVaultDeposit(r), 0);
                             const weekRoi = group.constituents.reduce((sum, r) => sum + r.netRoi, 0);
@@ -805,13 +966,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                               <PerformanceRow
                                   key={sub.id}
                                   label={label}
-                                  sublabel={isConsolidatedDay ? `${group.constituents.length} TERMINALS CONSOLIDATED` : `TRACE: ${sub.id.slice(-8).toUpperCase()}`}
+                                  sublabel={isConsolidatedDay ? `${group.constituents.length} TERMINALS CONSOLIDATED` : `ID: ${sub.id}`}
                                   branchName={isConsolidatedDay ? "NETWORK CONSOLIDATED" : (subBranch?.name || branchName)}
                                   gross={sub.grossSales}
                                   pay={sub.totalStaffPay}
                                   exp={isConsolidatedDay
-                                    ? group.constituents.reduce((s, c) => s + getConstituentCashOut(c), 0)
-                                    : getConstituentCashOut(sub)}
+                                    ? group.constituents.reduce((s, c) => s + getConstituentROIExp(c), 0)
+                                    : getConstituentROIExp(sub)}
                                   vault={isConsolidatedDay
                                     ? group.constituents.reduce((s, c) => s + getConstituentProvision(c), 0)
                                     : getConstituentProvision(sub)}
@@ -853,7 +1014,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                         const isPaidDaily = s.attendance?.isPaidDaily || s.attendance?.is_paid_daily || false;
                         const isHalfDay = s.attendance?.isHalfDay || s.attendance?.is_half_day || false;
 
-                        const isReliever = s.isReliever || (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
+                        const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
 
                         return (
                           <div
@@ -1012,42 +1173,105 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                       </div>
                     </div>
                   ) : (
-                    /* Non-legacy: unified Operational Outflows (expenses + vault deposits from vault_data) */
-                    <div className="space-y-4">
-                      <h4 className={`${UI_THEME.text.label} ml-4`}>Operational Outflows</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {[...vaultDepositEntries, ...operationalExpenses]
+                    /* Non-legacy: two-column layout — Vault Fund (left) + Expenses (right) */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* LEFT — Vault Fund / Deposits */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-violet-400"></div>
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Vault Fund</p>
+                              <p className="text-[7px] font-bold uppercase tracking-widest text-slate-300">Deposits Today</p>
+                            </div>
+                          </div>
+                          <p className="text-[11px] font-black text-violet-500 tabular-nums">
+                            +₱{Number(report.totalVaultProvision || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        {vaultDepositTxs.length > 0 ? vaultDepositTxs.map((tx: any) => {
+                          const timeLabel = tx.timestamp
+                            ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(tx.timestamp))
+                            : '—';
+                          return (
+                            <div key={tx.id} className="p-4 bg-white rounded-2xl border border-violet-100 shadow-sm flex items-center justify-between">
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="w-9 h-9 rounded-lg bg-violet-50 border border-violet-100 text-violet-500 flex items-center justify-center shrink-0">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                                </div>
+                                <div className="overflow-hidden">
+                                  <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none mb-1">{tx.name || 'VAULT DEPOSIT'}</p>
+                                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">{timeLabel}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-bold tabular-nums text-violet-600">+₱{Number(tx.amount || 0).toLocaleString()}</p>
+                            </div>
+                          );
+                        }) : (
+                          <div className="py-10 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20">
+                            <p className={UI_THEME.text.metadata}>No Deposits</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* RIGHT — Expenses */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Expenses</p>
+                              <p className="text-[7px] font-bold uppercase tracking-widest text-slate-300">
+                                Leaves ₱{Number(report.totalExpenses || 0).toLocaleString()} Today
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-[11px] font-black text-rose-500 tabular-nums">
+                            −₱{displayOperationalExp.toLocaleString()}
+                          </p>
+                        </div>
+                        {operationalExpenses.length > 0 ? operationalExpenses
                           .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''))
                           .map((e: any) => {
-                          const isVaultDeposit = e.category === 'VAULT_DEPOSIT';
+                          const vaultCovered = e.from_vault ?? vaultCoverageMap[(e.name || '').trim().toUpperCase()] ?? 0;
+                          const roiAmount = Math.max(0, Number(e.amount || 0) - vaultCovered);
+                          const timeLabel = e.timestamp
+                            ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))
+                            : '—';
                           return (
                             <div
                               key={e.id}
                               onClick={() => { playSound('click'); setViewingExpense(e); }}
-                              className={`p-4 bg-white rounded-2xl border shadow-sm hover:shadow-xl transition-all cursor-pointer group flex items-center justify-between ${isVaultDeposit ? 'border-indigo-100 hover:border-indigo-300' : 'border-slate-100 hover:border-rose-200'}`}
+                              className={`p-4 bg-white rounded-2xl border shadow-sm hover:shadow-xl transition-all cursor-pointer group flex items-center justify-between ${vaultCovered > 0 ? 'border-amber-100 hover:border-amber-300' : 'border-slate-100 hover:border-rose-200'}`}
                             >
                               <div className="flex items-center gap-3 overflow-hidden">
-                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isVaultDeposit ? 'bg-indigo-50 border border-indigo-100 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-rose-50 border border-rose-100 text-rose-400 group-hover:bg-rose-600 group-hover:text-white'}`}>
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${vaultCovered > 0 ? 'bg-amber-50 border border-amber-100 text-amber-500 group-hover:bg-amber-500 group-hover:text-white' : 'bg-rose-50 border border-rose-100 text-rose-400 group-hover:bg-rose-600 group-hover:text-white'}`}>
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
                                 </div>
                                 <div className="overflow-hidden">
                                   <div className="flex items-center gap-1.5 mb-1">
                                     <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none">{e.name}</p>
-                                    {isVaultDeposit && <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-1.5 py-0.5 rounded-full shrink-0">Vault</span>}
+                                    {vaultCovered > 0 && <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">₱{vaultCovered.toLocaleString()} Vault</span>}
                                   </div>
-                                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">
-                                    {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(e.timestamp))}
-                                  </p>
+                                  <div className="flex items-center gap-1.5">
+                                    {vaultCovered > 0 && <span className="text-[7px] font-black text-slate-400 tabular-nums">₱{roiAmount.toLocaleString()} ROI</span>}
+                                    {vaultCovered > 0 && <span className="text-[7px] text-slate-200">·</span>}
+                                    <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">{timeLabel}</p>
+                                    {!e.receiptImage && <span className="text-[7px] font-bold text-slate-200 uppercase tracking-widest">· No Receipt</span>}
+                                  </div>
                                 </div>
                               </div>
-                              <p className={`text-sm font-bold tabular-nums ${isVaultDeposit ? 'text-indigo-600' : 'text-rose-600'}`}>−₱{Number(e.amount || 0).toLocaleString()}</p>
+                              <p className={`text-sm font-bold tabular-nums ${vaultCovered > 0 ? 'text-amber-600' : 'text-rose-600'}`}>−₱{Number(e.amount || 0).toLocaleString()}</p>
                             </div>
                           );
-                        })}
-                        {operationalExpenses.length === 0 && (
-                          <div className="col-span-full py-12 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20"><p className={UI_THEME.text.metadata}>No Outflows Logged</p></div>
+                        }) : (
+                          <div className="py-10 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl opacity-20">
+                            <p className={UI_THEME.text.metadata}>No Outflows Logged</p>
+                          </div>
                         )}
                       </div>
+
                     </div>
                   )}
                 </>
@@ -1086,7 +1310,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 </tr>
                 <tr>
                   <td className="border border-slate-200 px-4 py-2 font-bold uppercase text-amber-600">Staff Payroll</td>
-                  <td className="border border-slate-200 px-4 py-2 text-right font-bold tabular-nums text-amber-600">₱{Number(report.totalStaffPay || 0).toLocaleString()}</td>
+                  <td className="border border-slate-200 px-4 py-2 text-right font-bold tabular-nums text-amber-600">₱{displayStaffPay.toLocaleString()}</td>
                 </tr>
                 <tr>
                   <td className="border border-slate-200 px-4 py-2 font-bold uppercase text-indigo-600">R&B Reserve</td>
@@ -1200,7 +1424,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   const baseAllw = Number(s.allowance || 0);
                   const finalPay = baseComm + baseAllw + ot - late;
                   const resolvedName = employees.find(e => e.id === s.employeeId)?.name || s.name || 'Unknown Staff';
-                  const isReliever = s.isReliever || (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
+                  const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
                   const isHalfDay = s.attendance?.isHalfDay || s.attendance?.is_half_day || false;
                   return (
                       <tr key={s.employeeId || s.name} className="break-inside-avoid">
@@ -1234,15 +1458,16 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   </tr>
                   </thead>
                   <tbody>
-                  {[...vaultDepositEntries, ...operationalExpenses]
+                  {/* For non-legacy vault branches vault_data is always [] — use vaultDepositTxs as fallback */}
+                  {[...(isLegacy ? vaultDepositEntries : vaultDepositTxs.length > 0 ? vaultDepositTxs : vaultDepositEntries), ...operationalExpenses]
                     .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''))
                     .map((e: any) => {
-                      const isVaultDep = e.category === 'VAULT_DEPOSIT';
+                      const isVaultDep = e.category === 'VAULT_DEPOSIT' || e.type === 'DEPOSIT';
                       return (
                         <tr key={e.id} className="break-inside-avoid">
-                          <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{e.name}</td>
-                          {!isLegacy && <td className="border border-slate-200 px-2 py-1.5 text-center text-[7px] uppercase tracking-widest text-slate-400">{isVaultDep ? 'Vault' : 'Expense'}</td>}
-                          <td className={`border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums ${isVaultDep ? 'text-indigo-600' : 'text-rose-600'}`}>₱{Number(e.amount || 0).toLocaleString()}</td>
+                          <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{e.name || 'VAULT DEPOSIT'}</td>
+                          {!isLegacy && <td className="border border-slate-200 px-2 py-1.5 text-center text-[7px] uppercase tracking-widest text-slate-400">{isVaultDep ? 'Vault Deposit' : 'Expense'}</td>}
+                          <td className={`border border-slate-200 px-2 py-1.5 text-right font-bold tabular-nums ${isVaultDep ? 'text-violet-600' : 'text-rose-600'}`}>₱{Number(e.amount || 0).toLocaleString()}</td>
                         </tr>
                       );
                     })}

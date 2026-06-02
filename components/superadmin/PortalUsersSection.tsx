@@ -5,7 +5,7 @@ import { hashPin, generateSalt } from '../../lib/crypto';
 import { Branch, PortalUser, PortalPermissions } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills' | 'insights';
 
 interface TabDef {
   id: AdminTab;
@@ -26,6 +26,7 @@ const TAB_DEFINITIONS: TabDef[] = [
   { id: 'employees',   label: 'Employees',     category: 'Management' },
   { id: 'network',     label: 'Branches',      category: 'Management' },
   { id: 'catalogs',    label: 'Catalogs',      category: 'Management' },
+  { id: 'insights',    label: 'Sales Insights', category: 'Operations' },
   { id: 'analytics',   label: 'Analytics',     category: 'System' },
   { id: 'audit',       label: 'Audit Log',     category: 'System' },
   { id: 'how_to',      label: 'SOP',           category: 'System' },

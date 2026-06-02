@@ -226,7 +226,7 @@ export const DataExportHub: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto animate-in fade-in duration-700 space-y-8 relative px-2">
+    <div className="max-w-2xl mx-auto space-y-8 relative px-2">
       {(isExporting || isTransmitting) && (
         <div className="fixed inset-0 z-[1000] bg-slate-950/90 backdrop-blur-2xl flex flex-col items-center justify-center p-10">
            <div className="w-24 h-24 relative mb-10">

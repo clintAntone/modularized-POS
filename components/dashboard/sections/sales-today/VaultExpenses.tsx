@@ -13,11 +13,15 @@ interface VaultExpensesProps {
   setViewingExpense: (expense: Expense | null) => void;
   isClosedMode?: boolean;
   onDeleteExpense: (id: string) => void;
+  onDeleteVaultDeposit?: (id: string) => void;
+  onDeleteVaultWithdrawal?: (id: string) => void; // full reversal: removes withdrawal + paired expense
   currentNetRoi?: number;
   isLegacy?: boolean;
   onOpenVaultDeposit?: () => void;
   onOpenLegacyDeposit?: () => void;
   onOpenRecordExpense?: () => void; // explicit handler so parent fully controls what opens
+  vaultBalance?: number;       // current live vault balance
+  vaultInitialBalance?: number; // initial balance set by admin
 }
 
 export const VaultExpenses: React.FC<VaultExpensesProps> = ({
@@ -28,14 +32,20 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                                                               setViewingExpense,
                                                               isClosedMode = false,
                                                               onDeleteExpense,
+                                                              onDeleteVaultDeposit,
+                                                              onDeleteVaultWithdrawal,
                                                               currentNetRoi = 0,
                                                               isLegacy = false,
                                                               onOpenVaultDeposit,
                                                               onOpenLegacyDeposit,
                                                               onOpenRecordExpense,
+                                                              vaultBalance,
+                                                              vaultInitialBalance = 0,
                                                             }) => {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [revealedDeleteId, setRevealedDeleteId] = useState<string | null>(null);
+  const [revealedVaultDepositDeleteId, setRevealedVaultDepositDeleteId] = useState<string | null>(null);
+  const [revealedWithdrawalDeleteId, setRevealedWithdrawalDeleteId] = useState<string | null>(null);
   const [relieverTooltipId, setRelieverTooltipId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,13 +82,8 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
   const startLongPress = (id: string, isReliever: boolean) => {
     if (isClosedMode) return;
     longPressTimer.current = setTimeout(() => {
-      if (isReliever) {
-        setRelieverTooltipId(id);
-        playSound('warning');
-      } else {
-        setRevealedDeleteId(id);
-        playSound('click');
-      }
+      setRevealedDeleteId(id);
+      playSound('click');
       longPressTimer.current = null;
     }, 600);
   };
@@ -186,18 +191,16 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
               </p>
 
               {/* TABLET/DESKTOP HOVER DELETE BUTTON (md+) */}
-              {!isRelieverPayout && (
-                <button
-                    onClick={(evt) => handleDeleteClick(evt, e.id)}
-                    className={`hidden md:flex p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 active:scale-90`}
-                    title="Delete record"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              )}
+              <button
+                  onClick={(evt) => handleDeleteClick(evt, e.id)}
+                  className={`hidden md:flex p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 active:scale-90`}
+                  title="Delete record"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
 
               {/* MOBILE LONG-PRESS REVEALED DELETE BUTTON (<md) */}
-              {isRevealed && !isRelieverPayout && (
+              {isRevealed && (
                   <button
                       onClick={(evt) => handleDeleteClick(evt, e.id)}
                       className="md:hidden p-2.5 rounded-lg bg-rose-600 text-white shadow-lg animate-in zoom-in duration-200"
@@ -290,65 +293,155 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
   const allEntries = (expenseLogs as Expense[])
     .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   const hasEntries = allEntries.length > 0;
-  const sortedVaultDeposits = [...vaultDepositLogs].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+  // Vault fund column shows only deposits; vault cover-from-expense amounts show as badges on the expense entry
+  const allVaultActivity = useMemo(() => {
+    return vaultDepositLogs.map((e: any) => ({ ...e, flow: 'deposit' as const }))
+      .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  }, [vaultDepositLogs]);
+  const hasVaultActivity = allVaultActivity.length > 0;
 
   return (
     <>
-      {/* 2-column on desktop: Vault Deposits (left) | Expenses (right) */}
+      {/* 2-column on desktop: Vault Fund Activity (left) | Expenses (right) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
 
-        {/* ── LEFT: Vault Deposits (mobile: below expenses) ── */}
+        {/* ── LEFT: Vault Fund Activity (deposits + withdrawals) ── */}
         <div className="flex flex-col gap-3 order-2 md:order-1 pt-4 md:pt-0">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_6px_#818cf8]"></div>
               <div>
-                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Vault Deposits</h4>
-                <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Saved to vault fund today</p>
+                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Vault Fund</h4>
+                <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Deposits today</p>
               </div>
             </div>
-            {vaultDepositSubtotal > 0 && (
-              <span className="text-[10px] font-bold text-indigo-500 tabular-nums">−₱{vaultDepositSubtotal.toLocaleString()}</span>
-            )}
+            <div className="flex items-center gap-2">
+              {vaultDepositSubtotal > 0 && (
+                <span className="text-[10px] font-bold text-indigo-500 tabular-nums">+₱{vaultDepositSubtotal.toLocaleString()}</span>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            {sortedVaultDeposits.length > 0 ? sortedVaultDeposits.map((e: any) => (
-              <div key={e.id} className="p-4 rounded-[22px] border border-indigo-100 bg-indigo-50/40 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner border bg-indigo-100 border-indigo-200 text-indigo-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" />
-                    </svg>
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="text-[12px] font-bold uppercase truncate leading-none mb-1.5 text-indigo-900">Vault Deposit</p>
-                    <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest leading-none tabular-nums">
-                      {(() => {
-                        const date = new Date(e.timestamp.replace(/(\+00:00|Z)$/, ''));
-                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                      })()}
-                    </p>
+            {hasVaultActivity ? allVaultActivity.map((e: any) => {
+              const isDeposit = e.flow === 'deposit';
+              const isRevealedDep = revealedVaultDepositDeleteId === e.id;
+              const isRevealedWith = revealedWithdrawalDeleteId === e.id;
+              const isRevealed = isRevealedDep || isRevealedWith;
+              const canDelete = isDeposit ? !!onDeleteVaultDeposit : !!onDeleteVaultWithdrawal;
+              const expenseName = isDeposit ? 'Vault Deposit' : (e.name || '').replace(/^VAULT:\s*/i, '') || 'Vault Used';
+
+              const startLP = () => {
+                if (isClosedMode || !canDelete) return;
+                const t = setTimeout(() => {
+                  if (isDeposit) setRevealedVaultDepositDeleteId(e.id);
+                  else setRevealedWithdrawalDeleteId(e.id);
+                  playSound('click');
+                }, 600);
+                (e as any)._lp = t;
+              };
+              const cancelLP = () => {
+                if ((e as any)._lp) { clearTimeout((e as any)._lp); (e as any)._lp = null; }
+              };
+              const handleDelete = (evt: React.MouseEvent) => {
+                evt.stopPropagation();
+                setRevealedVaultDepositDeleteId(null);
+                setRevealedWithdrawalDeleteId(null);
+                if (isDeposit) onDeleteVaultDeposit?.(e.id);
+                else onDeleteVaultWithdrawal?.(e.id);
+              };
+
+              return (
+                <div
+                  key={e.id}
+                  className="relative group"
+                  onTouchStart={startLP}
+                  onTouchEnd={cancelLP}
+                  onMouseDown={startLP}
+                  onMouseUp={cancelLP}
+                  onMouseLeave={() => { cancelLP(); setRevealedVaultDepositDeleteId(null); setRevealedWithdrawalDeleteId(null); }}
+                >
+                  <div className={`p-4 rounded-[22px] border flex items-center justify-between shadow-sm transition-all duration-300 ${
+                    isRevealed
+                      ? 'bg-white border-rose-400 translate-x-[-4px]'
+                      : isDeposit
+                        ? 'border-indigo-100 bg-indigo-50/40'
+                        : 'border-amber-100 bg-amber-50/40'
+                  }`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner border transition-colors ${
+                        isRevealed
+                          ? 'bg-rose-50 border-rose-200 text-rose-400'
+                          : isDeposit
+                            ? 'bg-indigo-100 border-indigo-200 text-indigo-500'
+                            : 'bg-amber-100 border-amber-200 text-amber-600'
+                      }`}>
+                        {isDeposit ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 16l-6-6m6 6l6-6" /></svg>
+                        )}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className={`text-[12px] font-bold uppercase truncate leading-none mb-1.5 transition-colors ${isRevealed ? 'text-rose-600' : isDeposit ? 'text-indigo-900' : 'text-amber-900'}`}>
+                          {expenseName}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isDeposit ? 'bg-indigo-100 text-indigo-500' : 'bg-amber-100 text-amber-600'}`}>
+                            {isDeposit ? 'Saved' : 'Used'}
+                          </span>
+                          <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest leading-none tabular-nums">
+                            {(() => {
+                              const date = new Date((e.timestamp || '').replace(/(\+00:00|Z)$/, ''));
+                              return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <p className={`text-sm font-bold tabular-nums transition-colors ${isRevealed ? 'text-rose-600' : isDeposit ? 'text-indigo-700' : 'text-amber-700'}`}>
+                        {isDeposit ? '+' : '−'}₱{Number(e.amount).toLocaleString()}
+                      </p>
+                      {/* DESKTOP hover delete */}
+                      {canDelete && !isClosedMode && (
+                        <button
+                          onClick={handleDelete}
+                          className="hidden md:flex p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+                          title={isDeposit ? 'Reverse deposit' : 'Reverse vault usage'}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      )}
+                      {/* MOBILE long-press revealed delete */}
+                      {isRevealed && canDelete && (
+                        <button
+                          onClick={handleDelete}
+                          className="md:hidden p-2.5 rounded-lg bg-rose-600 text-white shadow-lg animate-in zoom-in duration-200"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <p className="text-sm font-bold tabular-nums text-indigo-700 shrink-0 ml-3">
-                  −₱{Number(e.amount).toLocaleString()}
-                </p>
-              </div>
-            )) : (
+              );
+            }) : (
               <div className={`h-[100px] w-full text-center bg-slate-50/20 ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 grayscale opacity-10`}>
                 <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">No deposits today</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">No vault activity today</p>
               </div>
             )}
           </div>
 
+          {/* Mobile-only: Vault Deposit button below vault list */}
           <button
             onClick={onOpenVaultDeposit}
             disabled={isClosedMode || !onOpenVaultDeposit}
-            className={`no-print w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-indigo-100 ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-indigo-100 ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'}`}
           >
-            <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
+            <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
             <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">Vault Deposit</span>
           </button>
         </div>
@@ -375,16 +468,38 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
             )}
           </div>
 
+          {/* Mobile-only: Record Expense button below expense list */}
           <button
             onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
             disabled={isClosedMode}
-            className={`no-print w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-rose-100 ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-rose-100 ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50'}`}
           >
             <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest whitespace-nowrap">Record Expense</span>
           </button>
         </div>
 
+      </div>
+
+      {/* Desktop-only: shared button row so both buttons stay aligned regardless of column height */}
+      <div className="no-print hidden md:grid grid-cols-2 gap-3 w-full">
+        <button
+          onClick={onOpenVaultDeposit}
+          disabled={isClosedMode || !onOpenVaultDeposit}
+          className={`flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-indigo-100 ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'}`}
+        >
+          <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+          <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">Vault Deposit</span>
+        </button>
+
+        <button
+          onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
+          disabled={isClosedMode}
+          className={`flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-rose-100 ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50'}`}
+        >
+          <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+          <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest whitespace-nowrap">Record Expense</span>
+        </button>
       </div>
 
       {/* LEGACY RENT & BILLS — only shown when historical provision deposits exist */}

@@ -78,9 +78,9 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     }, [hasSelectedLoyalty, hasSelectedStandard]);
 
     return (
-        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-500 ${props.isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${props.isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
             <div className="lg:col-span-8 space-y-6">
-                <div className="bg-white p-6 md:p-10 rounded-[22px] shadow-sm border border-slate-200 space-y-8">
+                <div className="bg-white p-5 md:p-7 rounded-[22px] shadow-sm border border-slate-200 space-y-6">
                     <div className="space-y-6">
                         <div className="flex items-center justify-between ml-2">
                             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Customer Information</h3>
@@ -118,8 +118,8 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                         setShowSuggestions(false);
                                     }
                                 }}
-                                placeholder="CLIENT FULL NAME..."
-                                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[24px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+                                placeholder="CLIENT NAME"
+                                className="w-full px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-50 border-2 border-transparent rounded-[18px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
                             />
                             {showSuggestions && suggestions.length > 0 && (
                                 <div
@@ -152,8 +152,8 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                             <textarea
                                 value={props.formData.note}
                                 onChange={e => props.setFormData({...props.formData, note: e.target.value})}
-                                placeholder="ADD SPECIAL INSTRUCTIONS OR NOTES..."
-                                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[24px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner min-h-[100px] resize-none"
+                                placeholder="SPECIAL INSTRUCTIONS/NOTES"
+                                className="w-full px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-50 border-2 border-transparent rounded-[18px] font-bold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner min-h-[80px] resize-none"
                             />
                         </div>
                     </div>

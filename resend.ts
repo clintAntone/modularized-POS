@@ -1,1 +1,3 @@
-const resend_api_key  = 're_QEBiziMz_2tzBkx3UGxX18w9bGbnqUBMs';
+// Resend is used via the Express server (/api/send-credentials).
+// API key lives in .env as RESEND_API_KEY — never import it on the frontend.
+export {};

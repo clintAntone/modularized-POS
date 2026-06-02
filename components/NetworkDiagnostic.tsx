@@ -45,7 +45,7 @@ export const NetworkDiagnostic: React.FC = () => {
     // Check API
     try {
       addDetail('Testing local API health...');
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = import.meta.env.VITE_SUPABASE_URL || '';
       const res = await fetch(`${apiBase}/api/health`);
       if (res.ok) {
         setStatus(prev => ({ ...prev, api: 'ok' }));

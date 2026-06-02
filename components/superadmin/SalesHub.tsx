@@ -13,15 +13,27 @@ import autoTable from 'jspdf-autotable';
 interface SalesHubProps {
   branches: Branch[];
   salesReports: SalesReport[];
+  salesReportsLoading?: boolean;
   employees: Employee[];
   onRefresh?: (quiet?: boolean) => void;
 }
 
 type SortKey = 'gross' | 'net' | 'sessions' | 'name';
 
-export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, employees, onRefresh }) => {
+export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, salesReportsLoading = false, employees, onRefresh }) => {
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(getTrueDate()));
-  const [searchTerm, setSearchTerm] = useState<string>(() => localStorage.getItem('live_filter_search') || '');
+  const [searchTerm, setSearchTerm] = useState<string>(() => {
+    const saved = localStorage.getItem('live_filter_search') || '';
+    // If the saved search would hide every available branch, discard it.
+    // This prevents a superadmin's leftover filter from blanking the view for a
+    // portal user whose assigned branches don't match that search term.
+    if (saved && branches.length > 0) {
+      const term = saved.toUpperCase();
+      const anyMatch = branches.some(b => (b.name || '').toUpperCase().includes(term) || (b.id || '').toUpperCase().includes(term));
+      if (!anyMatch) return '';
+    }
+    return saved;
+  });
   const [lastSync, setLastSync] = useState<Date>(getTrueDate());
   const [mobileSortBy, setMobileSortBy] = useState<SortKey>('gross');
   const [selectedReport, setSelectedReport] = useState<{ report: SalesReport; branch: Branch } | null>(null);
@@ -31,7 +43,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
   const [missedDaysThreshold, setMissedDaysThreshold] = useState<number | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
-  const [isLateOpenExpanded, setIsLateOpenExpanded] = useState(false);
+  const [showLateOpenDropdown, setShowLateOpenDropdown] = useState(false);
+  const [showMissingModal, setShowMissingModal] = useState(false);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,6 +64,16 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-refresh data every 30 seconds
+  useEffect(() => {
+    if (!onRefresh) return;
+    const interval = setInterval(() => {
+      onRefresh(true);
+      setLastSync(getTrueDate());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [onRefresh]);
 
   const handleDateShift = (days: number) => {
     const d = parseDate(selectedDate);
@@ -95,10 +118,20 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
         gross: report?.grossSales || 0,
         staffPay: report?.totalStaffPay || 0,
         isLegacy: !branch.vaultEnabled,
-        operational: !branch.vaultEnabled
-          ? (report?.totalExpenses || 0)
-          : (report?.totalExpenses || 0) + (report?.totalVaultProvision || 0),
-        vault: !branch.vaultEnabled ? (report?.totalVaultProvision || 0) : 0,
+        operational: (() => {
+          const base = (report?.totalExpenses || 0) + (branch.vaultEnabled ? 0 : (report?.totalVaultProvision || 0));
+          if (!branch.vaultEnabled) return base;
+          // For vault branches: subtract vault-covered portion when totalExpenses was saved
+          // as the full amount (transition reports without VAULT_WITHDRAWAL records in expense_data).
+          const expData: any[] = report?.expenseData || [];
+          const hasVaultRecords = expData.some((e: any) => e.category === 'VAULT_WITHDRAWAL');
+          if (hasVaultRecords) return base; // totalExpenses already ROI-only
+          const vaultCovered = expData
+            .filter((e: any) => e.category === 'OPERATIONAL')
+            .reduce((s: number, e: any) => s + Number(e.from_vault || 0), 0);
+          return base - vaultCovered;
+        })(),
+        vault: report?.totalVaultProvision || 0,
         net: report?.netRoi || 0,
         rawReport: report,
         missedDays: missedDaysMap[branch.id] ?? 0,
@@ -176,10 +209,30 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
       if (branch.isOpen) return false;
       if (!branch.openingTime) return false;
       if ((branch.name || '').toUpperCase().includes('TEST')) return false;
+      // If the branch already has a report for today, it opened at some point — don't flag it
+      const hasReportToday = salesReports.some(r => r.branchId === branch.id && r.reportDate === manilaToday);
+      if (hasReportToday) return false;
       return manilaTime > branch.openingTime;
     });
-  }, [branches, selectedDate, lastSync]);
+  }, [branches, salesReports, selectedDate, lastSync]);
 
+
+  const isToday = selectedDate === toDateStr(getTrueDate());
+
+  // Branches with no report filed for the selected date (enabled, non-test)
+  const missingReportBranches = useMemo(() => {
+    if (!isToday || salesReportsLoading) return [];
+    const manilaTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(getTrueDate());
+    return branches.filter(b => {
+      if (!b.isEnabled) return false;
+      if ((b.name || '').toUpperCase().includes('TEST')) return false;
+      // Only flag branches whose opening time has already passed
+      if (b.openingTime && manilaTime < b.openingTime) return false;
+      return !salesReports.some(r => r.branchId === b.id && r.reportDate === selectedDate);
+    });
+  }, [branches, salesReports, salesReportsLoading, selectedDate, isToday, lastSync]);
 
   const formattedDisplayDate = useMemo(() => {
     const d = parseDate(selectedDate);
@@ -233,7 +286,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
     ]);
 
     autoTable(doc, {
-      head: [['Terminal Unit', 'Report', 'Gross', 'Payroll', 'Expenses', 'Vault', 'Net ROI']],
+      head: [['Branch Node', 'Report', 'Gross', 'Payroll', 'Expenses', 'Vault', 'Net ROI']],
       body: tableData,
       startY: 40,
       theme: 'grid',
@@ -314,7 +367,66 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
   };
 
   return (
-    <div className={`animate-in fade-in duration-500 space-y-6 pb-32`}>
+    <div className={`flex flex-col lg:flex-row gap-6 lg:gap-8 lg:items-start pb-32`}>
+        {/* Missing report modal */}
+        {showMissingModal && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowMissingModal(false)}>
+            <div className="bg-white rounded-[28px] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Today — {formattedDisplayDate}</p>
+                    <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-tight">
+                      {missingReportBranches.length} Branch{missingReportBranches.length !== 1 ? 'es' : ''} Not Yet Open
+                    </h3>
+                  </div>
+                  <button onClick={() => setShowMissingModal(false)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              </div>
+              {/* List */}
+              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-50">
+                {missingReportBranches.map((b, i) => (
+                  <div key={b.id} className="flex items-center gap-3 px-6 py-3.5">
+                    <span className="text-[10px] font-black text-slate-300 w-5 shrink-0">{i + 1}</span>
+                    <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-black text-slate-800 uppercase tracking-tight truncate leading-none">{b.name}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        {b.manager ? `MGR: ${b.manager}` : 'No manager assigned'}
+                        {b.openingTime ? ` · Opens ${b.openingTime}` : ''}
+                      </p>
+                    </div>
+                    <div className={`shrink-0 w-2 h-2 rounded-full ${b.isOpen ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                  </div>
+                ))}
+              </div>
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => { setComplianceFilter('uncompliant'); setShowMissingModal(false); playSound('click'); }}
+                  className="flex-1 h-10 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 active:scale-95 transition-all"
+                >
+                  Filter to These Branches
+                </button>
+                <button
+                  onClick={() => setShowMissingModal(false)}
+                  className="h-10 px-5 rounded-2xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {showDownloadConfirm && ReactDOM.createPortal(
           <div className="fixed inset-0 z-[9999] bg-slate-950/95 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowDownloadConfirm(false)}>
             <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 space-y-6 animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
@@ -356,6 +468,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
             />
         )}
         
+        {/* ── Main content ─────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-6">
+
         {/* UNIFIED COMMAND BAR */}
         <div className={`bg-white p-4 md:px-8 md:py-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm no-print space-y-6`}>
           <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
@@ -435,92 +550,80 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
               </div>
 
               {/* — Secondary: filter groups — */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                {/* Live Status */}
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Status</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                    {(['all', 'live', 'closed'] as const).map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => { setLiveFilter(val); playSound('click'); }}
-                        className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-                      >
-                        {val === 'all' ? 'All' : val === 'live' ? 'Online' : 'Offline'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="space-y-3">
 
-                {/* Compliance Status */}
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Report Status</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                    {(['all', 'compliant', 'uncompliant'] as const).map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => { setComplianceFilter(val); playSound('click'); }}
-                        className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${complianceFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-                      >
-                        {val === 'all' ? 'All' : val === 'compliant' ? 'Filed' : 'Missing'}
-                      </button>
-                    ))}
+                {/* Row 1: 4 equal-width toggles */}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                  {/* Live Status */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Status</p>
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
+                      {(['all', 'live', 'closed'] as const).map((val) => (
+                        <button key={val} onClick={() => { setLiveFilter(val); playSound('click'); }}
+                          className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                          {val === 'all' ? 'All' : val === 'live' ? 'Online' : 'Offline'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Manager Status */}
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manager</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                    {(['all', 'has_manager', 'no_manager'] as const).map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => { setManagerFilter(val); playSound('click'); }}
-                        className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${managerFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-                      >
-                        {val === 'all' ? 'All' : val === 'has_manager' ? 'Assigned' : 'Empty'}
-                      </button>
-                    ))}
+                  {/* Compliance Status */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Report Status</p>
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
+                      {(['all', 'compliant', 'uncompliant'] as const).map((val) => (
+                        <button key={val} onClick={() => { setComplianceFilter(val); playSound('click'); }}
+                          className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${complianceFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                          {val === 'all' ? 'All' : val === 'compliant' ? 'Filed' : 'Missing'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Inactive Branches */}
-                <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
-                  <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1">No Report For</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                    {([null, 3, 5, 7, 14, 30] as (number | null)[]).map((val) => (
-                      <button
-                        key={val ?? 'all'}
-                        onClick={() => { setMissedDaysThreshold(val); playSound('click'); }}
-                        className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
-                          missedDaysThreshold === val
-                            ? val === null ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'bg-rose-600 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        {val === null ? 'Off' : `${val}d+`}
-                      </button>
-                    ))}
+                  {/* Manager Status */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manager</p>
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
+                      {(['all', 'has_manager', 'no_manager'] as const).map((val) => (
+                        <button key={val} onClick={() => { setManagerFilter(val); playSound('click'); }}
+                          className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${managerFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                          {val === 'all' ? 'All' : val === 'has_manager' ? 'Assigned' : 'Empty'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Sort */}
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sort By</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner overflow-x-auto no-scrollbar h-10">
-                    <div className="flex min-w-max w-full">
+                  {/* Sort By */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sort By</p>
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
                       {(['gross', 'net', 'sessions', 'name'] as SortKey[]).map((key) => (
-                        <button
-                          key={key}
-                          onClick={() => handleSortChange(key)}
-                          className={`flex-1 px-3 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${mobileSortBy === key ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
+                        <button key={key} onClick={() => handleSortChange(key)}
+                          className={`flex-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${mobileSortBy === key ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
                           {key === 'sessions' ? 'Units' : key === 'name' ? 'A–Z' : key}
                         </button>
                       ))}
                     </div>
                   </div>
                 </div>
+
+                {/* Row 2: No Report For — compact, left-aligned */}
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1">No Report For</p>
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10 w-full xl:w-fit gap-0.5">
+                    {([null, 3, 5, 7, 14, 30] as (number | null)[]).map((val) => (
+                      <button key={val ?? 'all'} onClick={() => { setMissedDaysThreshold(val); playSound('click'); }}
+                        className={`flex-1 xl:flex-none xl:px-5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                          missedDaysThreshold === val
+                            ? val === null ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}>
+                        {val === null ? 'Off' : `${val}d+`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
 
               {/* Active filters summary chips */}
@@ -562,39 +665,29 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
           )}
         </div>
 
-        {/* LATE TO OPEN PANEL */}
-        {lateToOpenBranches.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden shadow-sm">
-            <button
-              onClick={() => setIsLateOpenExpanded(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-100/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-amber-400 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-sm">⚠</div>
-                <div className="text-left">
-                  <p className="text-[11px] font-black text-amber-900 uppercase tracking-widest">
-                    Late to Open — {lateToOpenBranches.length} {lateToOpenBranches.length === 1 ? 'Branch' : 'Branches'}
-                  </p>
-                  <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest mt-0.5">
-                    Should be open based on configured opening time
-                  </p>
-                </div>
-              </div>
-              <svg className={`w-4 h-4 text-amber-500 transition-transform duration-300 ${isLateOpenExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                <path d="M19 9l-7 7-7-7" />
+
+        {/* ── Missing report alert ── */}
+        {isToday && missingReportBranches.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
+            <div className="w-7 h-7 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-black text-amber-800 leading-none">
+                {missingReportBranches.length} {missingReportBranches.length === 1 ? 'branch has' : 'branches have'} not yet opened today
+              </p>
+              <p className="text-[10px] text-amber-600 font-semibold mt-0.5 truncate">
+                {missingReportBranches.slice(0, 5).map(b => b.name).join(', ')}{missingReportBranches.length > 5 ? ` +${missingReportBranches.length - 5} more` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowMissingModal(true); playSound('click'); }}
+              className="shrink-0 h-8 px-3 rounded-xl bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 active:scale-95 transition-all"
+            >
+              Show
             </button>
-            {isLateOpenExpanded && (
-              <div className="border-t border-amber-200 px-5 py-3 flex flex-wrap gap-2">
-                {lateToOpenBranches.map(branch => (
-                  <div key={branch.id} className="flex items-center gap-2 bg-white border border-amber-200 rounded-xl px-3 py-2 shadow-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
-                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{branch.name}</span>
-                    <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">since {branch.openingTime}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -650,7 +743,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Terminal Unit</th>
+                <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Branch Node</th>
                 <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Status</th>
                 <th className={`px-4 py-5 w-[8%] text-right ${UI_THEME.text.metadata}`}>Units</th>
                 <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Gross Yield</th>
@@ -679,10 +772,14 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
                         </div>
                       </td>
                       <td className="px-4 py-6 text-center">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-100 bg-white">
-                          <div className={`w-1.5 h-1.5 rounded-full ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Off'}</span>
-                        </div>
+                        {isToday ? (
+                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-100 bg-white">
+                            <div className={`w-1.5 h-1.5 rounded-full ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Off'}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-6 text-right">
                         <span className="text-sm font-semibold text-slate-900 tabular-nums">{b.sessionCount}</span>
@@ -733,36 +830,53 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden px-3">
           {paginatedStats.map((b) => (
-              <div
-                  key={b.id}
-                  onClick={() => handleRowClick(b)}
-                  className={`bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col transition-all duration-300 group overflow-hidden relative ${!b.isEnabled ? 'grayscale opacity-70' : ''} ${b.rawReport ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-50'}`}
-              >
-                <div className="p-4 flex justify-between items-start">
-                  <div className="min-w-0">
-                    <h3 className={`${UI_THEME.text.cardTitle} text-sm`}>{b.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className={`w-1.5 h-1.5 rounded-full ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200'}`}></div>
-                      <span className="text-[9px] font-bold uppercase text-slate-400 tracking-widest">{b.isOpen ? 'Live' : 'Offline'}</span>
+            <div
+              key={b.id}
+              onClick={() => handleRowClick(b)}
+              className={`bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col overflow-hidden transition-all duration-200 ${!b.isEnabled ? 'grayscale opacity-70' : ''} ${b.rawReport ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-50'}`}
+            >
+              {/* Header */}
+              <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-black text-slate-900 uppercase text-[13px] tracking-tight leading-tight truncate">{b.name}</h3>
+                  {isToday && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                      <span className={`text-[9px] font-bold uppercase tracking-widest ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Offline'}</span>
                     </div>
-                  </div>
+                  )}
                 </div>
+                {b.sessionCount > 0 && (
+                  <div className="shrink-0 bg-slate-100 rounded-lg px-2 py-1 text-[10px] font-black text-slate-600 uppercase tracking-wide">
+                    {b.sessionCount} clients
+                  </div>
+                )}
+              </div>
 
-                <div className="px-4 pb-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-y-3 gap-x-3 sm:gap-x-6 py-3 border-y border-slate-100">
-                    <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Gross</p><p className="text-[12px] sm:text-base font-bold text-slate-900 tabular-nums truncate">₱{b.gross.toLocaleString()}</p></div>
-                    <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Payroll</p><p className="text-[12px] sm:text-base font-bold text-amber-600 tabular-nums truncate">₱{b.staffPay.toLocaleString()}</p></div>
-                    <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Expenses</p><p className="text-[12px] sm:text-base font-bold text-rose-500 tabular-nums truncate">₱{b.operational.toLocaleString()}</p></div>
-                    {b.isLegacy && <div className="min-w-0"><p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p><p className="text-[12px] sm:text-base font-bold text-indigo-700 tabular-nums truncate">₱{b.vault.toLocaleString()}</p></div>}
-                  </div>
-                  <div className={`p-3 rounded-xl flex items-center justify-between ${b.net >= 0 ? 'bg-slate-900' : 'bg-rose-50'}`}>
-                    <span className={`text-[9px] font-bold uppercase tracking-widest ${b.net >= 0 ? 'text-white/40' : 'text-rose-400'}`}>ROI</span>
-                    <p className={`font-bold tabular-nums leading-none truncate ${b.net >= 0 ? 'text-emerald-400' : 'text-rose-700'} ${getMobileFontSize(b.net)}`}>
-                      {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
-                    </p>
-                  </div>
+              {/* Metric tiles */}
+              <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+                <div className="bg-slate-50 rounded-xl px-2.5 py-2">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Gross</p>
+                  <p className="text-[11px] font-black text-slate-900 tabular-nums mt-0.5 truncate">₱{b.gross.toLocaleString()}</p>
+                </div>
+                <div className="bg-amber-50/70 rounded-xl px-2.5 py-2">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-amber-500">Payroll</p>
+                  <p className="text-[11px] font-black text-amber-600 tabular-nums mt-0.5 truncate">₱{b.staffPay.toLocaleString()}</p>
+                </div>
+                <div className="bg-rose-50/70 rounded-xl px-2.5 py-2">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-rose-400">Expenses</p>
+                  <p className="text-[11px] font-black text-rose-500 tabular-nums mt-0.5 truncate">₱{b.operational.toLocaleString()}</p>
                 </div>
               </div>
+
+              {/* Floating ROI footer */}
+              <div className={`mx-2 mb-2 rounded-2xl flex items-center justify-between px-4 py-3 ${b.net >= 0 ? 'bg-slate-900' : 'bg-rose-900'}`}>
+                <span className={`text-[9px] font-bold uppercase tracking-widest ${b.net >= 0 ? 'text-white/40' : 'text-rose-300/60'}`}>ROI</span>
+                <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
+                  {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
+                </p>
+              </div>
+            </div>
           ))}
         </div>
 
@@ -770,6 +884,58 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, empl
         <div className="flex flex-col items-center gap-2 pt-8 opacity-20 group">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em]">Synchronized Global Registry v5.2</p>
         </div>
+
+        </div>{/* end main content */}
+
+        {/* ── Late-to-open floating toggle (desktop only, only when there are late branches) ── */}
+        {lateToOpenBranches.length > 0 && (
+          <div className="hidden lg:block shrink-0 sticky top-24">
+            <div className="relative">
+              <button
+                onClick={() => { setShowLateOpenDropdown(p => !p); playSound('click'); }}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-2xl shadow-sm hover:bg-amber-50 transition-colors whitespace-nowrap"
+              >
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                  {lateToOpenBranches.length} Late
+                </span>
+                <svg
+                  className={`w-3 h-3 text-amber-400 transition-transform duration-200 ${showLateOpenDropdown ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showLateOpenDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl z-50">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-none">Late to Open</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Branches not yet opened today</p>
+                  </div>
+                  <div className="divide-y divide-slate-50 max-h-[50vh] overflow-y-auto">
+                    {lateToOpenBranches.map(b => (
+                      <div key={b.id} className="px-4 py-3 flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                          <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black text-slate-800 uppercase truncate leading-none">{b.name}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {b.openingTime ? `Since ${b.openingTime}` : 'Not opened today'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
   );
 };

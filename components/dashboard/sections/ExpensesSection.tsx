@@ -257,7 +257,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
   }, [dailyExpenses]);
 
   return (
-    <div className="w-full mx-auto pb-20 px-2 sm:px-6 animate-in fade-in duration-500">
+    <div className="w-full mx-auto pb-20 px-2 sm:px-6">
       {toast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-black text-[11px] uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>

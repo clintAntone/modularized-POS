@@ -72,7 +72,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             </button>
 
             {dropdownOpen && (
-              <div className="absolute left-0 bottom-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden min-w-[110px] animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute left-0 bottom-[calc(100%+6px)] z-[300] bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden min-w-[110px] animate-in fade-in zoom-in-95 duration-100">
                 <div className="p-1.5 space-y-0.5">
                   {itemsPerPageOptions.map(n => (
                     <button

@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Branch, BranchVault, Employee, Transaction, Expense, Attendance, SalesReport } from '../../../types';
+import { Branch, BranchVault, Employee, Transaction, Expense, Attendance, SalesReport, VaultTransaction, Request } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
 import { getEmployeeAllowance } from '../../../lib/payroll';
-import { toManilaDateStr } from '../../../lib/time';
+import { toManilaDateStr, getTrueDate } from '../../../lib/time';
 
 interface BackfillRequestSectionProps {
   branch: Branch;
@@ -15,6 +15,8 @@ interface BackfillRequestSectionProps {
   expenses: Expense[];
   attendance: Attendance[];
   salesReports: SalesReport[];
+  vaultTransactions?: VaultTransaction[];
+  requests?: Request[];
   onRefresh?: () => void;
 }
 
@@ -26,18 +28,25 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   expenses,
   attendance,
   salesReports,
+  vaultTransactions = [],
+  requests = [],
   onRefresh
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [extraStaff, setExtraStaff] = useState<Employee[]>([]);
+  const [excludedStaffIds, setExcludedStaffIds] = useState<Set<string>>(new Set());
   const [personnelSearch, setPersonnelSearch] = useState('');
   const [isPersonnelOpen, setIsPersonnelOpen] = useState(false);
   const personnelDropdownRef = useRef<HTMLDivElement>(null);
 
   const yesterday = useMemo(() => {
-    const d = new Date();
+    // Use Manila time so dates don't shift at late hours when UTC is still the prior day
+    const manilaToday = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(getTrueDate());
+    const d = new Date(manilaToday + 'T12:00:00');
     d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().slice(0, 10);
   }, []);
 
   const [formData, setFormData] = useState({ date: yesterday, grossSales: '', notes: '' });
@@ -45,7 +54,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   const [provisionItems, setProvisionItems] = useState<Expense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
-  const [staffPayroll, setStaffPayroll] = useState<Record<string, { salary: string; commission: string; ot: string; late: string; allowance: string; cashAdvance: string; isHalfDay: boolean }>>({});
+  const [staffPayroll, setStaffPayroll] = useState<Record<string, { commission: string; ot: string; late: string; allowance: string; cashAdvance: string; isHalfDay: boolean }>>({});
 
   const branchStaff = useMemo(() => {
     return employees.filter(e => {
@@ -54,7 +63,11 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
     });
   }, [employees, branch.id]);
 
-  const allStaff = useMemo(() => [...branchStaff, ...extraStaff], [branchStaff, extraStaff]);
+  // Regular branch staff + relievers together in one list; relievers appear last
+  const allStaff = useMemo(() => {
+    const regular = branchStaff.filter(e => !extraStaff.some(r => r.id === e.id));
+    return [...regular, ...extraStaff];
+  }, [branchStaff, extraStaff]);
 
   const personnelResults = useMemo(() => {
     if (!personnelSearch.trim()) return [];
@@ -65,10 +78,11 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
   const handleAddStaff = (emp: Employee) => {
     setExtraStaff(prev => [...prev, emp]);
+    // Initialize payroll fields — reliever pay flows to expenses automatically
     const baseAllowance = getEmployeeAllowance(emp, branch.id);
     setStaffPayroll(prev => ({
       ...prev,
-      [emp.id]: { salary: (emp.salary || 0).toString(), commission: '0', ot: '0', late: '0', allowance: baseAllowance.toString(), cashAdvance: '0', isHalfDay: false }
+      [emp.id]: { commission: '0', ot: '0', late: '0', allowance: baseAllowance.toString(), cashAdvance: '0', isHalfDay: false },
     }));
     setPersonnelSearch('');
     setIsPersonnelOpen(false);
@@ -76,11 +90,6 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
   const handleRemoveStaff = (empId: string) => {
     setExtraStaff(prev => prev.filter(e => e.id !== empId));
-    setStaffPayroll(prev => {
-      const next = { ...prev };
-      delete next[empId];
-      return next;
-    });
   };
 
   const depositAmount = Number(branch.dailyProvisionAmount) || 0;
@@ -94,6 +103,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   }, [branch.vaultEnabled, branchVault?.startDate, formData.date]);
 
   useEffect(() => {
+    setExcludedStaffIds(new Set());
     if (!formData.date) return;
 
     const existingReport = salesReports.find(r => r.branchId === branch.id && r.reportDate === formData.date);
@@ -105,25 +115,52 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         notes: existingReport.notes || prev.notes
       }));
       setExpenseItems(existingReport.expenseData || []);
-      setProvisionItems(existingReport.vaultData || []);
+      // Load vault deposits from vault_transactions (single source of truth)
+      // For legacy branches, fall back to vaultData PROVISION entries
+      const vaultDepositsFromTx = vaultTransactions
+        .filter(t => t.branchId === branch.id && t.type === 'DEPOSIT' && toManilaDateStr(t.timestamp) === formData.date)
+        .map(t => ({ id: t.id, branchId: branch.id, name: t.name ?? 'VAULT DEPOSIT', amount: t.amount, category: 'VAULT_DEPOSIT', timestamp: t.timestamp } as Expense));
+      const legacyProvision = (existingReport.vaultData || []).filter((e: any) => e.category === 'PROVISION');
+      setProvisionItems([...legacyProvision, ...vaultDepositsFromTx]);
 
       const payroll: Record<string, any> = {};
       const restoredRelievers: Employee[] = [];
       const branchStaffIds = new Set(branchStaff.map(e => e.id));
-      existingReport.staffBreakdown?.forEach((b: any) => {
-        payroll[b.employeeId] = {
-          salary: (b.salary || 0).toString(),
-          commission: (b.commission || 0).toString(),
-          ot: (b.otPay || 0).toString(),
-          late: (b.lateDeduction || 0).toString(),
-          allowance: (b.allowance || 0).toString(),
-          cashAdvance: (b.cashAdvance || 0).toString(),
-          isHalfDay: !!b.isHalfDay
-        };
-        if (b.isReliever && !branchStaffIds.has(b.employeeId)) {
-          const emp = employees.find(e => e.id === b.employeeId);
-          if (emp) restoredRelievers.push(emp);
+
+      // Detect relievers from expenseData (new format: RELIEVER PAYOUT: NAME)
+      const relieverExpenseEntries = (existingReport.expenseData || []).filter((e: any) =>
+        typeof e.name === 'string' && e.name.startsWith('RELIEVER PAYOUT:')
+      );
+      // Legacy: relievers stored as RELIEVER PAYOUT expenses (before staffBreakdown approach)
+      relieverExpenseEntries.forEach((e: any) => {
+        const empName = e.name.replace('RELIEVER PAYOUT: ', '').trim();
+        const emp = employees.find(emp => emp.name.toUpperCase() === empName);
+        if (emp && !restoredRelievers.some(r => r.id === emp.id)) {
+          restoredRelievers.push(emp);
+          if (!payroll[emp.id]) {
+            payroll[emp.id] = { commission: '0', ot: '0', late: '0', allowance: (e.amount || 0).toString(), cashAdvance: '0', isHalfDay: false };
+          }
         }
+      });
+
+      // Restore all staff from staffBreakdown — relievers get isReliever flag
+      existingReport.staffBreakdown?.forEach((b: any) => {
+        if (!b.employeeId) return;
+        const att = b.attendance || {};
+        const isActualReliever = b.isReliever || !branchStaffIds.has(b.employeeId);
+        if (isActualReliever) {
+          const emp = employees.find(e => e.id === b.employeeId);
+          if (emp && !restoredRelievers.some(r => r.id === emp.id)) restoredRelievers.push(emp);
+        }
+        // Restore payroll fields for all staff (including relievers)
+        payroll[b.employeeId] = {
+          commission: (b.commission || 0).toString(),
+          ot: (b.otPay ?? att.otPay ?? att.ot_pay ?? 0).toString(),
+          late: (b.lateDeduction ?? att.lateDeduction ?? att.late_deduction ?? 0).toString(),
+          allowance: (b.allowance || 0).toString(),
+          cashAdvance: (b.cashAdvance ?? att.cashAdvance ?? att.cash_advance ?? 0).toString(),
+          isHalfDay: !!(b.isHalfDay || att.isHalfDay || att.is_half_day)
+        };
       });
       setExtraStaff(restoredRelievers);
       setStaffPayroll(payroll);
@@ -152,7 +189,6 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       let allowance = getEmployeeAllowance(emp, branch.id);
       if (att?.isHalfDay) allowance /= 2;
       payroll[emp.id] = {
-        salary: (emp.salary || 0).toString(),
         commission: commission.toString(),
         ot: (att?.otPay || 0).toString(),
         late: (att?.lateDeduction || 0).toString(),
@@ -162,19 +198,19 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       };
     });
     setStaffPayroll(payroll);
-  }, [formData.date, branch.id, transactions, expenses, attendance, salesReports, branchStaff]);
+  }, [formData.date, branch.id, transactions, expenses, attendance, salesReports, branchStaff, vaultTransactions]);
 
   const handlePayrollChange = (empId: string, field: string, value: string) => {
     setStaffPayroll(prev => ({
       ...prev,
-      [empId]: { ...(prev[empId] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false }), [field]: value }
+      [empId]: { ...(prev[empId] || { commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false }), [field]: value }
     }));
   };
 
   const handleHalfDayToggle = (empId: string, emp: Employee) => {
     const baseAllowance = getEmployeeAllowance(emp, branch.id);
     setStaffPayroll(prev => {
-      const current = prev[empId] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false };
+      const current = prev[empId] || { commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false };
       const next = !current.isHalfDay;
       return {
         ...prev,
@@ -214,21 +250,33 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
     const id = Math.random().toString(36).substr(2, 9);
     setProvisionItems(prev => [...prev, {
       id, branchId: branch.id, name: 'VAULT DEPOSIT',
-      amount, category: 'VAULT_DEPOSIT', timestamp: new Date().toISOString()
+      amount, category: 'VAULT_DEPOSIT', timestamp: `${formData.date}T12:00:00.000Z`
     } as Expense]);
     setNewVaultDepositAmount('');
     playSound('click');
   };
 
+  const myRequests = useMemo(() => {
+    return requests
+      .filter(r => r.type === 'BACKFILL_REPORT' && r.branchId === branch.id)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+  }, [requests, branch.id]);
+
   const totals = useMemo(() => {
     const gross = Number(formData.grossSales) || 0;
-    const ops = expenseItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const manualOps = expenseItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const bills = provisionItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const staffPay = Object.values(staffPayroll).reduce<number>((sum, d: any) => {
-      return sum + (Number(d.salary) || 0) + (Number(d.commission) || 0) + (Number(d.ot) || 0) + (Number(d.allowance) || 0) - (Number(d.late) || 0);
-    }, 0);
+    let staffPay = 0;
+    let relieverPay = 0;
+    Object.entries(staffPayroll).forEach(([empId, d]: [string, any]) => {
+      const pay = (Number(d.commission) || 0) + (Number(d.ot) || 0) + (Number(d.allowance) || 0) - (Number(d.late) || 0);
+      if (extraStaff.some(e => e.id === empId)) relieverPay += pay;
+      else staffPay += pay;
+    });
+    const ops = manualOps + relieverPay;
     return { gross, ops, bills, staffPay, net: gross - ops - bills - staffPay };
-  }, [formData.grossSales, expenseItems, provisionItems, staffPayroll]);
+  }, [formData.grossSales, expenseItems, provisionItems, staffPayroll, extraStaff]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,23 +294,35 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         [DB_COLUMNS.DATA]: {
           reportDate: formData.date,
           grossSales: totals.gross,
-          // Expenses = operational only; vault deposits go to vault_data/total_vault_provision
           totalExpenses: totals.ops,
           totalVaultProvision: totals.bills,
-          expenseData: expenseItems,
-          // provisionItems holds both PROVISION (legacy) and VAULT_DEPOSIT (modern) entries
-          vaultData: provisionItems,
-          staffBreakdown: Object.entries(staffPayroll).map(([empId, data]: [string, any]) => {
-            const emp = employees.find(e => e.id === empId);
-            const isReliever = extraStaff.some(e => e.id === empId);
-            return {
-              employeeId: empId, name: emp?.name || 'Unknown',
-              salary: Number(data.salary) || 0, commission: Number(data.commission) || 0,
-              otPay: Number(data.ot) || 0, lateDeduction: Number(data.late) || 0,
-              allowance: Number(data.allowance) || 0, cashAdvance: Number(data.cashAdvance) || 0,
-              isHalfDay: !!data.isHalfDay, isReliever
-            };
-          }),
+          expenseData: [
+            // Reliever pay goes into both staffBreakdown (isReliever:true) AND expenseData
+            ...extraStaff.map(emp => {
+              const p = staffPayroll[emp.id];
+              const pay = p ? Math.max(0, (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0)) : 0;
+              return { id: `reliever_${emp.id}`, branchId: branch.id, name: `RELIEVER PAYOUT: ${emp.name.toUpperCase()}`, amount: pay, category: 'OPERATIONAL', timestamp: new Date().toISOString() };
+            }),
+            ...expenseItems,
+          ],
+          vaultData: provisionItems.filter((e: any) => e.category === 'PROVISION'),
+          vaultDeposits: provisionItems.filter((e: any) => e.category === 'VAULT_DEPOSIT'),
+          staffBreakdown: Object.entries(staffPayroll)
+            .map(([empId, data]: [string, any]) => {
+              const emp = employees.find(e => e.id === empId);
+              const isReliever = extraStaff.some(e => e.id === empId);
+              return {
+                employeeId: empId, name: emp?.name || 'Unknown',
+                salary: 0, commission: Number(data.commission) || 0,
+                allowance: Number(data.allowance) || 0, isHalfDay: !!data.isHalfDay, isReliever,
+                attendance: {
+                  otPay: Number(data.ot) || 0,
+                  lateDeduction: Number(data.late) || 0,
+                  cashAdvance: Number(data.cashAdvance) || 0,
+                  isHalfDay: !!data.isHalfDay,
+                }
+              };
+            }),
           notes: formData.notes
         },
         [DB_COLUMNS.REQUESTER_ID]: requester?.id || 'MANAGER',
@@ -274,10 +334,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
       playSound('success');
       alert('Backfill request submitted for approval.');
-      setFormData({ date: new Date().toISOString().split('T')[0], grossSales: '', notes: '' });
+      setFormData({ date: yesterday, grossSales: '', notes: '' });
       setExpenseItems([]);
       setProvisionItems([]);
       setStaffPayroll({});
+      setExtraStaff([]);
+      setExcludedStaffIds(new Set());
       onRefresh?.();
     } catch (err) {
       console.error(err);
@@ -289,10 +351,44 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-20 space-y-3 animate-in fade-in duration-500">
+    <div className="max-w-3xl mx-auto pb-20 space-y-3">
+
+      {/* Submission History */}
+      {myRequests.length > 0 && (
+        <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Submission History</span>
+            <div className="h-px flex-1 bg-slate-100" />
+          </div>
+          <div className="space-y-2">
+            {myRequests.map(req => {
+              const statusStyle = req.status === 'APPROVED'
+                ? 'bg-emerald-100 text-emerald-700'
+                : req.status === 'REJECTED'
+                ? 'bg-rose-100 text-rose-600'
+                : 'bg-amber-100 text-amber-700';
+              const statusLabel = req.status === 'APPROVED' ? 'Approved' : req.status === 'REJECTED' ? 'Rejected' : 'Pending';
+              return (
+                <div key={req.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${statusStyle}`}>{statusLabel}</span>
+                      <span className="text-[9px] font-bold text-slate-500">{req.data?.reportDate}</span>
+                    </div>
+                    {req.reviewNote && (
+                      <p className="text-[10px] font-medium text-slate-600 italic mt-1">"{req.reviewNote}"</p>
+                    )}
+                  </div>
+                  <span className="text-[8px] font-bold text-slate-400 shrink-0 tabular-nums">{new Date(req.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Header */}
-      <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4 flex items-center justify-between gap-4">
+      <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-base shadow-inner shrink-0">📝</div>
           <div>
@@ -300,15 +396,15 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Submit historical data for approval</p>
           </div>
         </div>
-        <div className="shrink-0">
-          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Date</label>
+        <div className="border-t border-slate-100 pt-3">
+          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Target Date</label>
           <input
             type="date"
             required
             max={yesterday}
             value={formData.date}
             onChange={e => setFormData({ ...formData, date: e.target.value })}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[12px] font-black text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13px] font-black text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
           />
         </div>
       </div>
@@ -346,10 +442,24 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           </div>
 
           {/* Expense items list */}
-          {expenseItems.length > 0 && (
+          {(expenseItems.length > 0 || extraStaff.length > 0) && (
             <div className="mb-3 space-y-1.5">
+              {/* Auto reliever entries — derived live from payroll table */}
+              {extraStaff.map(emp => {
+                const p = staffPayroll[emp.id];
+                const pay = p ? Math.max(0, (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0)) : 0;
+                return (
+                  <div key={`rel_${emp.id}`} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-violet-50 border-violet-100">
+                    <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">Reliever</span>
+                    <span className="flex-1 text-[11px] font-bold text-violet-700 uppercase truncate">RELIEVER PAYOUT: {emp.name.toUpperCase()}</span>
+                    <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{pay.toLocaleString()}</span>
+                    <span className="text-[8px] font-bold text-violet-400 shrink-0 italic">auto</span>
+                  </div>
+                );
+              })}
+              {/* Manual expense entries */}
               {expenseItems.map((item, idx) => (
-                <div key={item.id || idx} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                <div key={item.id || idx} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-slate-50 border-slate-100">
                   <span className="flex-1 text-[11px] font-bold text-slate-700 uppercase truncate">{item.name}</span>
                   <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
                   <button
@@ -486,7 +596,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 <input
                   type="text"
-                  placeholder="Search & add reliever by name..."
+                  placeholder="Search & add reliever — pay auto-added to expenses..."
                   value={personnelSearch}
                   onChange={e => { setPersonnelSearch(e.target.value); setIsPersonnelOpen(true); }}
                   onFocus={() => setIsPersonnelOpen(true)}
@@ -516,154 +626,96 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             )}
           </div>
 
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-hidden rounded-xl border border-slate-100">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Employee</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Salary</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Comm.</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">OT</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Late</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Allow.</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-rose-400 uppercase tracking-widest">Adv.</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-amber-500 uppercase tracking-widest text-center">½ Day</th>
-                  <th className="px-4 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {allStaff.map(emp => {
-                  const isReliever = extraStaff.some(e => e.id === emp.id);
-                  const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
-                  const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
-                  return (
-                    <tr key={emp.id} className={`hover:bg-slate-50/50 transition-colors ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50/40' : ''} ${isReliever ? 'bg-violet-50/30' : ''}`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{emp.role}</p>
-                              {isReliever && <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever</span>}
-                            </div>
-                          </div>
-                          {isReliever && (
-                            <button type="button" onClick={() => handleRemoveStaff(emp.id)} className="ml-auto w-5 h-5 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0">×</button>
-                          )}
-                        </div>
-                      </td>
-                      {(['salary', 'commission', 'ot', 'late', 'allowance'] as const).map(field => (
-                        <td key={field} className="px-2 py-2">
-                          <input
-                            type="number" placeholder="0"
-                            className="w-[72px] bg-slate-100/60 border-none rounded-lg px-2.5 py-1.5 text-[11px] font-black focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                            value={staffPayroll[emp.id]?.[field] || ''}
-                            onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
-                          />
-                        </td>
-                      ))}
-                      <td className="px-2 py-2">
-                        <input
-                          type="number" placeholder="0"
-                          className="w-[72px] bg-rose-50 border-none rounded-lg px-2.5 py-1.5 text-[11px] font-black text-rose-600 focus:ring-2 focus:ring-rose-400 focus:outline-none"
-                          value={staffPayroll[emp.id]?.cashAdvance || ''}
-                          onChange={e => handlePayrollChange(emp.id, 'cashAdvance', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleHalfDayToggle(emp.id, emp)}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-all active:scale-90 ${
-                            staffPayroll[emp.id]?.isHalfDay
-                              ? 'bg-amber-500 text-white shadow-sm'
-                              : 'bg-slate-100 text-slate-300 hover:bg-amber-100 hover:text-amber-500'
-                          }`}
-                          title={staffPayroll[emp.id]?.isHalfDay ? 'Half-day (click to remove)' : 'Mark as half-day'}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/>
-                          </svg>
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[11px] font-black text-slate-900 tabular-nums">₱{total.toLocaleString()}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-3">
-            {allStaff.map(emp => {
+          {/* Unified staff cards — works on all screen sizes */}
+          <div className="space-y-3">
+            {allStaff.filter(e => !excludedStaffIds.has(e.id)).map(emp => {
               const isReliever = extraStaff.some(e => e.id === emp.id);
-              const p = staffPayroll[emp.id] || { salary: '0', commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0' };
-              const total = (Number(p.salary) || 0) + (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
+              const p = staffPayroll[emp.id] || { commission: '0', ot: '0', late: '0', allowance: '0', cashAdvance: '0', isHalfDay: false };
+              const total = (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
+              const isHalfDay = !!staffPayroll[emp.id]?.isHalfDay;
               return (
-                <div key={emp.id} className={`rounded-xl border overflow-hidden ${staffPayroll[emp.id]?.isHalfDay ? 'bg-amber-50 border-amber-200' : isReliever ? 'bg-violet-50/50 border-violet-200' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-inherit">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
-                        {isReliever && <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever</span>}
-                      </div>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                <div key={emp.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isReliever ? 'bg-violet-50 border-violet-200' : isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+                  {/* Card header */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-inherit">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">{emp.name}</p>
+                      {isReliever
+                        ? <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever · pay → expenses</span>
+                        : <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                      }
                     </div>
-                    <div className="flex items-center gap-3">
-                      {isReliever && (
-                        <button type="button" onClick={() => handleRemoveStaff(emp.id)} className="w-6 h-6 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[11px] font-black transition-colors">×</button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleHalfDayToggle(emp.id, emp)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                          staffPayroll[emp.id]?.isHalfDay
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-slate-200 text-slate-400 hover:bg-amber-100 hover:text-amber-600'
-                        }`}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
-                        ½ Day
-                      </button>
-                      <div className="text-right">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total</p>
-                        <p className="text-[13px] font-black text-emerald-600 tabular-nums">₱{total.toLocaleString()}</p>
-                      </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Pay</p>
+                      <p className={`text-[14px] font-black tabular-nums leading-tight ${isReliever ? 'text-violet-700' : total >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>₱{total.toLocaleString()}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => isReliever ? handleRemoveStaff(emp.id) : setExcludedStaffIds(prev => new Set([...prev, emp.id]))}
+                      className="w-7 h-7 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[12px] font-black transition-colors shrink-0"
+                    >×</button>
+                  </div>
+
+                  {/* Fields grid: Comm. | OT | Late on top; Allow. | Advance below */}
+                  <div className="p-3 space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { field: 'commission', label: 'Commission' },
+                        { field: 'ot', label: 'OT Pay' },
+                        { field: 'late', label: 'Late Deduct.', isDeduction: true },
+                      ].map(({ field, label, isDeduction }) => (
+                        <div key={field} className="space-y-1">
+                          <label className={`text-[7px] font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
+                          <div className="relative">
+                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
+                            <input
+                              type="number" placeholder="0"
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-[11px] font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
+                              onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { field: 'allowance', label: 'Allowance' },
+                        { field: 'cashAdvance', label: 'Cash Advance', isDeduction: true },
+                      ].map(({ field, label, isDeduction }) => (
+                        <div key={field} className="space-y-1">
+                          <label className={`text-[7px] font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
+                          <div className="relative">
+                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
+                            <input
+                              type="number" placeholder="0"
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-[11px] font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
+                              onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 p-3">
-                    {[
-                      { field: 'salary', label: 'Salary' },
-                      { field: 'commission', label: 'Commission' },
-                      { field: 'ot', label: 'Overtime' },
-                      { field: 'late', label: 'Late' },
-                      { field: 'allowance', label: 'Allowance' },
-                    ].map(({ field, label }) => (
-                      <div key={field} className="space-y-1">
-                        <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-                        <input
-                          type="number" placeholder="0"
-                          className="w-full bg-white border-none rounded-lg px-2.5 py-2 text-[11px] font-black focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm"
-                          value={staffPayroll[emp.id]?.[field as keyof typeof p] || ''}
-                          onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
-                        />
-                      </div>
-                    ))}
-                    <div className="space-y-1">
-                      <label className="text-[7px] font-black text-rose-400 uppercase tracking-widest ml-1">Advance</label>
-                      <input
-                        type="number" placeholder="0"
-                        className="w-full bg-rose-50 border-none rounded-lg px-2.5 py-2 text-[11px] font-black text-rose-600 focus:ring-2 focus:ring-rose-400 focus:outline-none shadow-sm"
-                        value={staffPayroll[emp.id]?.cashAdvance || ''}
-                        onChange={e => handlePayrollChange(emp.id, 'cashAdvance', e.target.value)}
-                      />
+
+                  {/* ½ Day toggle */}
+                  <button
+                    type="button"
+                    onClick={() => handleHalfDayToggle(emp.id, emp)}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 border-t transition-all active:scale-[0.99] ${
+                      isHalfDay
+                        ? 'bg-amber-500 border-amber-400 text-white'
+                        : 'bg-white/60 border-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Half Day</span>
                     </div>
-                  </div>
+                    <span className={`text-[8px] font-black uppercase tracking-widest ${isHalfDay ? 'text-white/80' : 'text-slate-300'}`}>
+                      {isHalfDay ? 'On — allowance halved' : 'Tap to mark'}
+                    </span>
+                  </button>
                 </div>
               );
             })}
@@ -671,32 +723,33 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         </div>
 
         {/* ROI Summary + Notes + Submit */}
-        <div className="bg-slate-900 rounded-[20px] p-5 text-white shadow-xl relative overflow-hidden">
+        <div className="bg-slate-900 rounded-[20px] p-4 text-white shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[80px] rounded-full -mr-16 -mt-16 pointer-events-none"></div>
 
-          {/* ROI breakdown */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 relative z-10">
-            <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Gross</p>
-              <p className="text-[13px] font-black text-white tabular-nums">₱{totals.gross.toLocaleString()}</p>
+          {/* KPI strip — 4 items in one row */}
+          <div className="grid grid-cols-4 gap-px bg-white/5 rounded-xl overflow-hidden mb-4 relative z-10">
+            <div className="bg-slate-800/60 px-2.5 py-2.5">
+              <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Gross</p>
+              <p className="text-[12px] font-black text-white tabular-nums leading-none">₱{totals.gross.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-[8px] font-black text-amber-500/70 uppercase tracking-widest mb-1">Payroll</p>
-              <p className="text-[13px] font-black text-amber-400 tabular-nums">−₱{totals.staffPay.toLocaleString()}</p>
+            <div className="bg-slate-800/60 px-2.5 py-2.5">
+              <p className="text-[7px] font-black text-amber-500/60 uppercase tracking-widest leading-none mb-1">Staff Pay</p>
+              <p className="text-[12px] font-black text-amber-400 tabular-nums leading-none">−₱{totals.staffPay.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-[8px] font-black text-rose-500/70 uppercase tracking-widest mb-1">Expenses</p>
-              <p className="text-[13px] font-black text-rose-400 tabular-nums">−₱{totals.ops.toLocaleString()}</p>
+            <div className="bg-slate-800/60 px-2.5 py-2.5">
+              <p className="text-[7px] font-black text-rose-500/60 uppercase tracking-widest leading-none mb-1">Expenses</p>
+              <p className="text-[12px] font-black text-rose-400 tabular-nums leading-none">−₱{totals.ops.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-[8px] font-black text-indigo-400/70 uppercase tracking-widest mb-1">Deposit</p>
-              <p className="text-[13px] font-black text-indigo-300 tabular-nums">₱{totals.bills.toLocaleString()}</p>
+            <div className="bg-slate-800/60 px-2.5 py-2.5">
+              <p className="text-[7px] font-black text-indigo-400/60 uppercase tracking-widest leading-none mb-1">Deposit</p>
+              <p className="text-[12px] font-black text-indigo-300 tabular-nums leading-none">₱{totals.bills.toLocaleString()}</p>
             </div>
           </div>
 
-          <div className="flex items-baseline gap-2 mb-5 relative z-10">
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Projected ROI</span>
-            <span className={`text-3xl font-black tracking-tighter tabular-nums ${totals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {/* Projected ROI */}
+          <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl mb-4 relative z-10 ${totals.net >= 0 ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Projected ROI</span>
+            <span className={`text-xl font-black tracking-tighter tabular-nums ${totals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {totals.net < 0 ? '−' : ''}₱{Math.abs(totals.net).toLocaleString()}
             </span>
           </div>

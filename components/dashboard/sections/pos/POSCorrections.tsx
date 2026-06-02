@@ -13,7 +13,7 @@ interface POSCorrectionsProps {
 
 export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, onEdit, onDelete, isProcessing, isClosedMode }) => {
     return (
-        <div className="space-y-4 animate-in fade-in duration-500 flex flex-col">
+        <div className="space-y-4 flex flex-col">
             <div className="flex justify-between items-end px-4 shrink-0">
                 <div className="space-y-1">
                     <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-tighter">Recent Sessions</h3>

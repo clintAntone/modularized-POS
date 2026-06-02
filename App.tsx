@@ -11,6 +11,8 @@ import { supabase } from './lib/supabase';
 import { NetworkDiagnostic } from './components/NetworkDiagnostic';
 import { syncWithServerTime } from './lib/time';
 import SplashScreen from './components/SplashScreen';
+import { WhatsNewModal, shouldShowWhatsNew, markWhatsNewSeen } from './components/branch-manager/modals/WhatsNewModal';
+import { GmailPromptModal } from './components/shared/GmailPromptModal';
 
 import { Power } from 'lucide-react';
 
@@ -59,13 +61,12 @@ const App: React.FC = () => {
   // Pass actual auth state to Data Hub
   const {
     branches, transactions, expenses,
-    attendance, employees, salesReports, auditLogs, requests, branchVault,
+    attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
     systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase
   } = useGlobalData(auth);
 
-  const [changelogDismissed, setChangelogDismissed] = useState(() =>
-    localStorage.getItem('vault_fund_changelog_dismissed') === 'true'
-  );
+  const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
+  const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
 
   // Derive identity from synchronized data
   const currentEmployee = useMemo(() =>
@@ -423,122 +424,20 @@ const App: React.FC = () => {
       <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-hidden">
         <GlobalLoadingOverlay isVisible={globalSync} />
 
-        {/* VAULT FUND Changelog Modal */}
-        {displayChanges && !changelogDismissed && auth.user && (
-          <div className="fixed inset-0 z-[9998] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-              {/* Header */}
-              <div className="bg-amber-500 px-6 pt-7 pb-6 text-white">
-                <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">System Update</p>
-                <h2 className="text-xl font-black uppercase tracking-tight leading-tight">What's New</h2>
-              </div>
+        {/* What's New Modal — managers only, gated by system_config display_changes */}
+        {showWhatsNew && displayChanges && auth.user && auth.user.role === UserRole.BRANCH_MANAGER && (
+          <WhatsNewModal onDismiss={() => { markWhatsNewSeen(); setShowWhatsNew(false); }} />
+        )}
 
-              {/* Body */}
-              <div className="px-6 py-5 space-y-3 overflow-y-auto max-h-[55vh] no-scrollbar">
-                <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a0 0 0 010 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">KPI Renamed — Vault Fund</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      <span className="font-bold text-slate-700">"Rent and Bills"</span> is now <span className="font-bold text-amber-700">"Vault Fund"</span> across all dashboards and PDF exports.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">New Vault Tab (Superadmin)</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      Monitor vault <span className="font-bold text-slate-700">balances and targets</span> across all branches in one place.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m0 0l-6-6m6 6l6-6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Quick Expense Log — Vault</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      Deposit to vault or cover expense shortfalls directly from the expense modal. Quick-pick chips for common expense categories.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">POS — Client Name Autocomplete</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      The client name field now <span className="font-bold text-slate-700">suggests past client names</span> from transaction history as you type.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Late to Open — Live Tab</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      Branches that have passed their opening time but are still closed are now flagged in the <span className="font-bold text-slate-700">Live tab</span>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl">
-                  <div className="shrink-0 w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center mt-0.5">
-                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Missing Reports — Improved Detection</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
-                      Reports where gross, salary, expenses, and ROI are all zero are now also flagged as <span className="font-bold text-slate-700">missing</span>.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-6 pb-6">
-                <button
-                  onClick={() => {
-                    localStorage.setItem('vault_fund_changelog_dismissed', 'true');
-                    setChangelogDismissed(true);
-                  }}
-                  className="w-full py-4 bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl hover:bg-slate-800 active:scale-95 transition-all"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Gmail Prompt — non-portal, non-superadmin users without a registered email */}
+        {!gmailPromptDismissed && currentEmployee && !currentEmployee.details?.gmail &&
+          auth.user?.role !== UserRole.PORTAL_USER && auth.user?.role !== UserRole.SUPERADMIN && (
+          <GmailPromptModal
+            employee={currentEmployee}
+            required={auth.user?.role === UserRole.BRANCH_MANAGER && !isRelief}
+            onSaved={() => { setGmailPromptDismissed(true); refreshDatabase(); }}
+            onSkip={() => setGmailPromptDismissed(true)}
+          />
         )}
 
         {isNetworkError && (
@@ -595,38 +494,63 @@ const App: React.FC = () => {
         {!systemLatest && <UpdatePopup apkUrl={apkUrl} />}
 
         {showLogoutConfirm && (
-            <div className={UI_THEME.layout.modalWrapper}>
-              <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100 shadow-2xl animate-in zoom-in-95`}>
-                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                </div>
-                <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">Exit Terminal?</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Terminating encrypted connection.</p>
-                <div className="flex flex-col gap-4 mt-10">
-                  <button onClick={handleLogout} className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">Confirm Logout</button>
-                  <button onClick={() => window.history.back()} className="w-full text-slate-400 font-bold py-4 rounded-xl text-[12px] uppercase tracking-widest">Cancel</button>
+          <div className={UI_THEME.layout.modalWrapper}>
+            <div className={`w-full max-w-xs bg-white shadow-2xl animate-in zoom-in-95 duration-200 ${UI_THEME.radius.modal} overflow-hidden`}>
+
+              {/* Dark header */}
+              <div className="relative bg-slate-900 px-8 pt-8 pb-12 overflow-hidden text-center">
+                <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-rose-500/10 pointer-events-none" />
+                <div className="absolute -bottom-8 -left-6 w-24 h-24 rounded-full bg-slate-800 pointer-events-none" />
+                <div className="relative z-10">
+                  <div className="w-14 h-14 mx-auto mb-4 bg-rose-500/15 border border-rose-500/25 rounded-2xl flex items-center justify-center">
+                    <svg className="w-7 h-7 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  </div>
+                  <h4 className="text-xl font-black text-white uppercase tracking-tighter">Exit Terminal?</h4>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{identityDisplay}</p>
                 </div>
               </div>
+
+              {/* Action area */}
+              <div className="bg-white px-6 py-5 flex gap-3">
+                <button
+                  onClick={() => window.history.back()}
+                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-md"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
+          </div>
         )}
 
-        <header className="sticky top-0 left-0 right-0 z-[1000] h-[72px] sm:h-20 bg-emerald-700 text-white shadow-lg no-print w-full">
-          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-full flex items-center justify-between`}>
-            <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
-              {systemLogo && (
-                <img src={systemLogo} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/10 p-1.5 shrink-0" decoding="async" loading="eager" />
-              )}
-              <div className="flex flex-col min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <h1 className="font-bold text-[15px] sm:text-[20px] tracking-tighter uppercase leading-none truncate">{dynamicAppName}</h1>
-                  {systemVersion && <span className="bg-white/20 px-1.5 py-0.5 rounded-[4px] text-[7px] font-bold uppercase tracking-tighter self-center hidden md:inline-block">v{systemVersion}</span>}
+        <header className="sticky top-0 left-0 right-0 z-[1000] h-[72px] sm:h-20 no-print w-full bg-emerald-700 shadow-lg overflow-hidden">
+          {/* Decorative depth */}
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-800/40 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute -top-8 -right-12 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute -bottom-10 left-1/3 w-24 h-24 rounded-full bg-emerald-600/40 pointer-events-none" />
+
+          <div className={`relative z-10 ${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-full flex items-center justify-between gap-3`}>
+            {/* Left: logo + name */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <img src={systemLogo || '/icon.png'} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/15 p-1.5 shrink-0 shadow-md" decoding="async" loading="eager" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-black text-[15px] sm:text-[18px] tracking-tight uppercase leading-none text-white truncate">{dynamicAppName}</h1>
                 </div>
-                <span className="text-[9px] sm:text-[10px] font-bold text-emerald-300 uppercase tracking-widest truncate leading-relaxed mt-0.5 sm:mt-1 opacity-90">{identityDisplay}</span>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-200/80 uppercase tracking-widest truncate mt-0.5">{identityDisplay}</p>
               </div>
             </div>
+
+            {/* Right: logout */}
             <button
-                onClick={triggerLogoutConfirm}
-                className="bg-rose-500/10 px-4 py-2 sm:py-2.5 rounded-xl text-[9px] sm:text-[11px] font-bold uppercase tracking-widest border border-rose-500/20 active:scale-[0.96] transition-all hover:bg-rose-600 hover:text-white shadow-sm whitespace-nowrap flex items-center gap-2"
+              onClick={triggerLogoutConfirm}
+              className="flex items-center gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-rose-600 hover:border-rose-600 active:scale-95 transition-all shrink-0"
             >
               <Power className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
@@ -637,9 +561,9 @@ const App: React.FC = () => {
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>
             {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
-                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} onlineUsers={{}} salesReports={salesReports} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
+                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
             ) : (
-                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
+                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
             )}
           </Suspense>
         </main>

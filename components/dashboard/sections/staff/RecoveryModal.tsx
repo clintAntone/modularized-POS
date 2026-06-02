@@ -7,6 +7,7 @@ import { supabase } from '../../../../lib/supabase';
 import { playSound } from '../../../../lib/audio';
 import { generateSalt, hashPin } from '../../../../lib/crypto';
 import { useUpdateEmployee, useUpdateBranch, useAddAuditLog } from '../../../../hooks/useNetworkData';
+import { invalidateBranchSessions } from '../../../../lib/audit';
 import { Check, X, ShieldAlert } from 'lucide-react';
 
 interface RecoveryModalProps {
@@ -97,6 +98,12 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
             [DB_COLUMNS.DESCRIPTION]: `Manager manually provisioned new credentials for: ${employee.name || 'UNNAMED'}.`,
             [DB_COLUMNS.PERFORMER_NAME]: performerName
         });
+
+        // Force-logout any active session for branches this employee manages
+        const managedBranchIds = branches
+          .filter(b => b.manager?.toUpperCase() === (employee.name || '').toUpperCase())
+          .map(b => b.id);
+        if (managedBranchIds.length) await invalidateBranchSessions(managedBranchIds);
 
         playSound('success');
         setSuccessData({ username: resetUsername.toLowerCase().trim(), pin: resetPin });

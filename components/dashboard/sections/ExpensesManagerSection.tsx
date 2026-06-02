@@ -15,7 +15,7 @@ interface ExpensesManagerSectionProps {
 
 export const ExpensesManagerSection: React.FC<ExpensesManagerSectionProps> = (props) => {
   return (
-    <div className={`space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-12 w-full`}>
+    <div className={`space-y-6 sm:space-y-8 pb-12 w-full`}>
       <ExpensesSection
         user={props.user}
         branch={props.branch}

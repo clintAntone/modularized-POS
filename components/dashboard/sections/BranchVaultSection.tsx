@@ -6,13 +6,17 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { supabase } from '../../../lib/supabase';
 import { playSound } from '../../../lib/audio';
 import { UI_THEME } from '../../../constants/ui_designs';
-import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2, Banknote } from 'lucide-react';
+import { compressImage } from '../../../lib/image';
 
-interface MonthlyBillsSectionProps {
+interface BranchVaultSectionProps {
   branch: Branch;
   branchVault?: BranchVault | null;
   salesReports?: SalesReport[];
   isClosedMode?: boolean;
+  todayNetRoi?: number;
+  todayStr?: string;
+  performedBy?: string | null;
   onRefresh?: () => void;
 }
 
@@ -64,8 +68,8 @@ const formatDateTime = (ts: string): string => {
   } catch { return ts; }
 };
 
-export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
-  branch, branchVault, salesReports = [], isClosedMode = false, onRefresh,
+export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
+  branch, branchVault, salesReports = [], isClosedMode = false, todayNetRoi, todayStr, performedBy, onRefresh,
 }) => {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<Toast | null>(null);
@@ -85,6 +89,21 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
   const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false);
   const billDidLongPress = useRef(false);
 
+  // ── Withdraw from Vault state ─────────────────────────────────────────────
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawConfirming, setWithdrawConfirming] = useState(false);
+  const [withdrawLabel, setWithdrawLabel] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawFile, setWithdrawFile] = useState<File | null>(null);
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+  const [withdrawUploadProgress, setWithdrawUploadProgress] = useState(0);
+  const withdrawFileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Delete vault bill payment state ──────────────────────────────────────
+  const [vaultBillToDelete, setVaultBillToDelete] = useState<{ id: string; name: string; amount: number } | null>(null);
+  const [isDeletingVaultBill, setIsDeletingVaultBill] = useState(false);
+  const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+
   React.useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 3000);
@@ -103,59 +122,29 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
   const showToast = (message: string, type: 'success' | 'error' = 'success') =>
     setToast({ message, type });
 
-  // ── Fetch full vault transaction history from sales_reports.vault_data ──────
-  // VAULT_DEPOSIT and VAULT_FUND_DEPOSIT entries now live in sales_reports.vault_data.
-  // VAULT_WITHDRAWAL entries remain in the expenses table.
+  // ── Fetch vault transaction history from vault_transactions table ──────────
   const { data: transactions = [], isLoading: txLoading, refetch } = useQuery<VaultTransaction[]>({
     queryKey: ['vault_transactions', branch.id],
     queryFn: async () => {
-      // 1. Fetch vault_data entries from all sales_reports for this branch
-      const { data: reports, error: reportsErr } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .select(`${DB_COLUMNS.VAULT_DATA}, ${DB_COLUMNS.REPORT_DATE}`)
+      const lookback = new Date();
+      lookback.setDate(lookback.getDate() - 90);
+      const { data, error } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select('*')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
-        .limit(90); // ~3 months
-      if (reportsErr) throw reportsErr;
-
-      const depositEntries: VaultTransaction[] = (reports || []).flatMap((r: any) => {
-        const vd = typeof r[DB_COLUMNS.VAULT_DATA] === 'string'
-          ? JSON.parse(r[DB_COLUMNS.VAULT_DATA])
-          : (r[DB_COLUMNS.VAULT_DATA] || []);
-        return (vd as any[])
-          .filter((e: any) => e.category === 'VAULT_DEPOSIT' || e.category === 'VAULT_FUND_DEPOSIT' || e.category === 'VAULT_REMITTANCE')
-          .map((e: any) => ({
-            id: e.id,
-            timestamp: e.timestamp,
-            amount: Number(e.amount || 0),
-            name: e.name || '',
-            category: e.category,
-            type: 'deposit' as const,
-            receiptUrl: e.receiptUrl || null,
-          }));
-      });
-
-      // 2. Fetch VAULT_WITHDRAWAL entries from expenses table (they still live there)
-      const { data: withdrawals, error: wErr } = await supabase
-        .from(DB_TABLES.EXPENSES)
-        .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.TIMESTAMP}, ${DB_COLUMNS.AMOUNT}, ${DB_COLUMNS.NAME}, ${DB_COLUMNS.RECEIPT_IMAGE}`)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .eq(DB_COLUMNS.CATEGORY, 'VAULT_WITHDRAWAL')
+        .gte(DB_COLUMNS.TIMESTAMP, lookback.toISOString())
         .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
-        .limit(200);
-      if (wErr) throw wErr;
-
-      const withdrawalEntries: VaultTransaction[] = (withdrawals || []).map((r: any) => ({
+        .limit(500);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
         id: r[DB_COLUMNS.ID],
         timestamp: r[DB_COLUMNS.TIMESTAMP],
         amount: Number(r[DB_COLUMNS.AMOUNT] || 0),
         name: r[DB_COLUMNS.NAME] || '',
-        type: 'withdrawal' as const,
+        type: (r[DB_COLUMNS.TYPE] === 'WITHDRAWAL' ? 'withdrawal' : 'deposit') as 'deposit' | 'withdrawal',
+        category: r[DB_COLUMNS.TYPE],
         receiptUrl: r[DB_COLUMNS.RECEIPT_IMAGE] || null,
       }));
-
-      return [...depositEntries, ...withdrawalEntries]
-        .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -305,6 +294,7 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
     const currentPeriod = `${y}-${m}`;
     const nextPeriod = `${nextY}-${String(nextM).padStart(2, '0')}`;
     const period = bill.dueNextMonth ? nextPeriod : currentPeriod;
+    const billAmount = bill.amount > 0 ? bill.amount : 0;
     try {
       if (bill.status === 'paid') {
         await supabase.from(DB_TABLES.BILL_PAYMENTS)
@@ -312,14 +302,29 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
           .eq(DB_COLUMNS.BILL_ID, bill.id)
           .eq(DB_COLUMNS.BRANCH_ID, branch.id)
           .eq(DB_COLUMNS.PERIOD_COVERED, period);
+
+        // Restore vault balance when un-marking a paid bill
+        if (branchVault && billAmount > 0) {
+          await supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: branchVault.balance + billAmount })
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+        }
       } else {
         await supabase.from(DB_TABLES.BILL_PAYMENTS).insert({
           [DB_COLUMNS.BRANCH_ID]: branch.id,
           [DB_COLUMNS.BILL_ID]: bill.id,
           [DB_COLUMNS.PERIOD_COVERED]: period,
-          [DB_COLUMNS.AMOUNT_PAID]: bill.amount > 0 ? bill.amount : 0,
+          [DB_COLUMNS.AMOUNT_PAID]: billAmount,
           [DB_COLUMNS.PAID_AT]: new Date().toISOString(),
         });
+
+        // Deduct from vault balance when marking a bill as paid
+        if (branchVault && billAmount > 0) {
+          const newBalance = Math.max(0, branchVault.balance - billAmount);
+          await supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+        }
       }
       playSound('success');
       refetchBillPayments();
@@ -388,23 +393,21 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
   const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
   const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
 
-  // ── Current week's reports (Mon → today, Manila time) ─────────────────────
+  // ── Recent reports (last 7 days from today, Manila time) ──────────────────
   const currentWeekReports = useMemo((): SalesReport[] => {
     const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
     const [y, m, d] = manilaToday.split('-').map(Number);
     const todayDate = new Date(y, m - 1, d);
-    const dow = todayDate.getDay(); // 0=Sun
-    const daysToMonday = dow === 0 ? 6 : dow - 1;
-    const monday = new Date(todayDate);
-    monday.setDate(todayDate.getDate() - daysToMonday);
 
-    const weekDates = new Set<string>();
-    for (const cur = new Date(monday); cur <= todayDate; cur.setDate(cur.getDate() + 1)) {
-      weekDates.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
+    const recentDates = new Set<string>();
+    for (let i = 0; i < 7; i++) {
+      const cur = new Date(todayDate);
+      cur.setDate(todayDate.getDate() - i);
+      recentDates.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
     }
 
     return salesReports
-      .filter(r => r.branchId === branch.id && weekDates.has(r.reportDate))
+      .filter(r => r.branchId === branch.id && recentDates.has(r.reportDate))
       .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
   }, [salesReports, branch.id]);
 
@@ -415,8 +418,30 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
     if (!amount || amount <= 0) return;
 
     const report = currentWeekReports.find(r => r.reportDate === depositSelectedDate);
-    if (!report) return;
-    if (amount > report.netRoi) return;
+
+    // Find existing deposit for this date (one-deposit-per-day rule)
+    const existingDeposit = transactions.find(
+      t => t.type === 'deposit' && toManilaDate(t.timestamp) === depositSelectedDate,
+    );
+    const existingAmount = existingDeposit?.amount ?? 0;
+
+    // ROI guard + target cap
+    // When updating, existing amount is freed up, so space = target - balance + existingAmount
+    const vaultTarget = branchVault.target ?? 0;
+    const spaceToTarget = vaultTarget > 0
+      ? Math.max(0, vaultTarget - branchVault.balance + existingAmount)
+      : Infinity;
+
+    if (depositSelectedDate === todayStr) {
+      const roiMax = (todayNetRoi ?? 0) + existingAmount;
+      const maxDeposit = spaceToTarget === Infinity ? roiMax : Math.min(roiMax, spaceToTarget);
+      if (amount > maxDeposit) return;
+    } else {
+      if (!report) return;
+      const roiMax = report.netRoi + existingAmount;
+      const maxDeposit = spaceToTarget === Infinity ? roiMax : Math.min(roiMax, spaceToTarget);
+      if (amount > maxDeposit) return;
+    }
 
     setIsSubmittingDeposit(true);
     try {
@@ -424,35 +449,94 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
         timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
       }).format(new Date());
       const timestamp = `${depositSelectedDate}T${manilaTime}.000+08:00`;
-
-      const newEntry = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: 'VAULT DEPOSIT',
-        amount,
-        category: 'VAULT_DEPOSIT',
-        timestamp,
-      };
-
       const reportId = `${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
-      const existingVaultData: any[] = report.vaultData || [];
-      const { error: reportErr } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .update({
-          [DB_COLUMNS.VAULT_DATA]: [...existingVaultData, newEntry],
-          [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + amount,
-          [DB_COLUMNS.NET_ROI]: report.netRoi - amount,
-        })
-        .eq(DB_COLUMNS.ID, reportId);
-      if (reportErr) throw reportErr;
 
-      const { error: vaultErr } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: branchVault.balance + amount })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (vaultErr) throw vaultErr;
+      // Always fetch the live deposit and vault balance from DB — never trust local state
+      // for write decisions. This prevents 409 conflicts and double-increments caused by
+      // stale React state (old deposits may have random IDs that differ from local cache).
+      const [{ data: liveDepositRows }, { data: liveVaultRow }] = await Promise.all([
+        supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .select('id, amount')
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+          .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
+          .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
+          .limit(1),
+        supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .select(DB_COLUMNS.VAULT_BALANCE)
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .single(),
+      ]);
+
+      const liveDeposit = liveDepositRows?.[0] ?? null;
+      const liveBalance: number = liveVaultRow?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
+
+      if (liveDeposit) {
+        // UPDATE existing deposit row (whatever ID it has — old random or new deterministic)
+        const delta = amount - liveDeposit.amount;
+
+        const { error: txErr } = await supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .update({ [DB_COLUMNS.AMOUNT]: amount, [DB_COLUMNS.TIMESTAMP]: timestamp })
+          .eq(DB_COLUMNS.ID, liveDeposit.id);
+        if (txErr) throw txErr;
+
+        const { error: vaultErr } = await supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + delta })
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+        if (vaultErr) throw vaultErr;
+
+        if (report) {
+          const { error: reportErr } = await supabase
+            .from(DB_TABLES.SALES_REPORTS)
+            .update({
+              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + delta,
+              [DB_COLUMNS.NET_ROI]: report.netRoi - delta,
+            })
+            .eq(DB_COLUMNS.ID, reportId);
+          if (reportErr) throw reportErr;
+        }
+      } else {
+        // INSERT new deposit with deterministic ID
+        const txId = `vault_deposit_${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
+
+        const { error: txErr } = await supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .insert({
+            [DB_COLUMNS.ID]: txId,
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.REPORT_ID]: reportId,
+            [DB_COLUMNS.TYPE]: 'DEPOSIT',
+            [DB_COLUMNS.AMOUNT]: amount,
+            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT',
+            [DB_COLUMNS.TIMESTAMP]: timestamp,
+            [DB_COLUMNS.PERFORMED_BY]: null,
+          });
+        if (txErr) throw txErr;
+
+        const { error: vaultErr } = await supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + amount })
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+        if (vaultErr) throw vaultErr;
+
+        if (report) {
+          const { error: reportErr } = await supabase
+            .from(DB_TABLES.SALES_REPORTS)
+            .update({
+              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + amount,
+              [DB_COLUMNS.NET_ROI]: report.netRoi - amount,
+            })
+            .eq(DB_COLUMNS.ID, reportId);
+          if (reportErr) throw reportErr;
+        }
+      }
 
       playSound('success');
-      showToast('Vault deposit recorded');
+      showToast(liveDeposit ? 'Vault deposit updated' : 'Vault deposit recorded');
       setShowDepositModal(false);
       setDepositAmount('');
       setDepositSelectedDate(null);
@@ -465,6 +549,131 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
       playSound('warning');
     } finally {
       setIsSubmittingDeposit(false);
+    }
+  };
+
+  // ── Withdraw from Vault handler ───────────────────────────────────────────
+  const handleVaultWithdraw = async () => {
+    const label = withdrawLabel.trim().toUpperCase();
+    const amount = Number(withdrawAmount);
+    if (!label || !amount || amount <= 0 || !branchVault) return;
+    if (amount > branchVault.balance) return;
+
+    setIsSubmittingWithdraw(true);
+    setWithdrawUploadProgress(10);
+    let receiptUrl = '';
+
+    try {
+      if (withdrawFile) {
+        setWithdrawUploadProgress(30);
+        const compressedBlob = await compressImage(withdrawFile);
+        setWithdrawUploadProgress(50);
+        const filePath = `${branch.id}/vault/${Date.now()}_withdrawal.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('receipts').upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('receipts').getPublicUrl(filePath);
+        receiptUrl = data.publicUrl;
+      }
+
+      setWithdrawUploadProgress(70);
+
+      // Re-fetch live balance to avoid stale prop writing a wrong value
+      const { data: liveVaultData } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(DB_COLUMNS.VAULT_BALANCE)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .single();
+      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
+
+      const manilaDate = toManilaDate(new Date().toISOString());
+      const timePart = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      }).format(new Date());
+      const timestamp = `${manilaDate}T${timePart}.000+08:00`;
+      const txId = Math.random().toString(36).substr(2, 9);
+
+      const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
+        [DB_COLUMNS.ID]: txId,
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
+        [DB_COLUMNS.AMOUNT]: amount,
+        [DB_COLUMNS.NAME]: label,
+        [DB_COLUMNS.TIMESTAMP]: timestamp,
+        [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
+        [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+      });
+      if (txErr) throw txErr;
+
+      setWithdrawUploadProgress(90);
+      const newBalance = Math.max(0, liveBalance - amount);
+      const { error: vaultErr } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (vaultErr) throw vaultErr;
+
+      setWithdrawUploadProgress(100);
+      playSound('success');
+      showToast('Bill payment recorded');
+      setShowWithdrawModal(false);
+      setWithdrawConfirming(false);
+      setWithdrawLabel('');
+      setWithdrawAmount('');
+      setWithdrawFile(null);
+      await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      refetch();
+      onRefresh?.();
+    } catch (err: any) {
+      showToast(err.message || 'Withdrawal failed', 'error');
+      playSound('warning');
+    } finally {
+      setIsSubmittingWithdraw(false);
+      setWithdrawUploadProgress(0);
+    }
+  };
+
+  // ── Delete today's bill payment ───────────────────────────────────────────
+  const handleDeleteVaultBill = async () => {
+    if (!vaultBillToDelete || isDeletingVaultBill || !branchVault) return;
+    setIsDeletingVaultBill(true);
+    try {
+      // Re-fetch live balance to prevent stale state
+      const { data: liveVaultData } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(DB_COLUMNS.VAULT_BALANCE)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .single();
+      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
+      const refundAmount = vaultBillToDelete.amount;
+
+      // Delete the vault_transaction record
+      const { error: txErr } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .delete()
+        .eq(DB_COLUMNS.ID, vaultBillToDelete.id);
+      if (txErr) throw txErr;
+
+      // Restore vault balance (capped at target to avoid exceeding it)
+      const target = branchVault.target ?? 0;
+      const newBalance = target > 0
+        ? Math.min(liveBalance + refundAmount, target)
+        : liveBalance + refundAmount;
+      await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+
+      playSound('success');
+      showToast('Bill payment reversed');
+      setVaultBillToDelete(null);
+      await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      refetch();
+      onRefresh?.();
+    } catch (err: any) {
+      showToast(err.message || 'Reversal failed', 'error');
+      playSound('warning');
+    } finally {
+      setIsDeletingVaultBill(false);
     }
   };
 
@@ -508,7 +717,7 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
   const withdrawalCount = transactions.filter(t => t.type === 'withdrawal').length;
 
   return (
-    <div className="w-full mx-auto pb-20 animate-in fade-in duration-500 space-y-6">
+    <div className="w-full mx-auto pb-20 space-y-6">
 
       {/* Toast */}
       {toast && (
@@ -599,9 +808,15 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
         {!isClosedMode && (
           <button
             onClick={() => {
-              setDepositSelectedDate(currentWeekReports[0]?.reportDate ?? null);
               const firstReport = currentWeekReports[0];
-              if (firstReport) setDepositAmount(String(Math.max(0, firstReport.netRoi)));
+              const firstDate = firstReport?.reportDate ?? null;
+              setDepositSelectedDate(firstDate);
+              if (firstDate) {
+                const existing = transactions.find(
+                  t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate,
+                );
+                setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
+              }
               setShowDepositModal(true);
               playSound('click');
             }}
@@ -614,7 +829,7 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
 
       </div>
 
-      {/* ── 2-column: Bills | Transaction History ── */}
+      {/* ── 2-column: Bills | Vault History ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
       {/* ── Vault-Paid Expenses ── */}
@@ -637,66 +852,107 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
         return (
           <div className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden`}>
             {/* Header */}
-            <div className="px-6 sm:px-8 py-5 border-b border-slate-100">
+            <div className="px-6 sm:px-8 pt-6 pb-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <ArrowUpCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                {/* Left: icon + title block */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <Banknote className="w-5 h-5 text-amber-500" />
+                  </div>
                   <div className="min-w-0">
-                    <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] truncate">Vault-Paid Expenses</h3>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">Expenses covered using vault fund</p>
+                    <h3 className="text-[15px] font-black text-slate-800 leading-none tracking-tight">Bills Paid</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      Vault outflows{totalVaultUsed > 0 && <span className="text-amber-500 ml-1.5">· ₱{totalVaultUsed.toLocaleString()}</span>}
+                    </p>
                   </div>
                 </div>
-                {totalVaultUsed > 0 && (
-                  <span className="text-[13px] font-black text-amber-600 tabular-nums whitespace-nowrap shrink-0 ml-2">
-                    −₱{totalVaultUsed.toLocaleString()}
-                  </span>
-                )}
+                {/* Right: Pay Bill button */}
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {!isClosedMode && (
+                    <button
+                      onClick={() => {
+                        setWithdrawLabel('');
+                        setWithdrawAmount('');
+                        setWithdrawFile(null);
+                        setShowWithdrawModal(true);
+                        playSound('click');
+                      }}
+                      disabled={!branchVault || branchVault.balance <= 0}
+                      className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
+                      title="Pay Bill"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {vaultWithdrawals.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="flex flex-col items-center justify-center py-14 gap-3 border-t border-slate-50">
                 <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center">
-                  <ArrowUpCircle className="w-5 h-5 text-slate-200" />
+                  <Banknote className="w-5 h-5 text-slate-200" />
                 </div>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No vault withdrawals yet</p>
-                <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest text-center px-8">Expenses paid using vault funds will appear here</p>
+                <div className="text-center space-y-1">
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No vault payments yet</p>
+                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest px-8">Bills & expenses paid from vault will appear here</p>
+                </div>
               </div>
             ) : (
-              <div className="overflow-y-auto max-h-[480px]">
+              <div className="overflow-y-auto max-h-[480px] border-t border-slate-100">
                 {groupedWithdrawals.map(([date, txs]) => (
                   <div key={date}>
                     {/* Date group header */}
-                    <div className="px-6 sm:px-8 py-2 bg-slate-50/80 border-y border-slate-100 flex items-center justify-between">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{formatDate(date)}</p>
-                      <p className="text-[9px] font-black text-amber-500 tabular-nums">
+                    <div className="px-6 sm:px-8 py-2.5 bg-amber-50/60 border-y border-amber-100/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-amber-400" />
+                        <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">{formatDate(date)}</p>
+                      </div>
+                      <p className="text-[9px] font-black text-amber-600 tabular-nums">
                         −₱{txs.reduce((s, t) => s + t.amount, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="divide-y divide-slate-50">
-                      {txs.map(tx => (
-                        <button
-                          key={tx.id}
-                          onClick={() => { setSelectedTx(tx); playSound('click'); }}
-                          className="w-full flex items-center gap-3.5 px-5 sm:px-6 py-4 hover:bg-slate-50/60 active:bg-slate-100 transition-colors text-left"
-                        >
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-50 text-amber-500">
-                            <ArrowUpCircle className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-black text-slate-800 uppercase tracking-tight truncate leading-tight">
-                              {stripVaultPrefix(tx.name)}
-                            </p>
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{formatTime(tx.timestamp)} · Vault</p>
-                          </div>
-                          <div className="shrink-0 flex items-center gap-2">
-                            <p className="text-[13px] font-black tabular-nums text-amber-600">
-                              −₱{tx.amount.toLocaleString()}
-                            </p>
-                            <svg className="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                          </div>
-                        </button>
-                      ))}
+                    {/* Transaction rows */}
+                    <div className="px-4 sm:px-5 py-3 flex flex-col gap-2">
+                      {txs.map(tx => {
+                        const isToday = toManilaDate(tx.timestamp) === manilaToday;
+                        return (
+                        <div key={tx.id} className="flex items-center gap-2">
+                          <button
+                            onClick={() => { setSelectedTx(tx); playSound('click'); }}
+                            className="flex-1 flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 bg-white hover:border-amber-200 hover:bg-amber-50/30 active:bg-amber-50 transition-all text-left group shadow-sm min-w-0"
+                          >
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600 border border-amber-200">
+                              <Banknote className="w-4.5 h-4.5" style={{ width: '1.1rem', height: '1.1rem' }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight truncate leading-none mb-1">
+                                {stripVaultPrefix(tx.name)}
+                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">Vault</span>
+                                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest leading-none tabular-nums">{formatTime(tx.timestamp)}</p>
+                              </div>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-1.5">
+                              <p className="text-[15px] font-black tabular-nums text-amber-600">
+                                −₱{tx.amount.toLocaleString()}
+                              </p>
+                              <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </div>
+                          </button>
+                          {isToday && !isClosedMode && !tx.name.startsWith('VAULT: ') && (
+                            <button
+                              onClick={() => { setVaultBillToDelete({ id: tx.id, name: stripVaultPrefix(tx.name), amount: tx.amount }); playSound('warning'); }}
+                              className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 hover:text-rose-600 flex items-center justify-center shrink-0 transition-all active:scale-95"
+                              title="Reverse payment"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -706,7 +962,7 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
         );
       })()}
 
-      {/* ── Transaction History ── */}
+      {/* ── Vault History ── */}
       <div className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden`}>
 
         {/* Collapsible header */}
@@ -716,7 +972,7 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
           className="w-full px-6 sm:px-8 py-5 flex items-center justify-between gap-3 hover:bg-slate-50/60 active:bg-slate-100 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Transaction History</h3>
+            <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Vault History</h3>
             {txLoading
               ? <span className="h-3 w-12 rounded bg-slate-100 animate-pulse inline-block" />
               : <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{transactions.length} records</span>
@@ -1171,17 +1427,28 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
 
               {/* Report date picker */}
               <div className="space-y-2">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-0.5">Select Report Date (This Week)</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-0.5">Select Report Date (Last 7 Days)</p>
                 {currentWeekReports.length === 0 ? (
                   <div className="bg-slate-50 rounded-2xl p-4 text-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No reports this week</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No reports in the last 7 days</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
                     {currentWeekReports.map(r => {
                       const isSelected = depositSelectedDate === r.reportDate;
+                      const existingForDate = transactions.find(
+                        t => t.type === 'deposit' && toManilaDate(t.timestamp) === r.reportDate,
+                      );
                       const roi = r.netRoi;
-                      const hasRoi = roi > 0;
+                      const existingAmt = existingForDate?.amount ?? 0;
+                      // Cap by space remaining to vault target
+                      const vTarget = branchVault?.target ?? 0;
+                      const space = vTarget > 0
+                        ? Math.max(0, vTarget - (branchVault?.balance ?? 0) + existingAmt)
+                        : Infinity;
+                      const roiAvailable = existingForDate ? roi + existingAmt : roi;
+                      const availableRoi = space === Infinity ? roiAvailable : Math.min(roiAvailable, space);
+                      const hasRoi = availableRoi > 0;
                       const dateLabel = new Date(r.reportDate + 'T00:00:00+08:00').toLocaleDateString('en-PH', {
                         timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric',
                       }).toUpperCase();
@@ -1192,7 +1459,8 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
                           disabled={!hasRoi}
                           onClick={() => {
                             setDepositSelectedDate(r.reportDate);
-                            setDepositAmount(String(Math.max(0, roi)));
+                            // Pre-fill with existing deposit amount if updating, else full ROI (target cap enforced at validation)
+                            setDepositAmount(existingForDate ? String(existingForDate.amount) : String(Math.max(0, roiAvailable)));
                           }}
                           className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${
                             !hasRoi
@@ -1206,11 +1474,16 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
                             <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
                               {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>{dateLabel}</span>
+                            <div>
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>{dateLabel}</span>
+                              {existingForDate && (
+                                <p className="text-[7px] font-bold text-amber-500 uppercase tracking-widest">Deposited ₱{existingForDate.amount.toLocaleString()} · Tap to update</p>
+                              )}
+                            </div>
                           </div>
                           <div className="text-right">
                             <span className={`text-[11px] font-black tabular-nums ${hasRoi ? (isSelected ? 'text-indigo-600' : 'text-emerald-600') : 'text-slate-400'}`}>
-                              ₱{roi.toLocaleString()}
+                              ₱{roiAvailable.toLocaleString()}
                             </span>
                             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Available ROI</p>
                           </div>
@@ -1223,11 +1496,25 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
 
               {/* Amount input — shown only when a date is selected */}
               {depositSelectedDate && (() => {
+                const isToday = depositSelectedDate === todayStr;
                 const report = currentWeekReports.find(r => r.reportDate === depositSelectedDate);
-                const maxAmount = report?.netRoi ?? 0;
-                const amt = Number(depositAmount) || 0;
-                const afterBalance = (branchVault?.balance ?? 0) + amt;
+                const existingDeposit = transactions.find(
+                  t => t.type === 'deposit' && toManilaDate(t.timestamp) === depositSelectedDate,
+                );
+                const existingAmount = existingDeposit?.amount ?? 0;
+                // Max = min(ROI, space remaining to target)
+                const baseMax = isToday ? (todayNetRoi ?? 0) : (report?.netRoi ?? 0);
+                const roiMax = baseMax + existingAmount;
                 const target = branchVault?.target ?? 0;
+                const spaceToTarget = target > 0
+                  ? Math.max(0, target - (branchVault?.balance ?? 0) + existingAmount)
+                  : Infinity;
+                const maxAmount = spaceToTarget === Infinity ? roiMax : Math.min(roiMax, spaceToTarget);
+                const isTargetCapped = target > 0 && spaceToTarget < roiMax;
+                const amt = Number(depositAmount) || 0;
+                // Balance preview: delta from existing deposit (or full amount if new)
+                const balanceDelta = existingDeposit ? amt - existingDeposit.amount : amt;
+                const afterBalance = (branchVault?.balance ?? 0) + balanceDelta;
                 const afterPct = target > 0 ? Math.min(100, Math.round((afterBalance / target) * 100)) : 0;
                 const isOverMax = amt > maxAmount;
 
@@ -1252,14 +1539,18 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
                         />
                       </div>
                       {isOverMax && (
-                        <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-0.5">Exceeds available ROI of ₱{maxAmount.toLocaleString()}</p>
+                        <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-0.5">
+                          {isTargetCapped
+                            ? `Vault target reached — max deposit is ₱${maxAmount.toLocaleString()}`
+                            : `Exceeds available ROI of ₱${maxAmount.toLocaleString()}`}
+                        </p>
                       )}
                     </div>
 
                     {/* After-deposit preview */}
                     {amt > 0 && !isOverMax && (
                       <div className="bg-indigo-50 rounded-2xl px-4 py-3 space-y-2">
-                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">After Deposit</p>
+                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{existingDeposit ? 'After Update' : 'After Deposit'}</p>
                         <div className="flex items-end justify-between">
                           <p className="text-lg font-black text-indigo-700 tabular-nums leading-none">₱{afterBalance.toLocaleString()}</p>
                           {target > 0 && <p className="text-[10px] font-black text-indigo-500 tabular-nums">{afterPct}% of target</p>}
@@ -1269,9 +1560,15 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
                             <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${afterPct}%` }} />
                           </div>
                         )}
-                        <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
-                          ROI deducted: −₱{amt.toLocaleString()} from {new Date(depositSelectedDate + 'T00:00:00+08:00').toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' }).toUpperCase()}
-                        </p>
+                        {existingDeposit ? (
+                          <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
+                            Replaces ₱{existingDeposit.amount.toLocaleString()} deposit · {balanceDelta >= 0 ? '+' : ''}₱{balanceDelta.toLocaleString()} net change
+                          </p>
+                        ) : (
+                          <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
+                            ROI deducted: −₱{amt.toLocaleString()} from {new Date(depositSelectedDate + 'T00:00:00+08:00').toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' }).toUpperCase()}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1288,19 +1585,287 @@ export const MonthlyBillsSection: React.FC<MonthlyBillsSectionProps> = ({
                 </button>
                 <button
                   onClick={handleVaultDepositFromReport}
-                  disabled={
-                    isSubmittingDeposit ||
-                    !depositSelectedDate ||
-                    !depositAmount ||
-                    Number(depositAmount) <= 0 ||
-                    Number(depositAmount) > (currentWeekReports.find(r => r.reportDate === depositSelectedDate)?.netRoi ?? 0)
-                  }
+                  disabled={(() => {
+                    if (isSubmittingDeposit || !depositSelectedDate || !depositAmount || Number(depositAmount) <= 0) return true;
+                    const amt = Number(depositAmount);
+                    const existingAmt = transactions.find(
+                      t => t.type === 'deposit' && toManilaDate(t.timestamp) === depositSelectedDate,
+                    )?.amount ?? 0;
+                    const baseMax = depositSelectedDate === todayStr
+                      ? (todayNetRoi ?? 0)
+                      : (currentWeekReports.find(r => r.reportDate === depositSelectedDate)?.netRoi ?? 0);
+                    const roiMax = baseMax + existingAmt;
+                    const vTarget = branchVault?.target ?? 0;
+                    const space = vTarget > 0 ? Math.max(0, vTarget - (branchVault?.balance ?? 0) + existingAmt) : Infinity;
+                    const cappedMax = space === Infinity ? roiMax : Math.min(roiMax, space);
+                    return amt > cappedMax;
+                  })()}
                   className="h-12 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isSubmittingDeposit ? 'Saving…' : `Deposit ₱${(Number(depositAmount) || 0).toLocaleString()}`}
+                  {isSubmittingDeposit
+                    ? 'Saving…'
+                    : transactions.find(t => t.type === 'deposit' && toManilaDate(t.timestamp) === depositSelectedDate)
+                      ? `Update ₱${(Number(depositAmount) || 0).toLocaleString()}`
+                      : `Deposit ₱${(Number(depositAmount) || 0).toLocaleString()}`}
                 </button>
               </div>
 
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Withdraw from Vault Modal ── */}
+      {showWithdrawModal && ReactDOM.createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 p-4"
+          onClick={() => { setShowWithdrawModal(false); setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); }}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92svh]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Pay Bill from Vault</h4>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name} · Deduct from vault balance</p>
+                </div>
+                <button
+                  onClick={() => { setShowWithdrawModal(false); setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); }}
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Current vault balance */}
+              <div className="bg-slate-900 rounded-2xl px-4 py-3 flex items-center justify-between">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
+                <p className="text-base font-black text-emerald-400 tabular-nums">₱{(branchVault?.balance ?? 0).toLocaleString()}</p>
+              </div>
+
+              {/* Label */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">
+                  Purpose / Label <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={withdrawLabel}
+                  onChange={e => setWithdrawLabel(e.target.value)}
+                  placeholder="e.g. RENT, ELECTRICITY, SUPPLIES"
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-[12px] font-bold uppercase outline-none focus:border-amber-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal"
+                />
+              </div>
+
+              {/* Amount */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">
+                  Amount <span className="text-rose-500">*</span>
+                </label>
+                {(() => {
+                  const maxBal = branchVault?.balance ?? 0;
+                  const amt = Number(withdrawAmount) || 0;
+                  const isOverMax = amt > maxBal;
+                  const afterBalance = Math.max(0, maxBal - amt);
+                  return (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-400">₱</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={maxBal}
+                          value={withdrawAmount}
+                          onChange={e => setWithdrawAmount(e.target.value)}
+                          className={`w-full pl-8 pr-4 py-3 rounded-xl border-2 text-[15px] font-black tabular-nums outline-none transition-all ${
+                            isOverMax
+                              ? 'border-rose-400 bg-rose-50 text-rose-700'
+                              : 'border-slate-200 bg-slate-50 text-amber-900 focus:border-amber-400 focus:bg-white'
+                          }`}
+                        />
+                      </div>
+                      {isOverMax && (
+                        <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-0.5">Exceeds vault balance of ₱{maxBal.toLocaleString()}</p>
+                      )}
+                      {amt > 0 && !isOverMax && (
+                        <div className="bg-amber-50 rounded-2xl px-4 py-3 flex items-center justify-between">
+                          <p className="text-[8px] font-black text-amber-400 uppercase tracking-widest">Vault after withdrawal</p>
+                          <p className="text-base font-black text-amber-700 tabular-nums">₱{afterBalance.toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Receipt (required) */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">Receipt <span className="text-rose-500">*</span></label>
+                <input
+                  ref={withdrawFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={e => setWithdrawFile(e.target.files?.[0] ?? null)}
+                />
+                {withdrawFile ? (
+                  <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <p className="text-[10px] font-bold text-amber-700 truncate">{withdrawFile.name}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setWithdrawFile(null); if (withdrawFileInputRef.current) withdrawFileInputRef.current.value = ''; }}
+                      className="w-6 h-6 rounded-lg bg-rose-100 text-rose-500 hover:bg-rose-200 flex items-center justify-center shrink-0 ml-2 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => withdrawFileInputRef.current?.click()}
+                    className="w-full py-4 rounded-xl border-2 border-dashed border-rose-200 bg-rose-50/30 text-[10px] font-bold text-rose-400 uppercase tracking-widest hover:border-rose-400 hover:bg-rose-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Tap to attach receipt
+                  </button>
+                )}
+              </div>
+
+              {/* Upload progress bar */}
+              {isSubmittingWithdraw && withdrawUploadProgress > 0 && withdrawUploadProgress < 100 && (
+                <div className="space-y-1.5">
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                      style={{ width: `${withdrawUploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center">
+                    Uploading receipt…
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              {withdrawConfirming ? (
+                /* ── Confirmation step ── */
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-amber-100/60 border-b border-amber-200">
+                      <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Confirm Payment</p>
+                    </div>
+                    <div className="divide-y divide-amber-100">
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bill</span>
+                        <span className="text-[11px] font-black text-slate-700 uppercase">{withdrawLabel}</span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Amount</span>
+                        <span className="text-[13px] font-black text-amber-600 tabular-nums">−₱{(Number(withdrawAmount) || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/60">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
+                        <span className="text-[11px] font-black text-slate-600 tabular-nums">₱{Math.max(0, (branchVault?.balance ?? 0) - (Number(withdrawAmount) || 0)).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setWithdrawConfirming(false)}
+                      className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleVaultWithdraw}
+                      disabled={isSubmittingWithdraw}
+                      className="h-12 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingWithdraw
+                        ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
+                        : 'Confirm Payment'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { setShowWithdrawModal(false); setWithdrawConfirming(false); setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); }}
+                    className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const isValid = withdrawLabel.trim() && withdrawAmount && Number(withdrawAmount) > 0 && withdrawFile && Number(withdrawAmount) <= (branchVault?.balance ?? 0);
+                      if (isValid) setWithdrawConfirming(true);
+                    }}
+                    disabled={(() => {
+                      if (!withdrawLabel.trim() || !withdrawAmount || Number(withdrawAmount) <= 0) return true;
+                      if (!withdrawFile) return true;
+                      return Number(withdrawAmount) > (branchVault?.balance ?? 0);
+                    })()}
+                    className="h-12 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Review Payment
+                  </button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Delete Bill Confirmation Modal ── */}
+      {vaultBillToDelete && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 p-4" onClick={() => !isDeletingVaultBill && setVaultBillToDelete(null)}>
+          <div className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl p-8 animate-in zoom-in-95 duration-200 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-5">
+              <Trash2 className="w-6 h-6 text-rose-400" />
+            </div>
+            <h4 className="text-[18px] font-black text-slate-900 uppercase tracking-tight mb-1">Reverse Payment?</h4>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-5">This will restore the amount to your vault fund</p>
+            <div className="bg-slate-50 rounded-2xl divide-y divide-slate-100 mb-6 text-left">
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bill</span>
+                <span className="text-[11px] font-black text-slate-700 uppercase">{vaultBillToDelete.name}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Refund</span>
+                <span className="text-[13px] font-black text-emerald-600 tabular-nums">+₱{vaultBillToDelete.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
+                <span className="text-[11px] font-black text-slate-600 tabular-nums">₱{((branchVault?.balance ?? 0) + vaultBillToDelete.amount).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleDeleteVaultBill}
+                disabled={isDeletingVaultBill}
+                className="w-full py-4 rounded-2xl bg-rose-500 text-white font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {isDeletingVaultBill ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Reversing…</> : 'Yes, Reverse Payment'}
+              </button>
+              <button
+                onClick={() => setVaultBillToDelete(null)}
+                disabled={isDeletingVaultBill}
+                className="w-full py-3 rounded-2xl text-slate-400 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>,

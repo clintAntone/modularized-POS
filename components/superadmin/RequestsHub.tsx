@@ -62,6 +62,24 @@ const TYPE_META: Record<string, { label: string; color: string; icon: React.Reac
       </svg>
     ),
   },
+  CREATE_EMPLOYEE: {
+    label: 'New Employee',
+    color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+      </svg>
+    ),
+  },
+  EMPLOYEE_REPORT: {
+    label: 'Employee Report',
+    color: 'bg-rose-50 text-rose-700 border-rose-200',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+      </svg>
+    ),
+  },
 };
 
 const STATUS_STYLE = {
@@ -76,6 +94,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean } | null>(null);
+  const [adminComment, setAdminComment] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteRevealId, setDeleteRevealId] = useState<string | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,6 +116,17 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     return () => clearTimeout(t);
   }, [deleteRevealId]);
 
+  // Realtime: always show latest requests without needing a manual refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel('requests_hub_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.REQUESTS }, () => {
+        onRefresh?.();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
 
   const filteredRequests = useMemo(() => {
@@ -112,6 +142,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
   const handleAction = async (request: Request, action: 'APPROVE' | 'REJECT') => {
     setConfirmState(null);
+    setAdminComment('');
     setIsProcessing(request.id);
     try {
       if (action === 'APPROVE') {
@@ -122,9 +153,39 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const { error } = await supabase.from(DB_TABLES.ATTENDANCE).insert(request.data);
           if (error) throw error;
         } else if (request.type === 'BACKFILL_REPORT') {
-          const { grossSales, totalExpenses, totalVaultProvision, staffBreakdown, reportDate, expenseData, vaultData } = request.data;
-          const totalStaffPay = staffBreakdown.reduce((s: number, p: any) =>
-            s + (p.salary || 0) + (p.commission || 0) + (p.otPay || 0) + (p.allowance || 0) - (p.lateDeduction || 0), 0);
+          const { grossSales, totalVaultProvision, staffBreakdown, reportDate, expenseData, vaultData, vaultDeposits } = request.data;
+
+          // Relievers go to expenseData, not totalStaffPay
+          const relieverExpenses = (staffBreakdown || [])
+            .filter((p: any) => p.isReliever)
+            .map((p: any) => {
+              const att = p.attendance || {};
+              const pay = Math.max(0,
+                (Number(p.commission) || 0) + (Number(p.salary) || 0) +
+                (Number(p.allowance) || 0) +
+                (Number(att.otPay ?? att.ot_pay) || 0) -
+                (Number(att.lateDeduction ?? att.late_deduction) || 0)
+              );
+              const name = p.name || p.staffName || 'UNKNOWN';
+              return { id: `reliever_${p.employeeId}`, branchId: request.branchId, name: `RELIEVER PAYOUT: ${name.toUpperCase()}`, amount: pay, category: 'OPERATIONAL', timestamp: `${reportDate}T12:00:00.000Z` };
+            });
+
+          const totalStaffPay = (staffBreakdown || [])
+            .filter((p: any) => !p.isReliever)
+            .reduce((s: number, p: any) => {
+              const att = p.attendance || {};
+              const otPay = Number(att.otPay ?? att.ot_pay ?? p.otPay) || 0;
+              const lateDeduction = Number(att.lateDeduction ?? att.late_deduction ?? p.lateDeduction) || 0;
+              const commission = (Number(p.commission) || 0) + (Number(p.salary) || 0);
+              return s + commission + (Number(p.allowance) || 0) + otPay - lateDeduction;
+            }, 0);
+
+          // Merge reliever expenses with manual expenses (avoid duplicates by name)
+          const existingRelieverNames = new Set(relieverExpenses.map((e: any) => e.name.toUpperCase()));
+          const manualExpenses = (expenseData || []).filter((e: any) => !existingRelieverNames.has((e.name || '').toUpperCase()));
+          const finalExpenseData = [...relieverExpenses, ...manualExpenses];
+          const totalExpenses = finalExpenseData.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+
           const netRoi = grossSales - totalExpenses - totalVaultProvision - totalStaffPay;
           const reportId = `${request.branchId}_${reportDate.replace(/-/g, '')}`;
           const existingReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === reportDate);
@@ -140,11 +201,39 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.NET_ROI]: netRoi,
             [DB_COLUMNS.STAFF_BREAKDOWN]: staffBreakdown,
             [DB_COLUMNS.SESSION_DATA]: existingReport?.sessionData || [],
-            [DB_COLUMNS.EXPENSE_DATA]: expenseData || existingReport?.expenseData || [],
+            [DB_COLUMNS.EXPENSE_DATA]: finalExpenseData,
             [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
-            [DB_COLUMNS.IS_VALIDATED]: existingReport?.isValidated || false,
           });
           if (error) throw error;
+          // Insert vault deposits into vault_transactions (new single source of truth)
+          if (vaultDeposits?.length > 0) {
+            const txRows = vaultDeposits.map((d: any) => ({
+              [DB_COLUMNS.ID]: d.id,
+              [DB_COLUMNS.BRANCH_ID]: request.branchId,
+              [DB_COLUMNS.REPORT_ID]: reportId,
+              [DB_COLUMNS.TYPE]: 'DEPOSIT',
+              [DB_COLUMNS.AMOUNT]: d.amount,
+              [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+              [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+              [DB_COLUMNS.PERFORMED_BY]: null,
+            }));
+            const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).upsert(txRows, { onConflict: 'id' });
+            if (txErr) throw txErr;
+
+            // Increment vault balance explicitly — trigger may not fire on upsert
+            const totalDeposited = vaultDeposits.reduce((s: number, d: any) => s + (Number(d.amount) || 0), 0);
+            const { data: vaultRow } = await supabase
+              .from(DB_TABLES.BRANCH_VAULTS)
+              .select(DB_COLUMNS.VAULT_BALANCE)
+              .eq(DB_COLUMNS.BRANCH_ID, request.branchId)
+              .single();
+            if (vaultRow) {
+              await supabase
+                .from(DB_TABLES.BRANCH_VAULTS)
+                .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + totalDeposited })
+                .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
+            }
+          }
         } else if (request.type === 'PASSWORD_RESET') {
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
             .update({ [DB_COLUMNS.REQUEST_RESET]: true, [DB_COLUMNS.RESET_APPROVED]: true })
@@ -154,6 +243,23 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
             .update({ [DB_COLUMNS.IS_ACTIVE]: false })
             .eq(DB_COLUMNS.ID, request.data.employeeId);
+          if (error) throw error;
+        } else if (request.type === 'EMPLOYEE_REPORT') {
+          // No side effects — approval just marks the report as acknowledged
+        } else if (request.type === 'CREATE_EMPLOYEE') {
+          const d = request.data;
+          const { error } = await supabase.from(DB_TABLES.EMPLOYEES).insert({
+            [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
+            [DB_COLUMNS.BRANCH_ID]: d.branchId || request.branchId,
+            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.NAME]: d.name,
+            [DB_COLUMNS.FIRST_NAME]: d.firstName,
+            [DB_COLUMNS.MIDDLE_NAME]: d.middleName || null,
+            [DB_COLUMNS.LAST_NAME]: d.lastName,
+            [DB_COLUMNS.ROLE]: d.role,
+            [DB_COLUMNS.ALLOWANCE]: Number(d.allowance) || 0,
+            [DB_COLUMNS.IS_ACTIVE]: true,
+          });
           if (error) throw error;
         }
         // For BACKFILL_REPORT, snapshot the pre-approval values so the Approved tab can show Before/After
@@ -177,6 +283,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.STATUS]: 'APPROVED',
           [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
           [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
         }).eq(DB_COLUMNS.ID, request.id);
         playSound('success');
@@ -190,6 +297,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.STATUS]: 'REJECTED',
           [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
           [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
         }).eq(DB_COLUMNS.ID, request.id);
         playSound('warning');
       }
@@ -235,7 +343,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
       {/* Confirmation Modal */}
       {confirmState && confirmMeta && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setConfirmState(null)}>
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setConfirmState(null); setAdminComment(''); }}>
           <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             {/* Header strip */}
             <div className={`px-7 pt-7 pb-5`}>
@@ -268,10 +376,24 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               )}
             </div>
 
+            {/* Admin comment */}
+            <div className="px-7 pb-4">
+              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">
+                Comment for manager <span className="text-slate-300 normal-case font-medium">(optional)</span>
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Leave a note visible to the manager..."
+                value={adminComment}
+                onChange={e => setAdminComment(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none resize-none transition-all"
+              />
+            </div>
+
             {/* Actions */}
             <div className="px-7 pb-7 flex gap-3 justify-end">
               <button
-                onClick={() => setConfirmState(null)}
+                onClick={() => { setConfirmState(null); setAdminComment(''); }}
                 className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
               >
                 Cancel
@@ -402,7 +524,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             return (
               <div
                 key={request.id}
-                className={`bg-white rounded-[24px] shadow-sm border overflow-hidden transition-shadow hover:shadow-md select-none ${
+                className={`group bg-white rounded-[24px] shadow-sm border overflow-hidden transition-shadow hover:shadow-md select-none ${
                   hasConflict ? 'border-rose-200' :
                   request.status === 'PENDING' ? 'border-amber-100' :
                   request.status === 'APPROVED' ? 'border-emerald-100' :
@@ -426,12 +548,15 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       </p>
                     </div>
                   </div>
-                  {deleteRevealId === request.id && !isReadOnly && (
+                  {!isReadOnly && (
                     <button
                       onPointerDown={e => e.stopPropagation()}
                       onClick={() => { setDeleteRevealId(null); setDeleteConfirmId(request.id); }}
                       disabled={!!isProcessing}
-                      className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 border border-rose-200 transition-all animate-in zoom-in-75 duration-150 disabled:opacity-50 shrink-0"
+                      className={`w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 border border-rose-200 transition-all duration-150 disabled:opacity-50 shrink-0
+                        ${deleteRevealId === request.id ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}
+                        md:pointer-events-auto md:opacity-0 md:scale-90 md:group-hover:opacity-100 md:group-hover:scale-100
+                      `}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -490,8 +615,10 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       : null;
                     const prior = snapshot ?? liveReport;
 
+                    const getOtPay  = (p: any) => Number(p.otPay ?? p.attendance?.otPay ?? p.attendance?.ot_pay ?? 0);
+                    const getLateDed = (p: any) => Number(p.lateDeduction ?? p.attendance?.lateDeduction ?? p.attendance?.late_deduction ?? 0);
                     const newStaffPay = request.data.staffBreakdown?.reduce((s: number, p: any) =>
-                      s + (p.salary || 0) + (p.commission || 0) + (p.otPay || 0) + (p.allowance || 0) - (p.lateDeduction || 0), 0) || 0;
+                      s + (p.salary || 0) + (p.commission || 0) + getOtPay(p) + (p.allowance || 0) - getLateDed(p), 0) || 0;
                     const newRoi = (request.data.grossSales || 0) - (request.data.totalExpenses || 0) - (request.data.totalVaultProvision || 0) - newStaffPay;
 
                     const rows: { label: string; before: number | null; after: number; roiColor?: boolean }[] = [
@@ -527,13 +654,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                 }
                               </div>
                               <div className="px-4 py-3 text-right border-l border-slate-100 flex flex-col items-end gap-0.5">
-                                <span className={`text-[13px] font-black tabular-nums ${
-                                  roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900'
-                                }`}>{fmt(after)}</span>
-                                {delta !== null && changed && (
-                                  <span className={`text-[9px] font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                    {delta > 0 ? '+' : ''}{fmt(delta)}
-                                  </span>
+                                {!changed && before !== null ? (
+                                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">No Changes</span>
+                                ) : (
+                                  <>
+                                    <span className={`text-[13px] font-black tabular-nums ${
+                                      roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900'
+                                    }`}>{fmt(after)}</span>
+                                    {delta !== null && changed && (
+                                      <span className={`text-[9px] font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        {delta > 0 ? '+' : ''}{fmt(delta)}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -549,10 +682,29 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                             <div className="h-px flex-1 bg-slate-200" />
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {request.data.staffBreakdown.map((s: any) => {
-                              const total = (s.salary || 0) + (s.commission || 0) + (s.otPay || 0) + (s.allowance || 0) - (s.lateDeduction || 0);
+                            {(() => {
+                              // Handles both auto-save format (nested under .attendance) and backfill format (top level)
+                              const getOt   = getOtPay;
+                              const getLate = getLateDed;
+                              const priorStaffMap: Record<string, any> = {};
+                              (prior?.staffBreakdown ?? []).forEach((p: any) => {
+                                priorStaffMap[p.employeeId] = p;
+                              });
+                              return request.data.staffBreakdown.map((s: any) => {
+                              const total = (s.salary || 0) + (s.commission || 0) + getOt(s) + (s.allowance || 0) - getLate(s);
+                              const priorEntry = priorStaffMap[s.employeeId] ?? null;
+                              const priorTotal = priorEntry !== null ? (priorEntry.salary || 0) + (priorEntry.commission || 0) + getOt(priorEntry) + (priorEntry.allowance || 0) - getLate(priorEntry) : null;
+                              const delta = priorTotal !== null ? total - priorTotal : null;
+                              const hasChange = delta !== null && delta !== 0;
+                              const fieldDeltas = priorEntry ? [
+                                { k: 'Com',   d: (s.commission || 0) - (priorEntry.commission || 0) },
+                                { k: 'Allow', d: (s.allowance || 0) - (priorEntry.allowance || 0) },
+                                { k: 'OT',    d: getOt(s) - getOt(priorEntry) },
+                                { k: 'Late',  d: -(getLate(s) - getLate(priorEntry)) },
+                                { k: 'Base',  d: (s.salary || 0) - (priorEntry.salary || 0) },
+                              ].filter(x => x.d !== 0) : [];
                               return (
-                                <div key={s.employeeId} className={`flex justify-between items-center p-3 rounded-xl gap-3 border ${s.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                                <div key={s.employeeId} className={`flex justify-between items-center p-3 rounded-xl gap-3 border ${hasChange ? 'bg-amber-50 border-amber-200' : s.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <p className="text-xs font-black text-slate-900 uppercase truncate">{s.name}</p>
@@ -580,11 +732,28 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                         </span>
                                       )}
                                     </div>
+                                    {fieldDeltas.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {fieldDeltas.map(x => (
+                                          <span key={x.k} className={`px-1.5 py-0.5 rounded text-[9px] font-black ${x.d > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                                            {x.k} {x.d > 0 ? '+' : ''}₱{Math.abs(x.d).toLocaleString()}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                  <span className="text-sm font-black text-slate-900 shrink-0 tabular-nums">{fmt(total)}</span>
+                                  <div className="flex flex-col items-end shrink-0 gap-0.5">
+                                    <span className="text-sm font-black text-slate-900 tabular-nums">{fmt(total)}</span>
+                                    {hasChange && (
+                                      <span className={`text-[9px] font-black tabular-nums ${delta! > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        {delta! > 0 ? '+' : ''}{fmt(delta!)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               );
-                            })}
+                            });
+                            })()}
                           </div>
                         </div>
                       )}
@@ -609,14 +778,62 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       )}
                     </div>
                   ) : request.type === 'DISABLE_EMPLOYEE' ? (
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2.5">
                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Disable Request</p>
                       {request.data.employeeName && (
                         <p className="text-sm font-semibold text-slate-700">Employee: <span className="font-black text-slate-900">{request.data.employeeName}</span></p>
                       )}
+                      {request.data.reasonType && (() => {
+                        const reasonMeta: Record<string, { label: string; cls: string }> = {
+                          RESIGNED:   { label: 'Resigned',   cls: 'bg-slate-200 text-slate-700' },
+                          TERMINATED: { label: 'Terminated', cls: 'bg-rose-100 text-rose-700' },
+                          ON_HOLD:    { label: 'On Hold',    cls: 'bg-amber-100 text-amber-700' },
+                        };
+                        const m = reasonMeta[request.data.reasonType];
+                        return m ? (
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
+                        ) : null;
+                      })()}
                       {request.data.reason && (
                         <p className="text-sm text-slate-600 italic">"{request.data.reason}"</p>
                       )}
+                      {(() => {
+                        const emp = employees.find(e => e.id === request.data.employeeId);
+                        if (!emp || emp.isActive !== false) return null;
+                        return (
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No Changes — Employee is already inactive</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : request.type === 'CREATE_EMPLOYEE' ? (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+                      <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">New Employee Request</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="col-span-2 bg-white rounded-xl p-3 border border-indigo-100">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Full Name</p>
+                          <p className="text-sm font-black text-slate-900 uppercase">{request.data.name}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-indigo-100">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Role</p>
+                          <p className="text-[11px] font-black text-indigo-700 uppercase">{(request.data.role || '').replace(',', ' + ')}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-indigo-100">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Daily Allowance</p>
+                          <p className="text-[11px] font-black text-slate-900 tabular-nums">{fmt(request.data.allowance)}</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const branch = branches.find(b => b.id === (request.data.branchId || request.branchId));
+                        return branch ? (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-indigo-100">
+                            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            <p className="text-[10px] font-black text-indigo-700 uppercase">{branch.name.replace('BRANCH - ', '')}</p>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   ) : request.type === 'BACKFILL_TRANSACTION' ? (
                     <div className="space-y-3">

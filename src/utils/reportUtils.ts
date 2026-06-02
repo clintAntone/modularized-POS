@@ -8,6 +8,7 @@ export function toDateStr(d: Date): string {
 }
 
 export function parseDate(dateStr: string): Date {
+    if (!dateStr) return new Date(NaN);
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
 }
@@ -21,17 +22,32 @@ export function getISOWeek(date: Date) {
 }
 
 export function getWeekRange(date: Date, branch: Branch) {
-    const cutoff = Number(branch.weeklyCutoff ?? 0);
-    const startDay = (cutoff + 1) % 7;
+    const dateNorm = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    const anchorStr = branch.cycleStartDate || `${new Date().getFullYear()}-01-01`;
+    // Look up the active cutoff for this date from history (sorted by effectiveFrom ascending).
+    // Fall back to branch.weeklyCutoff if no history or date is before all entries.
+    const history = branch.cutoffHistory || [];
+    let activeCutoff = Number(branch.weeklyCutoff ?? 0);
+    let activeEffectiveFrom: string | null = branch.cycleStartDate || null;
+
+    for (const entry of history) {
+        const eff = parseDate(entry.effectiveFrom);
+        if (eff <= dateNorm) {
+            activeCutoff = entry.cutoff;
+            activeEffectiveFrom = entry.effectiveFrom;
+        }
+    }
+
+    const startDay = (activeCutoff + 1) % 7;
+
+    // cycleStart: the effectiveFrom of the matching history entry (clips the first week of each era)
+    const anchorStr = activeEffectiveFrom || `${new Date().getFullYear()}-01-01`;
     const [y, m, day] = anchorStr.split('-').map(Number);
     const cycleStart = new Date(y, m - 1, day);
     cycleStart.setHours(0, 0, 0, 0);
 
-    // 1. Find the "Natural" week start (the Monday, or whatever startDay is)
-    const naturalStart = new Date(date);
-    naturalStart.setHours(0, 0, 0, 0);
+    // 1. Find the "Natural" week start
+    const naturalStart = new Date(dateNorm);
     const currentDay = naturalStart.getDay();
     const diff = (currentDay - startDay + 7) % 7;
     naturalStart.setDate(naturalStart.getDate() - diff);
@@ -40,16 +56,14 @@ export function getWeekRange(date: Date, branch: Branch) {
     naturalEnd.setDate(naturalStart.getDate() + 6);
     naturalEnd.setHours(23, 59, 59, 999);
 
-    // 2. Adjust for cycleStart
-    // Only clip if the cycle starts DURING this week AND the date we are checking is >= cycleStart.
-    // If the date is before cycleStart, we keep the natural start so it doesn't get grouped into the first cycle week.
+    // 2. Clip weekStart if cycleStart falls within this natural week
     let weekStart = naturalStart;
-    if (cycleStart > naturalStart && cycleStart <= naturalEnd && date >= cycleStart) {
+    if (cycleStart > naturalStart && cycleStart <= naturalEnd && dateNorm >= cycleStart) {
         weekStart = new Date(cycleStart);
     }
     const weekEnd = naturalEnd;
 
-    // 3. Calculate weekIndex (Nth occurrence of startDay in the month of naturalStart)
+    // 3. Calculate weekIndex (Nth occurrence of startDay in the month)
     let weekIndex = 0;
     let temp = new Date(naturalStart.getFullYear(), naturalStart.getMonth(), 1);
     while (temp <= naturalStart) {
@@ -63,7 +77,7 @@ export function getWeekRange(date: Date, branch: Branch) {
         weekIndex,
         weekStart,
         weekEnd,
-        label: `${weekStart.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} — ${weekEnd.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}`
+        label: `${weekStart.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} — ${weekEnd.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}`
     };
 }
 

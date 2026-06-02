@@ -2,8 +2,7 @@ import React from 'react';
 import { Employee, Branch } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { RoleBadge } from './SharedComponents';
-import { playSound } from '../../../lib/audio';
-import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../lib/payroll';
+import { getEmployeeRole } from '../../../lib/payroll';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 interface EmployeeTableProps {
@@ -12,44 +11,43 @@ interface EmployeeTableProps {
   onEdit?: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onDelete?: (emp: Employee) => void;
+  onViewID?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
-export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branches, onEdit, onReset, onDelete, currentBranchId }) => {
+export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branches, onEdit, onReset, onDelete, onViewID, currentBranchId }) => {
   return (
     <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm overflow-hidden`}>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className={`px-8 py-5 w-[22%] ${UI_THEME.text.metadata}`}>Identity</th>
-              <th className={`px-6 py-5 w-[25%] ${UI_THEME.text.metadata}`}>Authorized Workplaces</th>
-              <th className={`px-4 py-5 w-[15%] text-center ${UI_THEME.text.metadata}`}>Role / Skills</th>
-              <th className={`px-4 py-5 w-[12%] text-center ${UI_THEME.text.metadata}`}>Status</th>
-              <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Base Pay</th>
-              <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Control</th>
+              <th className={`px-8 py-5 w-[22%] ${UI_THEME.text.metadata}`}>Name</th>
+              <th className={`px-4 py-5 w-[14%] ${UI_THEME.text.metadata}`}>Home</th>
+              <th className={`px-4 py-5 w-[18%] ${UI_THEME.text.metadata}`}>R-Branch</th>
+              <th className={`px-4 py-5 w-[14%] text-center ${UI_THEME.text.metadata}`}>Specialization</th>
+              <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Status</th>
+              <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Position</th>
+              <th className={`px-8 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Control</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {employees.map(emp => {
-              const authorizedBranches = branches.filter(b =>
-                b.id === emp.branchId ||
-                b.manager?.toUpperCase() === (emp.name || '').toUpperCase() ||
-                (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any))
-              ).map(b => ({
-                name: b.name,
-                isManager: b.manager?.toUpperCase() === (emp.name || '').toUpperCase()
-              }));
+              const empId = emp.timestamp
+                ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+                : null;
 
-              const branchRelation = (() => {
-                if (!currentBranchId) return null;
-                const b = branches.find(br => br.id === currentBranchId);
-                if (!b) return null;
-                if (b.manager?.toUpperCase() === (emp.name || '').toUpperCase()) return 'manager';
-                if (emp.branchId === currentBranchId) return 'regular';
-                if (emp.branchAllowances && typeof emp.branchAllowances === 'object' && currentBranchId in (emp.branchAllowances as any)) return 'reliever';
-                return null;
-              })();
+              const empNameUpper = (emp.name || '').toUpperCase();
+              const homeBranch = branches.find(b => b.id === emp.branchId);
+              const relieverBranches = branches.filter(b =>
+                b.id !== emp.branchId && (
+                  b.manager?.toUpperCase() === empNameUpper ||
+                  b.tempManager?.toUpperCase() === empNameUpper ||
+                  (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any))
+                )
+              ).sort((a, b) => a.name.localeCompare(b.name));
+
+              const position = branches.some(b => b.manager?.toUpperCase() === empNameUpper) ? 'manager' : 'regular';
 
               return (
                 <tr
@@ -62,35 +60,38 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                         <ProfileAvatar name={emp.name || ''} src={emp.profile} />
                       </div>
                       <div className="min-w-0">
+                        {empId && (
+                          <p className="text-[8px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
+                        )}
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{emp.name || 'UNNAMED'}</p>
-                          {branchRelation === 'manager' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-indigo-600 text-white uppercase tracking-widest shrink-0">Manager</span>}
-                          {branchRelation === 'regular' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-widest shrink-0">Regular</span>}
-                          {branchRelation === 'reliever' && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-widest shrink-0">Reliever</span>}
                         </div>
-                        {emp.firstName && emp.lastName && (
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
-                            {emp.firstName} {emp.middleName ? emp.middleName + ' ' : ''}{emp.lastName}
-                          </p>
-                        )}
                         {emp.requestReset && (
                             <span className="text-[8px] font-bold bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse mt-1.5 inline-block">Reset Requested</span>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5" onClick={() => onEdit?.(emp)}>
+                  <td className="px-4 py-5" onClick={() => onEdit?.(emp)}>
+                    {homeBranch
+                      ? <span title={homeBranch.name} className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter bg-emerald-50 text-emerald-700 border-emerald-200 max-w-[140px] truncate inline-block">{homeBranch.name}</span>
+                      : <span className="text-[10px] font-semibold text-slate-300 italic">—</span>}
+                  </td>
+                  <td className="px-4 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex flex-wrap gap-1.5">
-                       {authorizedBranches.length > 0 ? authorizedBranches.map((b, i) => (
-                         <span key={i} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter flex items-center gap-1 ${b.isManager ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                           {b.isManager && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>}
-                           {b.name}
-                         </span>
-                       )) : <span className="text-[10px] font-semibold text-slate-300 italic">No Branch Linked</span>}
+                      {relieverBranches.length > 0 ? relieverBranches.map((b, i) => (
+                        <span key={i} title={b.name} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter flex items-center gap-1 max-w-[140px] truncate
+                          ${b.manager?.toUpperCase() === empNameUpper
+                            ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                            : 'bg-violet-50 text-violet-700 border-violet-200'}`}>
+                          {b.manager?.toUpperCase() === empNameUpper && <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>}
+                          <span className="truncate">{b.name}</span>
+                        </span>
+                      )) : <span className="text-[10px] font-semibold text-slate-300">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
-                    <RoleBadge role={getEmployeeRole(emp, currentBranchId || emp.branchId)} />
+                    <RoleBadge role={getEmployeeRole(emp, currentBranchId || emp.branchId).split(',').filter(r => !['MANAGER','RELIEVER'].includes(r.trim().toUpperCase())).join(',')} />
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center justify-center gap-2.5">
@@ -98,21 +99,26 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                       <span className={`text-[10px] font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-5 text-right" onClick={() => onEdit?.(emp)}>
-                    <div className="flex flex-col items-end">
-                      <span className="text-sm font-bold text-slate-900 tabular-nums">
-                        ₱{getEmployeeAllowance(emp, currentBranchId || 'all').toLocaleString()}
-                      </span>
-                      {emp.branchAllowances && Object.keys(emp.branchAllowances).length > 0 && (
-                        <span className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mt-0.5">
-                          {currentBranchId && currentBranchId !== 'all' && emp.branchAllowances[currentBranchId] !== undefined ? 'Override Active' : 'Overrides Configured'}
-                        </span>
-                      )}
-                    </div>
+                  <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
+                    {position === 'manager'
+                      ? <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Manager</span>
+                      : <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Regular</span>
+                    }
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                        {onReset && (
+                        {onViewID && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onViewID(emp); }}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-slate-100 active:scale-90"
+                            title="View Company ID"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
+                            </svg>
+                          </button>
+                        )}
+                        {onReset && emp.isActive !== false && (
                           <button
                               onClick={(e) => { e.stopPropagation(); onReset(emp); }}
                               className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-90 ${emp.requestReset ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
@@ -121,14 +127,6 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                               </svg>
-                          </button>
-                        )}
-                        {onEdit && (
-                          <button
-                              onClick={(e) => { e.stopPropagation(); onEdit(emp); }}
-                              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-300 hover:bg-slate-900 hover:text-white transition-all shadow-sm border border-slate-100 active:scale-90"
-                          >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="3" /></svg>
                           </button>
                         )}
                         {onDelete && !emp.isActive && (

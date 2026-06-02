@@ -62,7 +62,7 @@ export const HeatmapSection: React.FC<HeatmapSectionProps> = ({ branch, salesRep
   }, [dailyStats, heatMonth, heatYear]);
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-700 pb-20">
+    <div className="space-y-4 pb-20">
 
       {/* Header */}
       <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm">

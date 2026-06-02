@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -30,14 +30,14 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
 
       # ── 4. Java & Android SDK ──────────────────────────────────────────────
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -48,18 +48,35 @@ jobs:
         continue-on-error: true  # already added if android/ is committed
 
       # ── 6. App icon ────────────────────────────────────────────────────────
+      - name: Create placeholder splash (required by @capacitor/assets)
+        if: hashFiles('src/assets/icon.png') != '' && hashFiles('src/assets/splash.png') == ''
+        shell: python3 {0}
+        run: |
+          import struct, zlib
+          w, h, r, g, b = 2732, 2732, 15, 23, 42
+          def chunk(t, d):
+              c = t + d
+              return struct.pack('>I', len(d)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+          row = bytes([0] + [r, g, b] * w)
+          ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+          idat = chunk(b'IDAT', zlib.compress(row * h, 1))
+          iend = chunk(b'IEND', b'')
+          with open('src/assets/splash.png', 'wb') as f:
+              f.write(b'\x89PNG\r\n\x1a\n' + ihdr + idat + iend)
+
       - name: Generate app icon
         if: hashFiles('src/assets/icon.png') != ''
-        run: npx @capacitor/assets generate --android --icon src/assets/icon.png
+        run: npx @capacitor/assets generate --assetPath src/assets --android
 
       # ── 7. Capacitor sync ──────────────────────────────────────────────────
       - name: Capacitor sync
         run: npx cap sync android
 
       # ── 8. Set version in build.gradle ─────────────────────────────────────
-      - name: Set app version to 2.0
+      - name: Set app version to 2.0.0
         run: |
-          sed -i 's/versionName "[^"]*"/versionName "2.0"/' android/app/build.gradle
+          
+          sed -i 's/versionName "[^"]*"/versionName "2.0.0"/' android/app/build.gradle
           sed -i 's/versionCode [0-9]*/versionCode 200/' android/app/build.gradle
 
       # ── 9. Check if keystore secret exists ─────────────────────────────────
@@ -102,15 +119,20 @@ jobs:
               }
           """
 
+          # Insert signingConfigs block before buildTypes if not already present
           if "signingConfigs" not in content:
               content = content.replace("    buildTypes {", signing_block + "    buildTypes {", 1)
 
-          content = re.sub(
-              r'(release \{)',
-              r'\1\n            signingConfig signingConfigs.release',
-              content,
-              count=1
-          )
+          # Add signingConfig inside buildTypes > release (always the last 'release {')
+          # Avoids accidentally targeting the release block inside signingConfigs
+          occurrences = [m.start() for m in re.finditer(r'release \{', content)]
+          if occurrences:
+              insert_pos = occurrences[-1] + len('release {')
+              content = (
+                  content[:insert_pos]
+                  + '\n            signingConfig signingConfigs.release'
+                  + content[insert_pos:]
+              )
 
           with open(path, "w") as f:
               f.write(content)

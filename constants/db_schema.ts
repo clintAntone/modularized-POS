@@ -22,6 +22,8 @@ export const DB_TABLES = {
   REMITTANCE_SUBMISSIONS: 'remittance_submissions',
   PORTAL_USERS: 'portal_users',
   DEVICE_LOGS: 'device_logs',
+  VAULT_TRANSACTIONS: 'vault_transactions',
+  EMPLOYEE_COMPLAINTS: 'employee_complaints',
 };
 
 export const DB_COLUMNS = {
@@ -32,6 +34,7 @@ export const DB_COLUMNS = {
   CREATED_AT: 'created_at',
   UPDATED_AT: 'updated_at',
   NAME: 'name',
+  VAULT_DEPOSIT: 'VAULT_DEPOSIT',
 
   // Branches
   PIN: 'pin',
@@ -52,6 +55,7 @@ export const DB_COLUMNS = {
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',
   VAULT_ENABLED: 'vault_enabled',
+  CUTOFF_HISTORY: 'cutoff_history',
 
   // Transactions
   CLIENT_NAME: 'client_name',
@@ -87,10 +91,14 @@ export const DB_COLUMNS = {
   PIN_SALT: 'pin_salt',
   REQUEST_RESET: 'request_reset',
   RESET_APPROVED: 'reset_approved',
+  OTP_HASH: 'otp_hash',
+  OTP_SALT: 'otp_salt',
+  OTP_EXPIRES_AT: 'otp_expires_at',
   BRANCH_ALLOWANCES: 'branch_allowances',
   FIRST_NAME: 'first_name',
   MIDDLE_NAME: 'middle_name',
   LAST_NAME: 'last_name',
+  DETAILS: 'details',
 
   // Attendance & Shift
   STAFF_NAME: 'staff_name',
@@ -131,7 +139,6 @@ export const DB_COLUMNS = {
   STAFF_BREAKDOWN: 'staff_breakdown',
   EXPENSE_DATA: 'expense_data',
   VAULT_DATA: 'vault_data',
-  IS_VALIDATED: 'is_validated',
 
   // System Config
   KEY: 'key',
@@ -157,6 +164,10 @@ export const DB_COLUMNS = {
   SUGGESTED_AMOUNT: 'suggested_amount',
   CREATED_BY: 'created_by',
 
+  // Vault Transactions
+  REPORT_ID: 'report_id',
+  PERFORMED_BY: 'performed_by',
+
   // Remittance Adjustments & Submissions
   PERIOD_LABEL: 'period_label',
   SUBMITTED_BY: 'submitted_by',
@@ -166,6 +177,17 @@ export const DB_COLUMNS = {
   DISPLAY_NAME: 'display_name',
   PERMISSIONS: 'permissions',
   IS_SUPERADMIN: 'is_superadmin',
+
+  // Employee Complaints
+  REPORT_TYPE: 'report_type',
+  INCIDENT_DATE: 'incident_date',
+  FILED_BY_ID: 'filed_by_id',
+  FILED_BY_NAME: 'filed_by_name',
+  FILED_AT: 'filed_at',
+  ACTION_TAKEN: 'action_taken',
+  JUDGMENT: 'judgment',
+  RESOLUTION: 'resolution',
+  REVIEWED_AT: 'reviewed_at',
 
   // Requests
   TYPE: 'type',
@@ -178,12 +200,9 @@ export const DB_COLUMNS = {
   // Branch Vaults (dedicated table — one row per branch)
   VAULT_TARGET: 'target',
   VAULT_BALANCE: 'balance',
+  VAULT_INITIAL_BALANCE: 'initial_balance',
   VAULT_LAST_DEPOSITED_DATE: 'last_deposited_date',
   VAULT_START_DATE: 'start_date',
-
-  // Sales Reports — vault snapshot columns
-  VAULT_DEPOSIT: 'vault_deposit',
-  VAULT_BALANCE_SNAPSHOT: 'vault_balance_snapshot',
 
   // Device Logs
   DEVICE_ID: 'device_id',

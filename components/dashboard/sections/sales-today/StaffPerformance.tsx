@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Branch, Attendance, Employee, Transaction } from '../../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../../constants/db_schema';
 import { supabase } from '../../../../lib/supabase';
@@ -208,8 +209,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             </div>
         )}
 
-        {selectedStaff && (
-            <div className="fixed inset-0 z-[2000] bg-slate-950/40 backdrop-blur-xl flex items-start sm:items-center justify-center p-4 overflow-y-auto no-scrollbar">
+        {selectedStaff && createPortal(
+            <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto no-scrollbar">
               <div className="bg-white rounded-[32px] sm:rounded-[44px] w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in duration-300 overflow-hidden my-auto max-h-[95vh] sm:max-h-[90vh] border border-slate-100">
                 <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-slate-100 flex justify-between items-center bg-white">
                   <div className="flex items-center gap-3 sm:gap-4">
@@ -241,9 +242,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-indigo-600">₱</span>
                         <input
                             type="number"
+                            min={0}
                             disabled={selectedStaffData?.isReliever}
                             value={attendanceForm.cashAdvance || ''}
-                            onChange={e => setAttendanceForm({...attendanceForm, cashAdvance: Number(e.target.value)})}
+                            onChange={e => setAttendanceForm({...attendanceForm, cashAdvance: Math.max(0, Number(e.target.value))})}
                             className={`w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-indigo-900 outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-inner tabular-nums ${selectedStaffData?.isReliever ? 'opacity-50 cursor-not-allowed' : ''}`}
                             placeholder="0"
                         />
@@ -264,8 +266,9 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-rose-600">₱</span>
                         <input
                             type="number"
+                            min={0}
                             value={attendanceForm.lateDeduction || ''}
-                            onChange={e => setAttendanceForm({...attendanceForm, lateDeduction: Number(e.target.value)})}
+                            onChange={e => setAttendanceForm({...attendanceForm, lateDeduction: Math.max(0, Number(e.target.value))})}
                             className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-rose-600 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner tabular-nums"
                             placeholder="0"
                         />
@@ -280,28 +283,35 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-emerald-600">₱</span>
                         <input
                             type="number"
+                            min={0}
                             value={attendanceForm.otPay || ''}
-                            onChange={e => setAttendanceForm({...attendanceForm, otPay: Number(e.target.value)})}
+                            onChange={e => setAttendanceForm({...attendanceForm, otPay: Math.max(0, Number(e.target.value))})}
                             className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-emerald-600 outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner tabular-nums"
                             placeholder="0"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={() => setAttendanceForm(prev => ({ ...prev, isHalfDay: !prev.isHalfDay }))}
-                            className={`p-3.5 sm:p-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all flex flex-col items-center gap-1 sm:gap-2 ${attendanceForm.isHalfDay ? 'bg-amber-50 border-amber-500 text-amber-700' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'}`}
-                        >
-                          <span className="text-lg sm:text-2xl">{attendanceForm.isHalfDay ? '🌗' : '☀️'}</span>
-                          <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest">Half Day</span>
-                        </button>
-                        <button
-                            onClick={() => setAttendanceForm(prev => ({ ...prev, isPaidDaily: !prev.isPaidDaily }))}
-                            className={`p-3.5 sm:p-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all flex flex-col items-center gap-1 sm:gap-2 ${attendanceForm.isPaidDaily ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'}`}
-                        >
-                          <span className="text-lg sm:text-2xl">{attendanceForm.isPaidDaily ? '✅' : '💸'}</span>
-                          <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest">Paid Daily</span>
-                        </button>
-                      </div>
+                      <div className="pt-2" />
+                      <button
+                          onClick={() => setAttendanceForm(prev => ({ ...prev, isHalfDay: !prev.isHalfDay }))}
+                          className={`w-full px-5 py-4 sm:py-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all active:scale-95 flex items-center justify-between gap-3 shadow-sm ${attendanceForm.isHalfDay ? 'bg-amber-50 border-amber-400 text-amber-700 shadow-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:shadow-md'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl sm:text-2xl">{attendanceForm.isHalfDay ? '🌗' : '☀️'}</span>
+                          <div className="text-left">
+                            <p className={`text-[11px] sm:text-[12px] font-black uppercase tracking-widest ${attendanceForm.isHalfDay ? 'text-amber-700' : 'text-slate-600'}`}>Half Day</p>
+                            <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${attendanceForm.isHalfDay ? 'text-amber-400' : 'text-slate-400'}`}>
+                              {attendanceForm.isHalfDay ? 'Applied — 50% allowance' : 'Tap to apply'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${attendanceForm.isHalfDay ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-200'}`}>
+                          {attendanceForm.isHalfDay && (
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
                     </div>
 
                     <div className="p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-slate-100 flex items-center justify-between bg-slate-50/50 shadow-inner">
@@ -321,13 +331,13 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         disabled={isSyncing}
                         className="w-full bg-slate-900 text-white font-bold py-4 sm:py-6 rounded-[18px] sm:rounded-[22px] uppercase tracking-[0.25em] text-[10px] sm:text-[12px] shadow-xl hover:bg-emerald-600 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
                     >
-                      {isSyncing ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Commit Adjustments'}
+                      {isSyncing ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Apply Adjustment'}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-        )}
+        , document.body)}
 
         <div className="flex items-center justify-between px-4">
           <div>

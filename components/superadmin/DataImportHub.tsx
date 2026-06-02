@@ -138,7 +138,7 @@ export const DataImportHub: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in duration-700 space-y-6 sm:space-y-8 pb-32 px-2">
+    <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-32 px-2">
       <div className="bg-white p-6 sm:p-8 md:p-12 rounded-[32px] sm:rounded-[56px] border border-slate-100 shadow-sm space-y-8 sm:space-y-10">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-900 text-white rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto text-xl sm:text-2xl mb-4 sm:mb-6 shadow-xl">📥</div>

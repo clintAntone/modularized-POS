@@ -169,7 +169,7 @@ export const useOptimizedData = (auth: AuthState) => {
       DB_COLUMNS.DAILY_PROVISION_AMOUNT,
       DB_COLUMNS.ENABLE_SHIFT_TRACKING,
       DB_COLUMNS.OPENING_TIME,
-      DB_COLUMNS.CLOSING_TIME
+      DB_COLUMNS.CLOSING_TIME,
     ]
   };
 

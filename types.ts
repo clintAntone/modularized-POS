@@ -51,16 +51,33 @@ export interface Branch {
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;
   vaultEnabled?: boolean;
+  cutoffHistory?: { cutoff: number; effectiveFrom: string }[];
+  /** Ephemeral — only used during save to pass the effective date for a cutoff change */
+  cutoffEffectiveDate?: string;
 }
 
 /**
  * Vault / Rent Fund — stored in the `branch_vaults` table (one row per branch).
  * Kept separate from Branch to avoid polluting the branches table with feature columns.
  */
+export interface VaultTransaction {
+  id: string;
+  branchId: string;
+  reportId: string | null;
+  type: 'DEPOSIT' | 'ADMIN_DEPOSIT' | 'WITHDRAWAL';
+  amount: number;
+  name: string | null;
+  timestamp: string;
+  performedBy: string | null;
+  receiptImage: string | null;
+  createdAt: string;
+}
+
 export interface BranchVault {
   branchId: string;
-  target: number;       // accumulation target (e.g. 15000)
-  balance: number;      // current balance
+  target: number;           // accumulation target (e.g. 15000)
+  balance: number;          // current balance
+  initialBalance: number;   // balance recorded when vault was first enabled
   lastDepositedDate: string | null;    // guards against double-deposit on same day
   startDate: string | null;            // date vault system was enabled for this branch (YYYY-MM-DD)
 }
@@ -136,6 +153,21 @@ export interface Attendance {
   settledUnits?: number;
 }
 
+export interface EmployeeDetails {
+  dateStart?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  maritalStatus?: 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED';
+  contactNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  facebookLink?: string;
+  gmail?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactNumber?: string;
+  emergencyContactAddress?: string;
+}
+
 export interface Employee {
   id: string;
   branchId: string;
@@ -155,6 +187,7 @@ export interface Employee {
   isActive: boolean;
   profile?: string;
   branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
+  details?: EmployeeDetails;
 }
 
 export interface SalesReport {
@@ -176,12 +209,7 @@ export interface SalesReport {
   isFinalized?: boolean;
   finalizedAt?: string;
   finalizedBy?: string;
-  isValidated?: boolean;
   notes?: string;
-  /** New vault system — automatic daily deposit amount for this report */
-  vaultDeposit?: number;
-  /** Vault balance snapshot after this day's deposit */
-  vaultBalanceSnapshot?: number;
 }
 
 export interface AuditLog {
@@ -200,7 +228,7 @@ export interface Request {
   id: string;
   branchId: string;
   timestamp: string;
-  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE';
+  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE' | 'EMPLOYEE_REPORT';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   data: any;
   requesterId: string;
@@ -208,6 +236,25 @@ export interface Request {
   reviewedBy?: string;
   reviewNote?: string;
   updatedAt?: string;
+}
+
+export interface EmployeeComplaint {
+  id: string;
+  branchId: string;
+  employeeId: string;
+  employeeName: string;
+  reportType: string;
+  incidentDate: string;
+  description: string;
+  filedById: string;
+  filedByName: string;
+  filedAt: string;
+  status: 'PENDING' | 'ACKNOWLEDGED' | 'DISMISSED';
+  actionTaken: 'NONE' | 'SUSPENDED' | 'WARNING' | 'NOTED';
+  judgment?: string;
+  resolution?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface BillsCatalogItem {

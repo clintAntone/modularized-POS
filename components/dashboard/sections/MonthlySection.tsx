@@ -23,7 +23,6 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
     const currentDate = new Date();
     const filteredReports = salesReports.filter(r => {
       if (r.branchId !== branch.id) return false;
-      if (branch.cycleStartDate && r.reportDate < branch.cycleStartDate) return false;
       return true;
     });
 
@@ -74,7 +73,7 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-32 max-w-6xl mx-auto px-2">
+    <div className="space-y-10 pb-32 max-w-6xl mx-auto px-2">
       <div className="px-4 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-10">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-tighter leading-none mb-3">Monthly Archive</h2>

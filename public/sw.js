@@ -65,7 +65,9 @@ self.addEventListener('fetch', (event) => {
         cache.match(event.request).then((cached) => {
           if (cached) return cached;
           return fetch(event.request).then((response) => {
-            if (response.ok) cache.put(event.request, response.clone());
+            if (response.ok && response.type !== 'opaque') {
+              cache.put(event.request, response.clone()).catch(() => {});
+            }
             return response;
           });
         })
@@ -78,8 +80,14 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.ok) {
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+        // Only cache same-origin or explicit CORS responses with a 2xx status.
+        // Opaque responses (type === 'opaque') have status 0 and cannot be put
+        // into the Cache API without throwing a NetworkError.
+        if (response.ok && response.type !== 'opaque') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) =>
+            cache.put(event.request, responseToCache).catch(() => {})
+          );
         }
         return response;
       })

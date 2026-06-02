@@ -5,6 +5,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './src/index.css';
 
+// ── Devtools deterrent (production only) ─────────────────────────────────────
+// This is a UI-layer deterrent only. Real security lives in server-side guards.
+if (import.meta.env.PROD) {
+  // Block common keyboard shortcuts that open devtools
+  document.addEventListener('keydown', (e) => {
+    const blocked =
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'U'].includes(e.key)) ||
+      (e.metaKey && e.altKey && ['I', 'J', 'C'].includes(e.key)) || // macOS
+      (e.ctrlKey && e.key === 'U'); // view-source
+    if (blocked) e.preventDefault();
+  });
+
+  // Disable right-click context menu
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -3,7 +3,7 @@ import React from 'react';
 import { Branch } from '../../../types';
 import { playSound } from '../../../lib/audio';
 
-export const ROLE_ORDER = ['MANAGER', 'THERAPIST', 'BONESETTER', 'TRAINEE', 'RELIEVER'];
+export const ROLE_ORDER = ['MANAGER', 'THERAPIST', 'BONESETTER'];
 
 export const RoleBadge = ({ role }: { role: string }) => {
   const styles: Record<string, string> = {
@@ -29,102 +29,110 @@ export const RoleBadge = ({ role }: { role: string }) => {
   );
 };
 
-export const WorkplaceAuthorizationGrid = ({ 
-  branches, 
-  authorizedIds, 
+export const WorkplaceAuthorizationGrid = ({
+  branches,
+  authorizedIds,
   onChange,
-  disabled 
-}: { 
-  branches: Branch[], 
-  authorizedIds: string[], 
+  disabled
+}: {
+  branches: Branch[],
+  authorizedIds: string[],
   onChange: (ids: string[]) => void,
-  disabled?: boolean 
+  disabled?: boolean
 }) => {
   const [search, setSearch] = React.useState('');
-  
+
+  const selectedBranches = authorizedIds.map(id => branches.find(b => b.id === id)).filter(Boolean) as Branch[];
+
   const filteredBranches = branches
+    .filter(b => !authorizedIds.includes(b.id))
     .filter(b =>
       b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.manager?.toLowerCase().includes(search.toLowerCase())
+      (b.manager || '').toLowerCase().includes(search.toLowerCase())
     )
-    .sort((a, b) => {
-      const aSelected = authorizedIds.includes(a.id) ? 0 : 1;
-      const bSelected = authorizedIds.includes(b.id) ? 0 : 1;
-      return aSelected - bSelected;
-    });
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const selectedCount = authorizedIds.length;
+  const toggle = (id: string, isSelected: boolean) => {
+    playSound('click');
+    onChange(isSelected ? authorizedIds.filter(x => x !== id) : [...authorizedIds, id]);
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="relative group">
+    <div className="space-y-0">
+      {/* Selected chips */}
+      {selectedBranches.length > 0 && (
+        <div className="flex flex-wrap gap-2 p-3 bg-emerald-50/60 border-b border-emerald-100">
+          {selectedBranches.map(branch => (
+            <button
+              key={branch.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggle(branch.id, true)}
+              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-black text-emerald-800 uppercase tracking-tight hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all active:scale-95 shadow-sm"
+            >
+              <span className="truncate max-w-[120px]">{branch.name}</span>
+              <svg className="w-3 h-3 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative group border-b border-slate-100">
         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
           <svg className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <input 
+        <input
           type="text"
-          placeholder="SEARCH BRANCHES..."
+          placeholder="Search branches..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white font-semibold text-xs outline-none focus:bg-slate-50 transition-all"
         />
-        {selectedCount > 0 && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-full uppercase tracking-tighter">
-            {selectedCount} SELECTED
-          </div>
+        {search && (
+          <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         )}
       </div>
 
-      <div className="max-h-[200px] overflow-y-auto no-scrollbar pr-1">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {filteredBranches.length > 0 ? (
-            filteredBranches.map((branch) => {
-              const isAuthorized = authorizedIds.includes(branch.id);
-
-              return (
-                <button
-                  key={branch.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    playSound('click');
-                    const next = isAuthorized 
-                      ? authorizedIds.filter(id => id !== branch.id) 
-                      : [...authorizedIds, branch.id];
-                    onChange(next);
-                  }}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center group relative overflow-hidden ${
-                    isAuthorized 
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/20 scale-[0.98]' 
-                      : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="min-w-0 w-full">
-                    <p className={`text-[9px] font-black uppercase tracking-tight truncate ${isAuthorized ? 'text-white' : 'text-slate-600'}`}>
-                      {branch.name}
-                    </p>
-                    {branch.manager && (
-                      <p className={`text-[7px] font-bold uppercase tracking-widest truncate mt-0.5 ${isAuthorized ? 'text-slate-400' : 'text-slate-400'}`}>
-                        MGR: {branch.manager}
-                      </p>
-                    )}
-                  </div>
-                  {isAuthorized && (
-                    <div className="absolute top-1 right-1">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></div>
-                    </div>
-                  )}
-                </button>
-              );
-            })
-          ) : (
-            <div className="col-span-full py-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No branches found</p>
-            </div>
-          )}
-        </div>
+      {/* List */}
+      <div className="max-h-[220px] overflow-y-auto bg-white divide-y divide-slate-50">
+        {filteredBranches.length > 0 ? (
+          filteredBranches.map(branch => (
+            <button
+              key={branch.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggle(branch.id, false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left group"
+            >
+              {/* Checkbox */}
+              <div className="w-4 h-4 rounded border-2 border-slate-200 group-hover:border-emerald-400 transition-colors shrink-0 flex items-center justify-center bg-white" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{branch.name}</p>
+                {branch.manager && (
+                  <p className="text-[9px] font-semibold text-slate-400 truncate mt-0.5">{branch.manager}</p>
+                )}
+              </div>
+              <svg className="w-3.5 h-3.5 text-slate-200 group-hover:text-emerald-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          ))
+        ) : (
+          <div className="py-8 text-center">
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+              {search ? 'No matches' : 'All branches selected'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

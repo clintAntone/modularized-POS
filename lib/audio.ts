@@ -29,76 +29,78 @@ export const resumeAudioContext = async () => {
   }
 };
 
-export const playSound = async (type: 'success' | 'warning' | 'click' | 'delete' | 'deposit') => {
+const makeNote = (ctx: AudioContext, freq: number, startTime: number, duration: number, volume: number, oscType: OscillatorType = 'triangle') => {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+
+  osc.type = oscType;
+  filter.type = 'lowpass';
+  filter.frequency.value = 2000;
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+};
+
+export const playSound = (type: 'success' | 'warning' | 'click' | 'delete' | 'deposit') => {
   try {
     const ctx = getAudioContext();
-    if (ctx.state === 'suspended') await ctx.resume();
 
-    const now = ctx.currentTime + 0.01;
+    // For click, fire synchronously — no async resume to avoid queuing delay on rapid taps
+    if (type === 'click') {
+      if (ctx.state !== 'running') return;
+      const now = ctx.currentTime;
+      makeNote(ctx, 420, now, 0.06, 0.04);
+      return;
+    }
 
-    // Helper: create a simple note and return its nodes
-    const makeNote = (freq: number, startTime: number, duration: number, volume: number, oscType: OscillatorType = 'triangle') => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
+    // For all other sounds, resume context if needed then play
+    const playAsync = async () => {
+      if (ctx.state === 'suspended') await ctx.resume();
+      const now = ctx.currentTime + 0.01;
 
-      osc.type = oscType;
-      filter.type = 'lowpass';
-      filter.frequency.value = 2000;
+      if (type === 'success') {
+        makeNote(ctx, 520, now,        0.12, 0.06);
+        makeNote(ctx, 660, now + 0.10, 0.15, 0.07);
+      }
 
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
+      if (type === 'warning') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+        osc.type = 'triangle';
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(260, now);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.07, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+        osc.start(now); osc.stop(now + 0.3);
+      }
 
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(volume, startTime + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      if (type === 'delete') {
+        makeNote(ctx, 340, now,        0.10, 0.07, 'sine');
+        makeNote(ctx, 200, now + 0.09, 0.16, 0.08, 'sine');
+      }
 
-      osc.start(startTime);
-      osc.stop(startTime + duration + 0.01);
+      if (type === 'deposit') {
+        makeNote(ctx, 523, now,        0.10, 0.06, 'triangle');
+        makeNote(ctx, 659, now + 0.09, 0.10, 0.06, 'triangle');
+        makeNote(ctx, 784, now + 0.18, 0.18, 0.07, 'triangle');
+      }
     };
 
-    if (type === 'click') {
-      // Soft, quick tap
-      makeNote(420, now, 0.06, 0.04);
-    }
-
-    if (type === 'success') {
-      // Bright two-note rise — clear confirmation
-      makeNote(520, now,        0.12, 0.06);
-      makeNote(660, now + 0.10, 0.15, 0.07);
-    }
-
-    if (type === 'warning') {
-      // Low rumble — soft caution
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      osc.type = 'triangle';
-      filter.type = 'lowpass';
-      filter.frequency.value = 800;
-      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(260, now);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.07, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-      osc.start(now); osc.stop(now + 0.3);
-    }
-
-    if (type === 'delete') {
-      // Firm descending two-note drop — signals removal
-      makeNote(340, now,        0.10, 0.07, 'sine');
-      makeNote(200, now + 0.09, 0.16, 0.08, 'sine');
-    }
-
-    if (type === 'deposit') {
-      // Happy three-note ascending arpeggio — C5 → E5 → G5
-      makeNote(523, now,        0.10, 0.06, 'triangle');
-      makeNote(659, now + 0.09, 0.10, 0.06, 'triangle');
-      makeNote(784, now + 0.18, 0.18, 0.07, 'triangle');
-    }
-
+    playAsync().catch(() => {});
   } catch (e) {
     console.warn('Audio feedback failed:', e);
   }

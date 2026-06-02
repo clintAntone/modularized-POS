@@ -35,6 +35,7 @@ interface POSSectionProps {
     isClosedMode?: boolean;
     isPaymongoEnabled?: boolean;
     onRefresh?: () => void;
+    onForceSync?: () => void;
     onSyncStatusChange?: (isSyncing: boolean) => void;
     loading?: boolean;
     hiddenStaffNames?: Set<string>;
@@ -44,7 +45,7 @@ export type POSMode = 'CREATE' | 'CORRECTIONS' | 'EDITING';
 
 import { CardSkeleton } from '../../ui/Skeleton';
 
-export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief = false, transactions, setTransactions, employees, attendance, todayStr: propTodayStr, isClosedMode = false, isPaymongoEnabled = false, onRefresh, onSyncStatusChange, loading = false, hiddenStaffNames }) => {
+export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief = false, transactions, setTransactions, employees, attendance, todayStr: propTodayStr, isClosedMode = false, isPaymongoEnabled = false, onRefresh, onForceSync, onSyncStatusChange, loading = false, hiddenStaffNames }) => {
     const [mode, setMode] = useState<POSMode>('CREATE');
     const [formData, setFormData] = useState({
         id: '',
@@ -388,6 +389,9 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 setSuccessDetails(null);
                 resetForm();
                 if (onRefresh) onRefresh();
+                // Force the auto-save to re-evaluate immediately after an edit,
+                // even if totals are unchanged (e.g. only client name was corrected).
+                if (mode === 'EDITING') onForceSync?.();
             }, 1000);
         };
 
@@ -519,7 +523,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
 
     if (loading) {
         return (
-            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 px-4">
+            <div className="max-w-7xl mx-auto space-y-6 px-4">
                 <div className="h-16 bg-slate-200/60 rounded-2xl animate-pulse w-full" />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <CardSkeleton />

@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
 import { Transaction, Service } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 
@@ -8,21 +7,6 @@ interface SessionLogsProps {
   /** Branch services used for price lookup — avoids a broken DB query */
   services?: Service[];
 }
-
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05
-    }
-  }
-};
-
-const item = {
-  hidden: { opacity: 0, x: -10 },
-  show: { opacity: 1, x: 0 }
-};
 
 export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [] }) => {
   // Build a price lookup map from branch services (in-memory, no DB round-trip)
@@ -65,12 +49,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                 <th className="px-8 py-5 text-right">ROI</th>
               </tr>
               </thead>
-              <motion.tbody 
-                variants={container}
-                initial="hidden"
-                animate="show"
-                className="divide-y divide-slate-100"
-              >
+              <tbody className="divide-y divide-slate-100">
               {transactions.length > 0 ? transactions.map(t => {
                 const totalDeduction = (Number(t.discount) || 0);
                 const therapistComm = Number(t.primaryCommission) || 0;
@@ -82,7 +61,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                 const isPaid = t.paymentStatus === 'PAID';
 
                 return (
-                    <motion.tr variants={item} key={t.id} className="hover:bg-slate-50/20 transition-colors group">
+                    <tr key={t.id} className="hover:bg-slate-50/20 transition-colors group">
                       {/* TIME: Standardized to medium slate */}
                       <td className="px-8 py-5 font-medium text-slate-400 uppercase tracking-tighter tabular-nums text-[11px]">
                         {new Intl.DateTimeFormat('en-US', {
@@ -173,7 +152,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                       <td className="px-8 py-5 font-bold text-slate-900 text-base text-right tabular-nums tracking-tighter">
                         ₱{netRoi.toLocaleString()}
                       </td>
-                    </motion.tr>
+                    </tr>
                 );
               }) : (
                   <tr>
@@ -182,7 +161,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                     </td>
                   </tr>
               )}
-              </motion.tbody>
+              </tbody>
             </table>
           </div>
 

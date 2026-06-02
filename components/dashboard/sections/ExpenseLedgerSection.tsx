@@ -195,7 +195,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
   const periodLabel = `${MONTHS[selectedMonth]} ${selectedYear}`;
 
   return (
-    <div className="w-full mx-auto pb-20 animate-in fade-in duration-500 space-y-6">
+    <div className="w-full mx-auto pb-20 space-y-6">
 
       {/* ── Header ── */}
       <div className={`bg-white p-6 sm:p-8 ${UI_THEME.radius.card} shadow-sm border border-slate-100`}>

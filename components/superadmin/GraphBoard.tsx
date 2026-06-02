@@ -120,7 +120,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
   }, [filterBranchId, branches]);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 max-w-[1400px] mx-auto pb-32">
+    <div className="space-y-8 max-w-[1400px] mx-auto pb-32">
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 border-b border-slate-200 pb-8 px-4 sm:px-2">
         <div className="space-y-2">

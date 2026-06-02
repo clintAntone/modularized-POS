@@ -20,6 +20,8 @@ import {
   MoreHorizontal,
   X,
   UserSearch,
+  TrendingDown,
+  Flag,
 } from 'lucide-react';
 
 interface BranchNavbarProps {
@@ -46,6 +48,8 @@ const Icons = {
   developer: <Code className={c} />,
   how_to: <HelpCircle className={c} />,
   backfill: <Upload className={c} />,
+  insights: <TrendingDown className={c} />,
+  complaints: <Flag className={c} />,
   more: <MoreHorizontal className="w-6 h-6 sm:w-5 sm:h-5" />
 };
 
@@ -101,19 +105,21 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       { id: 'sales',           label: 'Sales',          icon: Icons.sales,           desc: 'Daily Performance',   color: 'bg-emerald-50 text-emerald-600', group: 'Operations' },
       { id: 'staff',           label: enableShiftTracking ? 'Attendance' : 'Staff', icon: Icons.staff, desc: enableShiftTracking ? 'Shift Tracking' : 'Personnel Roster', color: 'bg-indigo-50 text-indigo-600', group: 'Personnel' },
       { id: 'sales_reports',   label: 'Sales Reports',  icon: Icons.archive,         desc: 'Historical Data',     color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
+      { id: 'insights',        label: 'Insights',       icon: Icons.insights,        desc: 'Sales Anomaly Detection', color: 'bg-rose-50 text-rose-600',   group: 'Reports'    },
 { id: 'remittance',      label: 'Remittance',     icon: Icons.payroll,         desc: 'Weekly Distributions',color: 'bg-indigo-50 text-indigo-600',   group: 'Finance'    },
       { id: 'salaries',        label: 'Payroll',        icon: Icons.payroll,         desc: 'Cycle Audit',         color: 'bg-rose-50 text-rose-600',       group: 'Finance'    },
       { id: 'monthly_bills',   label: 'Vault Fund',     icon: Icons.vault,           desc: 'Bills & Vault',       color: 'bg-emerald-50 text-emerald-600', group: 'Finance'    },
       { id: 'clients',         label: 'Clients',        icon: Icons.clients,         desc: 'Client Lookup',       color: 'bg-indigo-50 text-indigo-600',   group: 'Personnel'  },
       { id: 'expense_reports', label: 'Expense Reports',icon: Icons.expenses_ledger, desc: 'Financial History',   color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
       { id: 'backfill',        label: 'Backfill',       icon: Icons.backfill,        desc: 'Request Data Entry',  color: 'bg-amber-50 text-amber-600',     group: 'Reports'    },
+      { id: 'complaints',      label: 'Complaints',     icon: Icons.complaints,      desc: 'Employee Reports',    color: 'bg-rose-50 text-rose-600',       group: 'Personnel',  comingSoon: true },
       { id: 'how_to',          label: 'How-To',         icon: Icons.how_to,          desc: 'Manual',              color: 'bg-slate-100 text-slate-600',    group: 'System'     },
       { id: 'settings',        label: 'Settings',       icon: Icons.settings,        desc: 'Node Config',         color: 'bg-rose-50 text-rose-600',       group: 'System'     },
     ];
     
     const hidden = new Set<string>();
     if (isRelief) {
-      ['settings', 'salaries', 'expense_reports', 'monthly_bills'].forEach(id => hidden.add(id));
+      ['settings', 'salaries', 'expense_reports', 'monthly_bills', 'complaints'].forEach(id => hidden.add(id));
     }
     if (!vaultEnabled) hidden.add('monthly_bills');
     return hidden.size > 0 ? tabs.filter(t => !hidden.has(t.id)) : tabs;
@@ -202,21 +208,25 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     <>
       {windowWidth >= 640 ? (
         <nav className="bg-slate-800 border-b border-white/5 z-[900] shadow-lg no-print w-full">
-          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-20`}>
+          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-14`}>
             <div className="flex items-center gap-1 lg:gap-2">
               {visibleTabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 const hasBillsAlert = showBillsAlert && tab.id === 'monthly_bills';
+                const isSoon = (tab as any).comingSoon;
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => handleTabClick(tab.id)}
-                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                    onClick={() => !isSoon && handleTabClick(tab.id)}
+                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isSoon ? 'text-slate-400 cursor-not-allowed' : isActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                   >
-                    <div className={`transition-all duration-200 ${isActive ? 'scale-110 text-emerald-400' : 'group-hover:text-emerald-300'}`}>{tab.icon}</div>
-                    <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${isActive ? 'opacity-100' : ''}`}>
+                    <div className={`transition-all duration-200 ${isActive ? 'scale-110 text-emerald-400' : ''}`}>{tab.icon}</div>
+                    <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 ${isActive ? 'opacity-100' : ''}`}>
                       {tab.label}
                     </span>
+                    {isSoon && (
+                      <span className="text-[7px] font-black uppercase tracking-widest bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-1.5 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(167,139,250,0.6)] leading-none">✦ New</span>
+                    )}
                     {hasBillsAlert && (
                       <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse shrink-0" />
                     )}
@@ -249,14 +259,16 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
           <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-[32px] shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;
+              const isSoon = (tab as any).comingSoon;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
+                  onClick={() => !isSoon && handleTabClick(tab.id)}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isSoon ? 'opacity-60 cursor-not-allowed' : isActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
                 >
                   <div className={`transition-all duration-300 ${isActive ? 'text-emerald-400' : 'text-white'}`}>{tab.icon}</div>
                   <span className={`text-[8px] font-bold uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{tab.label}</span>
+                  {isSoon && <span className="text-[6px] font-black uppercase tracking-widest bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">✦ New</span>}
                   {isActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]"></div>}
                 </button>
               );
@@ -302,10 +314,11 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
               {(() => {
                 const renderTile = (item: any) => {
                   const isStarred = starredIds.has(item.id);
+                  const isSoon = !!item.comingSoon;
                   return (
                     <button
                       key={item.id}
-                      onClick={() => handleTabClick(item.id)}
+                      onClick={() => !isSoon && handleTabClick(item.id)}
                       onPointerDown={() => {
                         starLongPressRef.current = setTimeout(() => {
                           toggleStar(item.id);
@@ -317,13 +330,15 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       onPointerCancel={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
                       style={{ transform: 'translateZ(0)' }}
                       className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu select-none ${
-                        isStarred
-                          ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
-                          : activeTab === item.id
-                            ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
-                            : showBillsAlert && item.id === 'monthly_bills'
-                              ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
-                              : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 bg-slate-50/50'
+                        isSoon
+                          ? 'border-slate-100 bg-slate-50/50 opacity-50 cursor-not-allowed'
+                          : isStarred
+                            ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
+                            : activeTab === item.id
+                              ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                              : showBillsAlert && item.id === 'monthly_bills'
+                                ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
+                                : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 bg-slate-50/50'
                       }`}
                     >
                       <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
@@ -345,6 +360,11 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                         <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-amber-400 text-white rounded-full px-2 py-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                           <span className="text-[7px] font-black uppercase tracking-widest">Setup</span>
+                        </div>
+                      )}
+                      {isSoon && (
+                        <div className="absolute top-2 right-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-full px-2 py-0.5 shadow-[0_0_10px_rgba(167,139,250,0.5)] animate-pulse">
+                          <span className="text-[7px] font-black uppercase tracking-widest">✦ New</span>
                         </div>
                       )}
                     </button>

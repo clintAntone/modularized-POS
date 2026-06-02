@@ -18,6 +18,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { StaffCard } from './staff/StaffCard';
 import { StaffHeader } from './staff/StaffHeader';
 import { StaffModals } from './staff/StaffModals';
+import { EmployeeIDCardModal } from '../../superadmin/employee-manager/EmployeeIDCardModal';
 
 interface StaffDirectorySectionProps {
   branch: Branch;
@@ -30,6 +31,8 @@ interface StaffDirectorySectionProps {
   isSetupRequired?: boolean;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   isDelegate?: boolean;
+  isManagerView?: boolean;
+  onNavigateToComplaints?: () => void;
 }
 
 interface Toast {
@@ -37,11 +40,10 @@ interface Toast {
   type: 'success' | 'error';
 }
 
-export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false }) => {
+export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterRole, setFilterRole] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ACTIVE');
+  const [filterRoles, setFilterRoles] = useState<string[]>([]);
+  const [filterActiveOnly, setFilterActiveOnly] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -63,8 +65,24 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isPromoting, setIsPromoting] = useState(false);
 
   const [disableRequestEmployee, setDisableRequestEmployee] = useState<Employee | null>(null);
-  const [disableReason, setDisableReason] = useState('');
+  const [disableReasonType, setDisableReasonType] = useState<'RESIGNED' | 'TERMINATED' | 'ON_HOLD' | ''>('');
+  const [disableReasonNotes, setDisableReasonNotes] = useState('');
   const [isSubmittingDisable, setIsSubmittingDisable] = useState(false);
+
+  // New employee creation request
+  const [showNewEmpRequest, setShowNewEmpRequest] = useState(false);
+  const [newEmpFirstName, setNewEmpFirstName] = useState('');
+  const [newEmpMiddleName, setNewEmpMiddleName] = useState('');
+  const [newEmpLastName, setNewEmpLastName] = useState('');
+  const [newEmpRole, setNewEmpRole] = useState('');
+  const [newEmpAllowance, setNewEmpAllowance] = useState('');
+  const [newEmpSimilarWarning, setNewEmpSimilarWarning] = useState<string | null>(null);
+  const [newEmpBlockError, setNewEmpBlockError] = useState<string | null>(null);
+  const [isSubmittingNewEmp, setIsSubmittingNewEmp] = useState(false);
+
+  const [removeRelieversEmployee, setRemoveRelieversEmployee] = useState<Employee | null>(null);
+  const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
+  const [isRemovingReliever, setIsRemovingReliever] = useState(false);
 
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -124,11 +142,16 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       list = list.filter(e => e.name.toLowerCase().includes(term));
     }
 
-    if (filterRole !== 'ALL') {
+    if (filterRoles.length > 0) {
       list = list.filter(e => {
         const currentRole = getEmployeeRole(e, branch.id);
-        return (currentRole || '').split(',').includes(filterRole);
+        const empRoles = (currentRole || '').split(',').map(r => r.trim());
+        return filterRoles.some(r => empRoles.includes(r));
       });
+    }
+
+    if (filterActiveOnly) {
+      list = list.filter(e => e.isActive !== false);
     }
 
     return list.sort((a, b) => {
@@ -157,7 +180,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
         return (a.name || '').localeCompare(b.name || '');
     });
-  }, [employees, branch.id, branch.manager, branch.tempManager, searchTerm, filterRole, filterStatus]);
+  }, [employees, branch.id, branch.manager, branch.tempManager, searchTerm, filterRoles, filterActiveOnly]);
 
   const totalPages = Math.ceil(branchStaff.length / itemsPerPage);
   const paginatedStaff = useMemo(() => {
@@ -229,10 +252,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       if (error) throw error;
 
       await addAuditLog.mutateAsync({
-        branchId: branch.id,
-        action: 'PROMOTE_TO_REGULAR',
-        details: `${confirmPromoteEmployee.name} transferred from reliever to regular staff at ${branch.name}. Previous branch: ${confirmPromoteEmployee.branchId}.`,
-        operator: operatorName,
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: 'PROMOTE_TO_REGULAR',
+        [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
+        [DB_COLUMNS.ENTITY_ID]: confirmPromoteEmployee.id,
+        [DB_COLUMNS.DESCRIPTION]: `${confirmPromoteEmployee.name} transferred from reliever to regular staff at ${branch.name}. Previous branch: ${confirmPromoteEmployee.branchId}.`,
       });
 
       playSound('success');
@@ -249,7 +274,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   };
 
   const handleSubmitDisableRequest = async () => {
-    if (!disableRequestEmployee || isSubmittingDisable) return;
+    if (!disableRequestEmployee || isSubmittingDisable || !disableReasonType) return;
     setIsSubmittingDisable(true);
     try {
       const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
@@ -261,7 +286,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.DATA]: {
           employeeId: disableRequestEmployee.id,
           employeeName: disableRequestEmployee.name,
-          reason: disableReason.trim(),
+          reasonType: disableReasonType,
+          reason: disableReasonNotes.trim(),
         },
         [DB_COLUMNS.REQUESTER_ID]: operatorName,
         [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
@@ -270,13 +296,129 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       playSound('success');
       showToast(`Disable request submitted for ${disableRequestEmployee.name}`);
       setDisableRequestEmployee(null);
-      setDisableReason('');
+      setDisableReasonType('');
+      setDisableReasonNotes('');
       onRefresh?.();
     } catch (err) {
       playSound('warning');
       showToast('Request failed. Try again.', 'error');
     } finally {
       setIsSubmittingDisable(false);
+    }
+  };
+
+  const checkNewEmpName = (first: string, middle: string, last: string) => {
+    if (!first.trim() || !last.trim()) { setNewEmpSimilarWarning(null); setNewEmpBlockError(null); return; }
+    const fullName = `${first.trim()} ${middle.trim() ? middle.trim() + ' ' : ''}${last.trim()}`.trim().toUpperCase();
+    // Check all employees (active and inactive)
+    const exactMatch = employees.find(e => {
+      const en = e.firstName && e.lastName
+        ? `${e.firstName} ${e.middleName ? e.middleName + ' ' : ''}${e.lastName}`.trim().toUpperCase()
+        : (e.name || '').toUpperCase();
+      return en === fullName;
+    });
+    if (exactMatch) {
+      setNewEmpBlockError(`"${fullName}" already exists in the system${exactMatch.isActive === false ? ' (suspended)' : ''}.`);
+      setNewEmpSimilarWarning(null);
+      return;
+    }
+    // Check same first+last name ignoring middle
+    const sameFirstLast = employees.find(e => {
+      const ef = (e.firstName || '').trim().toUpperCase();
+      const el = (e.lastName || '').trim().toUpperCase();
+      return ef === first.trim().toUpperCase() && el === last.trim().toUpperCase();
+    });
+    if (sameFirstLast) {
+      setNewEmpSimilarWarning(`Similar name found: "${sameFirstLast.name}" already in system. Verify this is a different person.`);
+    } else {
+      setNewEmpSimilarWarning(null);
+    }
+    setNewEmpBlockError(null);
+  };
+
+  const handleSubmitNewEmployeeRequest = async () => {
+    if (isSubmittingNewEmp || newEmpBlockError) return;
+    const first = newEmpFirstName.trim().toUpperCase();
+    const middle = newEmpMiddleName.trim().toUpperCase() || null;
+    const last = newEmpLastName.trim().toUpperCase();
+    const allowance = Number(newEmpAllowance);
+    if (!first || !last || !newEmpRole) { showToast('First name, last name, and role are required.', 'error'); return; }
+    if (!allowance || allowance <= 0) { showToast('Daily allowance must be greater than 0.', 'error'); return; }
+    const fullName = `${first}${middle ? ' ' + middle : ''} ${last}`.trim();
+    setIsSubmittingNewEmp(true);
+    try {
+      const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
+        [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
+        [DB_COLUMNS.TYPE]: 'CREATE_EMPLOYEE',
+        [DB_COLUMNS.STATUS]: 'PENDING',
+        [DB_COLUMNS.DATA]: {
+          firstName: first,
+          middleName: middle,
+          lastName: last,
+          name: fullName,
+          role: newEmpRole,
+          allowance,
+          branchId: branch.id,
+        },
+        [DB_COLUMNS.REQUESTER_ID]: operatorName,
+        [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
+      });
+      if (error) throw error;
+      playSound('success');
+      showToast(`New staff request submitted for ${fullName}`);
+      setShowNewEmpRequest(false);
+      setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName('');
+      setNewEmpRole('THERAPIST'); setNewEmpAllowance('');
+      setNewEmpSimilarWarning(null); setNewEmpBlockError(null);
+      onRefresh?.();
+    } catch (err) {
+      playSound('warning');
+      showToast('Request failed. Try again.', 'error');
+    } finally {
+      setIsSubmittingNewEmp(false);
+    }
+  };
+
+  const handleConfirmRemoveReliever = async () => {
+    if (!removeRelieversEmployee || isRemovingReliever) return;
+    setIsRemovingReliever(true);
+    try {
+      const updatedAllowances = { ...(removeRelieversEmployee.branchAllowances || {}) };
+      delete updatedAllowances[branch.id];
+
+      await updateEmployee.mutateAsync({
+        id: removeRelieversEmployee.id,
+        [DB_COLUMNS.BRANCH_ALLOWANCES]: updatedAllowances,
+      });
+
+      // Delete all RELIEVER PAYOUT expenses for this employee on this branch
+      await supabase
+        .from(DB_TABLES.EXPENSES)
+        .delete()
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .like(DB_COLUMNS.NAME, `RELIEVER PAYOUT: ${removeRelieversEmployee.name}%`);
+
+      await addAuditLog.mutateAsync({
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
+        [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
+        [DB_COLUMNS.ENTITY_ID]: removeRelieversEmployee.id,
+        [DB_COLUMNS.DESCRIPTION]: `Reliever ${removeRelieversEmployee.name} removed from branch staff list at ${branch.name}.`,
+        [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR',
+      });
+
+      playSound('success');
+      showToast(`${removeRelieversEmployee.name} removed from staff list`);
+      setRemoveRelieversEmployee(null);
+      onRefresh?.();
+    } catch (err) {
+      playSound('warning');
+      showToast('Failed to remove reliever. Try again.', 'error');
+    } finally {
+      setIsRemovingReliever(false);
     }
   };
 
@@ -376,6 +518,27 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
     try {
       if (state === 'NOT_STARTED' || state === 'COMPLETED') {
+        // Block clock-in if the employee is already on duty at a different branch today.
+        // Managers are exempt since they may legitimately cover multiple branches.
+        const isManager = (selectedEmpForTime.role || '').toUpperCase().includes('MANAGER');
+        if (!isManager) {
+          const ongoingElsewhere = (attendance || []).find(a =>
+            a.employeeId === selectedEmpForTime.id &&
+            a.date === todayStr &&
+            a.clockIn && !a.clockOut &&
+            a.branchId !== branch.id
+          );
+          if (ongoingElsewhere) {
+            const otherBranch = branches.find(b => b.id === ongoingElsewhere.branchId);
+            const otherName = otherBranch?.name?.replace(/BRANCH\s*-\s*/i, '') ?? 'another branch';
+            showToast(`${selectedEmpForTime.name} is currently on duty at ${otherName}. Clock them out there first.`);
+            setIsTimeModalOpen(false);
+            setIsSyncing(false);
+            if (onSyncStatusChange) onSyncStatusChange(false);
+            return;
+          }
+        }
+
         // Check if the most recent record for today was a half-day record
         const todayRecords = (attendance || []).filter(a => a.employeeId === selectedEmpForTime.id && a.date === todayStr);
         const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
@@ -573,7 +736,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.BRANCH_ALLOWANCES]: sanitizedBranchAllowances,
         [DB_COLUMNS.BRANCH_ID]: editingEmployee.branchId || branch.id,
         [DB_COLUMNS.IS_ACTIVE]: editingEmployee.isActive !== false,
-        [DB_COLUMNS.PROFILE]: profileUrl || null
+        [DB_COLUMNS.PROFILE]: profileUrl || null,
       };
 
       if (editingEmployee.id) {
@@ -633,7 +796,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
   return (
     <>
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 pb-32">
+    <div className="space-y-4 sm:space-y-6">
       {toast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[5000] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
@@ -666,53 +829,41 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         toggleRole={toggleRole}
         allEmployees={employees}
         branchId={branch.id}
+        isManagerView={isManagerView}
       />
 
-      {/* HEADER SECTION - FIXED ALIGNMENT */}
-      <StaffHeader 
+      {/* HEADER SECTION */}
+      <StaffHeader
         branchName={branch.name.replace(/BRANCH - /g, '')}
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onAddStaff={() => handleOpenEdit()}
+        onSearchChange={val => { setSearchTerm(val); setCurrentPage(1); }}
         onPullReliever={handleOpenPull}
-        onExportPDF={handleExportPDF}
-        showFilters={showFilters}
-        setShowFilters={setShowFilters}
-        isExporting={isExporting}
-        hasActiveFilters={filterRole !== 'ALL'}
+        onRequestNewEmployee={isDelegate ? undefined : () => { setShowNewEmpRequest(true); playSound('click'); }}
+        filterRoles={filterRoles as any}
+        onFilterRolesChange={roles => { setFilterRoles(roles as any); setCurrentPage(1); }}
+        filterActiveOnly={filterActiveOnly}
+        onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); setCurrentPage(1); }}
+        totalShowing={branchStaff.length}
       />
 
-      {/* FILTER PANEL */}
-      {showFilters && (
-        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl animate-in slide-in-from-top-4 duration-300 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Designation Filter</label>
-              <div className="flex flex-wrap gap-2">
-                {['ALL', 'THERAPIST', 'BONESETTER', 'MANAGER'].map(role => (
-                  <button
-                    key={role}
-                    onClick={() => { setFilterRole(role); setCurrentPage(1); playSound('click'); }}
-                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${filterRole === role ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200'}`}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+      {isManagerView && !isDelegate && onNavigateToComplaints && (
+        <button
+          onClick={() => { playSound('click'); onNavigateToComplaints(); }}
+          className="w-full flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:border-rose-300 hover:bg-rose-50/40 transition-all group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
+            <svg className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+            </svg>
           </div>
-
-          <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing {branchStaff.length} Personnel</p>
-            <button 
-              onClick={() => { setFilterRole('ALL'); setSearchTerm(''); setCurrentPage(1); playSound('click'); }}
-              className="text-[9px] font-black text-rose-600 uppercase tracking-widest hover:underline"
-            >
-              Reset All Filters
-            </button>
+          <div className="flex-1 text-left min-w-0">
+            <p className="text-[11px] font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
           </div>
-        </div>
+          <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       )}
 
       {isSetupRequired && (
@@ -751,7 +902,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               onTimeAction={handleOpenTimeModal}
               onReset={isDelegate ? undefined : handleOpenReset}
               onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
-              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager ? () => { setDisableRequestEmployee(emp); setDisableReason(''); } : undefined}
+              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager ? () => { setDisableRequestEmployee(emp); setDisableReasonType(''); setDisableReasonNotes(''); } : undefined}
+              onRemoveReliever={
+                !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
+                  ? () => setRemoveRelieversEmployee(emp)
+                  : undefined
+              }
+              onViewID={() => { setIdCardEmployee(emp); playSound('click'); }}
             />
           );
         }) : (
@@ -764,7 +921,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       {/* PAGINATION */}
       {totalPages > 0 && (
-        <div className="flex flex-col items-center gap-3 mt-12">
+        <div className="flex flex-col items-center gap-3 mt-4">
           <select
             value={itemsPerPage}
             onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); playSound('click'); }}
@@ -809,10 +966,76 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       )}
     </div>
 
+    {/* EMPLOYEE ID CARD MODAL */}
+    {idCardEmployee && (
+      <EmployeeIDCardModal
+        employee={idCardEmployee}
+        branches={branches}
+        onClose={() => setIdCardEmployee(null)}
+      />
+    )}
+
+    {/* REMOVE RELIEVER CONFIRMATION MODAL */}
+    {removeRelieversEmployee && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setRemoveRelieversEmployee(null)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Remove Reliever</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Removes from this branch's staff list only</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reliever</span>
+              <span className="text-[11px] font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase">
+                {branches.find(b => b.id === removeRelieversEmployee.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-slate-500 leading-relaxed mb-5">
+            This removes <span className="font-black text-slate-700">{removeRelieversEmployee.name}</span> from this branch's authorized staff list. Their home branch record and payroll are not affected. You can re-enroll them later via "Enroll Reliever".
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              disabled={isRemovingReliever}
+              onClick={() => setRemoveRelieversEmployee(null)}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={isRemovingReliever}
+              onClick={handleConfirmRemoveReliever}
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isRemovingReliever
+                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                : 'Remove from Branch'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* DISABLE EMPLOYEE REQUEST MODAL */}
     {disableRequestEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDisableRequestEmployee(null)} />
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }} />
         <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
@@ -838,12 +1061,43 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
 
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Reason <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Disabling <span className="text-rose-500">*</span></label>
+            <div className="space-y-2">
+              {(['RESIGNED', 'TERMINATED', 'ON_HOLD'] as const).map(opt => {
+                const labels: Record<string, { label: string; desc: string; color: string }> = {
+                  RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         color: 'border-slate-400 bg-slate-900' },
+                  TERMINATED: { label: 'Terminated', desc: 'Dismissed due to misconduct/cause', color: 'border-rose-500 bg-rose-600' },
+                  ON_HOLD:    { label: 'On Hold',    desc: 'Temporarily inactive',              color: 'border-amber-400 bg-amber-500' },
+                };
+                const m = labels[opt];
+                const isSelected = disableReasonType === opt;
+                return (
+                  <label
+                    key={opt}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-slate-900 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`}
+                    onClick={() => setDisableReasonType(opt)}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-slate-900' : 'border-slate-300'}`}>
+                      {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
+                      <p className="text-[9px] text-slate-400 font-semibold">{m.desc}</p>
+                    </div>
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.color.split(' ')[1]}`} />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Additional Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
             <textarea
-              value={disableReason}
-              onChange={e => setDisableReason(e.target.value)}
-              rows={3}
-              placeholder="e.g. Resigned, No-show, Misconduct..."
+              value={disableReasonNotes}
+              onChange={e => setDisableReasonNotes(e.target.value)}
+              rows={2}
+              placeholder="Additional context for the superadmin..."
               className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-amber-400 resize-none bg-slate-50"
             />
           </div>
@@ -851,17 +1105,147 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           <div className="flex gap-3">
             <button
               disabled={isSubmittingDisable}
-              onClick={() => setDisableRequestEmployee(null)}
+              onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }}
               className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              disabled={isSubmittingDisable}
+              disabled={isSubmittingDisable || !disableReasonType}
               onClick={handleSubmitDisableRequest}
               className="flex-1 h-10 rounded-xl bg-amber-500 text-[11px] font-black uppercase tracking-widest text-white hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingDisable
+                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                : 'Submit Request'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* NEW EMPLOYEE CREATION REQUEST MODAL */}
+    {showNewEmpRequest && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request New Staff</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 mb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">First Name <span className="text-rose-500">*</span></label>
+                <input
+                  value={newEmpFirstName}
+                  onChange={e => { setNewEmpFirstName(e.target.value); checkNewEmpName(e.target.value, newEmpMiddleName, newEmpLastName); }}
+                  placeholder="e.g. JUAN"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Last Name <span className="text-rose-500">*</span></label>
+                <input
+                  value={newEmpLastName}
+                  onChange={e => { setNewEmpLastName(e.target.value); checkNewEmpName(newEmpFirstName, newEmpMiddleName, e.target.value); }}
+                  placeholder="e.g. DELA CRUZ"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
+              <input
+                value={newEmpMiddleName}
+                onChange={e => { setNewEmpMiddleName(e.target.value); checkNewEmpName(newEmpFirstName, e.target.value, newEmpLastName); }}
+                placeholder="e.g. SANTOS"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+              />
+            </div>
+
+            {newEmpBlockError && (
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+                <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p className="text-[10px] font-bold text-rose-700">{newEmpBlockError}</p>
+              </div>
+            )}
+            {!newEmpBlockError && newEmpSimilarWarning && (
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                <p className="text-[10px] font-bold text-amber-700">{newEmpSimilarWarning}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Role <span className="text-rose-500">*</span></label>
+            <div className="flex flex-wrap gap-2">
+              {(['THERAPIST', 'BONESETTER'] as const).map(r => {
+                const selected = newEmpRole.split(',').map(s => s.trim()).includes(r);
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      const current = newEmpRole.split(',').map(s => s.trim()).filter(Boolean);
+                      const next = selected ? current.filter(x => x !== r) : [...current, r];
+                      setNewEmpRole(next.join(','));
+                    }}
+                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${
+                      selected
+                        ? r === 'THERAPIST'
+                          ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                          : 'bg-amber-100 border-amber-300 text-amber-800'
+                        : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+            {!newEmpRole && <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Select at least one role.</p>}
+          </div>
+
+          <div className="mb-5">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
+            <input
+              type="number"
+              min="1"
+              value={newEmpAllowance}
+              onChange={e => setNewEmpAllowance(e.target.value)}
+              placeholder="e.g. 350"
+              className={`w-full px-3 py-2.5 rounded-xl border-2 text-[11px] font-semibold text-slate-700 outline-none transition-all bg-slate-50 ${newEmpAllowance && Number(newEmpAllowance) > 0 ? 'border-slate-200 focus:border-indigo-400' : 'border-rose-200 focus:border-rose-400'}`}
+            />
+            {(!newEmpAllowance || Number(newEmpAllowance) <= 0) && (
+              <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Allowance must be greater than 0.</p>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              disabled={isSubmittingNewEmp}
+              onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={isSubmittingNewEmp || !!newEmpBlockError || !newEmpFirstName.trim() || !newEmpLastName.trim() || !newEmpRole || !newEmpAllowance || Number(newEmpAllowance) <= 0}
+              onClick={handleSubmitNewEmployeeRequest}
+              className="flex-1 h-10 rounded-xl bg-indigo-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingNewEmp
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                 : 'Submit Request'
               }

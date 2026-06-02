@@ -396,7 +396,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
 
   // ── Browse View ───────────────────────────────────────────────
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-5">
       {/* Header */}
       <div>
         <h3 className={UI_THEME.text.title}>Client Lookup</h3>

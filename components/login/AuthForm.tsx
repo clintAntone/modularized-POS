@@ -48,14 +48,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">
             {usernameLabel}
           </label>
-          <input 
-            type="text" 
-            value={username} 
-            onChange={(e) => setUsername(isSetupAccountMode ? e.target.value : e.target.value.toLowerCase())} 
-            placeholder={usernamePlaceholder} 
-            className="w-full p-4 sm:p-5 bg-slate-50 border-2 border-transparent text-[12px] rounded-[15px] font-bold uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tracking-widest" 
-            disabled={isAuthenticating} 
-            autoFocus 
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(isSetupAccountMode ? e.target.value : e.target.value.toLowerCase())}
+            placeholder={usernamePlaceholder}
+            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 text-[12px] rounded-xl font-bold uppercase outline-none focus:border-slate-400 focus:bg-white transition-all text-center tracking-widest text-slate-800"
+            disabled={isAuthenticating}
+            autoFocus
           />
           {isReliefMode && reliefStep === 'setup' && (
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
@@ -68,16 +68,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">
           {pinLabel}
         </label>
-        <input 
-          type="password" 
-          maxLength={6} 
-          inputMode="numeric" 
-          value={pin} 
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} 
-          className="w-full p-5 sm:p-6 text-center text-3xl font-black tracking-[0.5em] pl-[0.5em] bg-slate-50 border-2 border-transparent rounded-[15px] sm:rounded-[28px] focus:border-emerald-500 focus:bg-white outline-none transition-all" 
-          autoComplete="off" 
-          disabled={isAuthenticating || !!lockoutUntil} 
-          placeholder="••••••" 
+        <input
+          type="password"
+          maxLength={6}
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className="w-full px-4 py-3.5 text-center text-2xl font-black tracking-[0.5em] pl-[0.5em] bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white outline-none transition-all"
+          autoComplete="off"
+          disabled={isAuthenticating || !!lockoutUntil}
+          placeholder="••••••"
         />
       </div>
 
@@ -93,10 +93,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             inputMode="numeric" 
             value={confirmPin} 
             onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))} 
-            className="w-full p-5 sm:p-6 text-center text-3xl font-black tracking-[0.5em] pl-[0.5em] bg-slate-50 border-2 border-transparent rounded-[15px] sm:rounded-[28px] focus:border-emerald-500 focus:bg-white outline-none transition-all" 
-            autoComplete="off" 
-            disabled={isAuthenticating || !!lockoutUntil} 
-            placeholder="••••••" 
+            className="w-full px-4 py-3.5 text-center text-2xl font-black tracking-[0.5em] pl-[0.5em] bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white outline-none transition-all"
+            autoComplete="off"
+            disabled={isAuthenticating || !!lockoutUntil}
+            placeholder="••••••"
           />
         </div>
       )}

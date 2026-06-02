@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* Prevent native copy/paste callout and text selection on touch devices */
+* {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, [role="button"], input, textarea, select, label {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow text selection inside actual input/textarea fields */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Gray placeholder text for empty date inputs */
+input[type="date"].date-empty::-webkit-datetime-edit-year-field,
+input[type="date"].date-empty::-webkit-datetime-edit-month-field,
+input[type="date"].date-empty::-webkit-datetime-edit-day-field,
+input[type="date"].date-empty::-webkit-datetime-edit-text {
+  color: #94a3b8;
+}
+
 @theme {
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;

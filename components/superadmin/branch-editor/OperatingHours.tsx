@@ -51,21 +51,6 @@ export const OperatingHours: React.FC<OperatingHoursProps> = ({
           </p>
         )}
 
-        <div className="flex items-center justify-between p-5 bg-white/50 rounded-2xl border border-slate-100/50 transition-all duration-300 opacity-60">
-          <div className="space-y-1 overflow-hidden">
-             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-bold uppercase text-slate-900 tracking-widest">Clock In/Out System</p>
-              <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[7px] font-bold uppercase border border-indigo-100">Upcoming</span>
-             </div>
-             <p className="text-[9px] font-semibold text-slate-400 uppercase">Shift Tracking Protocol</p>
-          </div>
-          <button 
-            disabled={true}
-            className={`px-8 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all bg-white border-slate-100 text-slate-200 cursor-not-allowed`}
-          >
-            LOCKED
-          </button>
-        </div>
       </div>
     </section>
   );

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
 
 interface SalesKPIStripProps {
     gross: number;
@@ -88,11 +87,11 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             {/* Expenses */}
             <div className="col-span-1 bg-[#FFF1F2] p-3 sm:p-6 rounded-[28px] border border-red-100/50 flex flex-col justify-center gap-1 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
                 <p className="text-[9px] sm:text-[11px] font-bold text-red-600 uppercase tracking-widest">Expenses</p>
-                {/* Show cash out net of vault withdrawal only — vault deposits excluded */}
-                <p className={`${getFontSize(vaultWithdrawal > 0 ? Math.max(0, operationalExp - vaultWithdrawal) : operationalExp)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
-                    ₱{(vaultWithdrawal > 0 ? Math.max(0, operationalExp - vaultWithdrawal) : operationalExp).toLocaleString()}
+                {/* Main number: what daily sales actually shouldered (ROI portion only) */}
+                <p className={`${getFontSize(Math.max(0, operationalExp - vaultCoveredExp))} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
+                    ₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}
                 </p>
-                {vaultWithdrawal > 0 && (
+                {vaultCoveredExp > 0 && (
                   <div className="mt-1.5">
                     {/* Mobile toggle button */}
                     <button
@@ -103,21 +102,17 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                       {showExpenseDetail ? 'Hide' : 'Breakdown'}
                     </button>
                     <div className={`space-y-1 border-t border-rose-200/60 pt-1.5 ${showExpenseDetail ? 'block' : 'hidden'} sm:block`}>
-                      {(operationalExp - vaultCoveredExp) > 0 && (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-semibold text-slate-400">Other</span>
-                          <span className="text-[10px] font-bold text-slate-600 tabular-nums">−₱{(operationalExp - vaultCoveredExp).toLocaleString()}</span>
-                        </div>
-                      )}
-                      {(vaultCoveredExp - vaultWithdrawal) > 0 && (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-semibold text-slate-400">Bill (Cash)</span>
-                          <span className="text-[10px] font-bold text-slate-600 tabular-nums">−₱{(vaultCoveredExp - vaultWithdrawal).toLocaleString()}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-semibold text-rose-400">ROI Expenses</span>
+                        <span className="text-[10px] font-bold text-rose-500 tabular-nums">₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-semibold text-amber-600">+ Vault Covered</span>
+                        <span className="text-[10px] font-bold text-amber-600 tabular-nums">₱{vaultCoveredExp.toLocaleString()}</span>
+                      </div>
                       <div className="flex items-center justify-between gap-2 border-t border-rose-200/60 pt-1 mt-0.5">
-                        <span className="text-[9px] font-semibold text-slate-500">Vault Used</span>
-                        <span className="text-[10px] font-bold text-rose-500 tabular-nums">−₱{vaultWithdrawal.toLocaleString()}</span>
+                        <span className="text-[9px] font-semibold text-slate-400">Total Exp</span>
+                        <span className="text-[10px] font-bold text-slate-500 tabular-nums">₱{operationalExp.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>

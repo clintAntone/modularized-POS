@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Branch, Transaction, Expense, Attendance, Employee, BranchVault } from '../../../types';
+import { Branch, Transaction, Expense, Attendance, Employee, BranchVault, SalesReport, VaultTransaction } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
@@ -30,6 +30,7 @@ interface SalesTodayProps {
   expenses: Expense[];
   attendance: Attendance[];
   employees: Employee[];
+  salesReports?: SalesReport[];
   setActiveTab?: (id: any) => void;
   autoSyncStatus?: 'synced' | 'saving' | 'error';
   connStatus?: 'connecting' | 'connected' | 'error' | 'offline';
@@ -42,6 +43,8 @@ interface SalesTodayProps {
   loading?: boolean;
   branchVault?: BranchVault | null;
   totalBillsAmount?: number;
+  vaultTransactions?: VaultTransaction[];
+  onForceSync?: () => void;
 }
 
 interface Toast {
@@ -53,11 +56,13 @@ import { KPISkeleton, CardSkeleton } from '../../ui/Skeleton';
 
 export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   user,
-  branch, transactions, expenses, attendance, employees,
+  branch, transactions, expenses, attendance, employees, salesReports = [],
+  setActiveTab,
   autoSyncStatus = 'synced', connStatus = 'connected', pendingSyncCount = 0,
   todayStr: propTodayStr,
   hiddenStaffNames, setHiddenStaffNames,
-  isClosedMode = false, onRefresh, loading = false, branchVault = null, totalBillsAmount = 0
+  isClosedMode = false, onRefresh, loading = false, branchVault = null, totalBillsAmount = 0,
+  vaultTransactions = [], onForceSync,
 }) => {
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
@@ -66,16 +71,19 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const [showVaultDepositPrompt, setShowVaultDepositPrompt] = useState(false);
   const [vaultDepositInput, setVaultDepositInput] = useState('');
   const [vaultDepositRemitAll, setVaultDepositRemitAll] = useState(true);
+  const [vaultDepositTargetDate, setVaultDepositTargetDate] = useState<string>('');
   const [isSubmittingVaultDeposit, setIsSubmittingVaultDeposit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [vaultDepositToDelete, setVaultDepositToDelete] = useState<{ id: string; amount: number; timestamp?: string } | null>(null);
+  const [isDeletingVaultDeposit, setIsDeletingVaultDeposit] = useState(false);
+  const [vaultWithdrawalToDelete, setVaultWithdrawalToDelete] = useState<{ id: string; amount: number; expenseName: string; source: 'vault_transactions' | 'expenses' } | null>(null);
+  const [isDeletingVaultWithdrawal, setIsDeletingVaultWithdrawal] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
 
-  // Today's vault deposits — sourced from sales_reports.vault_data (not expenses table)
-  const [todayVaultData, setTodayVaultData] = useState<any[]>([]);
-
+  // Today's vault deposits — derived from salesReports prop so it stays in sync with refreshes
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -95,30 +103,36 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     }).format(getTrueDate());
   }, [propTodayStr]);
 
-  // Sync reliever payouts on load and whenever transactions/attendance change
-  useEffect(() => {
-    syncRelieverPayouts(branch, todayStr, employees, hiddenStaffNames);
-  }, [branch.id, todayStr, transactions.length, attendance.length]);
+  const yesterdayStr = useMemo(() => {
+    const d = new Date(todayStr + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }, [todayStr]);
 
-  // Fetch today's vault_data from sales_reports whenever branch/date changes
+  // Previous-day report — available for late vault deposits when the manager's shift crossed midnight
+  const yesterdayReport = useMemo(() =>
+    salesReports.find(r => r.branchId === branch.id && r.reportDate === yesterdayStr) ?? null,
+  [salesReports, branch.id, yesterdayStr]);
+
+  // Tracks each employee's branch assignment — changes when someone becomes a reliever
+  const employeeBranchFingerprint = useMemo(
+    () => employees.map(e => `${e.id}:${e.branchId}`).sort().join('|'),
+    [employees]
+  );
+
+  // Sync reliever payouts on load and whenever transactions/attendance/employees change
   useEffect(() => {
-    supabase
-      .from(DB_TABLES.SALES_REPORTS)
-      .select(`${DB_COLUMNS.VAULT_DATA}`)
-      .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-      .eq(DB_COLUMNS.REPORT_DATE, todayStr)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          const raw = typeof data[DB_COLUMNS.VAULT_DATA] === 'string'
-            ? JSON.parse(data[DB_COLUMNS.VAULT_DATA])
-            : (data[DB_COLUMNS.VAULT_DATA] || []);
-          setTodayVaultData(raw.filter((e: any) => e.category === 'VAULT_DEPOSIT'));
-        } else {
-          setTodayVaultData([]);
-        }
-      });
-  }, [branch.id, todayStr]);
+    if (employees.length === 0) return; // wait for employees to load before syncing
+    syncRelieverPayouts(branch, todayStr, employees, hiddenStaffNames);
+  }, [branch.id, todayStr, transactions.length, attendance.length, employeeBranchFingerprint]);
+
+  const todayVaultData = useMemo(() =>
+    vaultTransactions.filter(t =>
+      t.branchId === branch.id &&
+      t.type === 'DEPOSIT' &&
+      toManilaDateStr(t.timestamp) === todayStr
+    ).map(t => ({ id: t.id, name: t.name ?? 'VAULT DEPOSIT', amount: t.amount, category: 'VAULT_DEPOSIT', timestamp: t.timestamp })),
+  [vaultTransactions, branch.id, todayStr]);
 
   const txs = useMemo(() => transactions.filter(t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === todayStr).sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')), [transactions, branch.id, todayStr]);
   const exps = useMemo(() => expenses.filter(e => e.branchId === branch.id && toManilaDateStr(e.timestamp) === todayStr).sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')), [expenses, branch.id, todayStr]);
@@ -240,18 +254,14 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       }
     });
 
-    // VAULT_DEPOSIT is now stored in sales_reports.vault_data, not in the expenses table
     const totalOperationalExp = exps.filter(e => e.category === 'OPERATIONAL').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalVaultCoveredOps = exps.filter(e => e.category === 'VAULT_WITHDRAWAL').reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const totalVaultProvision = todayVaultData.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalVaultWithdrawalExp = exps.filter(e => e.category === 'VAULT_WITHDRAWAL').reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    // Compute how much of operational expenses were vault-covered (matched by "VAULT: {name}" pairs)
-    const vaultWithdrawalNames = new Set(
-      exps.filter(e => e.category === 'VAULT_WITHDRAWAL')
-          .map(e => (e.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase())
+    // Vault withdrawals now live in vault_transactions (type WITHDRAWAL)
+    const todayWithdrawals = vaultTransactions.filter(t =>
+      t.branchId === branch.id && t.type === 'WITHDRAWAL' && toManilaDateStr(t.timestamp) === todayStr
     );
-    const totalVaultCoveredOps = exps
-      .filter(e => e.category === 'OPERATIONAL' && vaultWithdrawalNames.has((e.name || '').trim().toUpperCase()))
-      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalVaultWithdrawalExp = todayWithdrawals.reduce((s, t) => s + t.amount, 0);
     const totalProvisionExp = exps.filter(e => e.category === 'PROVISION').reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const regularAttendance = dailyAttendance.filter(a => {
       const emp = employees.find(e => e.id === a.employeeId);
@@ -279,8 +289,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
     const totalStaffLiability = regularStaffPay + regularOtAdditions + totalAllowances - regularLateDeductions;
     const finalStaffPayTotal = totalStaffLiability - regularTotalCashAdvances;
-    // Unified formula: PROVISION covers legacy branches, totalVaultProvision covers vault-enabled branches
-    const net = gross - totalOperationalExp + totalVaultWithdrawalExp - totalProvisionExp - totalVaultProvision - totalStaffLiability;
+    const net = gross - totalOperationalExp + totalVaultCoveredOps - totalProvisionExp - totalVaultProvision - totalStaffLiability;
 
     return {
       gross, cashTotal, gcashTotal,
@@ -293,7 +302,18 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       lateDeductions: regularLateDeductions, otAdditions: regularOtAdditions,
       totalCashAdvances: regularTotalCashAdvances, totalAllowances, net, staffSummary: summary
     };
-  }, [txs, dailyAttendance, exps, activeRoster, hiddenStaffNames, branch.id, todayVaultData]);
+  }, [txs, dailyAttendance, exps, activeRoster, hiddenStaffNames, branch.id, todayVaultData, vaultTransactions, todayStr]);
+
+  // Auto-sync to sales_reports when data finishes loading and vault deposit is present.
+  // This ensures the DB stays consistent without requiring the user to click Sync manually.
+  const hasSyncedOnLoad = useRef(false);
+  useEffect(() => {
+    if (loading || hasSyncedOnLoad.current) return;
+    if (metrics.vaultProvision > 0 && onForceSync) {
+      hasSyncedOnLoad.current = true;
+      onForceSync();
+    }
+  }, [loading, metrics.vaultProvision]);
 
   const handleHideStaff = async (name: string) => {
     playSound('warning');
@@ -348,34 +368,27 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       const { error } = await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, target.id);
       if (error) throw error;
 
-      // Vault balance adjustment for withdrawals only (deposits now live in sales_reports.vault_data)
-      if (target.category === 'VAULT_WITHDRAWAL') {
-        const { data: liveVault } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single();
-        const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-        await supabase.from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + target.amount })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      }
-
-      // If deleting an OPERATIONAL expense that had vault coverage, also remove the paired VAULT_WITHDRAWAL
+      // If this OPERATIONAL expense had a vault cover, cascade-delete the paired VAULT_WITHDRAWAL expense
+      // and its vault_transactions record, then restore the vault balance
       if (target.category === 'OPERATIONAL') {
-        const vaultWithdrawalName = `VAULT: ${target.name.toUpperCase()}`;
-        const pairedWithdrawal = exps.find(e => e.category === 'VAULT_WITHDRAWAL' && e.name === vaultWithdrawalName);
-        if (pairedWithdrawal) {
-          await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedWithdrawal.id);
-          // Restore vault balance for the paired withdrawal
+        const pairedVaultCover = exps.find(e =>
+          e.category === 'VAULT_WITHDRAWAL' &&
+          (e.name || '').toUpperCase() === `VAULT: ${(target.name || '').toUpperCase()}`
+        );
+        if (pairedVaultCover) {
+          await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
+          // Also delete the vault_transactions record (same ID if created via cover-from-vault)
+          await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
+          // Restore vault balance
           const { data: liveVault } = await supabase
             .from(DB_TABLES.BRANCH_VAULTS)
             .select(DB_COLUMNS.VAULT_BALANCE)
             .eq(DB_COLUMNS.BRANCH_ID, branch.id)
             .single();
           const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-          await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + pairedWithdrawal.amount })
+          await supabase
+            .from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + (Number(pairedVaultCover.amount) || 0) })
             .eq(DB_COLUMNS.BRANCH_ID, branch.id);
         }
       }
@@ -401,6 +414,141 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     }
   };
 
+  const handleDeleteVaultDepositTrigger = (depositId: string) => {
+    const deposit = todayVaultData.find((e: any) => e.id === depositId);
+    if (!deposit) return;
+    playSound('warning');
+    setVaultDepositToDelete({ id: deposit.id, amount: Number(deposit.amount), timestamp: deposit.timestamp });
+  };
+
+  const handleFinalDeleteVaultDeposit = async () => {
+    if (!vaultDepositToDelete || isDeletingVaultDeposit || isClosedMode) return;
+    const { id: depositId, amount: refundAmount } = vaultDepositToDelete;
+    setIsDeletingVaultDeposit(true);
+    try {
+      // Delete from vault_transactions — atomic, no partial-failure risk
+      const { error: txErr, count } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .delete({ count: 'exact' })
+        .eq(DB_COLUMNS.ID, depositId)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (txErr) throw txErr;
+      if ((count ?? 0) === 0) throw new Error(`Deposit ${depositId} not found — vault balance unchanged.`);
+
+      // Refund the deposit amount back to vault balance
+      const { data: liveVault } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(DB_COLUMNS.VAULT_BALANCE)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .single();
+      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
+      const { error: vaultErr } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveBalance - refundAmount) })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (vaultErr) throw vaultErr;
+
+      await logAudit({
+        branchId: branch.id,
+        activityType: 'DELETE',
+        entityType: 'EXPENSE',
+        entityId: depositId,
+        description: `Vault deposit reversal: ₱${refundAmount.toLocaleString()} removed from today's vault deposit log at ${branch.name}. Vault balance reduced accordingly.`,
+        amount: refundAmount,
+        performerName: user?.username || branch.manager || 'AUTHORIZED MANAGER',
+      });
+
+      playSound('success');
+      showToast('Vault Deposit Reversed');
+      setVaultDepositToDelete(null);
+      onRefresh?.();
+    } catch (err) {
+      showToast('Reversal Failed', 'error');
+    } finally {
+      setIsDeletingVaultDeposit(false);
+    }
+  };
+
+  // Triggered from vault fund panel when user wants to reverse a vault withdrawal
+  const handleVaultWithdrawalDeleteTrigger = (withdrawalId: string) => {
+    // Check vault_transactions first (Pay Bill withdrawals)
+    const vaultTxRecord = vaultTransactions.find(t => t.id === withdrawalId && t.type === 'WITHDRAWAL');
+    if (vaultTxRecord) {
+      playSound('warning');
+      setVaultWithdrawalToDelete({ id: withdrawalId, amount: vaultTxRecord.amount, expenseName: (vaultTxRecord.name || '').trim(), source: 'vault_transactions' });
+      return;
+    }
+    // Fallback: check expenses table (cover-from-vault records stored as VAULT_WITHDRAWAL category)
+    const expRecord = exps.find(e => e.id === withdrawalId && e.category === 'VAULT_WITHDRAWAL');
+    if (expRecord) {
+      playSound('warning');
+      setVaultWithdrawalToDelete({ id: withdrawalId, amount: Number(expRecord.amount) || 0, expenseName: (expRecord.name || '').replace(/^VAULT:\s*/i, '').trim(), source: 'expenses' });
+    }
+  };
+
+  const handleFinalDeleteVaultWithdrawal = async () => {
+    if (!vaultWithdrawalToDelete || isDeletingVaultWithdrawal || isClosedMode) return;
+    const { id: withdrawalId, amount: refundAmount, expenseName, source } = vaultWithdrawalToDelete;
+    setIsDeletingVaultWithdrawal(true);
+    try {
+      if (source === 'vault_transactions') {
+        // Delete the vault_transaction WITHDRAWAL record
+        const { error: wErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, withdrawalId);
+        if (wErr) throw wErr;
+
+        // Also delete the paired OPERATIONAL expense (full reversal — restores ROI)
+        const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
+        if (pairedOp) {
+          if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
+          await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
+        }
+      } else {
+        // Cover-from-vault: delete the VAULT_WITHDRAWAL expense record
+        const { error: wErr } = await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, withdrawalId);
+        if (wErr) throw wErr;
+
+        // Also delete the paired OPERATIONAL expense if it still exists
+        const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
+        if (pairedOp) {
+          if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
+          await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
+        }
+      }
+
+      // Refund vault balance
+      const { data: liveVault } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(DB_COLUMNS.VAULT_BALANCE)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .single();
+      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
+      await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + refundAmount })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+
+      await logAudit({
+        branchId: branch.id,
+        activityType: 'DELETE',
+        entityType: 'EXPENSE',
+        entityId: withdrawalId,
+        description: `Vault withdrawal reversal: ₱${refundAmount.toLocaleString()} for ${expenseName} reversed at ${branch.name}. Vault balance restored and expense removed.`,
+        amount: refundAmount,
+        performerName: user?.username || branch.manager || 'AUTHORIZED MANAGER',
+      });
+
+      playSound('success');
+      showToast('Vault Usage Reversed');
+      setVaultWithdrawalToDelete(null);
+      onRefresh?.();
+    } catch (err) {
+      console.error('[VaultWithdrawalDelete]', err);
+      showToast('Reversal Failed', 'error');
+    } finally {
+      setIsDeletingVaultWithdrawal(false);
+    }
+  };
+
   const hiddenRosterStaff = useMemo(() => {
     return employees.filter(e => {
       if (!hiddenStaffNames.has((e.name || '').toUpperCase())) return false;
@@ -412,80 +560,136 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     });
   }, [employees, branch.id, branch.manager, branch.tempManager, hiddenStaffNames]);
 
-  const handleVaultDeposit = async (amount: number) => {
+  const handleVaultDeposit = async (amount: number, targetDate?: string) => {
     if (!branchVault) return;
+    const depositDate = targetDate || todayStr;
     const now = getTrueDate();
     const timePart = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
     }).format(now);
-    const timestamp = `${todayStr}T${timePart}.000+08:00`;
+    const timestamp = `${depositDate}T${timePart}.000+08:00`;
+    const reportId = `${branch.id}_${depositDate.replace(/-/g, '')}`;
 
-    const newEntry = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: 'VAULT DEPOSIT',
-      amount,
-      category: 'VAULT_DEPOSIT',
-      timestamp,
-    };
+    // One-deposit-per-day: check for an existing DEPOSIT for this date
+    const existingDeposit = vaultTransactions.find(
+      t => t.branchId === branch.id && t.type === 'DEPOSIT' && toManilaDateStr(t.timestamp) === depositDate
+    );
 
-    const reportId = `${branch.id}_${todayStr.replace(/-/g, '')}`;
-
-    // Fetch existing report to get current vault_data and total_vault_provision
-    const { data: existing } = await supabase
-      .from(DB_TABLES.SALES_REPORTS)
-      .select(`${DB_COLUMNS.VAULT_DATA}, ${DB_COLUMNS.TOTAL_VAULT_PROVISION}`)
-      .eq(DB_COLUMNS.ID, reportId)
-      .single();
-
-    const existingVaultData: any[] = existing
-      ? (typeof existing[DB_COLUMNS.VAULT_DATA] === 'string'
-          ? JSON.parse(existing[DB_COLUMNS.VAULT_DATA])
-          : (existing[DB_COLUMNS.VAULT_DATA] || []))
-      : [];
-    const existingProvision: number = existing ? Number(existing[DB_COLUMNS.TOTAL_VAULT_PROVISION] || 0) : 0;
-
-    const updatedVaultData = [...existingVaultData, newEntry];
-    const updatedProvision = existingProvision + amount;
-
-    const { error: reportErr } = await supabase
-      .from(DB_TABLES.SALES_REPORTS)
-      .upsert({
-        [DB_COLUMNS.ID]: reportId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.REPORT_DATE]: todayStr,
-        [DB_COLUMNS.VAULT_DATA]: updatedVaultData,
-        [DB_COLUMNS.TOTAL_VAULT_PROVISION]: updatedProvision,
-      });
-    if (reportErr) throw reportErr;
-
-    // Update vault balance
-    const newBalance = branchVault.balance + amount;
-    const { error: vaultErr } = await supabase
+    const { data: liveVault } = await supabase
       .from(DB_TABLES.BRANCH_VAULTS)
-      .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-      .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-    if (vaultErr) throw vaultErr;
+      .select(DB_COLUMNS.VAULT_BALANCE)
+      .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+      .single();
+    const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
 
-    // Optimistic local update so UI reflects immediately
-    setTodayVaultData(prev => [...prev, newEntry]);
+    let newVaultBalance: number;
+    if (existingDeposit) {
+      // UPDATE existing — adjust balance by delta only
+      const delta = amount - existingDeposit.amount;
+      newVaultBalance = liveBalance + delta;
+      const { error: txErr } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .update({ [DB_COLUMNS.AMOUNT]: amount, [DB_COLUMNS.TIMESTAMP]: timestamp })
+        .eq(DB_COLUMNS.ID, existingDeposit.id);
+      if (txErr) throw txErr;
+
+      const { error: vaultErr } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: newVaultBalance })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (vaultErr) throw vaultErr;
+    } else {
+      // INSERT new deposit
+      newVaultBalance = liveBalance + amount;
+      const txId = Math.random().toString(36).substr(2, 9);
+      const { error: txErr } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .insert({
+          [DB_COLUMNS.ID]: txId,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.REPORT_ID]: reportId,
+          [DB_COLUMNS.TYPE]: 'DEPOSIT',
+          [DB_COLUMNS.AMOUNT]: amount,
+          [DB_COLUMNS.NAME]: 'VAULT DEPOSIT',
+          [DB_COLUMNS.TIMESTAMP]: timestamp,
+          [DB_COLUMNS.PERFORMED_BY]: user?.username || branch.manager || null,
+        });
+      if (txErr) throw txErr;
+
+      const { error: vaultErr } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .update({ [DB_COLUMNS.VAULT_BALANCE]: newVaultBalance })
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (vaultErr) throw vaultErr;
+    }
+
+    // Sync total_vault_provision to sales_reports immediately so it doesn't
+    // depend on the auto-save chain catching up (which can lag or miss entirely).
+    try {
+      const { data: allDeposits } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select(DB_COLUMNS.AMOUNT)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+        .gte(DB_COLUMNS.TIMESTAMP, `${depositDate}T00:00:00`)
+        .lt(DB_COLUMNS.TIMESTAMP, `${depositDate}T23:59:59.999`);
+      const totalProvision = (allDeposits || []).reduce((s, t) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0);
+
+      const { data: existingReport } = await supabase
+        .from(DB_TABLES.SALES_REPORTS)
+        .select(`${DB_COLUMNS.NET_ROI}, ${DB_COLUMNS.TOTAL_VAULT_PROVISION}`)
+        .eq(DB_COLUMNS.ID, reportId)
+        .maybeSingle();
+
+      if (existingReport) {
+        const prevProvision = Number(existingReport[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
+        const prevNet = Number(existingReport[DB_COLUMNS.NET_ROI] ?? 0);
+        const provisionDelta = totalProvision - prevProvision;
+        const newNet = Math.max(0, prevNet - provisionDelta);
+
+        await supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .update({
+            [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalProvision,
+            [DB_COLUMNS.NET_ROI]: newNet,
+          })
+          .eq(DB_COLUMNS.ID, reportId);
+      }
+    } catch (syncErr) {
+      console.error('[VaultDeposit] Failed to sync to sales_reports:', syncErr);
+    }
+
     onRefresh?.();
   };
 
   const handleVaultDepositPromptSubmit = async () => {
-    const currentBalance = branchVault?.balance ?? 0;
     const target = branchVault?.target ?? 0;
     const netRoi = Math.max(0, metrics.net);
-    const maxDeposit = target > 0 ? Math.max(0, target - currentBalance) : netRoi;
-    const remitAllAmt = Math.min(netRoi, maxDeposit);
+
+    // Guard: ROI must be positive
+    if (netRoi <= 0) return;
+
+    // Re-fetch live vault balance to prevent stale-state bypass (e.g. two tabs open)
+    const { data: liveVaultData } = await supabase
+      .from(DB_TABLES.BRANCH_VAULTS)
+      .select(DB_COLUMNS.VAULT_BALANCE)
+      .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+      .single();
+    const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? (branchVault?.balance ?? 0);
+
+    const spaceInTarget = target > 0 ? Math.max(0, target - liveBalance) : Infinity;
+    const maxDeposit = Math.min(netRoi, spaceInTarget === Infinity ? netRoi : spaceInTarget);
+    const remitAllAmt = maxDeposit;
     const amount = vaultDepositRemitAll ? remitAllAmt : Number(vaultDepositInput);
 
+    // Hard guards — these run even if the UI is bypassed via devtools
     if (!amount || amount <= 0) return;
-    // Hard guard: never allow a deposit that would exceed the target
-    if (target > 0 && currentBalance + amount > target) return;
+    if (amount > netRoi) { showToast('Deposit cannot exceed today\'s ROI', 'error'); return; }
+    if (target > 0 && liveBalance + amount > target) { showToast('Deposit would exceed vault target', 'error'); return; }
 
     setIsSubmittingVaultDeposit(true);
     try {
-      await handleVaultDeposit(amount);
+      await handleVaultDeposit(amount, vaultDepositTargetDate || todayStr);
       playSound('success');
       setShowVaultDepositPrompt(false);
       setVaultDepositInput('');
@@ -542,8 +746,9 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           ['  - Cash Payments', `PHP ${metrics.cashTotal.toLocaleString()}`],
           ['  - GCash Payments', `PHP ${metrics.gcashTotal.toLocaleString()}`],
           ['Expenses', ''],
-          ['    Operational', `PHP ${metrics.operationalExp.toLocaleString()}`],
-          ...(metrics.vaultProvision > 0 ? [['    Vault Deposit', `PHP ${metrics.vaultProvision.toLocaleString()}`]] : []),
+          ['    Operational', `PHP ${Math.max(0, metrics.operationalExp - metrics.vaultCoveredExp).toLocaleString()}`],
+          ...(metrics.vaultCoveredExp > 0 ? [['    Vault Shouldered', `PHP ${metrics.vaultCoveredExp.toLocaleString()}`]] : []),
+          ...(metrics.vaultProvision > 0 ? [['Vault Deposit', `PHP ${metrics.vaultProvision.toLocaleString()}`]] : []),
           ['Staff Payroll', `PHP ${metrics.totalStaffLiability.toLocaleString()}`],
           ['Net ROI', `PHP ${metrics.net.toLocaleString()}`],
         ],
@@ -656,14 +861,25 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         currentY = 20;
       }
 
-      // 5. Expenses
-      const expenseBody = exps.filter(e => e.category === 'OPERATIONAL' || e.category === 'PROVISION').map(e => [
-        (e.name || '').toUpperCase(),
-        `-PHP ${Number(e.amount || 0).toLocaleString()}`
-      ]);
-      if (metrics.vaultProvision > 0) {
-        expenseBody.push(['VAULT DEPOSIT', `-PHP ${metrics.vaultProvision.toLocaleString()}`]);
-      }
+      // Build vault coverage map: expense name → vault-shouldered amount
+      const allTodayVaultTxs = vaultTransactions.filter(
+        t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === todayStr
+      );
+      const vaultCovMap: Record<string, number> = {};
+      allTodayVaultTxs
+        .filter(t => t.type === 'WITHDRAWAL')
+        .forEach(t => {
+          const expName = (t.name || '').replace(/^VAULT:\s*/i, '').trim().toUpperCase();
+          vaultCovMap[expName] = (vaultCovMap[expName] ?? 0) + t.amount;
+        });
+
+      // 5. Expenses — show ROI portion only (deduct vault-shouldered amount per line)
+      const expenseBody = exps.filter(e => e.category === 'OPERATIONAL' || e.category === 'PROVISION').map(e => {
+        const expName = (e.name || '').trim().toUpperCase();
+        const vaultCov = vaultCovMap[expName] ?? 0;
+        const roiAmount = Math.max(0, Number(e.amount || 0) - vaultCov);
+        return [(e.name || '').toUpperCase(), `-PHP ${roiAmount.toLocaleString()}`];
+      });
 
       doc.setFontSize(11);
       doc.setTextColor(220, 38, 38);
@@ -677,13 +893,50 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         theme: 'grid',
         headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
         styles: { fontSize: 8 },
-        columnStyles: {
-          1: { halign: 'right', fontStyle: 'bold' }
-        },
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
         rowPageBreak: 'avoid'
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 10;
+
+      // 6. Vault Transactions — withdrawals (vault-shouldered) + deposits
+      if (allTodayVaultTxs.length > 0) {
+        if (currentY > 250) { doc.addPage(); currentY = 20; }
+
+        doc.setFontSize(11);
+        doc.setTextColor(109, 40, 217); // violet-700
+        doc.text('VAULT TRANSACTIONS', 14, currentY);
+        doc.setTextColor(0, 0, 0);
+
+        const vaultTxBody = allTodayVaultTxs
+          .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''))
+          .map(t => {
+            const ts = t.timestamp
+              ? new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(t.timestamp))
+              : '—';
+            const isDeposit = t.type === 'DEPOSIT';
+            // For withdrawals, strip the "VAULT: " prefix for a cleaner label
+            const rawName = t.name || (isDeposit ? 'VAULT DEPOSIT' : 'VAULT WITHDRAWAL');
+            const label = rawName.replace(/^VAULT:\s*/i, '').trim().toUpperCase();
+            const amount = isDeposit
+              ? `+PHP ${Number(t.amount || 0).toLocaleString()}`
+              : `-PHP ${Number(t.amount || 0).toLocaleString()}`;
+            return [label, isDeposit ? 'Deposit' : 'Vault Shouldered', ts, amount];
+          });
+
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['Description', 'Type', 'Time', 'Amount']],
+          body: vaultTxBody,
+          theme: 'grid',
+          headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255] },
+          styles: { fontSize: 8 },
+          columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
+          rowPageBreak: 'avoid'
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
 
       if (currentY > 250) {
         doc.addPage();
@@ -703,7 +956,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
   if (loading) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto px-4">
+      <div className="space-y-8 max-w-7xl mx-auto px-4">
         <KPISkeleton />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <CardSkeleton />
@@ -715,7 +968,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-32 max-w-7xl mx-auto relative">
+    <div className="space-y-6 pb-32 max-w-7xl mx-auto relative">
         {/* Print Only Header */}
         <div className="hidden print:block mb-8 border-b-2 border-slate-900 pb-6">
           <div className="flex justify-between items-end">
@@ -754,6 +1007,20 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             )}
           </div>
 
+          <div className="flex items-center gap-2 shrink-0">
+            {onForceSync && (
+              <button
+                onClick={() => { playSound('click'); onForceSync(); }}
+                disabled={autoSyncStatus === 'saving'}
+                title="Force sync report to database"
+                className={`flex items-center gap-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all shadow-sm active:scale-95 ${autoSyncStatus === 'saving' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <svg className={`w-3 h-3 ${autoSyncStatus === 'saving' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Sync
+              </button>
+            )}
           <button
               onClick={() => handleExportPDF()}
               disabled={isExporting}
@@ -766,6 +1033,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             )}
             {isExporting ? 'Exporting...' : 'Export PDF'}
           </button>
+          </div>
         </div>
 
         <div className="space-y-6 print:hidden">
@@ -807,6 +1075,69 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             document.body
           )}
 
+          {vaultDepositToDelete && ReactDOM.createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in duration-200" onClick={() => !isDeletingVaultDeposit && setVaultDepositToDelete(null)}>
+              <div className="w-full max-w-md bg-white shadow-2xl rounded-[32px] p-10 text-center border border-slate-100 animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
+                </div>
+                <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Reverse Deposit?</h4>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                  Remove this ₱{vaultDepositToDelete.amount.toLocaleString()} vault deposit{vaultDepositToDelete.timestamp ? ` from ${new Date(vaultDepositToDelete.timestamp.replace(' ', 'T')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : ''}? The amount will be deducted back from the vault balance.
+                </p>
+                <div className="flex flex-col gap-4 mt-10">
+                  <button
+                    onClick={handleFinalDeleteVaultDeposit}
+                    disabled={isDeletingVaultDeposit}
+                    className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                    {isDeletingVaultDeposit ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Reverse Deposit'}
+                  </button>
+                  <button
+                    onClick={() => setVaultDepositToDelete(null)}
+                    disabled={isDeletingVaultDeposit}
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {vaultWithdrawalToDelete && ReactDOM.createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in duration-200" onClick={() => !isDeletingVaultWithdrawal && setVaultWithdrawalToDelete(null)}>
+              <div className="w-full max-w-md bg-white shadow-2xl rounded-[32px] p-10 text-center border border-slate-100 animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 16l-6-6m6 6l6-6" /></svg>
+                </div>
+                <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Reverse Vault Usage?</h4>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                  This will remove the <span className="text-slate-700">{vaultWithdrawalToDelete.expenseName}</span> expense and restore ₱{vaultWithdrawalToDelete.amount.toLocaleString()} to the vault fund.
+                </p>
+                <p className="text-[9px] font-semibold text-amber-500 uppercase tracking-widest mt-3">The paired expense record will also be deleted and ROI will be restored.</p>
+                <div className="flex flex-col gap-4 mt-10">
+                  <button
+                    onClick={handleFinalDeleteVaultWithdrawal}
+                    disabled={isDeletingVaultWithdrawal}
+                    className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                    {isDeletingVaultWithdrawal ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Reverse Vault Usage'}
+                  </button>
+                  <button
+                    onClick={() => setVaultWithdrawalToDelete(null)}
+                    disabled={isDeletingVaultWithdrawal}
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
           {(isAddExpenseModalOpen || openExpenseModalOnDeposit || openExpenseModalOnLegacyDeposit) && (
             <QuickExpenseModal
               branch={branch}
@@ -830,10 +1161,18 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 {(() => {
                   const currentBalance = branchVault?.balance ?? 0;
                   const target = branchVault?.target ?? 0;
-                  const netRoi = Math.max(0, metrics.net);
-                  // How much room is left before hitting the target. If no target is set, no cap.
-                  const maxDeposit = target > 0 ? Math.max(0, target - currentBalance) : netRoi;
-                  const remitAllAmt = Math.min(netRoi, maxDeposit);
+                  const isDepositingYesterday = vaultDepositTargetDate === yesterdayStr && !!yesterdayReport;
+                  const netRoi = isDepositingYesterday
+                    ? Math.max(0, yesterdayReport!.netRoi || 0)
+                    : Math.max(0, metrics.net);
+                  // Cap by both: today's ROI and remaining space to target
+                  const spaceInTarget = target > 0 ? Math.max(0, target - currentBalance) : Infinity;
+                  const maxDeposit = Math.min(netRoi, spaceInTarget === Infinity ? netRoi : spaceInTarget);
+                  const remitAllAmt = maxDeposit;
+                  // Summary figures for the selected day
+                  const summaryGross = isDepositingYesterday ? (yesterdayReport!.grossSales || 0) : metrics.gross;
+                  const summaryExpenses = isDepositingYesterday ? (yesterdayReport!.totalExpenses || 0) : Math.max(0, metrics.operationalExp - metrics.vaultCoveredExp);
+                  const summaryStaff = isDepositingYesterday ? (yesterdayReport!.totalStaffPay || 0) : metrics.finalStaffPayTotal;
                   const depositAmt = vaultDepositRemitAll ? remitAllAmt : (Number(vaultDepositInput) || 0);
                   const wouldExceed = target > 0 && depositAmt > maxDeposit;
                   const afterBalance = currentBalance + depositAmt;
@@ -869,93 +1208,113 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                             <p className="text-[8px] font-bold text-indigo-300 uppercase tracking-widest mt-1">{currentPct}% of target</p>
                           </div>
                         )}
+
+                        {/* Vault summary table */}
+                        <div className="mt-3 bg-white/60 rounded-2xl border border-indigo-100 overflow-hidden">
+                          <div className="divide-y divide-indigo-50">
+                            <div className="flex items-center justify-between px-3 py-1.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Current Balance</span>
+                              <span className="text-[10px] font-black text-slate-600 tabular-nums">₱{currentBalance.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between px-3 py-1.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Depositing</span>
+                              <span className="text-[10px] font-black text-indigo-500 tabular-nums">+₱{depositAmt.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/60">
+                              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Expected Total</span>
+                              <span className="text-[11px] font-black text-indigo-700 tabular-nums">₱{(currentBalance + depositAmt).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Body */}
                       <div className="px-5 py-4 flex flex-col gap-3">
-                        {/* Remit-all checkbox */}
-                        {netRoi > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => { setVaultDepositRemitAll(v => !v); setVaultDepositInput(''); }}
-                            className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${vaultDepositRemitAll ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50 border-transparent hover:border-indigo-200'}`}
-                          >
-                            <span className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${vaultDepositRemitAll ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
-                              {vaultDepositRemitAll && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                            </span>
-                            <div className="min-w-0">
-                              <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${vaultDepositRemitAll ? 'text-indigo-900' : 'text-slate-600'}`}>Deposit full ROI</p>
-                              <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 tabular-nums ${vaultDepositRemitAll ? 'text-indigo-500' : 'text-slate-400'}`}>
-                                ₱{remitAllAmt.toLocaleString()}
-                                {remitAllAmt < netRoi && <span className="ml-1 text-amber-500">(capped — ₱{netRoi.toLocaleString()} ROI)</span>}
-                              </p>
+                        {netRoi <= 0 ? (
+                          /* Negative / zero ROI — deposit not possible */
+                          <div className="flex items-start gap-3 p-3.5 bg-rose-50 border-2 border-rose-200 rounded-2xl">
+                            <svg className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                            <div>
+                              <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Deposit Not Available</p>
+                              <p className="text-[9px] font-semibold text-rose-400 mt-0.5 leading-relaxed">Today's ROI is ₱{metrics.net.toLocaleString()} — there is nothing to deposit into the vault.</p>
                             </div>
-                          </button>
-                        )}
-
-                        {/* Custom amount — only when not remitting all */}
-                        {!vaultDepositRemitAll && (
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between ml-1">
-                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Amount (₱)</label>
-                              {target > 0 && <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest">Max ₱{maxDeposit.toLocaleString()}</span>}
-                            </div>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-300">₱</span>
-                              <input
-                                type="number"
-                                autoFocus
-                                min={0}
-                                max={target > 0 ? maxDeposit : undefined}
-                                value={vaultDepositInput}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  // Clamp to maxDeposit if a target is set
-                                  if (target > 0 && Number(val) > maxDeposit) {
-                                    setVaultDepositInput(String(maxDeposit));
-                                  } else {
-                                    setVaultDepositInput(val);
-                                  }
-                                }}
-                                onKeyDown={e => { if (e.key === 'Enter') handleVaultDepositPromptSubmit(); }}
-                                placeholder="0"
-                                className={`w-full pl-7 pr-3 py-2.5 text-base font-black tabular-nums text-indigo-900 bg-slate-50 border-2 rounded-xl outline-none transition-all ${wouldExceed ? 'border-rose-400 bg-rose-50 focus:border-rose-500' : 'border-slate-200 focus:border-indigo-500 focus:bg-white'}`}
-                              />
-                            </div>
-                            {wouldExceed && (
-                              <p className="text-[8px] font-bold text-rose-500 uppercase tracking-widest ml-1">
-                                Exceeds target by ₱{(afterBalance - target).toLocaleString()}
-                              </p>
-                            )}
                           </div>
-                        )}
-
-                        {/* After-deposit preview */}
-                        {depositAmt > 0 && (
-                          <div className="bg-indigo-50 rounded-xl px-3 py-2.5 space-y-1.5">
-                            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">After Deposit</p>
-                            <div className="flex items-end justify-between">
-                              <p className="text-lg font-black text-indigo-700 tabular-nums leading-none">₱{afterBalance.toLocaleString()}</p>
-                              {target > 0 && <p className="text-[10px] font-black text-indigo-500 tabular-nums">{afterPct}%</p>}
-                            </div>
-                            {target > 0 && (
-                              <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${afterPct}%` }} />
+                        ) : (
+                          <>
+                            {/* Deposit full ROI checkbox (checked by default) */}
+                            <button
+                              type="button"
+                              onClick={() => { setVaultDepositRemitAll(v => !v); setVaultDepositInput(''); }}
+                              className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${vaultDepositRemitAll ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50 border-slate-200 hover:border-indigo-200'}`}
+                            >
+                              <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${vaultDepositRemitAll ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                                {vaultDepositRemitAll && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className={`text-[11px] font-black uppercase tracking-widest leading-none ${vaultDepositRemitAll ? 'text-indigo-900' : 'text-slate-600'}`}>Deposit full ROI</p>
+                                <p className={`text-[9px] font-bold tabular-nums mt-0.5 ${vaultDepositRemitAll ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                  ₱{remitAllAmt.toLocaleString()}
+                                  {spaceInTarget !== Infinity && spaceInTarget < netRoi && <span className="ml-1 text-amber-500">(capped by target)</span>}
+                                </p>
                               </div>
-                            )}
-                          </div>
+                            </button>
+
+                            {/* Custom amount input — shown when full ROI unchecked */}
+                            {!vaultDepositRemitAll && (() => {
+                              const customAmt = Number(vaultDepositInput) || 0;
+                              const isOverMax = customAmt > maxDeposit;
+                              const isZero = vaultDepositInput !== '' && customAmt <= 0;
+                              const isInvalid = isOverMax || isZero;
+                              const validationMsg = isOverMax
+                                ? `Exceeds your available ROI of ₱${maxDeposit.toLocaleString()}${spaceInTarget !== Infinity && spaceInTarget < netRoi ? ' (capped by vault target)' : ''}`
+                                : isZero
+                                ? 'Amount must be greater than ₱0'
+                                : null;
+                              return (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between px-1">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Custom Amount</label>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Max ₱{maxDeposit.toLocaleString()}</span>
+                                  </div>
+                                  <div className="relative">
+                                    <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-base font-black pointer-events-none ${isInvalid ? 'text-rose-300' : 'text-slate-300'}`}>₱</span>
+                                    <input
+                                      type="number"
+                                      autoFocus
+                                      min={1}
+                                      max={maxDeposit}
+                                      value={vaultDepositInput}
+                                      onChange={e => setVaultDepositInput(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter' && !isInvalid && customAmt > 0) handleVaultDepositPromptSubmit(); }}
+                                      placeholder="0"
+                                      className={`w-full pl-9 pr-4 py-3 text-[18px] font-black tabular-nums rounded-2xl outline-none transition-all border-2 ${
+                                        isInvalid
+                                          ? 'border-rose-400 bg-rose-50 text-rose-700 focus:border-rose-500'
+                                          : 'border-slate-200 bg-slate-50 text-indigo-900 focus:border-indigo-400 focus:bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                  {validationMsg && (
+                                    <p className="text-[9px] font-bold text-rose-500 px-1 leading-snug">{validationMsg}</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </>
                         )}
 
                         {/* Actions */}
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <button
                             onClick={() => { setShowVaultDepositPrompt(false); setVaultDepositInput(''); }}
-                            className="py-3 rounded-xl font-black uppercase tracking-widest text-[10px] bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
                           >Cancel</button>
                           <button
                             onClick={handleVaultDepositPromptSubmit}
-                            disabled={depositAmt <= 0 || isSubmittingVaultDeposit || wouldExceed}
-                            className="py-3 rounded-xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            disabled={netRoi <= 0 || depositAmt <= 0 || depositAmt > maxDeposit || isSubmittingVaultDeposit}
+                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                           >{isSubmittingVaultDeposit ? 'Saving...' : `Deposit ₱${depositAmt.toLocaleString()}`}</button>
                         </div>
                       </div>
@@ -1031,20 +1390,22 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               hiddenStaffNames={hiddenStaffNames}
           />
           <VaultExpenses
-              operationalLogs={exps.filter(e =>
-                ['OPERATIONAL', 'VAULT_WITHDRAWAL', 'PROVISION'].includes(e.category)
-              )}
+              operationalLogs={exps}
               vaultDepositLogs={todayVaultData}
               operationalTotal={metrics.operationalExp}
               setIsAddExpenseModalOpen={setIsAddExpenseModalOpen}
               setViewingExpense={setViewingExpense}
               isClosedMode={isClosedMode}
               onDeleteExpense={handleDeleteExpenseTrigger}
+              onDeleteVaultDeposit={handleDeleteVaultDepositTrigger}
+              onDeleteVaultWithdrawal={handleVaultWithdrawalDeleteTrigger}
               currentNetRoi={metrics.net}
-              isLegacy={!branch.vaultEnabled}
-              onOpenVaultDeposit={branch.vaultEnabled && branchVault ? () => { setVaultDepositInput(''); setVaultDepositRemitAll(true); setShowVaultDepositPrompt(true); } : undefined}
-              onOpenRecordExpense={() => { setOpenExpenseModalOnDeposit(false); setOpenExpenseModalOnLegacyDeposit(false); setIsAddExpenseModalOpen(true); }}
-              onOpenLegacyDeposit={undefined}
+              isLegacy={!branch.vaultEnabled || (branchVault?.startDate ? todayStr < branchVault.startDate : true)}
+              onOpenVaultDeposit={() => { setVaultDepositTargetDate(todayStr); setShowVaultDepositPrompt(true); }}
+              onOpenLegacyDeposit={branch.vaultEnabled ? () => setOpenExpenseModalOnLegacyDeposit(true) : undefined}
+              onOpenRecordExpense={() => setIsAddExpenseModalOpen(true)}
+              vaultBalance={branchVault?.balance ?? 0}
+              vaultInitialBalance={(branchVault as any)?.initialBalance ?? 0}
           />
         </div>
 

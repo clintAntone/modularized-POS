@@ -143,35 +143,6 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 p-1.5 rounded-2xl md:rounded-[24px] border border-slate-200 shadow-inner">
-            <div className="relative group flex-1 sm:flex-none">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-emerald-500 transition-colors">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                  <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2-0 002-2V7a2 2-0 00-2-2H5a2 2-0 00-2-2V12a2 2-0 002 2z"/>
-                </svg>
-              </div>
-              <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); playSound('click'); }}
-                  className="w-full sm:w-auto pl-8 pr-2 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-tight focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none cursor-pointer shadow-sm min-h-[40px] appearance-none transition-all"
-              />
-            </div>
-            <div className="text-slate-300 font-black text-[8px] sm:text-[10px] px-1">TO</div>
-            <div className="relative group flex-1 sm:flex-none">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-emerald-500 transition-colors">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                  <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2-0 002-2V7a2 2-0 00-2-2H5a2 2-0 00-2-2V12a2 2-0 002 2z"/>
-                </svg>
-              </div>
-              <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); playSound('click'); }}
-                  className="w-full sm:w-auto pl-8 pr-2 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-tight focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none cursor-pointer shadow-sm min-h-[40px] appearance-none transition-all"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
@@ -194,7 +165,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               </div>
             </div>
 
-            {view === 'weekly' && isNetworkView && setShowBreakdown && (
+            {(view === 'weekly' || view === 'monthly') && isNetworkView && setShowBreakdown && (
               <div className="flex items-center gap-3 bg-slate-50 px-6 py-3 rounded-[24px] border border-slate-200 shadow-inner">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Breakdown by Branch</p>
                 <button
@@ -206,6 +177,46 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               </div>
             )}
           </div>
+
+          {/* Date range — only on daily view */}
+          {view === 'daily' && (
+            <div className="flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${startDate ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'}`}>
+                <span className={`text-[8px] font-black uppercase tracking-[0.2em] leading-none ${startDate ? 'text-emerald-500' : 'text-slate-400'}`}>From</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => { setStartDate(e.target.value); playSound('click'); }}
+                  className="w-full bg-transparent text-[11px] font-black text-slate-800 outline-none cursor-pointer appearance-none leading-none uppercase"
+                />
+              </label>
+
+              <div className="flex flex-col items-center gap-0.5 shrink-0">
+                <div className="w-4 h-px bg-slate-300"></div>
+                <svg className="w-2.5 h-2.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                <div className="w-4 h-px bg-slate-300"></div>
+              </div>
+
+              <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${endDate ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'}`}>
+                <span className={`text-[8px] font-black uppercase tracking-[0.2em] leading-none ${endDate ? 'text-emerald-500' : 'text-slate-400'}`}>To</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => { setEndDate(e.target.value); playSound('click'); }}
+                  className="w-full bg-transparent text-[11px] font-black text-slate-800 outline-none cursor-pointer appearance-none leading-none uppercase"
+                />
+              </label>
+
+              {(startDate || endDate) && (
+                <button
+                  onClick={() => { setStartDate(''); setEndDate(''); playSound('click'); }}
+                  className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-all active:scale-95"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
   );

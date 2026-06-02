@@ -333,7 +333,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-700 max-w-[1400px] mx-auto pb-32 px-2">
+    <div className="space-y-4 max-w-[1400px] mx-auto pb-32 px-2">
 
       {/* TRANSACTION DETAIL MODAL */}
       {selectedTxDetail && (

@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabase';
 import { playSound } from '../../../lib/audio';
 import { generateSalt, hashPin } from '../../../lib/crypto';
 import { useUpdateEmployee, useUpdateBranch, useAddAuditLog } from '../../../hooks/useNetworkData';
+import { invalidateBranchSessions } from '../../../lib/audit';
 
 interface RecoveryModalProps {
   employee: Employee;
@@ -23,6 +24,12 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
   const [successData, setSuccessData] = useState<{username: string, pin: string} | null>(null);
   const [error, setError] = useState('');
   const [localSaving, setLocalSaving] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  const employeeEmail = employee.details?.gmail || '';
+  const homeBranch = branches.find(b => b.id === employee.branchId);
 
   const updateEmployee = useUpdateEmployee();
   const updateBranch = useUpdateBranch();
@@ -92,6 +99,12 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
             [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
         });
 
+        // Kick any active sessions for all branches this employee manages
+        const managedBranchIds = branches
+          .filter(b => b.manager?.toUpperCase() === (employee.name || '').toUpperCase())
+          .map(b => b.id);
+        if (managedBranchIds.length) await invalidateBranchSessions(managedBranchIds);
+
         playSound('success');
         setSuccessData({ username: resetUsername.toLowerCase().trim(), pin: resetPin });
         if (onRefresh) onRefresh();
@@ -101,6 +114,31 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
     } finally {
         setLocalSaving(false);
         if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!successData || !employeeEmail || emailSending) return;
+    setEmailSending(true);
+    setEmailError('');
+    try {
+      const { error } = await supabase.functions.invoke('send-credentials', {
+        body: {
+          toEmail: employeeEmail,
+          employeeName: employee.name,
+          username: successData.username,
+          pin: successData.pin,
+          branchName: homeBranch?.name || '',
+        },
+      });
+      if (error) throw new Error(error.message);
+      setEmailSent(true);
+      playSound('success');
+    } catch {
+      setEmailError('Failed to send email. Deliver credentials manually.');
+      playSound('warning');
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -128,7 +166,29 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
                   </div>
                </div>
 
-               <button 
+               {employeeEmail && (
+                 <div className="space-y-2">
+                   {emailSent ? (
+                     <div className="flex items-center justify-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                       <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
+                       <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Sent to {employeeEmail}</p>
+                     </div>
+                   ) : (
+                     <button
+                       onClick={handleSendEmail}
+                       disabled={emailSending}
+                       className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                     >
+                       {emailSending
+                         ? <><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Sending...</>
+                         : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg> Send to {employeeEmail}</>}
+                     </button>
+                   )}
+                   {emailError && <p className="text-[9px] font-black text-rose-600 text-center uppercase tracking-widest">{emailError}</p>}
+                 </div>
+               )}
+
+               <button
                  onClick={onClose}
                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all"
                >

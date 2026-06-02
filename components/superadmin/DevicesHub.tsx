@@ -84,7 +84,7 @@ const deviceTypeColor: Record<string, string> = {
   Desktop: 'bg-sky-50 text-sky-600 border-sky-100',
 };
 
-type DatePreset = '' | 'today' | 'yesterday' | '7d' | '30d' | 'custom';
+type DatePreset = 'today' | 'yesterday' | '7d' | '30d';
 
 const getLocalDateStr = (d: Date) => {
   const y = d.getFullYear();
@@ -97,86 +97,99 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
   const [devices, setDevices] = useState<DeviceLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBranch, setFilterBranch] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [sortBy, setSortBy] = useState<'last_seen' | 'first_seen' | 'session_count'>('last_seen');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<DatePreset>('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
 
   const fetchDevices = async () => {
-    setLoading(true);
     const { data } = await supabase
       .from(DB_TABLES.DEVICE_LOGS)
       .select('*')
       .order('last_seen', { ascending: false });
-    setDevices(data || []);
+    // Deduplicate by device_id — keep only the most-recent entry per device
+    const seen = new Set<string>();
+    const deduped = (data || []).filter((d: DeviceLog) => {
+      if (seen.has(d.device_id)) return false;
+      seen.add(d.device_id);
+      return true;
+    });
+    setDevices(deduped);
     setLoading(false);
   };
 
-  useEffect(() => { fetchDevices(); }, []);
+  useEffect(() => {
+    fetchDevices();
+    const channel = supabase
+      .channel('device_logs_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.DEVICE_LOGS }, fetchDevices)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const branchMap = useMemo(() => Object.fromEntries(branches.map(b => [b.id, b])), [branches]);
 
-  const filtered = useMemo(() => {
-    const term = searchTerm.toUpperCase();
+  const branchSummary = useMemo(() => {
+    const todayManila = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
 
-    // Compute date range boundaries from preset
-    const now = new Date();
-    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-    const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const ago7 = new Date(todayStart); ago7.setDate(ago7.getDate() - 7);
-    const ago30 = new Date(todayStart); ago30.setDate(ago30.getDate() - 30);
+    const byBranch: Record<string, { todayDevices: DeviceLog[]; periodDevices: DeviceLog[] }> = {};
 
-    return devices
-      .filter(d => {
-        const branch = branchMap[d.branch_id];
-        const branchName = branch?.name?.toUpperCase() || '';
-        if (term && !branchName.includes(term) && !d.browser.toUpperCase().includes(term) && !d.os.toUpperCase().includes(term) && !d.screen_resolution.includes(term)) return false;
-        if (filterBranch && d.branch_id !== filterBranch) return false;
-        if (filterType && d.device_type !== filterType) return false;
-
-        // Date filter against last_seen
-        const lastSeen = new Date(d.last_seen);
-        if (datePreset === 'today' && lastSeen < todayStart) return false;
-        if (datePreset === 'yesterday' && (lastSeen < yesterdayStart || lastSeen >= todayStart)) return false;
-        if (datePreset === '7d' && lastSeen < ago7) return false;
-        if (datePreset === '30d' && lastSeen < ago30) return false;
-        if (datePreset === 'custom') {
-          if (dateFrom) {
-            const from = new Date(dateFrom); from.setHours(0, 0, 0, 0);
-            if (lastSeen < from) return false;
-          }
-          if (dateTo) {
-            const to = new Date(dateTo); to.setHours(23, 59, 59, 999);
-            if (lastSeen > to) return false;
-          }
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'session_count') return b.session_count - a.session_count;
-        return new Date(b[sortBy]).getTime() - new Date(a[sortBy]).getTime();
-      });
-  }, [devices, searchTerm, filterBranch, filterType, sortBy, branchMap, datePreset, dateFrom, dateTo]);
-
-  // Stats
-  const stats = useMemo(() => {
-    const byType = { Mobile: 0, Tablet: 0, Desktop: 0 };
-    const byBranch: Record<string, number> = {};
     devices.forEach(d => {
-      byType[d.device_type as keyof typeof byType] = (byType[d.device_type as keyof typeof byType] || 0) + 1;
-      byBranch[d.branch_id] = (byBranch[d.branch_id] || 0) + 1;
+      if (!byBranch[d.branch_id]) byBranch[d.branch_id] = { todayDevices: [], periodDevices: [] };
+
+      const lastSeenStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(d.last_seen));
+
+      if (lastSeenStr === todayManila) byBranch[d.branch_id].todayDevices.push(d);
+
+      // Date period filter
+      const lastSeen = new Date(d.last_seen);
+      const now = new Date();
+      const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+      const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const ago7 = new Date(todayStart); ago7.setDate(ago7.getDate() - 7);
+      const ago30 = new Date(todayStart); ago30.setDate(ago30.getDate() - 30);
+
+      let inPeriod = false;
+      if (datePreset === 'today' && lastSeenStr === todayManila) inPeriod = true;
+      if (datePreset === 'yesterday' && lastSeen >= yesterdayStart && lastSeen < todayStart) inPeriod = true;
+      if (datePreset === '7d' && lastSeen >= ago7) inPeriod = true;
+      if (datePreset === '30d' && lastSeen >= ago30) inPeriod = true;
+
+      if (inPeriod) byBranch[d.branch_id].periodDevices.push(d);
     });
-    const recentlyActive = devices.filter(d => Date.now() - new Date(d.last_seen).getTime() < 7 * 86400000).length;
-    return { total: devices.length, byType, recentlyActive };
-  }, [devices]);
+
+    return byBranch;
+  }, [devices, datePreset]);
+
+  const visibleBranches = useMemo(() => {
+    const term = searchTerm.toUpperCase();
+    return Object.entries(branchSummary)
+      .filter(([, s]) => s.periodDevices.length > 0)
+      .filter(([branchId]) => {
+        const name = (branchMap[branchId]?.name || branchId).toUpperCase();
+        if (name.includes('TEST')) return false;
+        return !term || name.includes(term);
+      })
+      .map(([branchId, s]) => ({
+        branchId,
+        branch: branchMap[branchId],
+        todayCount: s.todayDevices.length,
+        periodCount: s.periodDevices.length,
+        isMultiDevice: s.todayDevices.length >= 3,
+        todayDevices: s.todayDevices.sort(
+          (a, b) => new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
+        ),
+      }))
+      .sort((a, b) => b.todayCount - a.todayCount || b.periodCount - a.periodCount);
+  }, [branchSummary, branchMap, searchTerm]);
+
 
   if (loading) {
     return (
-      <div className="animate-in fade-in duration-700 pb-20 space-y-4">
+      <div className="pb-20 space-y-4">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 animate-pulse h-20" />
         ))}
@@ -185,251 +198,197 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
   }
 
   return (
-    <div className="animate-in fade-in duration-700 pb-20 space-y-5">
+    <div className="pb-20 space-y-5">
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Devices', value: stats.total, color: 'text-slate-900', bg: 'bg-white' },
-          { label: 'Active (7d)', value: stats.recentlyActive, color: 'text-emerald-700', bg: 'bg-emerald-50' },
-          { label: 'Mobile', value: stats.byType.Mobile, color: 'text-rose-700', bg: 'bg-rose-50' },
-          { label: 'Desktop / Tablet', value: stats.byType.Desktop + stats.byType.Tablet, color: 'text-sky-700', bg: 'bg-sky-50' },
-        ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-2xl border border-slate-100 p-4`}>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{s.label}</p>
-            <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-4 space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="SEARCH BRANCH, BROWSER, OS..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value.toUpperCase())}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
-            />
-          </div>
-
-          {/* Branch filter */}
-          <select
-            value={filterBranch}
-            onChange={e => setFilterBranch(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
-          >
-            <option value="">ALL BRANCHES</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name.replace('BRANCH - ', '')}</option>)}
-          </select>
-
-          {/* Type filter */}
-          <select
-            value={filterType}
-            onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
-          >
-            <option value="">ALL TYPES</option>
-            <option value="Mobile">Mobile</option>
-            <option value="Tablet">Tablet</option>
-            <option value="Desktop">Desktop</option>
-          </select>
-
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as typeof sortBy)}
-            className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
-          >
-            <option value="last_seen">SORT: LAST SEEN</option>
-            <option value="first_seen">SORT: FIRST SEEN</option>
-            <option value="session_count">SORT: SESSIONS</option>
-          </select>
-
-          <button
-            onClick={fetchDevices}
-            className="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95"
-          >
-            Refresh
-          </button>
+      {/* Filter bar */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-3 flex flex-wrap gap-2 items-center">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px]">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search branch..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value.toUpperCase())}
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
+          />
         </div>
 
-        {/* Date filter */}
-        <div className="space-y-2 pt-1 border-t border-slate-50">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filter by Last Seen</p>
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { value: '',          label: 'All Time'  },
-              { value: 'today',     label: 'Today'     },
-              { value: 'yesterday', label: 'Yesterday' },
-              { value: '7d',        label: 'Last 7 Days'  },
-              { value: '30d',       label: 'Last 30 Days' },
-              { value: 'custom',    label: 'Custom Range' },
-            ] as { value: DatePreset; label: string }[]).map(p => (
-              <button
-                key={p.value}
-                onClick={() => {
-                  setDatePreset(p.value);
-                  if (p.value !== 'custom') { setDateFrom(''); setDateTo(''); }
-                }}
-                className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                  datePreset === p.value
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        {/* Date preset dropdown */}
+        <select
+          value={datePreset}
+          onChange={e => {
+            setDatePreset(e.target.value as DatePreset);
+            setSelectedBranchId(null);
+          }}
+          className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
+        >
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+        </select>
 
-          {datePreset === 'custom' && (
-            <div className="flex flex-wrap items-center gap-2 pt-1 animate-in fade-in duration-200">
-              <div className="flex items-center gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">From</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || getLocalDateStr(new Date())}
-                  onChange={e => setDateFrom(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-[10px] text-slate-700 outline-none focus:border-slate-300 focus:bg-white transition-all"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">To</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom}
-                  max={getLocalDateStr(new Date())}
-                  onChange={e => setDateTo(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-[10px] text-slate-700 outline-none focus:border-slate-300 focus:bg-white transition-all"
-                />
-              </div>
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => { setDateFrom(''); setDateTo(''); }}
-                  className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-          {filtered.length} device{filtered.length !== 1 ? 's' : ''} found
-        </p>
+        {/* Count */}
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+          {visibleBranches.length} branch{visibleBranches.length !== 1 ? 'es' : ''}
+        </span>
       </div>
 
-      {/* Device List */}
-      {filtered.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center">
+      {/* Branch list */}
+      {visibleBranches.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
           <div className="text-5xl opacity-20 mb-4">📱</div>
-          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No devices found</p>
-          <p className="text-[10px] text-slate-300 mt-1">Devices will appear when managers open their POS dashboard</p>
+          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No branches found</p>
+          <p className="text-[10px] text-slate-300 mt-1">No devices seen for the selected period</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(device => {
-            const branch = branchMap[device.branch_id];
-            const isExpanded = expandedId === device.device_id;
-            const isRecent = Date.now() - new Date(device.last_seen).getTime() < 3600000; // 1h
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          {/* Desktop-only column header */}
+          <div className="hidden md:flex items-center gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
+            <p className="flex-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
+            {datePreset !== 'today' && (
+              <p className="w-24 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Period</p>
+            )}
+            <p className="w-24 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Today</p>
+            <p className="w-28 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+            <div className="w-4" />
+          </div>
 
-            return (
-              <div
-                key={device.device_id}
-                className="bg-white rounded-2xl border border-slate-100 overflow-hidden transition-all duration-200 hover:border-slate-200 hover:shadow-sm"
-              >
-                <button
-                  className="w-full flex items-center gap-3 p-4 text-left"
-                  onClick={() => setExpandedId(isExpanded ? null : device.device_id)}
-                >
-                  {/* Device type icon */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${deviceTypeColor[device.device_type] || deviceTypeColor.Desktop}`}>
-                    <DeviceTypeIcon type={device.device_type} />
-                  </div>
+          <div className="divide-y divide-slate-100">
+            {visibleBranches.map(({ branchId, branch, todayCount, periodCount, isMultiDevice, todayDevices }) => {
+              const isOpen = selectedBranchId === branchId;
+              const branchName = (branch?.name || branchId).replace('BRANCH - ', '');
 
-                  {/* Main info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">
-                        {branch?.name?.replace('BRANCH - ', '') || device.branch_id}
-                      </p>
-                      {isRecent && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-[7px] font-black text-emerald-600 uppercase tracking-widest">Active</span>
+              return (
+                <div key={branchId} className={isMultiDevice ? 'border-l-4 border-l-rose-500' : 'border-l-4 border-l-transparent'}>
+                  {/* Branch row */}
+                  <button
+                    onClick={() => { setSelectedBranchId(isOpen ? null : branchId); setExpandedDeviceId(null); }}
+                    className={`w-full flex items-center gap-4 px-4 py-3.5 text-left transition-colors ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50/80'}`}
+                  >
+                    {/* Branch name */}
+                    <p className="flex-1 text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate min-w-0">
+                      {branchName}
+                    </p>
+
+                    {/* Period count — desktop only */}
+                    {datePreset !== 'today' && (
+                      <span className="hidden md:inline-flex w-20 justify-end text-[10px] font-black text-slate-400 tabular-nums shrink-0">
+                        {periodCount}
+                      </span>
+                    )}
+
+                    {/* Today count — desktop */}
+                    <span className={`hidden md:inline-flex w-20 justify-end text-[10px] font-black tabular-nums shrink-0 ${isMultiDevice ? 'text-rose-600' : 'text-slate-600'}`}>
+                      {todayCount}
+                    </span>
+
+                    {/* Today count badge — mobile */}
+                    <span className={`md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black shrink-0 ${isMultiDevice ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {isMultiDevice && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
+                      {todayCount}
+                    </span>
+
+                    {/* Status badge — desktop */}
+                    <div className="hidden md:flex w-28 shrink-0">
+                      {isMultiDevice ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-black bg-rose-600 text-white uppercase tracking-widest">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse" />
+                          Multi-device
                         </span>
-                      )}
-                      <BrowserIcon browser={device.browser} />
-                      {device.device_model && device.device_model !== 'Unknown' && (
-                        <span className="text-[9px] font-bold text-slate-500 hidden sm:inline">{device.device_model}</span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-slate-300">—</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                        {device.os} · {device.session_count} session{device.session_count !== 1 ? 's' : ''} · {formatRelativeTime(device.last_seen)}
-                      </p>
-                      {device.location && (
-                        <span className="flex items-center gap-1 text-[9px] font-bold text-indigo-500">
-                          <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                          {device.location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Chevron */}
-                  <svg className={`w-4 h-4 text-slate-300 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </button>
+                    {/* Chevron */}
+                    <svg className={`w-4 h-4 shrink-0 transition-transform duration-200 text-slate-400 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-slate-50 px-4 pb-4 pt-3 space-y-3 animate-in fade-in duration-150">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {[
-                        { label: 'Branch', value: branch?.name || device.branch_id },
-                        { label: 'Device Type', value: device.device_type },
-                        { label: 'Browser', value: `${device.browser} ${device.browser_version}`.trim() },
-                        { label: 'Operating System', value: device.os },
-                        { label: 'Screen', value: device.screen_resolution },
-                        { label: 'Total Sessions', value: device.session_count.toString() },
-                      ].map(f => (
-                        <div key={f.label} className="bg-slate-50 rounded-xl p-3">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{f.label}</p>
-                          <p className="text-[11px] font-black text-slate-800">{f.value}</p>
+                  {/* Expanded device list */}
+                  {isOpen && (
+                    <div className="border-t border-slate-100 bg-slate-50/50">
+                      {todayDevices.length === 0 ? (
+                        <div className="px-5 py-6 text-center">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No devices seen today</p>
                         </div>
-                      ))}
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {todayDevices.map(device => {
+                            const isDeviceOpen = expandedDeviceId === device.device_id;
+                            return (
+                              <div key={device.device_id}>
+                                {/* Device row — clickable */}
+                                <button
+                                  onClick={() => setExpandedDeviceId(isDeviceOpen ? null : device.device_id)}
+                                  className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/70 transition-colors"
+                                >
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${deviceTypeColor[device.device_type] || deviceTypeColor.Desktop}`}>
+                                    <DeviceTypeIcon type={device.device_type} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <BrowserIcon browser={device.browser} />
+                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">{device.os}</span>
+                                      {device.device_model && device.device_model !== 'Unknown' && (
+                                        <span className="text-[9px] font-bold text-slate-400">{device.device_model}</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                      Last seen {formatRelativeTime(device.last_seen)}
+                                    </p>
+                                  </div>
+                                  <span className="shrink-0 px-2 py-1 bg-white border border-slate-100 text-slate-500 rounded-lg text-[9px] font-black tabular-nums">
+                                    {device.session_count} session{device.session_count !== 1 ? 's' : ''}
+                                  </span>
+                                  <svg className={`w-3.5 h-3.5 shrink-0 text-slate-300 transition-transform duration-150 ${isDeviceOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+
+                                {/* Device detail panel */}
+                                {isDeviceOpen && (
+                                  <div className="px-5 pb-4 pt-1 bg-white border-t border-slate-100">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {[
+                                        { label: 'Device Type', value: device.device_type },
+                                        { label: 'Browser', value: `${device.browser} ${device.browser_version}`.trim() },
+                                        { label: 'OS', value: device.os },
+                                        { label: 'Screen', value: device.screen_resolution },
+                                        { label: 'First Seen', value: formatDateTime(device.first_seen) },
+                                        { label: 'Last Seen', value: formatDateTime(device.last_seen) },
+                                        ...(device.location ? [{ label: 'Location', value: device.location }] : []),
+                                      ].map(f => (
+                                        <div key={f.label} className="bg-slate-50 rounded-xl p-3">
+                                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{f.label}</p>
+                                          <p className="text-[10px] font-black text-slate-800 leading-snug">{f.value}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {device.user_agent && (
+                                      <div className="mt-2 bg-slate-50 rounded-xl p-3">
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">User Agent</p>
+                                        <p className="text-[9px] font-mono text-slate-500 break-all leading-relaxed">{device.user_agent}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">First Seen</p>
-                        <p className="text-[10px] font-black text-slate-700">{formatDateTime(device.first_seen)}</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Last Seen</p>
-                        <p className="text-[10px] font-black text-slate-700">{formatDateTime(device.last_seen)}</p>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">User Agent</p>
-                      <p className="text-[9px] font-mono text-slate-500 break-all leading-relaxed">{device.user_agent}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

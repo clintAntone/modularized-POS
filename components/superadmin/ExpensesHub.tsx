@@ -125,7 +125,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
   }, [filteredExpenses]);
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-4 pb-20">
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
       {!hideHeader && (

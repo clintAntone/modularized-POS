@@ -1,7 +1,7 @@
 {
   "name": "hilotcenter-pro-management",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,27 +20,21 @@
     "@capacitor/core": "^8.3.0",
     "@google/genai": "^1.38.0",
     "@supabase/supabase-js": "2.39.7",
-    "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.6",
     "clsx": "^2.1.1",
-    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1",
     "html-to-image": "1.11.11",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.577.0",
-    "motion": "^12.35.2",
-    "path": "^0.12.7",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.3",
-    "react-virtuoso": "^4.18.3",
+    "resend": "^6.12.4",
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
-    "url": "^0.11.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -48,6 +42,8 @@
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "typescript": "~5.8.2",
     "vite": "^6.4.2"
   }

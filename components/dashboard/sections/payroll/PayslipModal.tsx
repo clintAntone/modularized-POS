@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 
 interface PayslipModalProps {
   data: {
     name: string;
+    formattedEmpId?: string;
     branchName: string;
     period: string;
     sessions: number;
@@ -35,109 +35,107 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
   useEffect(() => {
     setMounted(true);
     document.body.classList.add('modal-open');
-    return () => {
-      document.body.classList.remove('modal-open');
-    };
+    return () => document.body.classList.remove('modal-open');
   }, []);
 
   const handleExportPDF = async () => {
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
-      
       const doc = new jsPDF();
-      
-      // Header
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('OFFICIAL EARNINGS STATEMENT', 14, 22);
-      
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
-      
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Employee: ${data.name.toUpperCase()}`, 14, 38);
-      doc.text(`Branch: ${data.branchName.toUpperCase()}`, 14, 44);
-      doc.text(`Pay Period: ${data.period}`, 14, 50);
-      
-      if (data.isSettled) {
-        doc.setFontSize(24);
-        doc.setTextColor(16, 185, 129, 0.1); // emerald-600 with very low opacity
-        doc.text('SETTLED', 105, 150, { align: 'center', angle: 45 });
-        
-        doc.setFontSize(10);
-        doc.setTextColor(16, 185, 129);
-        doc.text('STATUS: SETTLED', 196, 38, { align: 'right' });
-      }
-      
-      // Summary Section
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.line(14, 55, 196, 55);
-      
-      doc.setFontSize(12);
-      doc.text('Financial Summary', 14, 65);
-      
-      doc.setFontSize(10);
-      doc.text(`Total Commission:`, 14, 75);
-      doc.text(`P${data.commission.toLocaleString()}`, 80, 75, { align: 'right' });
-      
-      doc.text(`Total Allowance:`, 14, 82);
-      doc.text(`P${data.allowance.toLocaleString()}`, 80, 82, { align: 'right' });
-      
-      doc.text(`Total OT Pay:`, 14, 89);
-      doc.setTextColor(16, 185, 129); // emerald-600
-      doc.text(`P${data.ot.toLocaleString()}`, 80, 89, { align: 'right' });
-      
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Late Deductions:`, 14, 96);
-      doc.setTextColor(225, 29, 72); // rose-600
-      doc.text(`-P${data.late.toLocaleString()}`, 80, 96, { align: 'right' });
 
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Cash Advance:`, 14, 103);
-      doc.setTextColor(99, 102, 241); // indigo-500
-      doc.text(`-P${data.advance.toLocaleString()}`, 80, 103, { align: 'right' });
-      
-      doc.setDrawColor(16, 185, 129);
-      doc.setLineWidth(0.5);
-      doc.line(14, 109, 80, 109);
+      // Dark header block
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 52, 'F');
+
+      // Decorative bubble (top-right, partially clipped)
+      doc.setFillColor(16, 60, 50);
+      doc.circle(208, -4, 30, 'F');
+
+      doc.setFontSize(8);
+      doc.setTextColor(16, 185, 129);
+      doc.text('OFFICIAL EARNINGS STATEMENT', 14, 12);
 
       doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.text(data.name.toUpperCase(), 14, 22);
+
+      if (data.formattedEmpId) {
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(data.formattedEmpId, 14, 29);
+      }
+
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`${data.branchName.toUpperCase()}`, 14, 36);
+      doc.text(`Pay Period: ${data.period}`, 14, 43);
+
+      if (data.isSettled) {
+        doc.setFontSize(9);
+        doc.setTextColor(16, 185, 129);
+        doc.text('● SETTLED', 196, 43, { align: 'right' });
+      }
+
+      // Net pay hero
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text('NET PAYOUT', 196, 22, { align: 'right' });
+      doc.setFontSize(18);
       doc.setTextColor(16, 185, 129);
-      doc.text(`NET PAYOUT:`, 14, 119);
-      doc.text(`P${data.netPay.toLocaleString()}`, 80, 119, { align: 'right' });
-      
-      // Daily Breakdown Table
-      const tableData = data.dailyBreakdown?.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(day => [
-        new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-        `P${day.commission.toLocaleString()}`,
-        `P${day.allowance.toLocaleString()}`,
-        `P${day.ot.toLocaleString()}`,
-        `P${day.late.toLocaleString()}`,
-        `P${day.advance.toLocaleString()}`,
-        `P${day.net.toLocaleString()}`
-      ]) || [];
+      doc.text(`P${data.netPay.toLocaleString()}`, 196, 34, { align: 'right' });
+
+      // Summary table (jsPDF default fonts don't support ₱ — use P prefix)
+      const fmt = (n: number) => `P${n.toLocaleString()}`;
+      autoTable(doc, {
+        startY: 60,
+        head: [['Description', 'Amount']],
+        body: [
+          ['Commission', fmt(data.commission)],
+          ['Allowance', fmt(data.allowance)],
+          ['OT Pay', data.ot > 0 ? `+${fmt(data.ot)}` : '—'],
+          ['Late Deductions', data.late > 0 ? `-${fmt(data.late)}` : '—'],
+          ['Cash Advance', data.advance > 0 ? `-${fmt(data.advance)}` : '—'],
+        ],
+        theme: 'plain',
+        headStyles: { fillColor: [241, 245, 249], textColor: [100, 116, 139], fontSize: 8, halign: 'left' },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right', fontStyle: 'bold' } },
+        styles: { cellPadding: 4 },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Daily breakdown
+      const lastY = (doc as any).lastAutoTable?.finalY ?? 120;
+      const tableData = (data.dailyBreakdown ?? [])
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map(day => [
+          new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+          fmt(day.commission),
+          fmt(day.allowance),
+          day.ot > 0 ? `+${fmt(day.ot)}` : '—',
+          day.late > 0 ? `-${fmt(day.late)}` : '—',
+          day.advance > 0 ? `-${fmt(day.advance)}` : '—',
+          fmt(day.net),
+        ]);
 
       autoTable(doc, {
-        startY: 132,
-        head: [['Date', 'Comm.', 'Allw.', 'OT', 'Late', 'Cash Adv.', 'Net']],
+        startY: lastY + 10,
+        head: [['Date', 'Comm.', 'Allw.', 'OT', 'Late', 'Adv.', 'Net']],
         body: tableData,
         theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], fontSize: 9, halign: 'center' },
+        headStyles: { fillColor: [15, 23, 42], fontSize: 8, halign: 'center' },
         columnStyles: {
           0: { cellWidth: 32 },
-          1: { halign: 'right' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-          5: { halign: 'right' },
-          6: { halign: 'right', fontStyle: 'bold' }
+          1: { halign: 'right' }, 2: { halign: 'right' },
+          3: { halign: 'right' }, 4: { halign: 'right' },
+          5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' },
         },
-        styles: { fontSize: 8 }
+        styles: { fontSize: 8 },
+        margin: { left: 14, right: 14 },
       });
-      
+
       doc.save(`${data.name}_Payslip_${data.period.replace(/\s+/g, '_')}.pdf`);
       playSound('success');
     } catch (err) {
@@ -148,140 +146,133 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
 
   if (!mounted) return null;
 
+  const sorted = (data.dailyBreakdown ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+
   return createPortal(
-      <div className={UI_THEME.layout.modalWrapper}>
-        <div className={`${UI_THEME.layout.modalFull} ${UI_THEME.radius.modal} p-0 overflow-hidden flex flex-col max-h-[95vh] shadow-2xl animate-in zoom-in-95 duration-300`}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
+      <div className="w-full max-w-lg sm:max-w-2xl bg-white rounded-3xl overflow-hidden flex flex-col max-h-[90dvh] shadow-2xl animate-in zoom-in-95 duration-300">
 
-          {/* PRINTABLE AREA */}
-          <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar bg-white">
-            {/* PAYSLIP HEADER */}
-            <div className="bg-[#0F172A] p-6 md:p-10 text-white relative overflow-hidden shrink-0">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.4em]">Official Earnings Statement</p>
-                  <h2 className="text-xl font-bold uppercase tracking-tight">{data.name}</h2>
-                </div>
-                <div className="text-left md:text-right">
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Pay Period</p>
-                  <p className="text-sm font-bold uppercase tracking-tight">{data.period}</p>
-                  {data.isSettled && (
-                    <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Settled</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 md:p-10 space-y-8">
-              {/* SUMMARY CARDS */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Commission</p>
-                  <p className="text-lg font-bold text-slate-900 tabular-nums">₱{data.commission.toLocaleString()}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Allowance</p>
-                  <p className="text-lg font-bold text-slate-900 tabular-nums">₱{data.allowance.toLocaleString()}</p>
-                </div>
-                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                  <p className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Total OT Pay</p>
-                  <p className="text-lg font-bold text-emerald-700 tabular-nums">₱{data.ot.toLocaleString()}</p>
-                </div>
-                <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-                  <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest mb-1">Late Deductions</p>
-                  <p className="text-lg font-bold text-rose-700 tabular-nums">₱{data.late.toLocaleString()}</p>
-                </div>
-                <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                  <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Cash Advance</p>
-                  <p className="text-lg font-bold text-indigo-700 tabular-nums">₱{data.advance.toLocaleString()}</p>
-                </div>
-              </div>
-
-              {/* DAILY BREAKDOWN TABLE */}
-              <div className="space-y-4">
-                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Daily Detailed Breakdown</h4>
-                <div className="border border-slate-100 rounded-[24px] overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100">
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Commission</th>
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Allowance</th>
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">OT</th>
-                        <th className="p-4 text-[9px] font-bold text-rose-400 uppercase tracking-widest text-right">Late</th>
-                        <th className="p-4 text-[9px] font-bold text-indigo-400 uppercase tracking-widest text-right">Cash Adv.</th>
-                        <th className="p-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Net</th>
-                      </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                      {data.dailyBreakdown?.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map((day) => (
-                          <tr key={day.date} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 text-[11px] font-bold text-slate-600 uppercase">
-                              {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </td>
-                            <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums">₱{day.commission.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums">₱{day.allowance.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-emerald-600 text-right tabular-nums">₱{day.ot.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-rose-500 text-right tabular-nums">₱{day.late.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-indigo-600 text-right tabular-nums">₱{day.advance.toLocaleString()}</td>
-                            <td className="p-4 text-[11px] font-bold text-slate-900 text-right tabular-nums bg-slate-50/30">₱{day.net.toLocaleString()}</td>
-                          </tr>
-                      ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* SESSIONS STAT */}
-              <div className="bg-slate-900 rounded-3xl p-6 flex items-center justify-between text-white shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full"></div>
-                <div className="relative z-10">
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Service Volume</p>
-                  <p className="text-2xl font-bold tracking-tighter leading-none">{data.sessions} <span className="text-xs font-medium uppercase tracking-widest text-slate-400">Sessions</span></p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">💆</div>
-              </div>
-            </div>
-
-            {/* FINAL NET PAY FOOTER */}
-            <div className="bg-slate-50 p-6 md:p-8 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-6 shrink-0 mt-auto relative overflow-hidden">
-              {data.isSettled && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] rotate-12">
-                  <span className="text-8xl font-black uppercase tracking-[0.2em]">Settled</span>
-                </div>
+        {/* Header */}
+        <div className="relative bg-[#0F172A] px-6 py-6 shrink-0 overflow-hidden">
+          <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-emerald-500/10 pointer-events-none" />
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.3em]">Official Earnings Statement</p>
+              <h2 className="text-lg font-black text-white uppercase tracking-tight truncate">{data.name}</h2>
+              {data.formattedEmpId && (
+                <p className="text-[9px] font-bold text-slate-500 font-mono">{data.formattedEmpId}</p>
               )}
-              <div className="text-center sm:text-left relative z-10">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mb-1">Total Net Payout</p>
-                <h4 className="text-3xl sm:text-4xl font-bold text-emerald-600 tracking-tighter tabular-nums leading-none">
-                  ₱{data.netPay.toLocaleString()}
-                </h4>
-              </div>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pt-0.5">{data.branchName} · {data.period}</p>
             </div>
-          </div>
-
-          {/* MODAL ACTIONS (NOT PRINTED) */}
-          <div className="bg-white p-4 sm:p-6 border-t border-slate-200 flex flex-row justify-end items-center gap-3 shrink-0 no-print">
-            <button
-                onClick={() => handleExportPDF()}
-                className="flex-1 sm:flex-none px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="2.5" /></svg>
-              Save PDF
-            </button>
-            <button
-                onClick={onClose}
-                className="flex-1 sm:flex-none px-6 py-3 bg-slate-50 text-slate-500 border border-slate-200 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95"
-            >
-              Dismiss
-            </button>
+            <div className="text-right shrink-0">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Net Pay</p>
+              <p className="text-2xl font-black text-emerald-400 tabular-nums leading-tight">₱{data.netPay.toLocaleString()}</p>
+              {data.isSettled && (
+                <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Settled</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>,
-      document.body
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+
+          {/* Earnings breakdown */}
+          <div className="px-6 pt-4 pb-2 space-y-0.5">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Earnings Breakdown</p>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-50">
+              <p className="text-[11px] font-bold text-slate-500">Commission</p>
+              <p className="text-[13px] font-black text-slate-900 tabular-nums">₱{data.commission.toLocaleString()}</p>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-slate-50">
+              <p className="text-[11px] font-bold text-slate-500">Allowance</p>
+              <p className="text-[13px] font-black text-slate-900 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-slate-50">
+              <p className={`text-[11px] font-bold ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>OT Pay</p>
+              <p className={`text-[13px] font-black tabular-nums ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{data.ot > 0 ? `+₱${data.ot.toLocaleString()}` : '₱0'}</p>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-slate-50">
+              <p className={`text-[11px] font-bold ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>Late Deduction</p>
+              <p className={`text-[13px] font-black tabular-nums ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{data.late > 0 ? `−₱${data.late.toLocaleString()}` : '₱0'}</p>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-slate-50">
+              <p className={`text-[11px] font-bold ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>Cash Advance</p>
+              <p className={`text-[13px] font-black tabular-nums ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>{data.advance > 0 ? `−₱${data.advance.toLocaleString()}` : '₱0'}</p>
+            </div>
+
+            {/* Net total row */}
+            <div className="flex items-center justify-between pt-2.5 pb-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Net Payout</p>
+                <span className="text-[9px] font-bold text-slate-400">{data.sessions} session{data.sessions !== 1 ? 's' : ''}</span>
+              </div>
+              <p className="text-[18px] font-black text-emerald-600 tabular-nums">₱{data.netPay.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Daily breakdown */}
+          {sorted.length > 0 && (
+            <div className="px-6 pt-3 pb-5 space-y-2">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Daily Records</p>
+              <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                {/* Header: Date | Allw | Comm | Late | OT | CA | Net */}
+                <div className="grid grid-cols-[52px_repeat(6,minmax(0,1fr))] sm:grid-cols-[80px_repeat(6,minmax(0,1fr))] bg-slate-900 px-3 py-2.5">
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Date</p>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Allw.</p>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Comm.</p>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Late</p>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">OT</p>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">CA</p>
+                  <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest text-right">Net</p>
+                </div>
+                {sorted.map((day, i) => {
+                  const [y, m, d] = day.date.split('-').map(Number);
+                  const dateObj = new Date(y, m - 1, d);
+                  const shortLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+                  const fullLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                  return (
+                    <div key={day.date} className={`grid grid-cols-[52px_repeat(6,minmax(0,1fr))] sm:grid-cols-[80px_repeat(6,minmax(0,1fr))] px-3 py-2.5 border-t border-slate-50 ${i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                      <p className="text-[9px] font-bold text-slate-600 uppercase leading-tight">
+                        <span className="sm:hidden">{shortLabel}</span>
+                        <span className="hidden sm:inline">{fullLabel}</span>
+                      </p>
+                      <p className="text-[9px] font-bold text-slate-900 tabular-nums text-right">₱{day.allowance.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-slate-900 tabular-nums text-right">₱{day.commission.toLocaleString()}</p>
+                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.late > 0 ? 'text-rose-500' : 'text-slate-300'}`}>{day.late > 0 ? `−₱${day.late.toLocaleString()}` : '—'}</p>
+                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.ot > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>{day.ot > 0 ? `+₱${day.ot.toLocaleString()}` : '—'}</p>
+                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.advance > 0 ? 'text-indigo-500' : 'text-slate-300'}`}>{day.advance > 0 ? `−₱${day.advance.toLocaleString()}` : '—'}</p>
+                      <p className="text-[9px] font-black text-slate-900 tabular-nums text-right">₱{day.net.toLocaleString()}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="bg-white px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+          <button
+            onClick={handleExportPDF}
+            className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="2.5" /></svg>
+            Save PDF
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };

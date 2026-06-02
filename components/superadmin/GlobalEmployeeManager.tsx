@@ -7,6 +7,7 @@ import { compressImage } from '../../lib/image';
 import { deleteFileByUrl } from '../../lib/storage';
 import { supabase } from '../../lib/supabase';
 import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
+import { getEmployeeRole } from '../../lib/payroll';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -18,6 +19,7 @@ import { EmployeeTable } from './employee-manager/EmployeeTable';
 import { EmployeeMobileList } from './employee-manager/EmployeeMobileList';
 import { RecoveryModal } from './employee-manager/RecoveryModal';
 import { EditorModal } from './employee-manager/EditorModal';
+import { EmployeeIDCardModal } from './employee-manager/EmployeeIDCardModal';
 
 interface GlobalEmployeeManagerProps {
   branches: Branch[];
@@ -36,6 +38,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const [sortBy, setSortBy] = useState<'name' | 'pay_asc' | 'pay_desc'>('name');
   
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
+  const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
   const [showAdminWipeConfirm, setShowAdminWipeConfirm] = useState<Employee | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -97,8 +100,24 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     });
 
     if (searchTerm.trim()) {
-      const term = searchTerm.toUpperCase();
-      res = res.filter(e => (e.name || '').toUpperCase().includes(term));
+      const raw = searchTerm.toUpperCase().trim();
+      // Strip EMP-MM-DD- prefix if typed, so searching "EMP-04-05-abc" or just "abc" both work
+      const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
+      const stripPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
+      res = res.filter(e => {
+        const name = (e.name || '').toUpperCase();
+        const id = (e.id || '').toUpperCase();
+        const formattedId = e.timestamp
+          ? (() => { const d = new Date(e.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${e.id}`.toUpperCase(); })()
+          : '';
+        return (
+          name.includes(term) ||
+          id.includes(term) ||
+          stripPrefix(id).includes(term) ||
+          formattedId.includes(raw) ||
+          stripPrefix(formattedId).includes(term)
+        );
+      });
     }
     
     return res.sort((a, b) => {
@@ -408,12 +427,46 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       playSound('success');
       setEditingEmployee(null);
       if (onRefresh) onRefresh();
-    } catch (err) { 
+    } catch (err) {
       console.error(err);
       setError('SYSTEM SYNC FAULT. PLEASE RETRY.');
-      playSound('warning'); 
-    } finally { 
-      setIsSaving(false); 
+      playSound('warning');
+    } finally {
+      setIsSaving(false);
+      if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleSavePersonalDetails = async (payload: { name: string; firstName: string; middleName: string | null; lastName: string; details: Employee['details'] }, profileFile: File | null) => {
+    if (!editingEmployee?.id) return;
+    setIsSaving(true);
+    if (onSyncStatusChange) onSyncStatusChange(true);
+    try {
+      let profileUrl = (editingEmployee as Employee).profile ?? null;
+      if (profileFile) {
+        if (profileUrl) await deleteFileByUrl(profileUrl, 'profiles');
+        const compressed = await compressImage(profileFile, { maxWidth: 400, maxHeight: 400, quality: 0.5 });
+        const path = `${editingEmployee.branchId || 'global'}/profiles/${Date.now()}_personal.jpg`;
+        const { error: uploadErr } = await supabase.storage.from('profiles').upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
+        if (!uploadErr) profileUrl = supabase.storage.from('profiles').getPublicUrl(path).data.publicUrl;
+      }
+      await updateEmployee.mutateAsync({
+        id: editingEmployee.id,
+        [DB_COLUMNS.NAME]: payload.name,
+        [DB_COLUMNS.FIRST_NAME]: payload.firstName,
+        [DB_COLUMNS.MIDDLE_NAME]: payload.middleName,
+        [DB_COLUMNS.LAST_NAME]: payload.lastName,
+        [DB_COLUMNS.PROFILE]: profileUrl,
+        [DB_COLUMNS.DETAILS]: payload.details ?? null,
+      });
+      playSound('success');
+      setEditingEmployee(null);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsSaving(false);
       if (onSyncStatusChange) onSyncStatusChange(false);
     }
   };
@@ -430,45 +483,113 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     playSound('click');
 
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF({ orientation: 'landscape' });
       const pageWidth = doc.internal.pageSize.getWidth();
+      const now = new Date();
 
-      // 1. Header
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('STAFF DIRECTORY REPORT', 14, 20);
+      // 1. Header bar
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 22, 'F');
 
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139); // slate-400
-      doc.text('GLOBAL IDENTITY MANAGEMENT', 14, 26);
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text('STAFF DIRECTORY REPORT', 14, 10);
 
       doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 20, { align: 'right' });
-      doc.text(`Total Staff: ${filteredEmployees.length}`, pageWidth - 14, 26, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text('HILOT CENTER MANAGEMENT SYSTEM', 14, 16);
 
-      // 2. Table
+      doc.setFontSize(8);
+      doc.setTextColor(203, 213, 225);
+      doc.text(`Generated: ${now.toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}`, pageWidth - 14, 10, { align: 'right' });
+      doc.text(`Total Staff: ${filteredEmployees.length}`, pageWidth - 14, 16, { align: 'right' });
+
+      // 2. Active filters summary
+      const filterParts: string[] = [];
+      if (selectedBranchIds.length > 0) filterParts.push(`Branch: ${selectedBranchIds.map(id => branches.find(b => b.id === id)?.name || id).join(', ')}`);
+      if (roleFilter !== 'all') filterParts.push(`Role: ${roleFilter}`);
+      if (statusFilter !== 'all') filterParts.push(`Status: ${statusFilter}`);
+      if (filterParts.length > 0) {
+        doc.setFontSize(7);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Filters: ${filterParts.join('  •  ')}`, 14, 28);
+      }
+
+      const tableStartY = filterParts.length > 0 ? 33 : 27;
+
+      // 3. Table
       autoTable(doc, {
-        startY: 35,
-        head: [['Employee Name', 'ID', 'Role', 'Branch Node', 'Allowance', 'Status']],
-        body: filteredEmployees.map(emp => [
-          (emp.name || '').toUpperCase(),
-          emp.id.toUpperCase(),
-          (emp.role || '').toUpperCase(),
-          (branches.find(b => b.id === emp.branchId)?.name || 'UNASSIGNED').toUpperCase(),
-          `PHP ${(emp.allowance || 0).toLocaleString()}`,
-          emp.isActive ? 'ACTIVE' : 'INACTIVE'
-        ]),
+        startY: tableStartY,
+        head: [['NAME', 'EMP ID', 'HOME BRANCH', 'R-BRANCH (RELIEVER)', 'SPECIALIZATION', 'STATUS', 'POSITION']],
+        body: filteredEmployees.map(emp => {
+          const empNameUpper = (emp.name || '').toUpperCase();
+          const homeBranch = branches.find(b => b.id === emp.branchId)?.name || '—';
+          const relieverBranches = branches
+            .filter(b => b.id !== emp.branchId && (
+              b.manager?.toUpperCase() === empNameUpper ||
+              b.tempManager?.toUpperCase() === empNameUpper ||
+              (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in emp.branchAllowances)
+            ))
+            .map(b => b.name)
+            .join(', ') || '—';
+          const specialization = getEmployeeRole(emp, emp.branchId)
+            .split(',')
+            .filter(r => !['MANAGER', 'RELIEVER'].includes(r.trim().toUpperCase()))
+            .join(', ') || '—';
+          const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
+          const empId = emp.timestamp
+            ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+            : emp.id;
+
+          return [
+            empNameUpper,
+            empId.toUpperCase(),
+            homeBranch.toUpperCase(),
+            relieverBranches.toUpperCase(),
+            specialization.toUpperCase(),
+            emp.isActive ? 'ACTIVE' : 'INACTIVE',
+            isManager ? 'MANAGER' : 'REGULAR',
+          ];
+        }),
         theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 8 },
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+        bodyStyles: { fontSize: 7.5 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-          4: { halign: 'right' }
+          0: { cellWidth: 45, fontStyle: 'bold' },
+          1: { cellWidth: 32, font: 'courier', fontSize: 6.5 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 55 },
+          4: { cellWidth: 28, halign: 'center' },
+          5: { cellWidth: 20, halign: 'center' },
+          6: { cellWidth: 22, halign: 'center' },
         },
-        rowPageBreak: 'avoid'
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            if (data.column.index === 5) {
+              data.cell.styles.textColor = data.cell.raw === 'ACTIVE' ? [5, 150, 105] : [100, 116, 139];
+            }
+            if (data.column.index === 6) {
+              data.cell.styles.textColor = data.cell.raw === 'MANAGER' ? [79, 70, 229] : [100, 116, 139];
+            }
+          }
+        },
+        rowPageBreak: 'avoid',
       });
 
-      doc.save(`STAFF_DIRECTORY_${new Date().toISOString().split('T')[0]}.pdf`);
+      // 4. Footer on each page
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+        doc.text('HILOT CENTER — CONFIDENTIAL', 14, doc.internal.pageSize.getHeight() - 8);
+      }
+
+      doc.save(`STAFF_DIRECTORY_${now.toISOString().split('T')[0]}.pdf`);
       playSound('success');
     } catch (error) {
       console.error('PDF Export failed:', error);
@@ -480,36 +601,6 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
   return (
     <div className={`animate-in fade-in duration-300 ${UI_THEME.layout.maxContent} pb-32`}>
-      {/* RESET REQUESTS BANNER */}
-      {resetRequestedCount > 0 && (
-        <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
-          <div className="bg-rose-50 border border-rose-100 rounded-[24px] p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-4 text-center sm:text-left">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shrink-0 animate-pulse">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path d="M12 15v2m0 0v2m0-2h2m-2 0H10m4-11a4 4 0 11-8 0 4 4 0 018 0zM7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-[14px] font-black text-rose-900 uppercase tracking-tighter leading-none mb-1">
-                  {resetRequestedCount} Pending Credential {resetRequestedCount === 1 ? 'Request' : 'Requests'}
-                </h4>
-                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Action required to restore terminal access</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => {
-                setResetRequestedOnly(true);
-                setShowFilters(true);
-                playSound('click');
-              }}
-              className="px-6 py-3 bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95 whitespace-nowrap"
-            >
-              Review Requests
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* SECURITY WIPE MODAL */}
       {showAdminWipeConfirm && (
@@ -566,7 +657,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <input 
               type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
-              placeholder="Search Employee..."
+              placeholder="Search by name or employee ID..."
               className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-[13px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
             />
           </div>
@@ -759,6 +850,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
         <EmployeeMobileList
@@ -767,13 +859,22 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
       </div>
 
+      {idCardEmployee && (
+        <EmployeeIDCardModal
+          employee={idCardEmployee}
+          branches={branches}
+          onClose={() => setIdCardEmployee(null)}
+        />
+      )}
+
       {resettingEmployee && (
         <div className="no-print">
-          <RecoveryModal 
+          <RecoveryModal
             employee={resettingEmployee}
             branches={branches}
             isSaving={updateEmployee.isPending}
@@ -786,7 +887,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
       {editingEmployee && !resettingEmployee && (
         <div className="no-print">
-          <EditorModal 
+          <EditorModal
             key={editingEmployee?.id || 'new'}
             employee={{...editingEmployee, allEmployees: employees} as any}
             branches={branches}
@@ -794,6 +895,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             error={error}
             onClose={() => setEditingEmployee(null)}
             onSave={handleSaveEmployee}
+            onSavePersonalDetails={handleSavePersonalDetails}
             onWipe={(target) => { setShowAdminWipeConfirm(target as Employee); }}
             onReset={handleOpenResetModal}
             onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}

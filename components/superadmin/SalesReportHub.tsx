@@ -201,7 +201,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
   }, [branches, salesReports, selectedBranchIds, view]);
 
   return (
-      <div className="space-y-6 animate-in fade-in duration-700 max-w-7xl mx-auto px-2">
+      <div className="space-y-6 max-w-7xl mx-auto px-2">
         {drilldownReport && (
             <ReportEditorModal
                 report={drilldownReport}

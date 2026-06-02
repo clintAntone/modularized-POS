@@ -21,12 +21,12 @@ interface AttendanceHubProps {
 export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branches, employees, onRefresh, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
-  const [dateFilter, setDateFilter] = useState<string>(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Manila',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(getTrueDate())
-  );
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(getTrueDate());
+  const [dateFrom, setDateFrom] = useState<string>(todayStr);
+  const [dateTo, setDateTo] = useState<string>(todayStr);
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState<string | null>(null);
@@ -34,7 +34,6 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
   const [isDeleting, setIsDeleting] = useState(false);
   const [resetConfirmLog, setResetConfirmLog] = useState<Attendance | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'
     : selectedBranchIds.length === 1 ? (branches.find(b => b.id === selectedBranchIds[0])?.name ?? 'Branch')
@@ -47,13 +46,15 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
       res = res.filter(a => selectedBranchIds.includes(a.branchId));
     }
 
-    if (dateFilter) {
+    if (dateFrom || dateTo) {
       res = res.filter(a => {
         const clockInDate = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'Asia/Manila',
           year: 'numeric', month: '2-digit', day: '2-digit'
         }).format(new Date(a.clockIn));
-        return clockInDate === dateFilter;
+        if (dateFrom && clockInDate < dateFrom) return false;
+        if (dateTo   && clockInDate > dateTo)   return false;
+        return true;
       });
     }
 
@@ -66,7 +67,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
     }
 
     return res;
-  }, [attendance, selectedBranchIds, dateFilter, searchTerm, branches]);
+  }, [attendance, selectedBranchIds, dateFrom, dateTo, searchTerm, branches]);
 
   const paginatedAttendance = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -175,10 +176,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
       doc.setFontSize(18);
       doc.setTextColor(15, 23, 42); // slate-900
       doc.text('GLOBAL ATTENDANCE LOGS', 14, 20);
-      
+
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139); // slate-500
-      doc.text(`DATE FILTER: ${dateFilter || 'ALL TIME'}`, 14, 28);
+      const dateRangeLabel = dateFrom && dateTo && dateFrom === dateTo
+        ? dateFrom
+        : `${dateFrom || 'START'} → ${dateTo || 'END'}`;
+      doc.text(`DATE RANGE: ${dateRangeLabel}`, 14, 28);
       doc.text(`BRANCH: ${selectedBranchLabel}`, 14, 33);
       doc.text(`GENERATED AT: ${getTrueDate().toLocaleString()}`, 14, 38);
 
@@ -202,7 +206,8 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
         headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
 
-      doc.save(`Attendance_Logs_${dateFilter || 'All'}_${selectedBranchLabel.replace(/\s+/g, '_')}.pdf`);
+      const fileLabel = dateFrom === dateTo ? (dateFrom || 'All') : `${dateFrom || 'Start'}_to_${dateTo || 'End'}`;
+      doc.save(`Attendance_Logs_${fileLabel}_${selectedBranchLabel.replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
       console.error('Export failed:', error);
     } finally {
@@ -257,21 +262,30 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
             />
           </div>
 
-          {/* Date picker */}
+          {/* Date range picker */}
           <div className="flex items-center gap-2 shrink-0">
             <input
               type="date"
-              value={dateFilter}
-              onChange={e => { setDateFilter(e.target.value); setCurrentPage(1); playSound('click'); }}
-              className="h-10 w-full sm:w-40 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); playSound('click'); }}
+              className="h-10 w-full sm:w-36 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
             />
-            {dateFilter && (
+            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={e => { setDateTo(e.target.value); setCurrentPage(1); playSound('click'); }}
+              className="h-10 w-full sm:w-36 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+            />
+            {(dateFrom !== todayStr || dateTo !== todayStr) && (
               <button
-                onClick={() => { setDateFilter(''); setCurrentPage(1); playSound('click'); }}
-                className="h-10 w-10 flex items-center justify-center bg-slate-100 text-slate-400 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-all shrink-0"
-                title="Clear date"
+                onClick={() => { setDateFrom(todayStr); setDateTo(todayStr); setCurrentPage(1); playSound('click'); }}
+                className="h-10 w-10 flex items-center justify-center bg-slate-100 text-slate-400 rounded-2xl hover:bg-emerald-50 hover:text-emerald-500 transition-all shrink-0"
+                title="Reset to today"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="3" /></svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               </button>
             )}
           </div>
@@ -284,6 +298,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
             className="shrink-0 sm:w-48"
           />
         </div>
+
       </div>
 
       <div className="px-1 space-y-4 no-print">

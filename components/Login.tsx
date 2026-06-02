@@ -48,11 +48,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const [recoveryUsername, setRecoveryUsername] = useState('');
 
     const filteredBranches = useMemo(() => {
-        let enabled = branches.filter(b => b.isEnabled);
-        
         const sanitizedSearch = searchTerm.replace(/[<>]/g, '').toLowerCase();
-        if (!sanitizedSearch) return enabled;
-        return enabled.filter(b => b.name.toLowerCase().includes(sanitizedSearch));
+        if (!sanitizedSearch) return branches;
+        return branches.filter(b => b.name.toLowerCase().includes(sanitizedSearch));
     }, [branches, searchTerm]);
 
     useEffect(() => {
@@ -120,25 +118,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 // 1. Set request_reset on employee
                 const { error: updateError } = await supabase
                     .from(DB_TABLES.EMPLOYEES)
-                    .update({ 
-                        [DB_COLUMNS.REQUEST_RESET]: true,
-                        [DB_COLUMNS.RESET_APPROVED]: false 
-                    })
+                    .update({ [DB_COLUMNS.REQUEST_RESET]: true })
                     .eq(DB_COLUMNS.ID, data.id);
-                if (updateError) throw updateError;
-
-                // 2. Create a Request record
-                const requestId = Math.random().toString(36).substr(2, 9);
-                await supabase.from(DB_TABLES.REQUESTS).insert({
-                    [DB_COLUMNS.ID]: requestId,
-                    [DB_COLUMNS.BRANCH_ID]: selectedBranchId,
-                    [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
-                    [DB_COLUMNS.TYPE]: 'PASSWORD_RESET',
-                    [DB_COLUMNS.STATUS]: 'PENDING',
-                    [DB_COLUMNS.DATA]: { employeeId: data.id, employeeName: data.name },
-                    [DB_COLUMNS.REQUESTER_ID]: data.id,
-                    [DB_COLUMNS.REQUESTER_NAME]: data.name
-                });
+                if (updateError) {
+                    console.error('[ResetSignal] employee update failed:', JSON.stringify(updateError));
+                    throw updateError;
+                }
 
                 setSuccess('Reset Request Sent to Admin');
                 playSound('success');
@@ -333,6 +318,37 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                                 return;
                             }
 
+                            // ── Authorization check BEFORE PIN ──────────────────────────
+                            // Only the branch manager or assigned temp/relief manager may log in.
+                            // Also verify the employee actually belongs to this branch (or has
+                            // an explicit branchAllowances entry) to prevent cross-branch name collisions.
+                            const dbName = (empData.name || '').toUpperCase().trim();
+                            const branchManagerName = (branch.manager || '').toUpperCase().trim();
+                            const branchTempManagerName = (branch.tempManager || '').toUpperCase().trim();
+
+                            const isAuthorizedHead = dbName !== '' && dbName === branchManagerName;
+                            const isAuthorizedRelief = branchTempManagerName !== '' && dbName === branchTempManagerName;
+
+                            const empBranchId = empData[DB_COLUMNS.BRANCH_ID] ?? empData.branchId ?? empData.branch_id;
+                            const branchAllowances = empData[DB_COLUMNS.BRANCH_ALLOWANCES] ?? empData.branchAllowances ?? {};
+                            const belongsToBranch = empBranchId === branch.id ||
+                                (typeof branchAllowances === 'object' && branchAllowances !== null && branch.id in branchAllowances);
+
+                            if (!isSetupAccountMode && !(isAuthorizedHead || isAuthorizedRelief)) {
+                                handleFailure('Unauthorized Terminal Access');
+                                return;
+                            }
+
+                            // For temp managers (delegates) only: also verify branch ownership
+                            // to guard against same-name collisions across branches.
+                            // Branch heads are already uniquely identified by branch.manager so
+                            // the ownership check is skipped for them.
+                            if (!isSetupAccountMode && !isAuthorizedHead && isAuthorizedRelief && !belongsToBranch) {
+                                handleFailure('Unauthorized Terminal Access');
+                                return;
+                            }
+                            // ────────────────────────────────────────────────────────────
+
                             let isValid = false;
                             const dbLoginPin = empData.loginPin !== undefined ? empData.loginPin : empData.login_pin;
                             const dbPinSalt = empData.pinSalt !== undefined ? empData.pinSalt : empData.pin_salt;
@@ -358,13 +374,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                                 handleFailure(isSetupAccountMode ? 'Invalid Branch Setup PIN' : 'Invalid Security PIN');
                                 return;
                             }
-
-                            const dbName = (empData.name || '').toUpperCase().trim();
-                            const branchManagerName = (branch.manager || '').toUpperCase().trim();
-                            const branchTempManagerName = (branch.tempManager || '').toUpperCase().trim();
-
-                            const isAuthorizedHead = dbName !== '' && dbName === branchManagerName;
-                            const isAuthorizedRelief = dbName !== '' && dbName === branchTempManagerName;
 
                             if (isAuthorizedHead || isAuthorizedRelief) {
                                 onLogin(UserRole.BRANCH_MANAGER, branch.id, pin, empData.id, empData.username || empData.name);
@@ -427,147 +436,122 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 <div className="absolute top-[30%] right-[10%] w-[30%] h-[30%] bg-emerald-400/5 blur-[100px] rounded-full animate-float-slow" style={{ animationDelay: '-12s' }}></div>
             </div>
 
-            <div className={`w-full max-w-md bg-white/95 backdrop-blur-md rounded-[48px] shadow-2xl p-8 sm:p-10 relative z-10 animate-in zoom-in duration-300 ${shake ? 'animate-shake' : ''} ${isAuthenticating ? 'opacity-80' : ''} border border-white/20`}>
-                <button
-                    onClick={() => { 
-                        setSelectedBranchId(null); 
-                        setPin(''); 
-                        setConfirmPin(''); 
-                        setError(''); 
-                        setIsReliefMode(false);
-                        setIsRecoveryMode(false); 
-                        playSound('click'); 
-                    }}
-                    className="absolute top-8 left-8 text-slate-300 hover:text-slate-900 transition-colors"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-                </button>
+            <div className={`w-full max-w-sm relative z-10 animate-in zoom-in duration-300 ${shake ? 'animate-shake' : ''} ${isAuthenticating ? 'opacity-80' : ''}`}>
+              <div className="rounded-[32px] overflow-hidden shadow-2xl border border-white/5">
 
-                <div className="text-center mb-10">
-                    <div className={`w-[18vw] h-[18vw] max-w-[100px] max-h-[100px] min-w-[64px] min-h-[64px] rounded-[22px] flex items-center justify-center mx-auto mb-6 shadow-xl ${selectedBranchId === 'portal' ? 'bg-slate-900' : isSetupAccountMode ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
-                        {logo && selectedBranchId !== 'portal' ? (
-                            <img 
-                                src={logo} 
-                                alt="Logo" 
-                                className="w-[12vw] h-[12vw] max-w-[60px] max-h-[60px] min-w-[40px] min-h-[40px] object-contain" 
-                                style={{ animation: 'spin-stop-flip 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards' }} 
-                            />
-                        ) : (
-                            <span className="text-2xl sm:text-3xl">{selectedBranchId === 'portal' ? '🔐' : isSetupAccountMode ? '👤' : '🏢'}</span>
-                        )}
+                {/* ── DARK HEADER ── */}
+                <div
+                  className="relative px-7 pt-7 pb-14 text-center overflow-hidden"
+                  style={{ background: 'linear-gradient(145deg, #0f172a 0%, #1a2234 60%, #0f2918 100%)' }}
+                >
+                  <div className="absolute top-0 left-1/4 w-48 h-20 bg-emerald-500/20 blur-[60px] rounded-full pointer-events-none" />
+
+                  {/* Back button */}
+                  <button
+                    onClick={() => { setSelectedBranchId(null); setPin(''); setConfirmPin(''); setError(''); setIsReliefMode(false); setIsRecoveryMode(false); playSound('click'); }}
+                    className="absolute top-6 left-6 z-20 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white/50 hover:text-white transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+
+                  <div className="relative z-10 space-y-3">
+                    {/* Logo */}
+                    <div className={`w-16 h-16 rounded-[18px] flex items-center justify-center mx-auto ${logo && selectedBranchId !== 'portal' ? '' : selectedBranchId === 'portal' ? 'bg-slate-700 shadow-2xl' : isSetupAccountMode ? 'bg-indigo-600 shadow-2xl' : 'bg-white/10 shadow-2xl'}`}>
+                      {logo && selectedBranchId !== 'portal' ? (
+                        <img src={logo} alt="Logo" className="w-16 h-16 object-contain drop-shadow-2xl" />
+                      ) : (
+                        <span className="text-2xl">{selectedBranchId === 'portal' ? '🔐' : isSetupAccountMode ? '👤' : '🏢'}</span>
+                      )}
                     </div>
-                    <h2 className="text-[7vw] sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter leading-tight px-2">
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-tight">
                         {selectedBranch?.name}
-                    </h2>
-                    <p className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.3em] mt-3">
-                        {isSetupAccountMode ? 'Account Initialization' : isReliefMode ? `Relief: ${reliefStep.toUpperCase()}` : 'Handshake Required'}
-                    </p>
+                      </h2>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.25em] mt-1" style={{ color: 'rgba(167,243,208,0.7)' }}>
+                        {isSetupAccountMode ? 'Account Initialization' : isReliefMode ? `Relief · ${reliefStep.toUpperCase()}` : 'Identity Verification'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {isRecoveryMode ? (
+                {/* ── WHITE BODY ── */}
+                <div className="bg-white px-7 pt-3 pb-7">
+                  {/* Stats overlap card */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl shadow-lg -mt-7 mb-6 px-5 py-3 relative z-10 flex items-center justify-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch Access</span>
+                  </div>
+
+                  {isRecoveryMode ? (
                     <RecoveryForm
-                        recoveryUsername={recoveryUsername}
-                        setRecoveryUsername={setRecoveryUsername}
-                        onReset={handleRemoteResetSignal}
-                        onCancel={() => setIsRecoveryMode(false)}
-                        isAuthenticating={isAuthenticating}
-                        successMsg={success}
+                      onCancel={() => setIsRecoveryMode(false)}
                     />
-                ) : (
-                    <form onSubmit={checkAndLogin} className="space-y-8">
-                        <AuthForm
-                            username={username}
-                            setUsername={setUsername}
-                            pin={pin}
-                            setPin={setPin}
-                            confirmPin={confirmPin}
-                            setConfirmPin={setConfirmPin}
-                            isReliefMode={isReliefMode}
-                            reliefStep={reliefStep}
-                            isSetupMode={isSetupMode}
-                            isSetupAccountMode={isSetupAccountMode}
-                            isAdmin={false}
-                            tempManagerIdentity={tempManagerIdentity}
-                            reliefEmployee={reliefEmployee}
-                            isAuthenticating={isAuthenticating}
-                            lockoutUntil={lockoutUntil}
-                        />
+                  ) : (
+                    <form onSubmit={checkAndLogin} className="space-y-5">
+                      <AuthForm
+                        username={username}
+                        setUsername={setUsername}
+                        pin={pin}
+                        setPin={setPin}
+                        confirmPin={confirmPin}
+                        setConfirmPin={setConfirmPin}
+                        isReliefMode={isReliefMode}
+                        reliefStep={reliefStep}
+                        isSetupMode={isSetupMode}
+                        isSetupAccountMode={isSetupAccountMode}
+                        isAdmin={false}
+                        tempManagerIdentity={tempManagerIdentity}
+                        reliefEmployee={reliefEmployee}
+                        isAuthenticating={isAuthenticating}
+                        lockoutUntil={lockoutUntil}
+                      />
 
-                        {error && (
-                            <div
-                                className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-center animate-in slide-in-from-top-2">
-                                <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{error}</p>
-                            </div>
-                        )}
-
-                        <div className="space-y-4">
-                            <button
-                                onClick={(e) => checkAndLogin(e)}
-                                disabled={isAuthenticating || pin.length < 6 || !!lockoutUntil}
-                                className={`w-full text-white font-bold py-6 rounded-[28px] shadow-2xl active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-[11px] disabled:opacity-30 flex items-center justify-center gap-3 ${isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900'}`}
-                            >
-                                {isAuthenticating ? <div
-                                    className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'Initialize Account' : isReliefMode && reliefStep === 'pin' ? 'Verify Branch PIN' : 'Login'}
-                            </button>
-
-                            {!isSetupMode && selectedBranchId !== 'portal' && (
-                                <div className="flex flex-col gap-2 pt-2">
-                                    {!isSetupAccountMode && !isReliefMode && selectedBranch?.tempManager && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsReliefMode(true);
-                                                setReliefStep('pin');
-                                                setReliefEmployee(null);
-                                                setError('');
-                                                setPin('');
-                                                setConfirmPin('');
-                                                setUsername('');
-                                                playSound('click');
-                                            }}
-                                            className="w-full text-[9px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors py-2"
-                                        >
-                                            Relief Manager? Create Account
-                                        </button>
-                                    )}
-                                    {!isSetupAccountMode && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsRecoveryMode(true);
-                                                setError('');
-                                                setPin('');
-                                                playSound('click');
-                                            }}
-                                            className="w-full text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors py-1"
-                                        >
-                                            Forgot Credentials?
-                                        </button>
-                                    )}
-                                    {(isSetupAccountMode || isReliefMode) && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsSetupAccountMode(false);
-                                                setIsReliefMode(false);
-                                                setReliefStep('pin');
-                                                setReliefEmployee(null);
-                                                setError('');
-                                                setPin('');
-                                                setConfirmPin('');
-                                                setUsername('');
-                                                playSound('click');
-                                            }}
-                                            className="w-full text-[9px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-800 transition-colors py-2"
-                                        >
-                                            Back to Login
-                                        </button>
-                                    )}
-                                </div>
-                            )}
+                      {error && (
+                        <div className="px-4 py-3 bg-rose-50 border border-rose-100 rounded-2xl text-center animate-in slide-in-from-top-2">
+                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{error}</p>
                         </div>
+                      )}
+
+                      <div className="space-y-3 pt-1">
+                        <button
+                          onClick={(e) => checkAndLogin(e)}
+                          disabled={isAuthenticating || pin.length < 6 || !!lockoutUntil}
+                          className={`w-full text-white font-black py-5 rounded-2xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-[11px] disabled:opacity-30 flex items-center justify-center gap-3 ${isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-slate-800'}`}
+                        >
+                          {isAuthenticating
+                            ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                            : isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'Initialize Account'
+                            : isReliefMode && reliefStep === 'pin' ? 'Verify Branch PIN'
+                            : 'Login'}
+                        </button>
+
+                        {!isSetupMode && selectedBranchId !== 'portal' && (
+                          <div className="flex flex-col gap-1">
+                            {!isSetupAccountMode && !isReliefMode && selectedBranch?.tempManager && (
+                              <button type="button" onClick={() => { setIsReliefMode(true); setReliefStep('pin'); setReliefEmployee(null); setError(''); setPin(''); setConfirmPin(''); setUsername(''); playSound('click'); }}
+                                className="w-full text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors py-2">
+                                Relief Manager? Create Account
+                              </button>
+                            )}
+                            {!isSetupAccountMode && (
+                              <button type="button" onClick={() => { setIsRecoveryMode(true); setError(''); setPin(''); playSound('click'); }}
+                                className="w-full text-[9px] font-bold text-slate-300 uppercase tracking-widest hover:text-slate-500 transition-colors py-1">
+                                Forgot Credentials?
+                              </button>
+                            )}
+                            {(isSetupAccountMode || isReliefMode) && (
+                              <button type="button" onClick={() => { setIsSetupAccountMode(false); setIsReliefMode(false); setReliefStep('pin'); setReliefEmployee(null); setError(''); setPin(''); setConfirmPin(''); setUsername(''); playSound('click'); }}
+                                className="w-full text-[9px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors py-2">
+                                Back to Login
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </form>
-                )}
+                  )}
+                </div>
+              </div>
             </div>
         </div>
     );

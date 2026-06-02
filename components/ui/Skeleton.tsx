@@ -80,7 +80,7 @@ export const TableRowSkeleton = () => (
 );
 
 export const SectionSkeleton = ({ rows = 5 }: { rows?: number }) => (
-  <div className="space-y-3 animate-in fade-in duration-500">
+  <div className="space-y-3">
     <div className="flex items-center justify-between mb-4">
       <Skeleton variant="text" className="w-1/3 h-5" />
       <Skeleton variant="rect" className="w-24 h-9" />

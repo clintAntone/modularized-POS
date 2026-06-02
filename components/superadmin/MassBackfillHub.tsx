@@ -105,20 +105,25 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 setRentAndBills(existingReport.totalVaultProvision);
 
                 // Vault deposits always live in vault_data (both legacy PROVISION and modern VAULT_DEPOSIT)
-                setExpenseData(existingReport.expenseData || []);
                 setVaultData(existingReport.vaultData || []);
 
-                // Map staff breakdown to entries
-                const reportEntries = existingReport.staffBreakdown.map((s: any) => ({
-                    employeeId: s.employeeId,
-                    name: s.staffName || employees.find(e => e.id === s.employeeId)?.name || 'UNKNOWN',
-                    commission: s.commission || 0,
-                    otPay: s.attendance?.otPay || 0,
-                    cashAdvance: s.attendance?.cashAdvance || 0,
-                    lateDeduction: s.attendance?.lateDeduction || 0,
-                    allowance: s.allowance || 0,
-                    isHalfDay: !!s.isHalfDay
-                }));
+                const branchEmpIds = new Set(branchEmployees.map((e: any) => e.id));
+
+                // All staff in breakdown restore to employeeEntries with isReliever flag preserved
+                const reportEntries = existingReport.staffBreakdown
+                    .map((s: any) => ({
+                        employeeId: s.employeeId,
+                        name: s.staffName || employees.find(e => e.id === s.employeeId)?.name || 'UNKNOWN',
+                        commission: s.commission || 0,
+                        otPay: s.attendance?.otPay || 0,
+                        cashAdvance: s.attendance?.cashAdvance || 0,
+                        lateDeduction: s.attendance?.lateDeduction || 0,
+                        allowance: s.allowance || 0,
+                        isHalfDay: !!s.isHalfDay,
+                        isReliever: !!(s.isReliever || !branchEmpIds.has(s.employeeId)),
+                    }));
+
+                setExpenseData(existingReport.expenseData || []);
 
                 // Automatically add active branch employees who are NOT in the report
                 const missingEmployees = branchEmployees
@@ -170,13 +175,22 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
         }
     }, [selectedBranchId, selectedDate, salesReports, employees, branchVaultStartDates]);
 
-    const totalEmployeeNetPay = employeeEntries.reduce((sum, e) =>
-        sum + Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction), 0
-    );
+    // Relievers are excluded from payroll totals — their pay goes to expenses
+    const totalEmployeeNetPay = employeeEntries
+        .filter(e => !e.isReliever)
+        .reduce((sum, e) =>
+            sum + Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction), 0
+        );
+
+    const derivedRelieverPay = employeeEntries
+        .filter(e => e.isReliever)
+        .reduce((sum, e) =>
+            sum + Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction), 0
+        );
 
     const totalStaffPay = Number(totalSalary);
 
-    const derivedExpenses = expenseData.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const derivedExpenses = expenseData.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) + derivedRelieverPay;
     const derivedVault = vaultData.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
     const netRoi = Number(grossSales) - derivedExpenses - totalStaffPay - derivedVault;
@@ -205,7 +219,9 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
     const handleAddEmployee = (emp: Employee) => {
         if (employeeEntries.find(e => e.employeeId === emp.id)) return;
-        
+
+        const isReliever = emp.branchId !== selectedBranchId;
+
         setEmployeeEntries(prev => [...prev, {
             employeeId: emp.id,
             name: emp.name,
@@ -213,10 +229,12 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             otPay: 0,
             cashAdvance: 0,
             lateDeduction: 0,
-            allowance: emp.allowance || 0,
-            isHalfDay: false
+            allowance: getEmployeeAllowance(emp, selectedBranchId),
+            isHalfDay: false,
+            isReliever,
         }]);
         setIsAddPersonnelOpen(false);
+        setPersonnelSearch('');
         playSound('click');
     };
 
@@ -290,6 +308,28 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const branch = branches.find(b => b.id === selectedBranchId);
             if (!branch) throw new Error('Branch not found');
 
+            // Reliever entries go into both staffBreakdown (isReliever:true) AND expenseData
+            const relieverExpenseEntries = employeeEntries
+                .filter(e => e.isReliever)
+                .map(e => {
+                    const pay = Math.max(0,
+                        Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction)
+                    );
+                    return {
+                        id: `reliever_${e.employeeId}`,
+                        branchId: branch.id,
+                        name: `RELIEVER PAYOUT: ${e.name.toUpperCase()}`,
+                        amount: pay,
+                        category: 'OPERATIONAL',
+                        timestamp: `${selectedDate}T12:00:00.000Z`,
+                    };
+                });
+
+            // Merge with manual expenses (avoid duplicates by name)
+            const relieverNames = new Set(relieverExpenseEntries.map(e => e.name.toUpperCase()));
+            const manualExpenses = expenseData.filter((e: any) => !relieverNames.has((e.name || '').toUpperCase()));
+            const finalExpenseData = [...relieverExpenseEntries, ...manualExpenses];
+
             const staffBreakdown = employeeEntries.map(e => ({
                 employeeId: e.employeeId,
                 staffName: e.name,
@@ -297,6 +337,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 commission: Number(e.commission),
                 allowance: Number(e.allowance),
                 isHalfDay: !!e.isHalfDay,
+                isReliever: !!e.isReliever,
                 attendance: {
                     id: `ATT-BACKFILL-${Math.random().toString(36).substr(2, 9)}`,
                     date: selectedDate,
@@ -342,14 +383,13 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 report_date: selectedDate,
                 gross_sales: Number(grossSales),
                 total_staff_pay: totalStaffPay,
-                // Expenses = operational only; vault deposits go to vault_data/total_vault_provision
-                total_expenses: derivedExpenses,
+                total_expenses: finalExpenseData.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0),
                 total_vault_provision: derivedVault,
-                net_roi: netRoi,
+                net_roi: Number(grossSales) - finalExpenseData.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0) - totalStaffPay - derivedVault,
                 // Never touch the standard report's live sessions; backfill records carry no sessions
                 session_data: isBackfillMode ? [] : (sourceReport?.sessionData || []),
                 staff_breakdown: staffBreakdown,
-                expense_data: expenseData,
+                expense_data: finalExpenseData,
                 // vault_data holds both PROVISION (legacy) and VAULT_DEPOSIT (modern) entries
                 vault_data: vaultData,
                 submitted_at: getTrueManilaISOString(),
@@ -359,37 +399,70 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const { error } = await supabase.from('sales_reports').upsert(reportData, { onConflict: 'id' });
             if (error) throw error;
 
-            // ── Sync branch_vaults.balance with the vault deposit delta ──────
-            // Only applies to non-legacy vault branches with VAULT_DEPOSIT entries.
+            // ── Recompute branch_vaults.balance from scratch ─────────────────
+            // Only applies to non-legacy vault branches.
             const vaultStartDate = branchVaultStartDates[branch.id] ?? null;
             const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
             if (!reportIsLegacy && branch.vaultEnabled) {
-                const newVaultDepositTotal = vaultData
-                    .filter((e: any) => e.category === 'VAULT_DEPOSIT')
-                    .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
-
-                const oldVaultDepositTotal = (sourceReport?.vaultData || [])
-                    .filter((e: any) => e.category === 'VAULT_DEPOSIT')
-                    .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
-
-                const delta = newVaultDepositTotal - oldVaultDepositTotal;
-
-                if (delta !== 0) {
-                    // Fetch current balance then apply delta
-                    const { data: vaultRow } = await supabase
+                // Fetch: initial_balance, all report total_vault_provision (covers daily + backfill
+                // deposits which don't create vault_transaction records), and all vault_transactions
+                // that adjust the balance outside of daily deposits (withdrawals + admin deposits).
+                const [vaultRowRes, allReportsRes, vaultTxRes] = await Promise.all([
+                    supabase
                         .from(DB_TABLES.BRANCH_VAULTS)
-                        .select(DB_COLUMNS.VAULT_BALANCE)
+                        .select(`${DB_COLUMNS.VAULT_INITIAL_BALANCE}`)
                         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-                        .maybeSingle();
+                        .maybeSingle(),
+                    supabase
+                        .from(DB_TABLES.SALES_REPORTS)
+                        .select('total_vault_provision')
+                        .eq('branch_id', branch.id)
+                        .gte('report_date', vaultStartDate),
+                    supabase
+                        .from(DB_TABLES.VAULT_TRANSACTIONS)
+                        .select(`${DB_COLUMNS.AMOUNT}, ${DB_COLUMNS.TYPE}`)
+                        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+                        .in(DB_COLUMNS.TYPE, ['WITHDRAWAL', 'VAULT_WITHDRAWAL', 'ADMIN_DEPOSIT'])
+                        .gte(DB_COLUMNS.TIMESTAMP, `${vaultStartDate}T00:00:00`),
+                ]);
 
-                    if (vaultRow) {
-                        const currentBalance = Number(vaultRow[DB_COLUMNS.VAULT_BALANCE] ?? 0);
-                        const { error: vaultErr } = await supabase
-                            .from(DB_TABLES.BRANCH_VAULTS)
-                            .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, currentBalance + delta) })
-                            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-                        if (vaultErr) throw vaultErr;
-                    }
+                if (vaultRowRes.data && !allReportsRes.error && !vaultTxRes.error) {
+                    const initialBalance = Number(vaultRowRes.data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0);
+                    // total_vault_provision covers all deposit activity (daily + backfill)
+                    const totalDeposits = (allReportsRes.data || []).reduce(
+                        (s: number, r: any) => s + (Number(r.total_vault_provision) || 0), 0
+                    );
+                    // Withdrawals reduce the balance; admin deposits add to it (not in report totals)
+                    const txAdjustment = (vaultTxRes.data || []).reduce((s: number, t: any) => {
+                        const amt = Number(t[DB_COLUMNS.AMOUNT] || 0);
+                        return t[DB_COLUMNS.TYPE] === 'ADMIN_DEPOSIT' ? s + amt : s - amt;
+                    }, 0);
+                    const newBalance = Math.max(0, initialBalance + totalDeposits + txAdjustment);
+                    const { error: vaultErr } = await supabase
+                        .from(DB_TABLES.BRANCH_VAULTS)
+                        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+                        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+                    if (vaultErr) throw vaultErr;
+                }
+
+                // Upsert vault_transaction DEPOSIT records for backfill deposits so they
+                // appear in VaultFundHub deposit history. Balance is derived from
+                // total_vault_provision (reports), so this won't double-count.
+                const vaultDepositItems = vaultData.filter((e: any) => e.category === 'VAULT_DEPOSIT');
+                if (vaultDepositItems.length > 0) {
+                    const txRows = vaultDepositItems.map((d: any) => ({
+                        [DB_COLUMNS.ID]: d.id,
+                        [DB_COLUMNS.BRANCH_ID]: branch.id,
+                        [DB_COLUMNS.TYPE]: 'DEPOSIT',
+                        [DB_COLUMNS.AMOUNT]: d.amount,
+                        [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+                        [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+                        [DB_COLUMNS.PERFORMED_BY]: null,
+                    }));
+                    const { error: txErr } = await supabase
+                        .from(DB_TABLES.VAULT_TRANSACTIONS)
+                        .upsert(txRows, { onConflict: 'id' });
+                    if (txErr) throw txErr;
                 }
             }
 
@@ -441,11 +514,24 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
                         {isDropdownOpen && (
                             <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-1.5 animate-in zoom-in-95 duration-200">
-                                <div className="max-h-[300px] overflow-y-auto no-scrollbar">
-                                    {branches.map(b => (
+                                <div className="px-1 pb-1">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder="Search branch..."
+                                        value={personnelSearch}
+                                        onChange={e => setPersonnelSearch(e.target.value)}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest outline-none focus:border-emerald-400 transition-all"
+                                        onClick={e => e.stopPropagation()}
+                                    />
+                                </div>
+                                <div className="max-h-[260px] overflow-y-auto no-scrollbar">
+                                    {branches
+                                        .filter(b => !personnelSearch || b.name.toUpperCase().includes(personnelSearch.toUpperCase()))
+                                        .map(b => (
                                         <button
                                             key={b.id}
-                                            onClick={() => { setSelectedBranchId(b.id); setIsDropdownOpen(false); playSound('click'); }}
+                                            onClick={() => { setSelectedBranchId(b.id); setIsDropdownOpen(false); setPersonnelSearch(''); playSound('click'); }}
                                             className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all mb-1 ${selectedBranchId === b.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
                                         >
                                             {b.name}
@@ -609,8 +695,21 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                     )}
                 </div>
 
-                {expenseData.length > 0 && (
+                {(expenseData.length > 0 || employeeEntries.some(e => e.isReliever)) && (
                     <div className="mb-3 space-y-1.5">
+                        {/* Reliever entries — derived live from payroll table, read-only here */}
+                        {employeeEntries.filter(e => e.isReliever).map(e => {
+                            const pay = Number(e.commission) + Number(e.otPay) + Number(e.allowance) - Number(e.cashAdvance) - Number(e.lateDeduction);
+                            return (
+                                <div key={`reliever_${e.employeeId}`} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-violet-50 border-violet-100">
+                                    <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">Reliever</span>
+                                    <span className="flex-1 text-[11px] font-bold text-violet-700 uppercase truncate">RELIEVER PAYOUT: {e.name.toUpperCase()}</span>
+                                    <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{Math.max(0, pay).toLocaleString()}</span>
+                                    <span className="text-[8px] font-bold text-violet-400 shrink-0 italic">auto</span>
+                                </div>
+                            );
+                        })}
+                        {/* Manual expense entries */}
                         {expenseData.map((item, idx) => (
                             <div key={item.id || idx} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                                 <span className="flex-1 text-[11px] font-bold text-slate-700 uppercase truncate">{item.name}</span>
@@ -818,14 +917,14 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                     {employeeEntries.map((emp) => {
                                         const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                         return (
-                                            <tr key={emp.employeeId} className={`group transition-colors ${emp.isHalfDay ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-slate-50/50'}`}>
+                                            <tr key={emp.employeeId} className={`group transition-colors ${emp.isReliever ? 'bg-violet-50/40 hover:bg-violet-50/60' : emp.isHalfDay ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-slate-50/50'}`}>
                                                 <td className="pl-8 pr-4 py-6">
                                                     <div className="space-y-1">
                                                         <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[8px] font-black uppercase tracking-tighter">
-                                                                {branches.find(b => b.id === emp.branchId)?.name || 'Unknown'}
-                                                            </span>
+                                                            {emp.isReliever && (
+                                                                <span className="px-2 py-0.5 bg-violet-100 text-violet-600 rounded text-[8px] font-black uppercase tracking-tighter">Reliever · pay → expenses</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -956,13 +1055,13 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             {employeeEntries.map((emp) => {
                                 const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                 return (
-                                    <div key={emp.employeeId} className={`border rounded-[24px] p-5 space-y-5 shadow-sm ${emp.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+                                    <div key={emp.employeeId} className={`border rounded-[24px] p-5 space-y-5 shadow-sm ${emp.isReliever ? 'bg-violet-50 border-violet-200' : emp.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-0.5">
                                                 <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                                                    {branches.find(b => b.id === emp.branchId)?.name || 'Unknown'}
-                                                </p>
+                                                {emp.isReliever && (
+                                                    <span className="text-[8px] font-black text-violet-600 bg-violet-100 px-2 py-0.5 rounded uppercase tracking-widest">Reliever · pay → expenses</span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {!isReadOnly && (

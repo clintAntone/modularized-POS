@@ -167,7 +167,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     await onSave(payload);
                     // Reset localBranch to exactly what was saved so isDirty becomes false
                     // and closing the editor no longer triggers the discard popup.
-                    setLocalBranch(payload);
+                    const { cutoffEffectiveDate, ...savedBranch } = payload;
+                    setLocalBranch(savedBranch as typeof localBranch);
                     showToast('Configuration Synced');
                 } catch (e) {
                     showToast('Sync Failed', 'error');
@@ -180,7 +181,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-300"
+            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex items-end justify-center sm:items-center lg:justify-end animate-in fade-in duration-300"
             onClick={handleBackdropClick}
         >
             {toast && (
@@ -192,16 +193,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
             <div
                 ref={sidebarRef}
-                className="bg-white w-full lg:max-w-xl flex flex-col animate-in slide-in-from-right duration-500 shadow-2xl h-full border-l border-slate-100 relative"
+                className="bg-white w-full max-w-lg flex flex-col shadow-2xl relative
+                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-[28px] lg:rounded-none lg:h-full lg:max-h-full lg:max-w-xl lg:border-l lg:border-slate-100
+                  animate-in slide-in-from-bottom-4 lg:slide-in-from-right lg:slide-in-from-bottom-0 duration-300 lg:duration-500"
             >
-                <button
-                    onClick={handleManualClose}
-                    className="lg:hidden absolute -left-16 top-6 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-2xl text-slate-900 z-[2010] active:scale-90 transition-transform"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-
-                <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-[160] shadow-sm">
+                <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-[28px] lg:rounded-t-none">
                     <div className="flex items-center gap-4">
                         <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-xl shadow-lg">🏢</div>
                         <div className="min-w-0">
@@ -268,9 +264,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
                     <LifecycleParameters
                         weeklyCutoff={localBranch.weeklyCutoff}
+                        originalCutoff={branch.weeklyCutoff}
                         cycleStartDate={localBranch.cycleStartDate || ''}
                         dailyProvisionAmount={localBranch.dailyProvisionAmount ?? 0}
                         isSaving={isSaving}
+                        branch={localBranch}
                         onUpdate={handleUpdateLocal}
                     />
 
@@ -380,14 +378,14 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                 </div>
 
                 {!isReadOnly && (
-                  <div className="p-6 sm:p-8 bg-white border-t mt-auto shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170]">
+                  <div className="p-5 sm:p-6 bg-white border-t shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170] lg:rounded-b-none">
                     <button
                         onClick={handleSaveTrigger}
                         disabled={isSaving || !isDirty}
                         className={`w-full ${UI_THEME.styles.primaryButton} ${isSaving || !isDirty ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-950 text-white hover:bg-emerald-600 shadow-emerald-200'} ${isDirty ? 'ring-4 ring-emerald-500/20' : ''}`}
                     >
-                        {isSaving ? <div className="w-5 h-5 border-3 border-white/20 border-t-white rounded-full animate-spin"></div> : '⚡'}
-                        {isSaving ? 'SYNCHRONIZING...' : isDirty ? 'COMMIT ALL UPDATES' : 'CONFIGURATION SYNCED'}
+                        {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
+                        {isSaving ? 'Syncing...' : isDirty ? 'Save Changes' : 'Saved'}
                     </button>
                   </div>
                 )}

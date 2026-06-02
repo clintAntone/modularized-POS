@@ -131,7 +131,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
   };
 
   return (
-    <div className={`space-y-6 md:space-y-8 animate-in fade-in duration-700 ${UI_THEME.layout.maxContent}`}>
+    <div className={`space-y-6 md:space-y-8 ${UI_THEME.layout.maxContent}`}>
       {/* HEADER SECTION */}
       <div className={`bg-white ${UI_THEME.layout.cardPadding} ${UI_THEME.radius.card} shadow-sm border border-slate-200 space-y-6 no-print`}>
         <div className="flex flex-row items-center justify-between gap-4">
@@ -147,13 +147,6 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
 
           {!isReadOnly && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => { playSound('click'); onAddBulk(); }}
-                className={`h-10 sm:h-11 rounded-[24px] bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Bulk Register</span>
-              </button>
               <button
                 onClick={() => { playSound('click'); onAdd(); }}
                 className={`h-10 sm:h-11 rounded-[24px] ${UI_THEME.styles.actionButton} px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
@@ -297,65 +290,82 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
           </div>
         )}
 
-        <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm overflow-hidden`}>
+        {/* DESKTOP TABLE */}
+        <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className={`px-8 py-5 w-[28%] ${UI_THEME.text.metadata}`}>Branch Entity</th>
-                  <th className={`px-4 py-5 w-[12%] text-center ${UI_THEME.text.metadata}`}>Access</th>
-                  <th className={`px-4 py-5 w-[12%] text-center ${UI_THEME.text.metadata}`}>Daily Status</th>
-                  <th className={`px-4 py-5 w-[14%] text-center ${UI_THEME.text.metadata}`}>Registry PIN</th>
-                  <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Provision</th>
-                  <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Cutoff</th>
-                  <th className={`px-8 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Actions</th>
+                <tr className="bg-slate-50/80 border-b border-slate-100">
+                  <th className={`px-8 py-4 w-[30%] ${UI_THEME.text.metadata}`}>Branch</th>
+                  <th className={`px-4 py-4 w-[18%] ${UI_THEME.text.metadata}`}>Manager</th>
+                  <th className={`px-4 py-4 w-[11%] text-center ${UI_THEME.text.metadata}`}>Access</th>
+                  <th className={`px-4 py-4 w-[11%] text-center ${UI_THEME.text.metadata}`}>Status</th>
+                  <th className={`px-4 py-4 w-[10%] text-right ${UI_THEME.text.metadata}`}>Provision</th>
+                  <th className={`px-4 py-4 w-[8%] text-center ${UI_THEME.text.metadata}`}>Cutoff</th>
+                  <th className={`px-8 py-4 w-[12%] text-right ${UI_THEME.text.metadata}`}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-50">
                 {paginatedBranches.map(branch => (
-                  <tr key={branch.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-8 py-5">
+                  <tr
+                    key={branch.id}
+                    className={`group transition-colors relative ${
+                      branch.isOpen ? 'hover:bg-slate-50/60' : 'hover:bg-slate-50/60'
+                    } ${!branch.isEnabled ? 'opacity-50' : ''}`}
+                  >
+                    {/* Live accent strip */}
+                    <td className="px-8 py-4 relative">
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors">{branch.name}</p>
-                        <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest leading-none mt-1.5">ID: {branch.id.toUpperCase()}</p>
+                        <p className="font-black text-slate-900 uppercase text-[13px] tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{branch.name}</p>
+                        <p className="text-[9px] font-bold text-slate-300 font-mono tracking-widest mt-1">{branch.id.toUpperCase()}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                        branch.isEnabled ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-400'
+                    <td className="px-4 py-4">
+                      {branch.manager ? (
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-slate-700 truncate leading-none">{branch.manager}</p>
+                          {branch.tempManager && (
+                            <p className="text-[9px] font-semibold text-slate-400 truncate mt-0.5">+{branch.tempManager}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 italic">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        branch.isEnabled
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-rose-50 text-rose-400'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${branch.isEnabled ? 'bg-emerald-500' : 'bg-rose-400'}`} />
                         {branch.isEnabled ? 'Active' : 'Suspended'}
                       </span>
                     </td>
-                    <td className="px-4 py-5 text-center">
+                    <td className="px-4 py-4 text-center">
                       {branch.isEnabled ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className={`w-1.5 h-1.5 rounded-full ${branch.isOpen ? 'bg-indigo-600 animate-pulse' : 'bg-slate-200'}`}></div>
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${branch.isOpen ? 'text-indigo-600' : 'text-slate-300'}`}>{branch.isOpen ? 'Live' : 'Closed'}</span>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${branch.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200'}`} />
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${branch.isOpen ? 'text-emerald-600' : 'text-slate-300'}`}>
+                            {branch.isOpen ? 'Live' : 'Closed'}
+                          </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-200">—</span>
+                        <span className="text-[10px] text-slate-200">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-5 text-center">
-                      {branch.isPinChanged ? (
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest italic opacity-40">Encrypted</span>
-                      ) : (
-                        <span className="text-sm font-bold text-amber-600 tabular-nums tracking-widest bg-amber-50 px-2.5 py-1 rounded border border-amber-100">{branch.pin}</span>
-                      )}
+                    <td className="px-4 py-4 text-right">
+                      <span className="text-[13px] font-bold text-slate-700 tabular-nums">₱{(branch.dailyProvisionAmount || 800).toLocaleString()}</span>
                     </td>
-                    <td className="px-4 py-5 text-right">
-                      <span className="text-sm font-bold text-slate-900 tabular-nums">₱{(branch.dailyProvisionAmount || 800).toLocaleString()}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">
+                    <td className="px-4 py-4 text-center">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
                         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][branch.weeklyCutoff]}
                       </span>
                     </td>
-                    <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => onEdit(branch.id)}
-                        className="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-[10px] uppercase tracking-widest shadow-sm hover:bg-emerald-600 active:scale-[0.98] transition-all"
+                    <td className="px-8 py-4 text-right">
+                      <button
+                        onClick={() => { playSound('click'); onEdit(branch.id); }}
+                        className="px-4 py-1.5 bg-slate-100 text-slate-600 font-black rounded-xl text-[9px] uppercase tracking-widest hover:bg-slate-900 hover:text-white active:scale-95 transition-all"
                       >
                         Config
                       </button>
@@ -368,76 +378,71 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
         </div>
 
         {/* MOBILE CARD VIEW */}
-        <div className="grid grid-cols-1 gap-4 md:hidden px-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
           {paginatedBranches.map(branch => (
-            <div key={branch.id} className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all active:scale-[0.98]">
-              {/* Status Bar */}
-              <div className={`h-1.5 w-full ${branch.isEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-              
-              <div className="p-6 space-y-8">
-                {/* Header: Identity */}
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <h3 className="text-[20px] font-black text-slate-900 uppercase tracking-tight leading-none">
-                      {branch.name}
-                    </h3>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                      Branch {branch.id.toUpperCase()}
-                    </div>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border shadow-sm ${
-                    branch.isEnabled ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'
-                  }`}>
-                    {branch.isEnabled ? 'Online' : 'Offline'}
-                  </span>
-                </div>
+            <div
+              key={branch.id}
+              onClick={() => { playSound('click'); onEdit(branch.id); }}
+              className={`relative bg-white rounded-[24px] border overflow-hidden flex flex-col transition-all active:scale-[0.98] cursor-pointer shadow-sm hover:shadow-md ${
+                branch.isOpen
+                  ? 'border-slate-100 hover:border-slate-200'
+                  : branch.isEnabled
+                    ? 'border-slate-100 hover:border-emerald-200'
+                    : 'border-slate-100 opacity-60'
+              }`}
+            >
+              {/* Top accent bar */}
+              <div className={`h-1 w-full ${
+                branch.isOpen ? 'bg-emerald-400' : branch.isEnabled ? 'bg-slate-200' : 'bg-slate-100'
+              }`} />
 
-                {/* The Story: Live Status & Cycle */}
-                <div className="flex items-end justify-between px-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${branch.isOpen ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                      <span className={`text-[16px] font-black uppercase tracking-tighter ${branch.isOpen ? 'text-indigo-600' : 'text-slate-400'}`}>
-                        {branch.isOpen ? 'Live Now' : 'Resting'}
-                      </span>
-                    </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      {branch.isEnabled ? 'Active Branch' : 'Access Revoked'}
-                    </p>
+              <div className="p-5 flex flex-col gap-4">
+                {/* Identity row */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-[16px] font-black text-slate-900 uppercase tracking-tight leading-none truncate">{branch.name}</h3>
+                    <p className="text-[8px] font-bold text-slate-300 font-mono tracking-widest mt-1">{branch.id.toUpperCase()}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[16px] font-black text-slate-900 tracking-tighter uppercase">
-                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][branch.weeklyCutoff]}
-                    </p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cycle Reset</p>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                      branch.isEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${branch.isEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      {branch.isEnabled ? 'Active' : 'Off'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Financial Story */}
-                <div className="bg-slate-50 rounded-[24px] p-6 border border-slate-100/50 flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-[20px] font-black text-slate-900 tabular-nums tracking-tighter">
-                      ₱{(branch.dailyProvisionAmount || 800).toLocaleString()}
-                    </p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Daily Budget</p>
+                {/* Manager */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl">
+                  <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                    <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </div>
-                  <div className="text-right space-y-0.5">
-                    {branch.isPinChanged ? (
-                      <p className="text-[14px] font-black text-slate-300 uppercase tracking-tighter italic">Secured</p>
-                    ) : (
-                      <p className="text-[18px] font-black text-amber-600 tabular-nums tracking-[0.2em]">{branch.pin}</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-700 uppercase truncate leading-none">
+                      {branch.manager || <span className="text-slate-300 italic font-normal">No manager assigned</span>}
+                    </p>
+                    {branch.tempManager && (
+                      <p className="text-[8px] font-semibold text-slate-400 truncate mt-0.5">+{branch.tempManager}</p>
                     )}
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Access Key</p>
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <button 
-                  onClick={() => { playSound('click'); onEdit(branch.id); }}
-                  className="w-full bg-slate-900 text-white font-black py-5 rounded-[24px] text-[11px] uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-600 active:scale-[0.98] transition-all"
-                >
-                  Configure Branch
-                </button>
+                {/* Stats row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[12px] font-black text-slate-900 uppercase leading-none">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][branch.weeklyCutoff]}</p>
+                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Cutoff</p>
+                  </div>
+                  <div className={`rounded-xl px-3 py-2 text-center ${branch.isPinChanged ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                    <p className={`text-[12px] font-black uppercase leading-none ${branch.isPinChanged ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {branch.isPinChanged ? '🔒' : branch.pin}
+                    </p>
+                    <p className={`text-[7px] font-bold uppercase tracking-widest mt-0.5 ${branch.isPinChanged ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {branch.isPinChanged ? 'Secured' : 'Default PIN'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           ))}

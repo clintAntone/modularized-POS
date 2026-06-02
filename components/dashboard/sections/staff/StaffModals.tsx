@@ -5,7 +5,7 @@ import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 import { getInitials } from '../../../../lib/payroll';
 import { RecoveryModal } from './RecoveryModal';
-import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ArrowRightLeft } from 'lucide-react';
+import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin } from 'lucide-react';
 
 interface StaffModalsProps {
   isTimeModalOpen: boolean;
@@ -32,15 +32,21 @@ interface StaffModalsProps {
   setProfileFile: (file: File | null) => void;
   toggleRole: (role: string) => void;
   getShiftState: (empId: string) => 'OFF' | 'ONGOING';
+  isManagerView?: boolean;
 }
 
 export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const rolesList = ['THERAPIST', 'BONESETTER'];
   // True when editing an already-enrolled cross-branch employee (name is owned by their home branch)
   const isExistingReliever = !!(props.editingEmployee?.id && props.editingEmployee?.branchId && props.editingEmployee.branchId !== props.branchId);
+  // Managers can edit allowance but never name
+  const isNameLocked = props.isManagerView || props.isPullMode || isExistingReliever || !!props.editingEmployee?.id;
+  // Photo can always be changed unless it's a pull-mode or cross-branch reliever
+  const isPhotoLocked = props.isPullMode || isExistingReliever;
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState<Employee[]>([]);
   const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [empIdCopied, setEmpIdCopied] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
   const [holdProgress, setHoldProgress] = React.useState(0);
@@ -98,7 +104,9 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const isNewStaff = !props.editingEmployee?.id;
 
   const handleSearch = () => {
-    const term = searchQuery.toUpperCase().trim();
+    const raw = searchQuery.toUpperCase().trim();
+    // Strip legacy EMP-XX-XX- prefix so old-format IDs still resolve
+    const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
     setSearchError(null);
     setSearchResults([]);
 
@@ -108,18 +116,26 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
       return;
     }
 
+    const stripEmpPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
+
     const allMatches = (props.allEmployees || []).filter(emp => {
+      if (!emp.isActive) return false;
+
       const name = (emp.name || '').toUpperCase();
       const firstName = (emp.firstName || '').toUpperCase();
       const lastName = (emp.lastName || '').toUpperCase();
       const fullName = `${firstName} ${lastName}`.trim();
       const id = (emp.id || '').toUpperCase();
+      // Normalize stored ID the same way so EMP-04-05-YZKA7KYV ↔ YZKA7KYV both match
+      const idNorm = stripEmpPrefix(id);
 
-      return name.includes(term) || 
-             firstName.includes(term) || 
-             lastName.includes(term) || 
+      return name.includes(term) ||
+             firstName.includes(term) ||
+             lastName.includes(term) ||
              fullName.includes(term) ||
-             id.includes(term);
+             id.includes(term) ||
+             idNorm.includes(term) ||
+             term.includes(idNorm);
     });
 
     if (allMatches.length === 0) {
@@ -231,54 +247,82 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                 {isClockIn ? 'Initializing duty shift protocol.' : 'Terminating active duty session.'}
               </p>
 
-              {/* Hold-to-confirm button */}
-              <div className="flex flex-col gap-3">
-                <div className="relative select-none">
-                  {/* Background track */}
-                  <button
-                    disabled={props.isSyncing || holdProgress >= 100}
-                    onMouseDown={startHold}
-                    onMouseUp={cancelHold}
-                    onMouseLeave={cancelHold}
-                    onTouchStart={e => { e.preventDefault(); startHold(); }}
-                    onTouchEnd={cancelHold}
-                    onTouchCancel={cancelHold}
-                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] sm:text-[12px] shadow-lg overflow-hidden transition-opacity select-none ${
-                      isClockIn
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-rose-100 text-rose-700'
-                    } ${props.isSyncing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-                  >
-                    {/* Fill overlay */}
-                    <span
-                      className={`absolute inset-0 origin-left transition-none rounded-2xl ${isClockIn ? 'bg-emerald-600' : 'bg-rose-600'}`}
-                      style={{ transform: `scaleX(${holdProgress / 100})`, transformOrigin: 'left' }}
-                    />
-                    {/* Label */}
-                    <span className="relative z-10 flex items-center justify-center gap-2 pointer-events-none">
-                      {props.isSyncing ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin inline-block" />
-                          Processing...
-                        </span>
-                      ) : holdProgress >= 100 ? (
-                        <span className={isClockIn ? 'text-white' : 'text-white'}>Confirmed!</span>
-                      ) : isHolding ? (
-                        <span className={holdProgress > 50 ? 'text-white' : ''}>
-                          Hold... {Math.round(holdProgress)}%
-                        </span>
-                      ) : (
-                        <span>Hold to {label}</span>
-                      )}
-                    </span>
-                  </button>
-                </div>
+              {/* Hold-to-confirm clock button */}
+              <div className="flex flex-col items-center gap-4 select-none">
+                {(() => {
+                  const r = 54;
+                  const circ = 2 * Math.PI * r; // ≈ 339.3
+                  const offset = circ * (1 - holdProgress / 100);
+                  const color = isClockIn ? '#059669' : '#e11d48'; // emerald-600 / rose-600
+                  const trackColor = isClockIn ? '#d1fae5' : '#ffe4e6'; // emerald-100 / rose-100
+                  const confirmed = holdProgress >= 100;
+
+                  return (
+                    <button
+                      disabled={props.isSyncing || confirmed}
+                      onMouseDown={startHold}
+                      onMouseUp={cancelHold}
+                      onMouseLeave={cancelHold}
+                      onTouchStart={e => { e.preventDefault(); startHold(); }}
+                      onTouchEnd={cancelHold}
+                      onTouchCancel={cancelHold}
+                      onContextMenu={e => e.preventDefault()}
+                      className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-transform ${props.isSyncing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', background: confirmed ? color : trackColor }}
+                    >
+                      {/* Clock SVG */}
+                      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 128 128">
+                        {/* Track ring */}
+                        <circle cx="64" cy="64" r={r} fill="none" stroke={trackColor} strokeWidth="8" />
+                        {/* Progress arc */}
+                        <circle
+                          cx="64" cy="64" r={r}
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          strokeDasharray={circ}
+                          strokeDashoffset={offset}
+                          style={{ transition: 'stroke-dashoffset 20ms linear' }}
+                        />
+                        {/* Clock tick marks at 12/3/6/9 */}
+                        {[0, 90, 180, 270].map(deg => {
+                          const rad = (deg * Math.PI) / 180;
+                          const x1 = 64 + (r - 10) * Math.cos(rad);
+                          const y1 = 64 + (r - 10) * Math.sin(rad);
+                          const x2 = 64 + (r - 4) * Math.cos(rad);
+                          const y2 = 64 + (r - 4) * Math.sin(rad);
+                          return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />;
+                        })}
+                      </svg>
+
+                      {/* Center content */}
+                      <span className="relative z-10 flex flex-col items-center gap-1 pointer-events-none">
+                        {props.isSyncing ? (
+                          <span className="w-6 h-6 border-2 border-current/30 border-t-current rounded-full animate-spin" style={{ borderTopColor: color }} />
+                        ) : confirmed ? (
+                          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <>
+                            <span className="text-[11px] font-black uppercase tracking-widest" style={{ color }}>
+                              {isHolding ? `${Math.round(holdProgress)}%` : label}
+                            </span>
+                            {!isHolding && (
+                              <span className="text-[8px] font-bold uppercase tracking-widest opacity-60" style={{ color }}>Hold</span>
+                            )}
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })()}
 
                 {/* Hint */}
                 {!isHolding && holdProgress === 0 && !props.isSyncing && (
                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">
-                    Press and hold the button to confirm
+                    Press and hold to confirm
                   </p>
                 )}
 
@@ -298,111 +342,90 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
       {/* EDITOR MODAL */}
       {props.isModalOpen && props.editingEmployee && (
         <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
-           <div className={`${UI_THEME.layout.modalLarge} ${UI_THEME.radius.modal} p-6 md:p-12 flex flex-col overflow-hidden max-h-[95vh] border border-slate-100`}>
-              <div className="flex justify-between items-center mb-6 sm:mb-10 shrink-0">
-                <div className="space-y-1">
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter">
-                    {props.editingEmployee.id ? `Edit Staff Context` : props.isPullMode ? 'Enroll Reliever' : 'New Staff Access'}
+           <div className={`w-full max-w-lg bg-white shadow-2xl animate-in zoom-in-95 duration-300 ${UI_THEME.radius.modal} p-6 md:p-10 flex flex-col overflow-hidden max-h-[95vh] border border-slate-100`}>
+              <div className="flex justify-between items-start mb-6 shrink-0">
+                <div className="min-w-0 flex-1 mr-3">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+                    {props.editingEmployee.id ? 'Staff Profile' : props.isPullMode ? 'Branch Enrollment' : 'New Staff'}
+                  </p>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-tight break-words">
+                    {props.editingEmployee.id ? props.editingEmployee.name : props.isPullMode ? 'Enroll Reliever' : 'Add Staff'}
                   </h3>
-                  {props.editingEmployee.name && (
-                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest leading-none flex items-center gap-1.5">
-                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
-                      Active Profile: {props.editingEmployee.name}
-                    </p>
-                  )}
                 </div>
-                <button onClick={props.onCloseModals} className="p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-2xl text-slate-300 hover:text-slate-900 transition-all active:scale-90">
-                  <X className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.5} />
+                <button onClick={props.onCloseModals} className="w-8 h-8 bg-slate-100 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-90 flex items-center justify-center shrink-0">
+                  <X className="w-4 h-4" strokeWidth={2.5} />
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 sm:space-y-8 pr-1">
                 {/* SEARCH EXISTING PERSONNEL (Only for Pull Mode) */}
                 {isNewStaff && props.isPullMode && (
-                  <div className="bg-emerald-50 border-emerald-200 p-4 sm:p-6 rounded-3xl border space-y-4 transition-all">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                          <UserPlus className="w-5 h-5" strokeWidth={2.5} />
-                        </div>
-                        <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">
-                          ✨ ENROLL RELIEVER FROM NETWORK
-                        </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-5 h-5 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Search className="w-3 h-3" strokeWidth={2.5} />
                       </div>
-                      <div className="px-2 py-0.5 bg-emerald-500 text-white text-[7px] font-black uppercase tracking-widest rounded-full animate-pulse">
-                        Active Mode
-                      </div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Search staff from another branch</p>
                     </div>
-                    <div className="relative flex gap-2">
-                      <input 
+
+                    <div className="flex gap-2">
+                      <input
                         type="text"
-                        placeholder="SEARCH BY NAME OR ID..."
-                        className="flex-1 p-4 bg-white border-2 border-emerald-100 focus:border-emerald-500 rounded-2xl font-bold text-[11px] uppercase outline-none transition-all shadow-sm"
+                        placeholder="Name or employee ID..."
+                        className="flex-1 h-11 px-4 bg-slate-50 border-2 border-slate-200 focus:border-emerald-400 focus:bg-white rounded-2xl font-semibold text-[11px] text-slate-700 placeholder:text-slate-300 outline-none transition-all"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSearch();
-                          }
-                        }}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
                       />
-                      <button 
+                      <button
                         onClick={handleSearch}
-                        className="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all active:scale-95 shadow-md flex items-center justify-center"
+                        className="h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-1.5 font-black text-[10px] uppercase tracking-widest shrink-0"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        <Search className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        <span>Search</span>
                       </button>
                     </div>
 
                     {searchError && (
-                      <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl animate-in fade-in slide-in-from-top-1">
-                        <AlertCircle className="w-5 h-5 text-rose-500" strokeWidth={2.5} />
-                        <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">{searchError}</p>
+                      <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-100 rounded-xl">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" strokeWidth={2.5} />
+                        <p className="text-[10px] font-bold text-rose-600">{searchError}</p>
                       </div>
                     )}
 
                     {searchResults.length > 0 && (
-                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                        <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest ml-1">Multiple Records Found ({searchResults.length})</p>
-                        <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto no-scrollbar pr-1">
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{searchResults.length} match{searchResults.length > 1 ? 'es' : ''} found</p>
+                        <div className="space-y-1.5 max-h-[200px] overflow-y-auto no-scrollbar">
                           {searchResults.map(emp => (
                             <button
                               key={emp.id}
                               onClick={() => {
-                                // RELIEVER status is derived from branchId mismatch.
-                                // We no longer inject or require 'RELIEVER' in the role string.
-                                const defaultRole = emp.role || '';
-
                                 props.setEditingEmployee({
                                   ...emp,
                                   branchAllowances: {
                                     ...(emp.branchAllowances || {}),
-                                    [props.branchId]: { 
-                                      allowance: emp.allowance || 0, 
-                                      role: defaultRole
-                                    }
+                                    [props.branchId]: { allowance: emp.allowance || 0, role: emp.role || '' }
                                   }
                                 });
                                 setSearchQuery('');
                                 setSearchResults([]);
                                 playSound('success');
                               }}
-                              className="flex items-center justify-between p-3 bg-white rounded-xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all group text-left"
+                              className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-slate-100 hover:border-emerald-400 hover:shadow-sm transition-all group text-left"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-[10px]">
-                                  {getInitials(emp.name)}
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{emp.name}</p>
-                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Node: {props.branches.find(b => b.id === emp.branchId)?.name || 'Unknown'}</p>
+                              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black text-[10px] shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">
+                                {getInitials(emp.name)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-black text-slate-900 uppercase truncate">{emp.name}</p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" strokeWidth={2} />
+                                  <p className="text-[8px] font-bold text-slate-400 uppercase truncate">{props.branches.find(b => b.id === emp.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}</p>
                                 </div>
                               </div>
-                              <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Plus className="w-3 h-3" strokeWidth={3} />
+                              <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shrink-0">
+                                <Plus className="w-3.5 h-3.5" strokeWidth={3} />
                               </div>
                             </button>
                           ))}
@@ -410,112 +433,122 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                       </div>
                     )}
 
-                    <p className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest ml-1 leading-relaxed">Search for a staff member from another branch to enroll them as a reliever in this branch.</p>
+                    <div className="h-px bg-slate-100" />
                   </div>
                 )}
 
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative group">
+                {/* Compact photo + Employee ID row */}
+                <div className="flex items-center gap-4 bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                  {/* Photo */}
+                  <div className="relative shrink-0 group">
                     <button
                       type="button"
                       onClick={() => props.fileInputRef.current?.click()}
-                      disabled={props.isPullMode || isExistingReliever}
-                      className={`w-28 h-28 sm:w-36 sm:h-36 rounded-[36px] sm:rounded-[48px] bg-white border-4 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden transition-all ${props.isPullMode ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500 hover:bg-emerald-50/30 group relative shadow-xl active:scale-95'}`}
+                      disabled={isPhotoLocked}
+                      className={`w-16 h-16 sm:w-24 sm:h-24 rounded-2xl bg-white border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden transition-all relative shadow-sm active:scale-95 ${isPhotoLocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500 hover:bg-emerald-50/30'}`}
                     >
                       {props.profileFile || props.editingEmployee.profile ? (
-                        <img 
-                          src={props.profileFile ? URL.createObjectURL(props.profileFile) : props.editingEmployee.profile} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                          alt="Preview" 
+                        <img
+                          src={props.profileFile ? URL.createObjectURL(props.profileFile) : props.editingEmployee.profile}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          alt="Preview"
                         />
                       ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 ${!props.isPullMode && 'group-hover:bg-emerald-100 group-hover:text-emerald-600'} transition-colors`}>
-                            <Camera className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
-                          </div>
-                          <span className={`text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest ${!props.isPullMode && 'group-hover:text-emerald-600'} transition-colors`}>Upload Photo</span>
-                        </div>
+                        <Camera className={`w-5 h-5 sm:w-7 sm:h-7 text-slate-300 ${!isPhotoLocked && 'group-hover:text-emerald-500'} transition-colors`} strokeWidth={2.5} />
                       )}
-
-                      {/* Overlay on Hover when image exists */}
-                      {(props.profileFile || props.editingEmployee.profile) && !props.isPullMode && (
-                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                          <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
-                          <span className="text-white text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Replace Photo</span>
+                      {(props.profileFile || props.editingEmployee.profile) && !isPhotoLocked && (
+                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <RefreshCw className="w-4 h-4 text-white" strokeWidth={2.5} />
                         </div>
                       )}
                     </button>
-
-                    {/* Decorative Badge */}
-                    {!props.isPullMode && (
-                      <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500 rounded-xl sm:rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white z-10">
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
+                    {!isPhotoLocked && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-emerald-500 rounded-lg border-2 border-white flex items-center justify-center text-white z-10">
+                        <Plus className="w-2.5 h-2.5" strokeWidth={3} />
                       </div>
                     )}
                   </div>
 
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em]">Identity Verification Image</p>
+                  {/* Employee ID + label */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</p>
+                    {props.editingEmployee.id && props.editingEmployee.timestamp ? (() => {
+                      const d = new Date(props.editingEmployee.timestamp);
+                      const empId = `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${props.editingEmployee.id}`.toUpperCase();
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(empId); setEmpIdCopied(true); setTimeout(() => setEmpIdCopied(false), 2000); }}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-left hover:border-emerald-400 active:scale-95 transition-all"
+                        >
+                          <p className={`text-[10px] font-black tracking-wider font-mono break-all leading-snug transition-colors ${empIdCopied ? 'text-emerald-600' : 'text-slate-700'}`}>
+                            {empIdCopied ? 'Copied!' : empId}
+                          </p>
+                        </button>
+                      );
+                    })() : (
+                      <p className="text-[9px] font-bold text-slate-300 italic">New employee — ID assigned on save</p>
+                    )}
+                  </div>
                   <input ref={props.fileInputRef} type="file" className="hidden" accept="image/*" onChange={e => props.setProfileFile(e.target.files?.[0] || null)} />
                 </div>
 
                 <div className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1 sm:space-y-2">
-                      <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
-                      <input
-                        required
-                        disabled={props.isPullMode || isExistingReliever}
-                        value={props.editingEmployee.firstName || ''}
-                        onChange={e => {
-                          const val = e.target.value.toUpperCase();
-                          const fullName = `${val} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
-                          props.setEditingEmployee({...props.editingEmployee, firstName: val, name: fullName});
-                        }}
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        placeholder="FIRST NAME"
-                      />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1 sm:space-y-2">
+                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                        <input
+                          required
+                          disabled={isNameLocked}
+                          value={props.editingEmployee.firstName || ''}
+                          onChange={e => {
+                            const val = e.target.value.toUpperCase();
+                            const fullName = `${val} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
+                            props.setEditingEmployee({...props.editingEmployee, firstName: val, name: fullName});
+                          }}
+                          className={`w-full p-3 sm:p-3.5 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[16px] font-bold text-xs uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          placeholder="FIRST NAME"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:space-y-2">
+                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                        <input
+                          required
+                          disabled={isNameLocked}
+                          value={props.editingEmployee.lastName || ''}
+                          onChange={e => {
+                            const val = e.target.value.toUpperCase();
+                            const fullName = `${props.editingEmployee.firstName || ''} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${val}`.trim();
+                            props.setEditingEmployee({...props.editingEmployee, lastName: val, name: fullName});
+                          }}
+                          className={`w-full p-3 sm:p-3.5 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[16px] font-bold text-xs uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          placeholder="LAST NAME"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1 sm:space-y-2">
-                      <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name</label>
+                      <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
                       <input
-                        disabled={props.isPullMode || isExistingReliever}
+                        disabled={isNameLocked}
                         value={props.editingEmployee.middleName || ''}
                         onChange={e => {
                           const val = e.target.value.toUpperCase();
                           const fullName = `${props.editingEmployee.firstName || ''} ${val ? val.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
                           props.setEditingEmployee({...props.editingEmployee, middleName: val, name: fullName});
                         }}
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        placeholder="OPTIONAL"
-                      />
-                    </div>
-                    <div className="space-y-1 sm:space-y-2">
-                      <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
-                      <input
-                        required
-                        disabled={props.isPullMode || isExistingReliever}
-                        value={props.editingEmployee.lastName || ''}
-                        onChange={e => {
-                          const val = e.target.value.toUpperCase();
-                          const fullName = `${props.editingEmployee.firstName || ''} ${props.editingEmployee.middleName ? props.editingEmployee.middleName.trim() + ' ' : ''}${val}`.trim();
-                          props.setEditingEmployee({...props.editingEmployee, lastName: val, name: fullName});
-                        }}
-                        className={`w-full p-3.5 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[16px] sm:rounded-[22px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${(props.isPullMode || isExistingReliever) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        placeholder="LAST NAME"
+                        className={`w-full p-3 sm:p-3.5 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[16px] font-bold text-xs uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder="MIDDLE NAME"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                    <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Generated Display Name</label>
-                    <div className="w-full p-4 sm:p-5 bg-white border-2 border-slate-100 rounded-[18px] sm:rounded-[24px] font-bold text-xs sm:text-sm uppercase text-slate-900 shadow-sm">
-                      {props.editingEmployee.name || <span className="text-slate-300 italic">Auto-generated from full name...</span>}
+                  {isExistingReliever && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+                      <Lock className="w-3 h-3 text-indigo-400 shrink-0" strokeWidth={2.5} />
+                      <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest">Name is locked — changes must be made at their home branch.</p>
                     </div>
-                    {isExistingReliever
-                      ? <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest ml-1 mt-1 flex items-center gap-1"><Lock className="w-2.5 h-2.5" /> Name is locked — changes must be made at their home branch.</p>
-                      : <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1 mt-1">This name will be used in all transactions and reports.</p>
-                    }
-                  </div>
+                  )}
 
                   {/* Duplicate Warning */}
                   {!props.editingEmployee.id && (() => {
@@ -568,154 +601,128 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   })()}
 
                   {/* BRANCH SPECIFIC CONFIGURATION */}
-
-                  <div className="space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                        <MapPin className="w-4 h-4" strokeWidth={2.5} />
-                      </div>
-                      <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Branch-Specific Configuration</h4>
+                  <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2.5} />
+                      <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Branch-Specific Configuration</h4>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Daily Allowance (₱)</label>
-                        <input 
-                          type="number" 
-                          value={(() => {
-                            const allowance = props.editingEmployee.branchAllowances?.[(props as any).branchId];
-                            if (typeof allowance === 'object' && allowance !== null) return allowance.allowance;
-                            return allowance ?? props.editingEmployee.allowance ?? 0;
-                          })()} 
-                          onChange={e => {
-                            const val = Number(e.target.value);
-                            const current = props.editingEmployee.branchAllowances?.[(props as any).branchId];
-                            const nextAllowance = typeof current === 'object' && current !== null 
-                              ? { ...current, allowance: val }
-                              : { allowance: val, role: props.editingEmployee.role };
-
-                            props.setEditingEmployee({
-                              ...props.editingEmployee, 
-                              branchAllowances: {
-                                ...(props.editingEmployee.branchAllowances || {}),
-                                [(props as any).branchId]: nextAllowance
-                              }
-                            });
-                          }} 
-                          className="w-full p-4 sm:p-5 bg-white border-2 border-slate-100 rounded-[18px] sm:rounded-[24px] font-bold text-sm sm:text-lg outline-none focus:border-emerald-500 transition-all shadow-sm text-right" 
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Role in this Branch</label>
-                        
-                        {/* RELIEVER STATUS + EXCLUDE TOGGLE */}
-                        {props.editingEmployee.branchId !== props.branchId && (() => {
-                          const cfg = props.editingEmployee.branchAllowances?.[props.branchId];
-                          const excludeFromReliever = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                          const toggleExclude = () => {
-                            const current = props.editingEmployee!.branchAllowances?.[props.branchId];
-                            const currentAllowance = typeof current === 'object' && current !== null ? current.allowance : (current ?? props.editingEmployee!.allowance ?? 0);
-                            const currentRole = typeof current === 'object' && current !== null ? (current.role || '') : props.editingEmployee!.role;
-                            props.setEditingEmployee({
-                              ...props.editingEmployee!,
-                              branchAllowances: {
-                                ...(props.editingEmployee!.branchAllowances || {}),
-                                [props.branchId]: { allowance: currentAllowance, role: currentRole, excludeFromReliever: !excludeFromReliever }
-                              }
-                            });
-                            playSound('click');
-                          };
-                          return (
-                            <div className="mb-4 space-y-2">
-                              <div className={`p-4 rounded-2xl border flex items-center justify-between shadow-sm ${excludeFromReliever ? 'bg-slate-50 border-slate-200' : 'bg-indigo-50 border-indigo-100'}`}>
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${excludeFromReliever ? 'bg-slate-200 text-slate-500' : 'bg-indigo-600 text-white'}`}>
-                                    <ArrowRightLeft className="w-5 h-5" strokeWidth={2.5} />
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <p className={`text-[11px] font-black uppercase tracking-tight ${excludeFromReliever ? 'text-slate-500 line-through' : 'text-indigo-900'}`}>RELIEVER ACCESS: {excludeFromReliever ? 'BYPASSED' : 'ON'}</p>
-                                    <p className={`text-[9px] font-bold uppercase tracking-widest leading-none ${excludeFromReliever ? 'text-slate-400' : 'text-indigo-400'}`}>
-                                      {excludeFromReliever ? 'Billed through regular payroll' : 'External branch node detected'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={toggleExclude}
-                                  className={`px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all ${excludeFromReliever ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                                >
-                                  {excludeFromReliever ? 'Re-enable' : 'Bypass'}
-                                </button>
-                              </div>
-                              {excludeFromReliever && (
-                                <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest ml-1 leading-relaxed">
-                                  ⚠ Reliever billing is off — ensure this staff's pay is covered in regular payroll or weekly salary.
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        <div className="flex flex-wrap gap-2">
-                          {rolesList.map(role => {
-                            const current = props.editingEmployee.branchAllowances?.[props.branchId];
-                            const currentRole = (typeof current === 'object' && current !== null && current.role) 
-                              ? current.role 
-                              : props.editingEmployee.role;
-                            
-                            const isSelected = (currentRole || '').split(',').includes(role);
-                            
-                            return (
-                              <button
-                                key={role}
-                                type="button"
-                                onClick={() => {
-                                  const roles = (currentRole || '').split(',').filter(Boolean);
-                                  let nextRoles;
-                                  if (roles.includes(role)) {
-                                    nextRoles = roles.filter(r => r !== role);
-                                  } else {
-                                    nextRoles = [...roles, role];
+                    {(() => {
+                      const current = props.editingEmployee.branchAllowances?.[props.branchId];
+                      const currentRole = (typeof current === 'object' && current !== null && current.role)
+                        ? current.role : props.editingEmployee.role;
+                      return (
+                        <div className="grid grid-cols-2 gap-3 items-stretch">
+                          {/* Left: Allowance */}
+                          <div className="flex flex-col space-y-1">
+                            <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">Allowance (₱)</label>
+                            <input
+                              type="number"
+                              value={(() => {
+                                const allowance = props.editingEmployee.branchAllowances?.[(props as any).branchId];
+                                if (typeof allowance === 'object' && allowance !== null) return allowance.allowance;
+                                return allowance ?? props.editingEmployee.allowance ?? 0;
+                              })()}
+                              onChange={e => {
+                                const val = Number(e.target.value);
+                                const currentAllowanceObj = props.editingEmployee.branchAllowances?.[(props as any).branchId];
+                                const nextAllowance = typeof currentAllowanceObj === 'object' && currentAllowanceObj !== null
+                                  ? { ...currentAllowanceObj, allowance: val }
+                                  : { allowance: val, role: props.editingEmployee.role };
+                                props.setEditingEmployee({
+                                  ...props.editingEmployee,
+                                  branchAllowances: {
+                                    ...(props.editingEmployee.branchAllowances || {}),
+                                    [(props as any).branchId]: nextAllowance
                                   }
-                                  
-                                  const val = nextRoles.join(',');
-                                  const currentAllowance = typeof current === 'object' && current !== null 
-                                    ? current.allowance 
-                                    : (current ?? props.editingEmployee.allowance ?? 0);
+                                });
+                              }}
+                              className="w-full flex-1 px-3 py-2 bg-white border-2 border-slate-100 rounded-lg font-black text-sm outline-none focus:border-emerald-500 transition-all text-center"
+                            />
+                          </div>
 
-                                  props.setEditingEmployee({
-                                    ...props.editingEmployee,
-                                    branchAllowances: {
-                                      ...(props.editingEmployee.branchAllowances || {}),
-                                      [props.branchId]: { allowance: currentAllowance, role: val }
-                                    }
-                                  });
-                                  playSound('click');
-                                }}
-                                className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all flex-1 min-w-[120px] text-center ${isSelected ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                              >
-                                {role}
-                              </button>
-                            );
-                          })}
+                          {/* Right: Role toggles stacked */}
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">Role</label>
+                            <div className="flex flex-col gap-1.5">
+                              {rolesList.map(role => {
+                                const isSelected = (currentRole || '').split(',').includes(role);
+                                return (
+                                  <button
+                                    key={role}
+                                    type="button"
+                                    onClick={() => {
+                                      const roles = (currentRole || '').split(',').filter(Boolean);
+                                      const nextRoles = roles.includes(role) ? roles.filter(r => r !== role) : [...roles, role];
+                                      const val = nextRoles.join(',');
+                                      const currentAllowance = typeof current === 'object' && current !== null
+                                        ? current.allowance : (current ?? props.editingEmployee.allowance ?? 0);
+                                      props.setEditingEmployee({
+                                        ...props.editingEmployee,
+                                        branchAllowances: {
+                                          ...(props.editingEmployee.branchAllowances || {}),
+                                          [props.branchId]: { allowance: currentAllowance, role: val }
+                                        }
+                                      });
+                                      playSound('click');
+                                    }}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95 ${
+                                      isSelected
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                        : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                                    }`}
+                                  >
+                                    {role}
+                                    {isSelected && <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1 mt-1">These settings only apply when the staff is operating at this specific branch.</p>
+                      );
+                    })()}
+
                   </div>
                 </div>
+
               </div>
 
-              <div className="pt-6 sm:pt-8 shrink-0">
-                <button 
-                  onClick={props.onSaveEmployee}
-                  disabled={props.isSyncing || !props.editingEmployee.firstName || !props.editingEmployee.lastName}
-                  className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-[20px] sm:rounded-[28px] uppercase tracking-widest text-[10px] sm:text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  {props.isSyncing ? `Syncing ${props.uploadProgress}%...` : 'Commit to Registry'}
-                </button>
-              </div>
+              {(() => {
+                const branchCfg = props.editingEmployee.branchAllowances?.[props.branchId];
+                const branchRole = typeof branchCfg === 'object' && branchCfg !== null ? branchCfg.role || '' : props.editingEmployee.role || '';
+                const branchAllowance = typeof branchCfg === 'object' && branchCfg !== null ? branchCfg.allowance : (typeof branchCfg === 'number' ? branchCfg : props.editingEmployee.allowance ?? 0);
+                const hasRole = rolesList.some(r => branchRole.split(',').includes(r));
+                const currentBranch = props.branches.find(b => b.id === props.branchId);
+                const isManager =
+                  currentBranch?.manager?.toUpperCase() === (props.editingEmployee.name || '').toUpperCase() ||
+                  currentBranch?.tempManager?.toUpperCase() === (props.editingEmployee.name || '').toUpperCase() ||
+                  branchRole.includes('MANAGER');
+                const roleOk = hasRole || isManager;
+                const allowanceOk = (branchAllowance ?? 0) > 0;
+
+                return (
+                  <div className="pt-6 sm:pt-8 shrink-0 space-y-2">
+                    {!roleOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
+                      <p className="text-center text-[9px] font-black text-rose-500 uppercase tracking-widest animate-pulse">
+                        Select at least one role to save
+                      </p>
+                    )}
+                    {!allowanceOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
+                      <p className="text-center text-[9px] font-black text-rose-500 uppercase tracking-widest animate-pulse">
+                        Employee allowance cannot be zero
+                      </p>
+                    )}
+                    <button
+                      onClick={props.onSaveEmployee}
+                      disabled={props.isSyncing || !props.editingEmployee.firstName || !props.editingEmployee.lastName || !roleOk || !allowanceOk}
+                      className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-[20px] sm:rounded-[28px] uppercase tracking-widest text-[10px] sm:text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {props.isSyncing ? `Syncing ${props.uploadProgress}%...` : 'Save Employee Details'}
+                    </button>
+                  </div>
+                );
+              })()}
            </div>
         </div>
       )}

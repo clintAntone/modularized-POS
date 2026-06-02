@@ -26,3 +26,30 @@ export const logAudit = async (payload: {
     console.error('Audit Log Exception:', err);
   }
 };
+
+/**
+ * Writes a force-logout timestamp for one or more branches into system_config.
+ * Any active session whose sessionStart is older than this timestamp will be
+ * automatically kicked out by the watcher in App.tsx.
+ * Call this whenever a manager's credentials (PIN or username) are changed.
+ */
+export const invalidateBranchSessions = async (branchIds: string[]): Promise<void> => {
+  if (!branchIds.length) return;
+  try {
+    const { data } = await supabase
+      .from(DB_TABLES.SYSTEM_CONFIG)
+      .select('value')
+      .eq(DB_COLUMNS.KEY, 'force_logout_registry')
+      .maybeSingle();
+    let registry: Record<string, number> = {};
+    if (data?.value) { try { registry = JSON.parse(data.value); } catch {} }
+    const now = Date.now();
+    branchIds.forEach(id => { registry[id] = now; });
+    await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert(
+      { [DB_COLUMNS.KEY]: 'force_logout_registry', [DB_COLUMNS.VALUE]: JSON.stringify(registry) },
+      { onConflict: DB_COLUMNS.KEY }
+    );
+  } catch (err) {
+    console.error('invalidateBranchSessions error:', err);
+  }
+};
