@@ -546,7 +546,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   {isExistingReliever && (
                     <div className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
                       <Lock className="w-3 h-3 text-indigo-400 shrink-0" strokeWidth={2.5} />
-                      <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest">Name is locked — changes must be made at their home branch.</p>
+                      <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest">Name is locked — changes must be made by the ADMIN.</p>
                     </div>
                   )}
 
