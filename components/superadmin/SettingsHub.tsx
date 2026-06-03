@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { generateSalt, hashPin } from '../../lib/crypto';
 import { playSound } from '../../lib/audio';
+import { invalidateGlobalSessions, logAudit } from '../../lib/audit';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared primitives
@@ -217,13 +218,12 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
         { [DB_COLUMNS.KEY]: 'master_admin_pin_salt', [DB_COLUMNS.VALUE]: salt },
       ], { onConflict: DB_COLUMNS.KEY });
       if (error) throw error;
-      await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-        [DB_COLUMNS.BRANCH_ID]: null,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
-        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-        [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
-        [DB_COLUMNS.DESCRIPTION]: 'Master Authorization Key updated with SHA-256 salted encryption.',
-        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN',
+      await logAudit({
+        branchId: null,
+        activityType: 'UPDATE',
+        entityType: 'SECURITY',
+        description: 'Master Authorization Key updated with SHA-256 salted encryption.',
+        performerName: 'SYSTEM ADMIN',
       });
       setPinStatus('success');
       setNewPin('');
@@ -240,24 +240,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
     setShowConfirm(false);
     setIsForceLoggingOut(true);
     try {
-      const now = Date.now();
-      const { data: allBranches, error: fetchErr } = await supabase.from(DB_TABLES.BRANCHES).select('id');
-      if (fetchErr) throw fetchErr;
-      if (allBranches?.length) {
-        const { error } = await supabase.from(DB_TABLES.BRANCHES)
-          .update({ [DB_COLUMNS.REFRESH_SIGNAL]: now })
-          .in(DB_COLUMNS.ID, allBranches.map((b: any) => b.id));
-        if (error) throw error;
-      }
-      const { data: configData } = await supabase.from(DB_TABLES.SYSTEM_CONFIG)
-        .select('value').eq(DB_COLUMNS.KEY, 'force_logout_registry').single();
-      let registry: Record<string, number> = {};
-      if (configData) { try { registry = JSON.parse(configData.value); } catch {} }
-      registry['GLOBAL'] = now;
-      await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert(
-        { [DB_COLUMNS.KEY]: 'force_logout_registry', [DB_COLUMNS.VALUE]: JSON.stringify(registry) },
-        { onConflict: DB_COLUMNS.KEY }
-      );
+      await invalidateGlobalSessions();
       playSound('success');
       setForceLogoutStatus('success');
       setTimeout(() => setForceLogoutStatus('idle'), 4000);

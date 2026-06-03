@@ -8,6 +8,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getTrueDate } from '../../lib/time';
+import { logAudit } from '../../lib/audit';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface AttendanceHubProps {
@@ -96,13 +97,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
 
       if (error) throw error;
 
-      await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-        [DB_COLUMNS.BRANCH_ID]: log.branchId,
-        [DB_COLUMNS.ACTIVITY_TYPE]: 'DELETE',
-        [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
-        [DB_COLUMNS.ENTITY_ID]: log.id,
-        [DB_COLUMNS.DESCRIPTION]: `SuperAdmin DELETED clock-in entry for ${log.staffName} on ${log.date}`,
-        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
+      await logAudit({
+        branchId: log.branchId,
+        activityType: 'DELETE',
+        entityType: 'ATTENDANCE',
+        entityId: log.id,
+        description: `SuperAdmin DELETED clock-in entry for ${log.staffName} on ${log.date}`,
+        performerName: 'SYSTEM ADMIN',
       });
 
       playSound('success');
@@ -141,13 +142,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
       if (error) throw error;
 
       // Also log to audit
-      await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
-        [DB_COLUMNS.BRANCH_ID]: log.branchId,
-        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
-        [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
-        [DB_COLUMNS.ENTITY_ID]: log.id,
-        [DB_COLUMNS.DESCRIPTION]: `SuperAdmin RESET clock-out for ${log.staffName}`,
-        [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
+      await logAudit({
+        branchId: log.branchId,
+        activityType: 'UPDATE',
+        entityType: 'ATTENDANCE',
+        entityId: log.id,
+        description: `SuperAdmin RESET clock-out for ${log.staffName}`,
+        performerName: 'SYSTEM ADMIN',
       });
 
       playSound('success');

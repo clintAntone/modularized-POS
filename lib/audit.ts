@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
+import { getTrueISOString } from './time';
 
 export const logAudit = async (payload: {
   branchId?: string | null;
@@ -13,7 +14,7 @@ export const logAudit = async (payload: {
   try {
     const { error } = await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
       [DB_COLUMNS.BRANCH_ID]: payload.branchId || null,
-      [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+      [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
       [DB_COLUMNS.ACTIVITY_TYPE]: payload.activityType,
       [DB_COLUMNS.ENTITY_TYPE]: payload.entityType,
       [DB_COLUMNS.ENTITY_ID]: payload.entityId || null,
@@ -25,6 +26,37 @@ export const logAudit = async (payload: {
   } catch (err) {
     console.error('Audit Log Exception:', err);
   }
+};
+
+/**
+ * Broadcasts a GLOBAL force-logout signal across the entire network.
+ * Updates refresh_signal on every branch AND sets force_logout_registry['GLOBAL'].
+ * The watcher in App.tsx detects this and terminates all active sessions.
+ * Call this from "Force Logout All" admin actions.
+ */
+export const invalidateGlobalSessions = async (): Promise<void> => {
+  const now = Date.now();
+  const { data: allBranches, error: fetchErr } = await supabase.from(DB_TABLES.BRANCHES).select('id');
+  if (fetchErr) throw fetchErr;
+  if (allBranches?.length) {
+    const { error } = await supabase
+      .from(DB_TABLES.BRANCHES)
+      .update({ [DB_COLUMNS.REFRESH_SIGNAL]: now })
+      .in(DB_COLUMNS.ID, allBranches.map((b: any) => b.id));
+    if (error) throw error;
+  }
+  const { data } = await supabase
+    .from(DB_TABLES.SYSTEM_CONFIG)
+    .select('value')
+    .eq(DB_COLUMNS.KEY, 'force_logout_registry')
+    .maybeSingle();
+  let registry: Record<string, number> = {};
+  if (data?.value) { try { registry = JSON.parse(data.value); } catch {} }
+  registry['GLOBAL'] = now;
+  await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert(
+    { [DB_COLUMNS.KEY]: 'force_logout_registry', [DB_COLUMNS.VALUE]: JSON.stringify(registry) },
+    { onConflict: DB_COLUMNS.KEY }
+  );
 };
 
 /**

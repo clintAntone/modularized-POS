@@ -129,29 +129,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
       });
 
-      // 3. Append VAULT_REMITTANCE entry to vault_data of today's sales report (for drilldown history)
-      const reportId = `${branch.id}_${manilaDate.replace(/-/g, '')}`;
-      const { data: existingReport } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .select(DB_COLUMNS.VAULT_DATA)
-        .eq(DB_COLUMNS.ID, reportId)
-        .maybeSingle();
-      const existingVaultData: any[] = existingReport
-        ? (typeof existingReport[DB_COLUMNS.VAULT_DATA] === 'string'
-            ? JSON.parse(existingReport[DB_COLUMNS.VAULT_DATA])
-            : (existingReport[DB_COLUMNS.VAULT_DATA] || []))
-        : [];
-      await supabase.from(DB_TABLES.SALES_REPORTS).upsert({
-        [DB_COLUMNS.ID]: reportId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.REPORT_DATE]: manilaDate,
-        [DB_COLUMNS.VAULT_DATA]: [...existingVaultData, {
-          id: entryId, name: 'VAULT DEPOSIT (REMITTANCE)', amount: amt,
-          category: 'VAULT_REMITTANCE', timestamp,
-        }],
-      });
-
-      // 4. Update vault balance
+      // 3. Update vault balance
       const newBalance = (vaultBalance ?? 0) + amt;
       await supabase.from(DB_TABLES.BRANCH_VAULTS)
         .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
@@ -244,14 +222,6 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'DEPOSIT',
           [DB_COLUMNS.AMOUNT]: depositAmt, [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
           [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
-        });
-
-        const reportId = `${branch.id}_${manilaDate.replace(/-/g, '')}`;
-        const { data: existingReport } = await supabase.from(DB_TABLES.SALES_REPORTS).select(DB_COLUMNS.VAULT_DATA).eq(DB_COLUMNS.ID, reportId).maybeSingle();
-        const existingVaultData: any[] = existingReport ? (typeof existingReport[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(existingReport[DB_COLUMNS.VAULT_DATA]) : (existingReport[DB_COLUMNS.VAULT_DATA] || [])) : [];
-        await supabase.from(DB_TABLES.SALES_REPORTS).upsert({
-          [DB_COLUMNS.ID]: reportId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.REPORT_DATE]: manilaDate,
-          [DB_COLUMNS.VAULT_DATA]: [...existingVaultData, { id: entryId, name: 'VAULT DEPOSIT (REMITTANCE)', amount: depositAmt, category: 'VAULT_REMITTANCE', timestamp }],
         });
 
         const newBalance = (vaultBalance ?? 0) + depositAmt;

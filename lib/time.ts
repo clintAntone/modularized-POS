@@ -8,7 +8,6 @@ let initialPerformanceTime = 0;
 let isInitialized = false;
 
 export const syncWithServerTime = async () => {
-  const PROXY_URL = '/api/time';
   const TIMEOUT_MS = 5000;
 
   const attemptSync = async (url: string, name: string): Promise<boolean> => {
@@ -48,11 +47,9 @@ export const syncWithServerTime = async () => {
     }
   };
 
-  // Sources: local proxy first (most reliable), then public fallbacks.
-  // Removed: worldtimeapi.org (CORS-blocked), Supabase root HEAD (401), google.com HEAD (Capacitor TypeError).
+  // Sources: worldtimeapi.org (CORS-blocked), Supabase root HEAD (401), google.com HEAD (Capacitor TypeError) all removed.
   const sources = [
-    { url: PROXY_URL,                                                              name: 'LOCAL_PROXY'  },
-    { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila',       name: 'TIME_API_IO'  },
+    { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila', name: 'TIME_API_IO' },
   ];
 
   try {
