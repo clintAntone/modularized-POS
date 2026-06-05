@@ -15,6 +15,15 @@ const REPORT_LABEL: Record<string, string> = {
   OTHER:            'Other',
 };
 
+const REPORT_TEXT_COLOR: Record<string, string> = {
+  TARDINESS:        'text-amber-700',
+  ABSENCE:          'text-orange-700',
+  MISCONDUCT:       'text-rose-700',
+  POLICY_VIOLATION: 'text-red-700',
+  PERFORMANCE:      'text-slate-600',
+  OTHER:            'text-slate-500',
+};
+
 const REPORT_COLOR: Record<string, string> = {
   TARDINESS:        'bg-amber-50 text-amber-700 border-amber-200',
   ABSENCE:          'bg-orange-50 text-orange-700 border-orange-200',
@@ -62,7 +71,12 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteRevealId, setDeleteRevealId] = useState<string | null>(null);
+  const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
+  const [reviewConfirm, setReviewConfirm] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visibleGroupCount, setVisibleGroupCount] = useState(15);
+  const [searchTerm, setSearchTerm] = useState('');
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() =>
     [...complaints].sort((a, b) => {
@@ -72,9 +86,50 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
     }),
   [complaints]);
 
-  const filtered = useMemo(() =>
-    filter === 'ALL' ? sorted : sorted.filter(c => c.status === filter),
-  [sorted, filter]);
+  const filtered = useMemo(() => {
+    let list = filter === 'ALL' ? sorted : sorted.filter(c => c.status === filter);
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toUpperCase();
+      list = list.filter(c =>
+        c.employeeName?.toUpperCase().includes(term) ||
+        c.employeeId?.toUpperCase().includes(term)
+      );
+    }
+    return list;
+  }, [sorted, filter, searchTerm]);
+
+  // Group filtered complaints by employee
+  const groupedByEmployee = useMemo(() => {
+    const map = new Map<string, EmployeeComplaint[]>();
+    for (const c of filtered) {
+      const key = c.employeeId || c.employeeName;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    return Array.from(map.values());
+  }, [filtered]);
+
+  // Reset visible count when filter or search changes
+  useEffect(() => { setVisibleGroupCount(15); }, [filter, searchTerm]);
+
+  // Infinite scroll — load more groups when sentinel enters viewport
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          setVisibleGroupCount(prev => prev + 15);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const visibleGroups = groupedByEmployee.slice(0, visibleGroupCount);
+  const hasMore = visibleGroupCount < groupedByEmployee.length;
 
   const pendingCount = useMemo(() => complaints.filter(c => c.status === 'PENDING').length, [complaints]);
 
@@ -104,6 +159,30 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
     } finally {
       setIsProcessing(null);
     }
+  };
+
+  const handleDismiss = async (complaintId: string) => {
+    const c = complaints.find(x => x.id === complaintId);
+    if (!c) return;
+    setDismissConfirmId(null);
+    setIsProcessing(complaintId);
+    try {
+      await supabase.from(DB_TABLES.EMPLOYEE_COMPLAINTS).update({
+        [DB_COLUMNS.STATUS]: 'DISMISSED',
+        [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
+        [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
+        [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
+      }).eq(DB_COLUMNS.ID, complaintId);
+      await logAudit({
+        activityType: 'COMPLAINT_DISMISSED',
+        entityType: 'EMPLOYEE_REPORT',
+        description: `Complaint for ${c.employeeName} — Dismissed`,
+        branchId: c.branchId,
+        performerName: 'SUPERADMIN',
+      });
+      playSound('success');
+      onRefresh?.();
+    } catch { playSound('warning'); } finally { setIsProcessing(null); }
   };
 
   const openReview = (complaint: EmployeeComplaint) => {
@@ -181,8 +260,8 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
       {/* Header */}
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-slate-900 flex items-center justify-center shrink-0">
-            <Flag className="w-4 h-4 text-white" strokeWidth={2.5} />
+          <div className="w-9 h-9 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0">
+            <Flag className="w-4 h-4 text-rose-600" strokeWidth={2.5} />
           </div>
           <div>
             <h2 className="text-base font-black uppercase tracking-tight text-slate-900 leading-none">Complaints</h2>
@@ -196,6 +275,23 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
               )}
             </p>
           </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search employee..."
+            className="w-full sm:w-72 h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold uppercase tracking-wider text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-slate-400 transition-all"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl w-fit">
@@ -213,166 +309,201 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         </div>
       </div>
 
-      {/* List */}
+      {/* List — grouped by employee */}
       {filtered.length === 0 ? (
         <div className="py-24 text-center">
           <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">No {filter !== 'ALL' ? filter.toLowerCase() : ''} complaints</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(c => {
-            const isExpanded = expandedId === c.id;
-            const isCurrentlyProcessing = isProcessing === c.id;
-            const employeeActive = getEmployeeActive(c.employeeId);
-            const reportColor = REPORT_COLOR[c.reportType] || REPORT_COLOR.OTHER;
-            const filedDate = new Date(c.filedAt).toLocaleDateString('en-PH', {
-              timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric',
-            });
+          {visibleGroups.map(group => {
+
+            const rep = group[0];
+            const employeeActive = getEmployeeActive(rep.employeeId);
+            const hasPending = group.some(c => c.status === 'PENDING');
 
             return (
               <div
-                key={c.id}
-                className={`bg-white border rounded-2xl overflow-hidden transition-all ${
-                  c.status === 'PENDING' ? 'border-amber-200 shadow-sm' : 'border-slate-200'
-                }`}
+                key={rep.employeeId || rep.employeeName}
+                className={`bg-white border rounded-2xl overflow-hidden shadow-sm ${hasPending ? 'border-amber-200' : 'border-slate-200'}`}
               >
-                {/* Card header */}
-                <div
-                  className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-slate-50 transition-all select-none"
-                  onPointerDown={() => startHold(c.id)}
-                  onPointerUp={cancelHold}
-                  onPointerLeave={cancelHold}
-                  onPointerCancel={cancelHold}
-                  onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                >
-                  <div className={`shrink-0 px-2.5 py-1 rounded-xl border text-[8px] font-black uppercase tracking-widest ${reportColor}`}>
-                    {REPORT_LABEL[c.reportType] || c.reportType || '—'}
+                {/* Employee group header */}
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-100">
+                  <div className="w-8 h-8 rounded-xl bg-slate-200 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none">
-                        {c.employeeName || '—'}
-                      </p>
+                      <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-none">{rep.employeeName || '—'}</p>
                       {employeeActive === false && (
-                        <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-1.5 py-0.5 rounded-lg border border-rose-100">
-                          Suspended
-                        </span>
+                        <span className="text-[8px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-lg border border-rose-100 uppercase tracking-widest">Suspended</span>
                       )}
                     </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
-                      {getBranchName(c.branchId)} · Filed by {c.filedByName} · {filedDate}
-                    </p>
                   </div>
-
-                  <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${STATUS_STYLE[c.status]}`}>
-                    {c.status === 'ACKNOWLEDGED' ? 'Acknowledged' : c.status === 'DISMISSED' ? 'Dismissed' : 'Pending'}
+                  <span className="shrink-0 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    {group.length} {group.length === 1 ? 'report' : 'reports'}
                   </span>
-
-                  {deleteRevealId === c.id ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(c.id); }}
-                      className="shrink-0 h-8 px-3 rounded-xl bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all"
-                    >
-                      Delete
-                    </button>
-                  ) : (
-                    <svg className={`w-4 h-4 shrink-0 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
                 </div>
 
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 px-5 py-4 space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Incident Date</p>
-                        <p className="text-[12px] font-bold text-slate-800">{c.incidentDate || '—'}</p>
+                {/* Individual complaints */}
+                {group.map((c, idx) => {
+                  const isExpanded = expandedId === c.id;
+                  const isCurrentlyProcessing = isProcessing === c.id;
+                  const reportColor = REPORT_COLOR[c.reportType] || REPORT_COLOR.OTHER;
+                  const filedDate = new Date(c.filedAt).toLocaleDateString('en-PH', {
+                    timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric',
+                  });
+
+                  return (
+                    <div key={c.id}>
+                      {idx > 0 && <div className="h-px bg-slate-100 mx-4" />}
+
+                      {/* Complaint row */}
+                      <div
+                        className={`px-5 py-3.5 cursor-pointer hover:bg-slate-50/60 transition-all select-none ${c.status === 'PENDING' ? 'border-l-[3px] border-amber-400' : 'border-l-[3px] border-transparent'}`}
+                        onPointerDown={() => startHold(c.id)}
+                        onPointerUp={cancelHold}
+                        onPointerLeave={cancelHold}
+                        onPointerCancel={cancelHold}
+                        onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                      >
+                        {/* Detail rows */}
+                        <div className="space-y-1.5">
+                          {/* Reason */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Reason:</span>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${REPORT_TEXT_COLOR[c.reportType] || 'text-slate-500'}`}>
+                              {REPORT_LABEL[c.reportType] || c.reportType || '—'}
+                            </span>
+                          </div>
+
+                          {/* Branch */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Branch:</span>
+                            <span className="text-[9px] font-bold text-slate-700 uppercase tracking-tight truncate">{getBranchName(c.branchId)}</span>
+                          </div>
+
+                          {/* Reporter row */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Reporter:</span>
+                              <span className="text-[9px] font-bold text-slate-700 uppercase tracking-tight truncate">{c.filedByName || '—'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {deleteRevealId === c.id ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleDelete(c.id); }}
+                                  className="shrink-0 h-7 px-2.5 rounded-xl bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all"
+                                >
+                                  Delete
+                                </button>
+                              ) : (
+                                <svg className={`w-3.5 h-3.5 shrink-0 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                          {/* Status below Reporter — only shown when not redundant with active filter */}
+                          {filter !== c.status && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="w-14 shrink-0" />
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${STATUS_STYLE[c.status]}`}>
+                                {c.status === 'ACKNOWLEDGED' ? 'Acknowledged' : c.status === 'DISMISSED' ? 'Dismissed' : 'Pending'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Branch</p>
-                        <p className="text-[12px] font-bold text-slate-800">{getBranchName(c.branchId)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Filed By</p>
-                        <p className="text-[12px] font-bold text-slate-800">{c.filedByName || '—'}</p>
-                      </div>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 px-5 py-3.5 space-y-3 bg-slate-50/50">
+                          {/* Meta row — 3 inline chips */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest shrink-0">Date:</span>
+                              <span className="text-[10px] font-bold text-slate-700 tabular-nums">{c.incidentDate || '—'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest shrink-0">Branch:</span>
+                              <span className="text-[10px] font-bold text-slate-700 truncate max-w-[140px] sm:max-w-none">{getBranchName(c.branchId)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest shrink-0">Filed by:</span>
+                              <span className="text-[10px] font-bold text-slate-700 truncate max-w-[140px] sm:max-w-none">{c.filedByName || '—'}</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+                            <p className="text-[11px] font-semibold text-slate-700 leading-relaxed bg-white rounded-xl px-3 py-2.5 border border-slate-100">{c.description || '—'}</p>
+                          </div>
+
+                          {(c.judgment || c.resolution || (c.actionTaken && c.actionTaken !== 'NONE')) && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 space-y-2">
+                              {c.actionTaken && c.actionTaken !== 'NONE' && (
+                                <div>
+                                  <p className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Action Taken</p>
+                                  <p className="text-[11px] font-bold text-emerald-800">{ACTION_OPTIONS.find(a => a.value === c.actionTaken)?.label || c.actionTaken}</p>
+                                </div>
+                              )}
+                              {c.judgment && (
+                                <div>
+                                  <p className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Judgment</p>
+                                  <p className="text-[11px] font-semibold text-emerald-800 leading-relaxed">{c.judgment}</p>
+                                </div>
+                              )}
+                              {c.resolution && (
+                                <div>
+                                  <p className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Resolution</p>
+                                  <p className="text-[11px] font-semibold text-emerald-800 leading-relaxed">{c.resolution}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {c.status === 'PENDING' && (
+                            <div className="flex gap-2 pt-0.5">
+                              {!isReadOnly && (
+                                <button
+                                  disabled={!!isCurrentlyProcessing}
+                                  onClick={() => openReview(c)}
+                                  className="flex-1 sm:flex-none h-9 px-5 rounded-xl bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
+                                >
+                                  Review & Resolve
+                                </button>
+                              )}
+                              <button
+                                disabled={!!isCurrentlyProcessing}
+                                onClick={() => setDismissConfirmId(c.id)}
+                                className="flex-1 sm:flex-none h-9 px-5 rounded-xl border border-slate-200 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
-                      <p className="text-[12px] font-semibold text-slate-700 leading-relaxed bg-slate-50 rounded-xl px-4 py-3">{c.description || '—'}</p>
-                    </div>
-
-                    {/* HR judgment/resolution (if reviewed) */}
-                    {(c.judgment || c.resolution || (c.actionTaken && c.actionTaken !== 'NONE')) && (
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 space-y-2">
-                        {c.actionTaken && c.actionTaken !== 'NONE' && (
-                          <div>
-                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Action Taken</p>
-                            <p className="text-[12px] font-bold text-emerald-800">{ACTION_OPTIONS.find(a => a.value === c.actionTaken)?.label || c.actionTaken}</p>
-                          </div>
-                        )}
-                        {c.judgment && (
-                          <div>
-                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Judgment</p>
-                            <p className="text-[12px] font-semibold text-emerald-800 leading-relaxed">{c.judgment}</p>
-                          </div>
-                        )}
-                        {c.resolution && (
-                          <div>
-                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Resolution</p>
-                            <p className="text-[12px] font-semibold text-emerald-800 leading-relaxed">{c.resolution}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action buttons — only for PENDING, non-read-only */}
-                    {c.status === 'PENDING' && !isReadOnly && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <button
-                          disabled={!!isCurrentlyProcessing}
-                          onClick={() => openReview(c)}
-                          className="h-9 px-4 rounded-xl bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
-                        >
-                          Review & Resolve
-                        </button>
-                        <button
-                          disabled={!!isCurrentlyProcessing}
-                          onClick={async () => {
-                            setIsProcessing(c.id);
-                            try {
-                              await supabase.from(DB_TABLES.EMPLOYEE_COMPLAINTS).update({
-                                [DB_COLUMNS.STATUS]: 'DISMISSED',
-                                [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
-                                [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
-                                [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
-                              }).eq(DB_COLUMNS.ID, c.id);
-                              await logAudit({
-                                activityType: 'COMPLAINT_DISMISSED',
-                                entityType: 'EMPLOYEE_REPORT',
-                                description: `Complaint for ${c.employeeName} — Dismissed`,
-                                branchId: c.branchId,
-                                performerName: 'SUPERADMIN',
-                              });
-                              playSound('success');
-                              onRefresh?.();
-                            } catch { playSound('warning'); } finally { setIsProcessing(null); }
-                          }}
-                          className="h-9 px-4 rounded-xl border border-slate-200 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  );
+                })}
               </div>
             );
           })}
+
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="h-1" />
+          {hasMore && (
+            <div className="py-4 flex justify-center">
+              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                Loading more...
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -458,8 +589,84 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleReview('ACKNOWLEDGED')}
+                  onClick={() => setReviewConfirm(true)}
                   className="flex-1 h-11 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Review & Resolve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dismiss confirmation */}
+      {dismissConfirmId && (() => {
+        const c = complaints.find(x => x.id === dismissConfirmId);
+        return (
+          <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="p-7 text-center space-y-4">
+                <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
+                  <svg className="w-7 h-7 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight">Dismiss Complaint?</h3>
+                  {c && <p className="text-[11px] font-bold text-slate-500">{c.employeeName} · {REPORT_LABEL[c.reportType] || c.reportType}</p>}
+                  <p className="text-[11px] text-slate-400 leading-relaxed">This will mark the complaint as dismissed. This cannot be undone.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    onClick={() => setDismissConfirmId(null)}
+                    className="h-11 rounded-2xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDismiss(dismissConfirmId)}
+                    className="h-11 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Review confirmation */}
+      {reviewConfirm && reviewState && (
+        <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-7 text-center space-y-4">
+              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto">
+                <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight">Confirm Review?</h3>
+                <p className="text-[11px] font-bold text-slate-500">{reviewState.complaint.employeeName} · {REPORT_LABEL[reviewState.complaint.reportType] || reviewState.complaint.reportType}</p>
+                {reviewAction !== 'NONE' && (
+                  <p className="text-[11px] text-slate-500">Action: <span className="font-black text-slate-700">{ACTION_OPTIONS.find(a => a.value === reviewAction)?.label}</span></p>
+                )}
+                {reviewAction === 'SUSPENDED' && (
+                  <p className="text-[11px] font-black text-rose-600 uppercase tracking-widest">Employee will be suspended.</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  onClick={() => setReviewConfirm(false)}
+                  className="h-11 rounded-2xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => { setReviewConfirm(false); handleReview('ACKNOWLEDGED'); }}
+                  className="h-11 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all"
                 >
                   Confirm
                 </button>

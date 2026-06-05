@@ -5,7 +5,7 @@ import { hashPin, generateSalt } from '../../lib/crypto';
 import { Branch, PortalUser, PortalPermissions } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills' | 'insights';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills' | 'insights' | 'complaints';
 
 interface TabDef {
   id: AdminTab;
@@ -27,6 +27,7 @@ const TAB_DEFINITIONS: TabDef[] = [
   { id: 'network',     label: 'Branches',      category: 'Management' },
   { id: 'catalogs',    label: 'Catalogs',      category: 'Management' },
   { id: 'insights',    label: 'Sales Insights', category: 'Operations' },
+  { id: 'complaints',  label: 'Complaints',    category: 'Operations' },
   { id: 'analytics',   label: 'Analytics',     category: 'System' },
   { id: 'audit',       label: 'Audit Log',     category: 'System' },
   { id: 'how_to',      label: 'SOP',           category: 'System' },
@@ -240,105 +241,136 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
     return `${ids.length} branches`;
   };
 
+  const activeCount  = users.filter(u => u.isActive).length;
+  const adminCount   = users.filter(u => u.isSuperadmin).length;
+
+  const getInitials = (name: string) =>
+    name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900">Portal Users</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-            Accounts with limited dashboard access
-          </p>
+    <div className="space-y-5 pb-4">
+
+      {/* ── Dark header card ── */}
+      <div className="bg-slate-900 rounded-[24px] px-5 py-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-black uppercase tracking-tight text-white leading-none">Portal Users</h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Limited dashboard accounts</p>
+          </div>
+          <button
+            onClick={openCreate}
+            className="shrink-0 h-9 px-4 bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-slate-100 active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
+            New
+          </button>
         </div>
-        <button
-          onClick={openCreate}
-          className="h-11 px-5 bg-slate-900 text-white font-bold text-[11px] uppercase tracking-widest rounded-2xl hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
-          New User
-        </button>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white/5 rounded-2xl px-4 py-3">
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total</p>
+            <p className="text-2xl font-black text-white tabular-nums leading-none">{users.length}</p>
+          </div>
+          <div className="bg-white/5 rounded-2xl px-4 py-3">
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Active</p>
+            <p className={`text-2xl font-black tabular-nums leading-none ${activeCount > 0 ? 'text-emerald-400' : 'text-white'}`}>{activeCount}</p>
+          </div>
+          <div className="bg-white/5 rounded-2xl px-4 py-3">
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Admins</p>
+            <p className={`text-2xl font-black tabular-nums leading-none ${adminCount > 0 ? 'text-amber-400' : 'text-white'}`}>{adminCount}</p>
+          </div>
+        </div>
       </div>
 
-      {/* USER LIST */}
+      {/* ── User list ── */}
       {isLoading ? (
-        <div className="space-y-3 animate-in fade-in duration-300">
+        <div className="bg-white border border-slate-100 rounded-[24px] overflow-hidden shadow-sm divide-y divide-slate-50">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="w-11 h-11 bg-slate-200/60 rounded-xl animate-pulse shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-2/5" />
-                  <div className="h-3 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
-                </div>
+            <div key={i} className="flex items-center gap-4 px-5 py-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-2xl animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-slate-100 rounded-lg animate-pulse w-2/5" />
+                <div className="h-2.5 bg-slate-100 rounded-lg animate-pulse w-1/3" />
               </div>
-              <div className="w-16 h-8 bg-slate-200/60 rounded-xl animate-pulse shrink-0" />
+              <div className="w-14 h-8 bg-slate-100 rounded-xl animate-pulse shrink-0" />
             </div>
           ))}
         </div>
       ) : users.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center">
-          <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </div>
-          <p className="font-bold text-slate-400 uppercase text-[11px] tracking-widest">No portal users yet</p>
-          <p className="text-slate-300 text-xs mt-1">Create accounts for owners or stakeholders.</p>
+        <div className="bg-white border border-slate-100 rounded-[24px] py-14 text-center shadow-sm">
+          <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">No portal users yet</p>
+          <p className="text-[9px] font-bold text-slate-200 uppercase tracking-widest mt-1">Create accounts for owners or stakeholders</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {users.map(u => {
-            const label = branchLabel(u);
-            return (
-              <div key={u.id} className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        <div className="bg-white border border-slate-100 rounded-[24px] overflow-hidden shadow-sm">
+          <div className="px-5 py-3.5 bg-slate-900 flex items-center justify-between">
+            <p className="text-[9px] font-black text-white uppercase tracking-widest">Accounts</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{users.length} user{users.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {users.map(u => {
+              const label   = branchLabel(u);
+              const count   = grantedCount(u);
+              const isMe    = u.id === currentUserId;
+              const initials = getInitials(u.displayName);
+              const isReadOnly = u.permissions?.readOnly !== false;
+
+              return (
+                <div key={u.id} className={`flex items-center gap-3 px-4 py-4 ${!u.isActive ? 'opacity-50' : ''}`}>
+                  {/* Avatar */}
+                  <div className={`relative w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-[13px] italic select-none ${
+                    u.isSuperadmin ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {initials}
+                    {isMe && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
+                    )}
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-black text-slate-900 uppercase tracking-tight truncate">{u.displayName}</p>
-                      {u.isSuperadmin && (
-                        <span className="text-[8px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Admin</span>
-                      )}
-                      {!u.isSuperadmin && (
-                        u.permissions?.readOnly !== false
-                          ? <span className="text-[8px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Read Only</span>
-                          : <span className="text-[8px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Read + Write</span>
-                      )}
-                      {label && (
-                        <span className="text-[8px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0 flex items-center gap-1">
-                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                          {label}
-                        </span>
-                      )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate">{u.displayName}</p>
                       {!u.isActive && (
-                        <span className="text-[8px] font-bold bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Suspended</span>
+                        <span className="shrink-0 text-[7px] font-black bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-md uppercase tracking-widest">Inactive</span>
                       )}
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      @{u.username} · {u.isSuperadmin ? 'Full access' : `${grantedCount(u)} tab${grantedCount(u) !== 1 ? 's' : ''}`}
-                      {!u.isSuperadmin && !label && ' · All branches'}
+                    <p className="text-[9px] font-bold uppercase tracking-widest mt-0.5 truncate">
+                      <span className="text-slate-400">@{u.username}</span>
+                      {u.isSuperadmin ? (
+                        <span className="text-amber-500"> · Full Admin</span>
+                      ) : (
+                        <>
+                          <span className={isReadOnly ? 'text-amber-500' : 'text-emerald-600'}>{isReadOnly ? ' · Read Only' : ' · Read+Write'}</span>
+                          <span className="text-slate-300"> · {label ?? 'All branches'} · {count} tab{count !== 1 ? 's' : ''}</span>
+                        </>
+                      )}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => openEdit(u)}
-                    className="h-9 px-4 text-[10px] font-bold uppercase tracking-widest text-slate-600 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-all"
-                  >
-                    Edit
-                  </button>
-                  {u.id !== currentUserId && (
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      onClick={() => setDeleteConfirmId(u.id)}
-                      className="h-9 w-9 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-100"
+                      onClick={() => openEdit(u)}
+                      className="h-8 px-3 text-[9px] font-bold uppercase tracking-widest text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all active:scale-95"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      Edit
                     </button>
-                  )}
+                    {!isMe && (
+                      <button
+                        onClick={() => setDeleteConfirmId(u.id)}
+                        className="h-8 w-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 

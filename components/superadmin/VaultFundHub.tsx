@@ -97,9 +97,16 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   };
 
   const handleExportBranchCSV = (branchId: string, branchName: string, type: 'deposits' | 'withdrawals') => {
+    // Use detailTxns (full per-branch fetch, no row cap) instead of the prop-derived capped history maps
+    const startDate = vaultRows[branchId]?.startDate ?? null;
     const txList = type === 'deposits'
-      ? (branchDepositHistory[branchId] ?? [])
-      : (branchWithdrawalHistory[branchId] ?? []);
+      ? detailTxns
+          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+          .filter(t => !startDate || (t.timestamp ?? '').slice(0, 10) >= startDate)
+          .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+      : detailTxns
+          .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
+          .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     if (txList.length === 0) return;
 
@@ -109,19 +116,22 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       ['Branch', 'Date', 'Time', 'Type', 'Label', 'Amount', 'Performed By', 'Transaction ID'],
     ];
 
-    txList.forEach(entry => {
-      const typeLabel = type === 'withdrawals' ? 'Withdrawal'
-        : ('category' in entry && entry.category === 'ADMIN_DEPOSIT') ? 'Admin Deposit' : 'Manager Deposit';
-      const sign = type === 'withdrawals' ? '-' : '+';
+    txList.forEach(t => {
+      const typeLabel =
+        t.type === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
+        t.type === 'DEPOSIT' ? 'Manager Deposit' :
+        t.type === 'WITHDRAWAL' ? 'Withdrawal' :
+        t.type === 'VAULT_WITHDRAWAL' ? 'Vault Withdrawal' : t.type;
+      const sign = (t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL') ? '-' : '+';
       rows.push([
         branchName,
-        entry.date,
-        entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : '',
+        t.timestamp.slice(0, 10),
+        t.timestamp.length > 10 ? t.timestamp.slice(11, 16) : '',
         typeLabel,
-        ('name' in entry ? entry.name ?? '' : entry.name),
-        sign + entry.amount.toString(),
-        entry.performedBy ?? '',
-        entry.id,
+        t.name ?? '',
+        sign + t.amount.toString(),
+        t.performedBy ?? '',
+        t.id,
       ]);
     });
 

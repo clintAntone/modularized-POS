@@ -146,9 +146,11 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
 
   return (
       <div className="space-y-6 md:space-y-8">
-        <div className="bg-white p-4 rounded-[24px] border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-white p-4 rounded-[24px] border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xl shadow-lg">📂</div>
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12h12l1-12" /></svg>
+            </div>
             <div>
               <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Reports History</h3>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Historical Data Explorer</p>

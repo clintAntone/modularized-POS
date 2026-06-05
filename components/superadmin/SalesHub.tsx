@@ -473,9 +473,11 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
         {/* UNIFIED COMMAND BAR */}
         <div className={`bg-white p-4 md:px-8 md:py-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm no-print space-y-6`}>
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-2xl shadow-lg border border-white/10">📡</div>
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
+              </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Live Sales Hub</h3>

@@ -108,9 +108,9 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shadow-inner">
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
             </div>
-            <div>
-              <h3 className="text-[12px] sm:text-[14px] font-black text-slate-900 uppercase tracking-tighter">Report Analytics</h3>
-              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Configure Data Parameters</p>
+            <div className="text-left">
+              <h3 className="text-[12px] sm:text-[14px] font-black text-slate-900 uppercase tracking-tighter">Report History</h3>
+              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Historical Data Explorer</p>
             </div>
           </div>
 

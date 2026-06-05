@@ -22,6 +22,7 @@ interface AttendanceHubProps {
 export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branches, employees, onRefresh, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const todayStr = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Manila',
     year: 'numeric', month: '2-digit', day: '2-digit'
@@ -219,39 +220,45 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
   return (
     <div className="animate-in fade-in duration-300 space-y-6">
       {/* Header & Filters */}
-      <div className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm space-y-5">
+      <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm space-y-4">
         {/* Title row + Export button */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div>
-              <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Attendance Logs</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Staff Clock-in Registry</p>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">Attendance Logs</h3>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Global Staff Clock-in Registry</p>
             </div>
+            {filteredAttendance.length > 0 && (
+              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[9px] font-black uppercase tracking-widest">
+                {filteredAttendance.length} records
+              </span>
+            )}
           </div>
+          {/* Export button — desktop only; mobile version lives beside pagination */}
           <button
             onClick={handleExportPDF}
             disabled={isExporting || filteredAttendance.length === 0}
-            className={`hidden md:flex h-10 items-center gap-2 px-5 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`hidden sm:flex items-center gap-2 h-9 px-4 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             )}
-            {isExporting ? 'Exporting...' : 'Export PDF'}
+            <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
           </button>
         </div>
 
-        {/* Filter row — single line on desktop */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        {/* Filter controls — stacked: search → branch → date */}
+        <div className="flex flex-col gap-2.5">
           {/* Search */}
-          <div className="relative flex-1">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <div className="relative">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="3" /></svg>
             </div>
             <input
@@ -259,36 +266,8 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value.toUpperCase())}
               placeholder="Search staff or branch..."
-              className="w-full h-10 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[12px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all"
+              className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[12px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all"
             />
-          </div>
-
-          {/* Date range picker */}
-          <div className="flex items-center gap-2 shrink-0">
-            <input
-              type="date"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); playSound('click'); }}
-              className="h-10 w-full sm:w-36 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
-            />
-            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0">to</span>
-            <input
-              type="date"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={e => { setDateTo(e.target.value); setCurrentPage(1); playSound('click'); }}
-              className="h-10 w-full sm:w-36 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
-            />
-            {(dateFrom !== todayStr || dateTo !== todayStr) && (
-              <button
-                onClick={() => { setDateFrom(todayStr); setDateTo(todayStr); setCurrentPage(1); playSound('click'); }}
-                className="h-10 w-10 flex items-center justify-center bg-slate-100 text-slate-400 rounded-2xl hover:bg-emerald-50 hover:text-emerald-500 transition-all shrink-0"
-                title="Reset to today"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              </button>
-            )}
           </div>
 
           {/* Branch filter */}
@@ -296,8 +275,60 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
             branches={branches}
             selectedIds={selectedBranchIds}
             onChange={ids => { setSelectedBranchIds(ids); setCurrentPage(1); }}
-            className="shrink-0 sm:w-48"
+            className="w-full"
           />
+
+          {/* Date range — collapsible */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => { setDateFilterOpen(o => !o); playSound('click'); }}
+              className={`w-full h-10 flex items-center justify-between px-4 rounded-2xl border transition-all ${
+                dateFilterOpen || dateFrom !== todayStr || dateTo !== todayStr
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  : 'bg-slate-50 border-slate-200 text-slate-500'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span className="text-[11px] font-black uppercase tracking-widest">
+                  {dateFrom === dateTo
+                    ? (dateFrom === todayStr ? 'Today' : dateFrom)
+                    : `${dateFrom} → ${dateTo}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {(dateFrom !== todayStr || dateTo !== todayStr) && (
+                  <span
+                    onClick={e => { e.stopPropagation(); setDateFrom(todayStr); setDateTo(todayStr); setCurrentPage(1); playSound('click'); }}
+                    className="text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-800 transition-colors"
+                  >
+                    Reset
+                  </span>
+                )}
+                <svg className={`w-3.5 h-3.5 transition-transform ${dateFilterOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </button>
+
+            {dateFilterOpen && (
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-1">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); playSound('click'); }}
+                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+                />
+                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0 text-center">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={e => { setDateTo(e.target.value); setCurrentPage(1); playSound('click'); }}
+                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
       </div>
@@ -314,17 +345,16 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
               onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
-          {/* Mobile-only export button — desktop shows it in the header */}
+          {/* Mobile-only export button beside pagination */}
           <button
             onClick={handleExportPDF}
             disabled={isExporting || filteredAttendance.length === 0}
-            className={`md:hidden h-12 w-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className="sm:hidden h-14 w-14 flex items-center justify-center rounded-2xl bg-emerald-600 text-white shrink-0 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            )}
+            {isExporting
+              ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            }
           </button>
         </div>
 

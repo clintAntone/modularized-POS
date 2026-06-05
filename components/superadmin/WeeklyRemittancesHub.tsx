@@ -877,7 +877,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       <div className="bg-white px-5 py-4 rounded-[28px] border border-slate-200 shadow-sm">
         {/* Title row */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-slate-900 text-white rounded-xl flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -897,8 +897,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           )}
         </div>
 
-        {/* View toggle — below title on all screen sizes */}
-        {!activeBranchId && (
+        {/* View toggle — hidden (deductions tab removed) */}
+        {false && !activeBranchId && (
           <div className="flex w-full lg:w-fit bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner mt-3">
             {(['remittances', 'deductions'] as const).map(v => (
               <button
@@ -1247,17 +1247,28 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   </button>
                   {branchDropdownOpen && (
                     <div className="absolute z-[200] top-[calc(100%+6px)] left-0 w-full min-w-[220px] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
-                      <div className="max-h-60 overflow-y-auto overscroll-contain">
-                        <button
-                          onClick={() => { setSelectedBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 border-b border-slate-100 ${effectiveBranchIds.length === 0 ? 'bg-slate-50' : ''}`}
-                        >
-                          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${effectiveBranchIds.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
-                            {effectiveBranchIds.length === 0 && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
-                          </span>
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${effectiveBranchIds.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Branches</span>
-                        </button>
-                        {branches.map(b => {
+                      <div className="p-2 border-b border-slate-100">
+                        <input
+                          autoFocus
+                          value={branchSearch}
+                          onChange={e => setBranchSearch(e.target.value)}
+                          placeholder="Search branches..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none"
+                        />
+                      </div>
+                      <div className="max-h-56 overflow-y-auto overscroll-contain">
+                        {!branchSearch && (
+                          <button
+                            onClick={() => { setSelectedBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 border-b border-slate-100 ${effectiveBranchIds.length === 0 ? 'bg-slate-50' : ''}`}
+                          >
+                            <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${effectiveBranchIds.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                              {effectiveBranchIds.length === 0 && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
+                            </span>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${effectiveBranchIds.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Branches</span>
+                          </button>
+                        )}
+                        {branches.filter(b => !branchSearch || b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
                           const selected = effectiveBranchIds.includes(b.id);
                           return (
                             <button

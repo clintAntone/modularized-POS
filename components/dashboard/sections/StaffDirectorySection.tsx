@@ -578,6 +578,20 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         );
         
         if (ongoingRec) {
+          const MIN_SHIFT_MINUTES = 1;
+          const clockInTime = new Date(ongoingRec.clockIn).getTime();
+          const nowTime = new Date(timestamp).getTime();
+          const elapsedMinutes = (nowTime - clockInTime) / 60000;
+
+          if (elapsedMinutes < MIN_SHIFT_MINUTES) {
+            const secsLeft = Math.ceil((MIN_SHIFT_MINUTES * 60) - (elapsedMinutes * 60));
+            showToast(`Cannot clock out yet — minimum 1 minute after clock-in is required. Please wait ${secsLeft}s.`);
+            playSound('warning');
+            setIsSyncing(false);
+            if (onSyncStatusChange) onSyncStatusChange(false);
+            return;
+          }
+
           await updateAttendance.mutateAsync({
             id: ongoingRec.id,
             [DB_COLUMNS.CLOCK_OUT]: timestamp,

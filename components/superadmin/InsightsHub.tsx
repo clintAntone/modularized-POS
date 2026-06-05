@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Branch, SalesReport } from '../../types';
 
 interface InsightsHubProps {
@@ -87,6 +87,66 @@ function buildInsights(branches: Branch[], salesReports: SalesReport[], today: s
 }
 
 const fmt = (n: number) => n >= 1000 ? `₱${(n / 1000).toFixed(1)}k` : `₱${Math.round(n).toLocaleString()}`;
+
+function getChartBullets(insight: BranchInsight): string[] {
+  const { last14Days, recentAvg, baselineAvg, dropPct, level, zeroStreak, daysSinceLastReport, recentReports } = insight;
+  const reported = last14Days.filter(d => d.gross >= 0);
+  const zeroDays = reported.filter(d => d.gross === 0).length;
+  const missingDays = 14 - reported.length;
+  const isGain = dropPct < 0;
+  const absPct = Math.abs(Math.round(dropPct));
+
+  const bullets: string[] = [];
+
+  // Trend
+  if (recentAvg === 0 && zeroStreak >= 3) {
+    bullets.push(`No sales recorded for the past ${zeroStreak} days`);
+  } else if (baselineAvg === 0 || recentReports < 2) {
+    bullets.push('Not enough data to establish a reliable trend yet');
+  } else if (isGain) {
+    bullets.push(`Sales are ${absPct}% above the 30-day baseline — branch is outperforming`);
+  } else if (level === 'critical') {
+    bullets.push(`Sales dropped sharply by ${absPct}% vs the 30-day baseline — needs attention`);
+  } else if (level === 'warning') {
+    bullets.push(`Sales are down ${absPct}% from the 30-day baseline`);
+  } else {
+    bullets.push(`Sales are within normal range near the ${fmt(baselineAvg)}/day baseline`);
+  }
+
+  // Missing reports
+  if (missingDays >= 5) {
+    bullets.push(`${missingDays} of the last 14 days have no report submitted`);
+  } else if (missingDays > 0) {
+    bullets.push(`${missingDays} day${missingDays > 1 ? 's' : ''} in the last 14 are missing reports`);
+  }
+
+  // Zero-revenue days
+  if (zeroDays >= 3) {
+    bullets.push(`${zeroDays} days had ₱0 in reported sales`);
+  } else if (zeroDays > 0) {
+    bullets.push(`${zeroDays} day${zeroDays > 1 ? 's' : ''} recorded ₱0 in sales`);
+  }
+
+  // Peak & lowest day
+  const activeDays = reported.filter(d => d.gross > 0);
+  if (activeDays.length >= 2) {
+    const peak   = activeDays.reduce((a, b) => a.gross > b.gross ? a : b);
+    const lowest = activeDays.reduce((a, b) => a.gross < b.gross ? a : b);
+    const peakLabel   = new Date(peak.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    const lowestLabel = new Date(lowest.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    if (peak.date !== lowest.date) {
+      bullets.push(`Peak day: ${peakLabel} at ${fmt(peak.gross)}`);
+      bullets.push(`Lowest day: ${lowestLabel} at ${fmt(lowest.gross)}${peak.gross > lowest.gross * 2 ? ' — high variance' : ''}`);
+    }
+  }
+
+  // Staleness
+  if (daysSinceLastReport !== null && daysSinceLastReport > 2) {
+    bullets.push(`Last report submitted ${daysSinceLastReport} day${daysSinceLastReport > 1 ? 's' : ''} ago`);
+  }
+
+  return bullets;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Single-branch manager view
@@ -196,6 +256,17 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
             {recentAvg > 0 && <> · This week you're averaging <span className={`font-black ${changeColor}`}>{fmt(recentAvg)}/day</span></>}
           </p>
         )}
+        {/* Chart summary bullets */}
+        <ul className={`mt-3 pt-3 border-t border-slate-100 space-y-1.5 ${
+          level === 'critical' ? 'text-rose-500' : level === 'warning' ? 'text-amber-600' : 'text-slate-500'
+        }`}>
+          {getChartBullets(insight).map((b, i) => (
+            <li key={i} className="flex items-start gap-2 text-[11px] font-medium leading-snug">
+              <span className="mt-[4px] w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-60" />
+              {b}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -282,6 +353,17 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
                 );
               })}
             </div>
+            {/* Chart summary bullets */}
+            <ul className={`mt-3 pt-3 border-t border-slate-100 space-y-1 ${
+              level === 'critical' ? 'text-rose-500' : level === 'warning' ? 'text-amber-600' : 'text-slate-500'
+            }`}>
+              {getChartBullets(insight).map((b, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[10px] font-medium leading-snug">
+                  <span className="mt-[3px] w-1 h-1 rounded-full shrink-0 bg-current opacity-60" />
+                  {b}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
@@ -297,6 +379,16 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   const [sortBy, setSortBy]     = useState<'severity' | 'drop' | 'name'>('severity');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch]     = useState('');
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   const today = getManilaToday();
 
   const insights = useMemo(() => buildInsights(branches, salesReports, today, isBranchView), [branches, salesReports, today, isBranchView]);
@@ -312,7 +404,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
     return (
       <div className="space-y-4 pb-24">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow">
+          <div className="w-9 h-9 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shadow">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
           </div>
           <div>
@@ -347,58 +439,80 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   return (
     <div className="space-y-6 pb-32">
       {/* Header */}
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-          </div>
-          <div>
-            <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Anomaly Detection · Last 7 vs Prior 30 Days</p>
-          </div>
+      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-5 flex items-center gap-3">
+        <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {criticalCount > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              <span className="text-[10px] font-black text-rose-700 uppercase tracking-wider">{criticalCount} Critical</span>
-            </span>
-          )}
-          {warningCount > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">{warningCount} Warning</span>
-            </span>
-          )}
-          {criticalCount === 0 && warningCount === 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">All Normal</span>
-            </span>
-          )}
+        <div className="min-w-0">
+          <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Anomaly Detection · Last 7 vs Prior 30 Days</p>
+            {criticalCount > 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-black text-rose-600 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />{criticalCount} Critical
+              </span>
+            )}
+            {warningCount > 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />{warningCount} Warning
+              </span>
+            )}
+            {criticalCount === 0 && warningCount === 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />All Normal
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <div className="flex flex-col gap-2.5">
+        {/* Search */}
+        <div className="relative">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <input type="text" placeholder="Search branch..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-700 placeholder-slate-300 outline-none focus:border-slate-400 transition-all" />
+            className="w-full h-10 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-slate-700 placeholder-slate-300 outline-none focus:bg-white focus:border-emerald-500 transition-all" />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {(['anomalies', 'all'] as FilterMode[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-400'}`}>
-              {f === 'anomalies' ? 'Anomalies Only' : 'All Branches'}
+        {/* Segmented filter + sort */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-100 rounded-2xl p-1 gap-1 flex-1">
+            {(['anomalies', 'all'] as FilterMode[]).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`flex-1 h-8 px-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  filter === f ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}>
+                {f === 'anomalies' ? 'Anomalies' : 'All Branches'}
+              </button>
+            ))}
+          </div>
+          <div ref={sortRef} className="relative shrink-0">
+            <button
+              onClick={() => setSortOpen(o => !o)}
+              className="h-10 px-3 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-slate-400 transition-all"
+            >
+              <span>{ sortBy === 'severity' ? 'Severity' : sortBy === 'drop' ? 'Drop %' : 'Name' }</span>
+              <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
             </button>
-          ))}
-          <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none">
-            <option value="severity">Sort: Severity</option>
-            <option value="drop">Sort: Drop %</option>
-            <option value="name">Sort: Name</option>
-          </select>
+            {sortOpen && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-[200] bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden min-w-[130px] animate-in fade-in zoom-in-95 duration-100">
+                <div className="p-1.5 space-y-0.5">
+                  {([['severity','Severity'],['drop','Drop %'],['name','Name']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => { setSortBy(val); setSortOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between gap-2 ${
+                        sortBy === val ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {label}
+                      {sortBy === val && <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

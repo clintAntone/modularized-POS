@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
 import { formatManilaDate, formatManilaTime } from '../../lib/time';
+import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface RequestsHubProps {
   requests: Request[];
@@ -93,6 +94,7 @@ const fmt = (n: number) => `₱${(n || 0).toLocaleString()}`;
 export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly }) => {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean } | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -129,10 +131,15 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
   const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
 
+  const branchScopedRequests = useMemo(() =>
+    selectedBranchIds.length > 0 ? requests.filter(r => selectedBranchIds.includes(r.branchId)) : requests,
+  [requests, selectedBranchIds]);
+
   const filteredRequests = useMemo(() => {
-    if (filter === 'ALL') return requests;
-    return requests.filter(r => r.status === filter);
-  }, [requests, filter]);
+    let list = filter === 'ALL' ? requests : requests.filter(r => r.status === filter);
+    if (selectedBranchIds.length > 0) list = list.filter(r => selectedBranchIds.includes(r.branchId));
+    return list;
+  }, [requests, filter, selectedBranchIds]);
 
   const triggerConfirm = (request: Request, action: 'APPROVE' | 'REJECT') => {
     const hasConflict = action === 'APPROVE' && request.type === 'BACKFILL_REPORT'
@@ -329,10 +336,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   };
 
   const FILTERS = [
-    { key: 'PENDING',  label: 'Pending',  count: requests.filter(r => r.status === 'PENDING').length },
-    { key: 'APPROVED', label: 'Approved', count: requests.filter(r => r.status === 'APPROVED').length },
-    { key: 'REJECTED', label: 'Rejected', count: requests.filter(r => r.status === 'REJECTED').length },
-    { key: 'ALL',      label: 'All',      count: requests.length },
+    { key: 'PENDING',  label: 'Pending',  count: branchScopedRequests.filter(r => r.status === 'PENDING').length },
+    { key: 'APPROVED', label: 'Approved', count: branchScopedRequests.filter(r => r.status === 'APPROVED').length },
+    { key: 'REJECTED', label: 'Rejected', count: branchScopedRequests.filter(r => r.status === 'REJECTED').length },
   ] as const;
 
   const confirmMeta = confirmState ? TYPE_META[confirmState.request.type] : null;
@@ -458,38 +464,48 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="space-y-3">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
+          <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
             Approval Workflows
           </h2>
-          <p className="text-xs font-medium text-slate-500 mt-1">
+          <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-1">
             Manage pending backfill and security requests
           </p>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 gap-0.5">
-          {FILTERS.map(({ key, label, count }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`relative px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                filter === key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {label}
-              {count > 0 && (
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
-                  filter === key
-                    ? 'bg-white/20 text-white'
-                    : key === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2.5">
+          {/* Branch filter — full width on mobile */}
+          <BranchCheckboxDropdown
+            branches={branches}
+            selectedIds={selectedBranchIds}
+            onChange={setSelectedBranchIds}
+            className="sm:w-48"
+          />
+
+          {/* Filter tabs — evenly distributed on mobile so nothing overflows */}
+          <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 gap-0.5">
+            {FILTERS.map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  filter === key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
+                    filter === key
+                      ? 'bg-white/20 text-white'
+                      : key === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

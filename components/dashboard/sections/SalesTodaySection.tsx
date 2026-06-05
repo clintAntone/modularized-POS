@@ -326,6 +326,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     const emp = employees.find(e => e.name?.toUpperCase() === upperName);
     if (emp && emp.branchId !== branch.id) {
       await syncRelieverPayouts(branch, todayStr, employees, newHidden);
+      onRefresh?.();
     }
   };
 

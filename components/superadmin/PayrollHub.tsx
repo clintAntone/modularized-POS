@@ -73,7 +73,9 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-2xl shadow-lg border border-white/10">💰</div>
+            <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Global Payroll Hub</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Network-wide Compensation Audit</p>
