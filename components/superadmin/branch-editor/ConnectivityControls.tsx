@@ -23,13 +23,13 @@ export const ConnectivityControls: React.FC<ConnectivityControlsProps> = ({
       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Branch Controls</h4>
       <div className="grid grid-cols-2 gap-2">
         <button
-          disabled={isSaving || (!isEnabled && isManagerUnassigned)}
+          disabled={isSaving}
           onClick={onToggle}
           className={`flex items-center justify-center gap-2 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
             isEnabled
               ? 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'
               : 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
-          } ${(!isEnabled && isManagerUnassigned) ? 'opacity-40 cursor-not-allowed' : ''}`}
+          }`}
         >
           {isEnabled ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
           {isEnabled ? 'Suspend' : 'Restore'}

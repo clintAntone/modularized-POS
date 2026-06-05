@@ -242,6 +242,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <OperationsRegistry
                         branchId={branch.id}
                         isOpen={localBranch.isOpen}
+                        isEnabled={localBranch.isEnabled ?? true}
                         manager={localBranch.manager || ''}
                         tempManager={localBranch.tempManager || ''}
                         potentialManagers={potentialManagers}

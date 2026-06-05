@@ -375,15 +375,11 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['vaultTransactions', auth.user?.branchId],
         queryFn: async () => {
             if (!supabase) return [];
-            const lookback = new Date();
-            lookback.setDate(lookback.getDate() - 90);
-            const lookbackIso = lookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.VAULT_TRANSACTIONS)
                 .select(COLS.vaultTransactions)
                 .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
-                .gte(DB_COLUMNS.CREATED_AT, lookbackIso)
-                .limit(2000);
+                .limit(10000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }

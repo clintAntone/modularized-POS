@@ -126,13 +126,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   const { data: transactions = [], isLoading: txLoading, refetch } = useQuery<VaultTransaction[]>({
     queryKey: ['vault_transactions', branch.id],
     queryFn: async () => {
-      const lookback = new Date();
-      lookback.setDate(lookback.getDate() - 90);
       const { data, error } = await supabase
         .from(DB_TABLES.VAULT_TRANSACTIONS)
         .select('*')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .gte(DB_COLUMNS.TIMESTAMP, lookback.toISOString())
         .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -141,7 +138,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         timestamp: r[DB_COLUMNS.TIMESTAMP],
         amount: Number(r[DB_COLUMNS.AMOUNT] || 0),
         name: r[DB_COLUMNS.NAME] || '',
-        type: (r[DB_COLUMNS.TYPE] === 'WITHDRAWAL' ? 'withdrawal' : 'deposit') as 'deposit' | 'withdrawal',
+        type: (['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((r[DB_COLUMNS.TYPE] || '').toUpperCase()) ? 'withdrawal' : 'deposit') as 'deposit' | 'withdrawal',
         category: r[DB_COLUMNS.TYPE],
         receiptUrl: r[DB_COLUMNS.RECEIPT_IMAGE] || null,
       }));
@@ -390,8 +387,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   };
 
   // ── Derived stats ─────────────────────────────────────────────────────────
-  const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
+  const totalDeposits = transactions.filter(t => ['DEPOSIT', 'ADMIN_DEPOSIT'].includes((t.type || '').toUpperCase())).reduce((s, t) => s + t.amount, 0);
+  const totalWithdrawals = transactions.filter(t => ['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((t.type || '').toUpperCase())).reduce((s, t) => s + t.amount, 0);
 
   // ── Recent reports (last 7 days from today, Manila time) ──────────────────
   const currentWeekReports = useMemo((): SalesReport[] => {

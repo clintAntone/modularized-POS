@@ -150,6 +150,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
 
     return {
       r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit,
+      isBackfill: r.id.includes('_BACKFILL_'),
       branchName: r.branchId === 'all' ? 'NETWORK CONSOLIDATED' : (branches.find(b => b.id === r.branchId)?.name || 'BRANCH NODE'),
     };
   });
@@ -159,7 +160,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
     <div className="no-print">
       {/* Mobile cards — no min-width constraint */}
       <div className="md:hidden space-y-0">
-        {rowData.map(({ r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit, branchName }) => {
+        {rowData.map(({ r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit, branchName, isBackfill }) => {
           const isHolding = holdingId === r.id;
           return (
             <div
@@ -183,6 +184,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                 vault={legacyProvision}
                 vaultDeposit={vaultDeposit}
                 isLegacy={isLegacy}
+                isBackfill={isBackfill}
                 net={r.netRoi}
                 onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
               />
@@ -232,7 +234,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
             </div>
           </div>
 
-          {rowData.map(({ r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit, branchName }) => {
+          {rowData.map(({ r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit, branchName, isBackfill }) => {
             const isHolding = holdingId === r.id;
             return (
               <div
@@ -256,6 +258,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                   vault={legacyProvision}
                   vaultDeposit={vaultDeposit}
                   isLegacy={isLegacy}
+                  isBackfill={isBackfill}
                   net={r.netRoi}
                   onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
                 />

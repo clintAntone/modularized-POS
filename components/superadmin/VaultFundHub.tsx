@@ -45,8 +45,13 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState<Set<string>>(new Set());
+  const [vaultTotals, setVaultTotals] = useState<Record<string, { deposited: number; depositCount: number; withdrawn: number; withdrawalCount: number }>>({});
   const [detailBranchId, setDetailBranchId] = useState<string | null>(null);
+  const [detailTxns, setDetailTxns] = useState<VaultTransaction[]>([]);
+  const [detailTxnsLoading, setDetailTxnsLoading] = useState(false);
   const [txHistoryTab, setTxHistoryTab] = useState<'deposits' | 'withdrawals'>('deposits');
+  const [visibleDeposits, setVisibleDeposits] = useState(20);
+  const [visibleWithdrawals, setVisibleWithdrawals] = useState(20);
   const [roiDropdownOpen, setRoiDropdownOpen] = useState(false);
   const [confirmToggleBranch, setConfirmToggleBranch] = useState<Branch | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -164,6 +169,20 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         }
         setLoadingVaults(false);
       });
+    // Fetch server-side aggregated totals (avoids PostgREST row cap)
+    supabase.rpc('get_vault_totals').then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, { deposited: number; depositCount: number; withdrawn: number; withdrawalCount: number }> = {};
+      (data as any[]).forEach(row => {
+        map[row.branch_id] = {
+          deposited: Number(row.total_deposited ?? 0),
+          depositCount: Number(row.deposit_count ?? 0),
+          withdrawn: Number(row.total_withdrawn ?? 0),
+          withdrawalCount: Number(row.withdrawal_count ?? 0),
+        };
+      });
+      setVaultTotals(map);
+    });
   }, []);
 
   // Poll balance every 30s while on this tab + refetch on browser window focus
@@ -196,9 +215,39 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Reset tab when detail modal opens
+  // Fetch full transaction history for the detail modal branch (bypasses global 1000-row cap)
   useEffect(() => {
-    if (detailBranchId) setTxHistoryTab('deposits');
+    if (!detailBranchId || !supabase) { setDetailTxns([]); return; }
+    setDetailTxnsLoading(true);
+    supabase
+      .from(DB_TABLES.VAULT_TRANSACTIONS)
+      .select('*')
+      .eq(DB_COLUMNS.BRANCH_ID, detailBranchId)
+      .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+      .then(({ data }) => {
+        setDetailTxns((data || []).map((r: any) => ({
+          id: r[DB_COLUMNS.ID],
+          branchId: r[DB_COLUMNS.BRANCH_ID],
+          reportId: r[DB_COLUMNS.REPORT_ID] ?? null,
+          type: r[DB_COLUMNS.TYPE],
+          amount: Number(r[DB_COLUMNS.AMOUNT] ?? 0),
+          name: r[DB_COLUMNS.NAME] ?? null,
+          timestamp: r[DB_COLUMNS.TIMESTAMP] ?? '',
+          performedBy: r[DB_COLUMNS.PERFORMED_BY] ?? null,
+          receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
+          createdAt: r[DB_COLUMNS.CREATED_AT],
+        })));
+        setDetailTxnsLoading(false);
+      });
+  }, [detailBranchId]);
+
+  // Reset tab and pagination when detail modal opens
+  useEffect(() => {
+    if (detailBranchId) {
+      setTxHistoryTab('deposits');
+      setVisibleDeposits(20);
+      setVisibleWithdrawals(20);
+    }
   }, [detailBranchId]);
 
   // Total deposited per branch = sum of DEPOSIT + ADMIN_DEPOSIT entries within the current vault cycle.
@@ -534,7 +583,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const row = vaultRows[b.id];
         const bal = (row?.balance ?? 0).toString();
         const tgt = (row?.target ?? 0).toString();
-        const dep = (historicalTotals[b.id] ?? 0).toString();
+        const dep = (vaultTotals[b.id]?.deposited ?? 0).toString();
         return bal.includes(term) || tgt.includes(term) || dep.includes(term);
       });
     }
@@ -564,7 +613,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     });
 
     return result;
-  }, [branches, selectedBranchIds, searchTerm, vaultFilter, localEnabled, vaultRows, sortMode, historicalTotals]);
+  }, [branches, selectedBranchIds, searchTerm, vaultFilter, localEnabled, vaultRows, sortMode, vaultTotals]);
 
   return (
     <div className="space-y-5">
@@ -573,96 +622,132 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       <div className="flex items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">Vault Fund</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-            {enabledCount} of {branches.length} branches enabled
-          </p>
+          {loadingVaults ? (
+            <div className="h-2.5 w-44 bg-slate-200 rounded-full animate-pulse mt-2" />
+          ) : (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+              {enabledCount} of {branches.length} branches enabled
+            </p>
+          )}
         </div>
       </div>
 
       {/* Network Summary */}
-      {!loadingVaults && enabledCount > 0 && (
-        <div className="bg-slate-900 rounded-[28px] p-5 sm:p-6 space-y-4">
-          {/* Balance + KPI row */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            {/* Balance */}
-            <div className="min-w-0">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Network Vault Balance</p>
-              <p className="text-3xl font-black text-white tabular-nums leading-none mt-1">
-                ₱{networkSummary.totalBalance.toLocaleString()}
-              </p>
-              {networkSummary.totalTarget > 0 && (
-                <p className="text-[9px] font-bold text-slate-400 mt-1">
-                  of ₱{networkSummary.totalTarget.toLocaleString()} combined target
-                </p>
-              )}
+      <div className="bg-slate-900 rounded-[28px] p-5 sm:p-6 space-y-4">
+        {loadingVaults ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="space-y-2.5">
+                <div className="h-2 w-32 bg-white/10 rounded-full animate-pulse" />
+                <div className="h-9 w-52 bg-white/[0.12] rounded-xl animate-pulse" />
+                <div className="h-2 w-40 bg-white/[0.06] rounded-full animate-pulse" />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                {[0,1,2].map(i => (
+                  <div key={i} className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-2xl px-3 py-2.5">
+                    <div className="w-7 h-7 rounded-xl bg-white/10 animate-pulse shrink-0" />
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-6 bg-white/10 rounded animate-pulse" />
+                      <div className="h-1.5 w-10 bg-white/[0.06] rounded-full animate-pulse" />
+                      <div className="h-1.5 w-14 bg-white/[0.04] rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            {/* KPI pills */}
-            <div className="flex gap-2 shrink-0">
-              {/* Vault On */}
-              <div className="flex items-center gap-2.5 bg-emerald-500/15 border border-emerald-500/25 rounded-2xl px-3 py-2.5">
-                <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-base font-black text-emerald-400 tabular-nums leading-none">{networkSummary.enabledCount}</p>
-                  <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest leading-none mt-0.5">Saving</p>
-                  <p className="text-[7px] text-emerald-600/70 leading-none mt-0.5">vault enabled</p>
-                </div>
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between">
+                <div className="h-2 w-24 bg-white/10 rounded-full animate-pulse" />
+                <div className="h-2 w-8 bg-white/10 rounded-full animate-pulse" />
+              </div>
+              <div className="h-2.5 bg-white/10 rounded-full">
+                <div className="h-full w-2/5 bg-white/[0.08] rounded-full animate-pulse" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              {/* Balance */}
+              <div className="min-w-0">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Network Vault Balance</p>
+                <p className="text-3xl font-black text-white tabular-nums leading-none mt-1">
+                  ₱{networkSummary.totalBalance.toLocaleString()}
+                </p>
+                {networkSummary.totalTarget > 0 && (
+                  <p className="text-[9px] font-bold text-slate-400 mt-1">
+                    of ₱{networkSummary.totalTarget.toLocaleString()} combined target
+                  </p>
+                )}
               </div>
 
-              {/* Vault Off */}
-              {networkSummary.disabledCount > 0 && (
-                <div className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-2xl px-3 py-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
-                    <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              {/* KPI pills */}
+              <div className="flex gap-2 shrink-0">
+                {/* Vault On */}
+                <div className="flex items-center gap-2.5 bg-emerald-500/15 border border-emerald-500/25 rounded-2xl px-3 py-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-base font-black text-slate-400 tabular-nums leading-none">{networkSummary.disabledCount}</p>
-                    <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mt-0.5">Inactive</p>
-                    <p className="text-[7px] text-slate-600 leading-none mt-0.5">not enrolled</p>
+                    <p className="text-base font-black text-emerald-400 tabular-nums leading-none">{networkSummary.enabledCount}</p>
+                    <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest leading-none mt-0.5">Saving</p>
+                    <p className="text-[7px] text-emerald-600/70 leading-none mt-0.5">vault enabled</p>
                   </div>
                 </div>
-              )}
 
-              {/* Full */}
-              <div className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 border ${networkSummary.fullCount > 0 ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
-                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-                  <svg className={`w-3.5 h-3.5 ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className={`text-base font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{networkSummary.fullCount}</p>
-                  <p className={`text-[7px] font-black uppercase tracking-widest leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>At Target</p>
-                  <p className={`text-[7px] leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600/70' : 'text-slate-700'}`}>goal reached</p>
+                {/* Vault Off */}
+                {networkSummary.disabledCount > 0 && (
+                  <div className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-2xl px-3 py-2.5">
+                    <div className="w-7 h-7 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-slate-400 tabular-nums leading-none">{networkSummary.disabledCount}</p>
+                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mt-0.5">Inactive</p>
+                      <p className="text-[7px] text-slate-600 leading-none mt-0.5">not enrolled</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full */}
+                <div className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 border ${networkSummary.fullCount > 0 ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
+                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
+                    <svg className={`w-3.5 h-3.5 ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className={`text-base font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{networkSummary.fullCount}</p>
+                    <p className={`text-[7px] font-black uppercase tracking-widest leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>At Target</p>
+                    <p className={`text-[7px] leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600/70' : 'text-slate-700'}`}>goal reached</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {networkSummary.totalTarget > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Overall Progress</span>
-                <span className={`text-[8px] font-black uppercase tracking-widest ${networkSummary.overallProgress >= 100 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                  {networkSummary.overallProgress}%
-                </span>
+            {networkSummary.totalTarget > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Overall Progress</span>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${networkSummary.overallProgress >= 100 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                    {networkSummary.overallProgress}%
+                  </span>
+                </div>
+                <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${networkSummary.overallProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-400'}`}
+                    style={{ width: `${networkSummary.overallProgress}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ${networkSummary.overallProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-400'}`}
-                  style={{ width: `${networkSummary.overallProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
 
       {/* Search + Branch selector + Filter + Sort */}
       <div className="flex flex-wrap items-center gap-2">
@@ -822,7 +907,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
               <tbody className="divide-y divide-slate-50">
                 {filteredBranches.map(branch => {
                   const row = vaultRows[branch.id];
-                  const historical = historicalTotals[branch.id] ?? 0;
+                  const rowTotals = vaultTotals[branch.id];
                   const isToggling = togglingId === branch.id;
                   const enabled = localEnabled[branch.id] ?? false;
                   const balance = row?.balance ?? 0;
@@ -831,7 +916,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   const progress = target > 0 ? Math.min(100, Math.round((balance / target) * 100)) : 0;
                   const isFull = target > 0 && balance >= target;
                   const notConfigured = enabled && target === 0;
-                  const branchHistory = branchDepositHistory[branch.id] ?? [];
+                  const depositCount = rowTotals?.depositCount ?? 0;
                   return (
                     <tr key={branch.id} onClick={() => setDetailBranchId(branch.id)} className="hover:bg-slate-50/60 transition-colors cursor-pointer">
                       {/* Branch */}
@@ -840,8 +925,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                         {enabled && row?.startDate && (
                           <p className="text-[8px] font-bold text-slate-400 mt-0.5">Since {row.startDate}</p>
                         )}
-                        {branchHistory.length > 0 && (
-                          <p className="text-[8px] font-bold text-slate-300 mt-0.5">{branchHistory.length} deposit{branchHistory.length !== 1 ? 's' : ''}</p>
+                        {depositCount > 0 && (
+                          <p className="text-[8px] font-bold text-slate-300 mt-0.5">{depositCount} deposit{depositCount !== 1 ? 's' : ''}</p>
                         )}
                       </td>
                       {/* Balance */}
@@ -858,13 +943,13 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       </td>
                       {/* Deposited */}
                       <td className="px-4 py-4 text-right">
-                        <span className={`text-[12px] font-black tabular-nums ${row?.startDate && historical > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
-                          {row?.startDate && historical > 0 ? `₱${historical.toLocaleString()}` : '—'}
+                        <span className={`text-[12px] font-black tabular-nums ${row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
+                          {row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? `₱${(rowTotals?.deposited ?? 0).toLocaleString()}` : '—'}
                         </span>
                       </td>
                       {/* Withdrawals */}
                       <td className="px-4 py-4 text-right">
-                        {(() => { const w = withdrawalTotals[branch.id] ?? 0; return (
+                        {(() => { const w = rowTotals?.withdrawn ?? 0; return (
                           <span className={`text-[12px] font-black tabular-nums ${w > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
                             {w > 0 ? `₱${w.toLocaleString()}` : '—'}
                           </span>
@@ -934,7 +1019,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           <div className="md:hidden grid grid-cols-1 gap-4">
           {filteredBranches.map(branch => {
             const row = vaultRows[branch.id];
-            const historical = historicalTotals[branch.id] ?? 0;
+            const rowTotals = vaultTotals[branch.id];
             const isEditing = editingId === branch.id;
             const isDepositing = depositingId === branch.id;
             const isSaving = savingId === branch.id;
@@ -947,7 +1032,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
             const progress = target > 0 ? Math.min(100, Math.round((balance / target) * 100)) : 0;
             const isFull = target > 0 && balance >= target;
             const notConfigured = target === 0 && balance === 0;
-            const branchHistory = branchDepositHistory[branch.id] ?? [];
+            const depositCount = rowTotals?.depositCount ?? 0;
 
             // card state: off | unconfigured (on, no target) | in-progress | full
             const cardState = !enabled ? 'off' : isFull ? 'full' : notConfigured ? 'unconfigured' : 'active';
@@ -1080,12 +1165,12 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   {/* Unconfigured state — vault on but no target */}
                   {cardState === 'unconfigured' && !isEditing && (
                     <div className="mt-4 space-y-3">
-                      {row?.startDate && historical > 0 && (
+                      {row?.startDate && (rowTotals?.deposited ?? 0) > 0 && (
                         <div className="flex items-end justify-between">
                           <div>
                             <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Deposited so far</p>
                             <p className="text-2xl font-black tabular-nums leading-none text-emerald-600">
-                              ₱{historical.toLocaleString()}
+                              ₱{(rowTotals?.deposited ?? 0).toLocaleString()}
                             </p>
                           </div>
                           <div className="h-2 w-24 bg-amber-100 rounded-full overflow-hidden self-center">
@@ -1121,13 +1206,13 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       </div>
                       <div>
                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Deposited</p>
-                        <p className={`text-[13px] font-black tabular-nums leading-none ${row?.startDate && historical > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
-                          {row?.startDate && historical > 0 ? `₱${historical.toLocaleString()}` : '—'}
+                        <p className={`text-[13px] font-black tabular-nums leading-none ${row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
+                          {row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? `₱${(rowTotals?.deposited ?? 0).toLocaleString()}` : '—'}
                         </p>
                       </div>
                       <div>
                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Withdrawn</p>
-                        {(() => { const w = withdrawalTotals[branch.id] ?? 0; return (
+                        {(() => { const w = rowTotals?.withdrawn ?? 0; return (
                           <p className={`text-[13px] font-black tabular-nums leading-none ${w > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
                             {w > 0 ? `₱${w.toLocaleString()}` : '—'}
                           </p>
@@ -1151,14 +1236,14 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 )}
 
                 {/* Deposit History */}
-                {enabled && branchHistory.length > 0 && (
+                {enabled && depositCount > 0 && (
                   <div className="border-t border-slate-50">
                     <button
                       onClick={() => toggleHistory(branch.id)}
                       className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
                     >
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        Deposit History · {branchHistory.length} {branchHistory.length === 1 ? 'entry' : 'entries'}
+                        Deposit History · {depositCount} {depositCount === 1 ? 'entry' : 'entries'}
                       </span>
                       <svg
                         className={`w-3.5 h-3.5 text-slate-300 transition-transform duration-200 ${historyOpen.has(branch.id) ? 'rotate-180' : ''}`}
@@ -1170,7 +1255,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
                     {historyOpen.has(branch.id) && (
                       <div className="px-5 pb-4 max-h-52 overflow-y-auto overscroll-contain space-y-px">
-                        {branchHistory.slice(0, 30).map((entry, i) => {
+                        {(branchDepositHistory[branch.id] ?? []).slice(0, 30).map((entry, i) => {
                           const [y, m, d] = entry.date.split('-').map(Number);
                           const formatted = new Intl.DateTimeFormat('en-PH', {
                             month: 'short', day: 'numeric', year: 'numeric',
@@ -1350,7 +1435,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const branch = branches.find(b => b.id === detailBranchId);
         if (!branch) return null;
         const row = vaultRows[branch.id];
-        const historical = historicalTotals[branch.id] ?? 0;
         const isEditing = editingId === branch.id;
         const isDepositing = depositingId === branch.id;
         const isSaving = savingId === branch.id;
@@ -1362,9 +1446,16 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const progress = target > 0 ? Math.min(100, Math.round((balance / target) * 100)) : 0;
         const isFull = target > 0 && balance >= target;
         const notConfigured = enabled && target === 0;
-        const branchHistory = branchDepositHistory[branch.id] ?? [];
-        const branchWithdrawals = branchWithdrawalHistory[branch.id] ?? [];
-        const totalDeposited = historicalTotals[branch.id] ?? 0;
+        // Use per-branch direct fetch for the modal (avoids global 1000-row cap)
+        const startDate = vaultRows[branch.id]?.startDate ?? null;
+        const branchHistory = detailTxns
+          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+          .filter(t => !startDate || (t.timestamp ?? '').slice(0, 10) >= startDate)
+          .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, category: t.type, name: t.name ?? null, performedBy: t.performedBy }));
+        const branchWithdrawals = detailTxns
+          .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
+          .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, name: t.name ?? '', performedBy: t.performedBy }));
+        const totalDeposited = branchHistory.reduce((s, e) => s + e.amount, 0);
         const totalWithdrawals = branchWithdrawals.reduce((s, e) => s + e.amount, 0);
 
         const closeModal = () => {
@@ -1633,14 +1724,14 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       {/* Tab row */}
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <button
-                          onClick={() => setTxHistoryTab('deposits')}
+                          onClick={() => { setTxHistoryTab('deposits'); setVisibleDeposits(20); }}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                         >
                           ↓ Deposits
                           <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{branchHistory.length}</span>
                         </button>
                         <button
-                          onClick={() => setTxHistoryTab('withdrawals')}
+                          onClick={() => { setTxHistoryTab('withdrawals'); setVisibleWithdrawals(20); }}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                         >
                           ↑ Withdrawals
@@ -1673,7 +1764,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</span>
                               </div>
                               <div className="divide-y divide-slate-100">
-                                {branchHistory.map((entry, i) => {
+                                {branchHistory.slice(0, visibleDeposits).map((entry, i) => {
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
                                   const isAdmin = entry.category === 'ADMIN_DEPOSIT';
@@ -1715,6 +1806,14 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   );
                                 })}
                               </div>
+                              {visibleDeposits < branchHistory.length && (
+                                <button
+                                  onClick={() => setVisibleDeposits(v => v + 20)}
+                                  className="w-full py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-colors border-t border-slate-100"
+                                >
+                                  Load more · {branchHistory.length - visibleDeposits} remaining
+                                </button>
+                              )}
                             </div>
                       )}
 
@@ -1731,7 +1830,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</span>
                               </div>
                               <div className="divide-y divide-slate-100">
-                                {branchWithdrawals.map((entry, i) => {
+                                {branchWithdrawals.slice(0, visibleWithdrawals).map((entry, i) => {
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
                                   const timePart = entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : null;
@@ -1768,6 +1867,14 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   );
                                 })}
                               </div>
+                              {visibleWithdrawals < branchWithdrawals.length && (
+                                <button
+                                  onClick={() => setVisibleWithdrawals(v => v + 20)}
+                                  className="w-full py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-colors border-t border-slate-100"
+                                >
+                                  Load more · {branchWithdrawals.length - visibleWithdrawals} remaining
+                                </button>
+                              )}
                             </div>
                       )}
                     </div>

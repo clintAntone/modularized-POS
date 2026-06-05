@@ -117,6 +117,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const isAggregate = constituents.length > 0;
 
   const reportDateStr = report.reportDate?.slice(0, 10) ?? '';
+  const isBackfill = report.id.includes('_BACKFILL_');
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
   const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
   const isLegacy = !reportBranchVaultEnabled || !resolvedVaultStartDate || reportDateStr < resolvedVaultStartDate;
@@ -732,7 +733,12 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 {isAggregate ? '📊' : '📂'}
               </div>
               <div className="min-w-0">
-                <h3 className="text-[13px] sm:text-lg md:text-xl font-bold uppercase tracking-tighter text-slate-900 leading-tight truncate mb-0.5">{displayDate}</h3>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h3 className="text-[13px] sm:text-lg md:text-xl font-bold uppercase tracking-tighter text-slate-900 leading-tight truncate">{displayDate}</h3>
+                  {isBackfill && (
+                    <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[8px] font-black uppercase tracking-widest">Backfilled</span>
+                  )}
+                </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-600 whitespace-nowrap">{branchName} Node</span>
                   <span className="text-slate-200 hidden sm:inline">/</span>

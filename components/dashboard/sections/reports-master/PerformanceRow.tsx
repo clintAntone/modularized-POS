@@ -14,11 +14,12 @@ interface PerformanceRowProps {
     onClick: () => void;
     isMissing?: boolean;
     isLegacy?: boolean;
+    isBackfill?: boolean;
 }
 
 export const PerformanceRow: React.FC<PerformanceRowProps> = ({
     label, sublabel, branchName, gross, pay, exp, vault,
-    vaultDeposit = 0, net, onClick, isMissing = false, isLegacy = false,
+    vaultDeposit = 0, net, onClick, isMissing = false, isLegacy = false, isBackfill = false,
 }) => {
     const isPositive = net >= 0;
 
@@ -52,12 +53,15 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
             {/* ── Desktop Table Row ── */}
             <div
                 onClick={onClick}
-                className={`hidden md:flex group transition-all cursor-pointer border-b border-slate-100 last:border-0 items-center ${isLegacy ? 'bg-slate-50/60' : 'bg-white'}`}
+                className={`hidden md:flex group transition-all cursor-pointer border-b border-slate-100 last:border-0 items-center relative overflow-hidden ${isBackfill ? 'bg-amber-50/40' : isLegacy ? 'bg-slate-50/60' : 'bg-white'}`}
             >
+                {isBackfill && <div className="absolute left-0 top-0 h-full w-1 bg-amber-400 shrink-0" />}
                 <div className="px-8 py-5 w-[15%]">
                     <div className="flex flex-col">
                         <span className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors whitespace-nowrap">{label}</span>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70">{sublabel}</span>
+                        <span className={`text-[10px] font-semibold uppercase tracking-widest mt-1 ${isBackfill ? 'text-amber-500' : 'text-slate-400 opacity-70'}`}>
+                            {isBackfill ? '✦ Backfilled Report' : sublabel}
+                        </span>
                     </div>
                 </div>
                 <div className="px-6 py-5 w-[17%]">
@@ -101,14 +105,17 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
             {/* ── Mobile Card View ── */}
             <div
                 onClick={onClick}
-                className="md:hidden rounded-2xl border border-slate-100 shadow-sm mb-3 overflow-hidden active:scale-[0.98] transition-all cursor-pointer bg-white"
+                className={`md:hidden rounded-2xl shadow-sm mb-3 overflow-hidden active:scale-[0.98] transition-all cursor-pointer ${isBackfill ? 'bg-amber-50/60 border border-amber-200' : 'bg-white border border-slate-100'}`}
             >
+                {isBackfill && <div className="h-1 w-full bg-amber-400" />}
                 {/* Header */}
                 <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                         <p className="text-[8px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-0.5 truncate">{branchName}</p>
                         <h3 className="text-[17px] font-black text-slate-900 uppercase tracking-tight leading-none">{label}</h3>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">{sublabel}</p>
+                        <p className={`text-[8px] font-bold uppercase tracking-widest mt-1 ${isBackfill ? 'text-amber-500' : 'text-slate-400'}`}>
+                            {isBackfill ? '✦ Backfilled Report' : sublabel}
+                        </p>
                     </div>
                     <span className={`shrink-0 mt-0.5 px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest ${
                         isPositive
