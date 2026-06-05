@@ -112,14 +112,14 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       { id: 'clients',         label: 'Clients',        icon: Icons.clients,         desc: 'Client Lookup',       color: 'bg-indigo-50 text-indigo-600',   group: 'Personnel'  },
       { id: 'expense_reports', label: 'Expense Reports',icon: Icons.expenses_ledger, desc: 'Financial History',   color: 'bg-indigo-50 text-indigo-600',   group: 'Reports'    },
       { id: 'backfill',        label: 'Backfill',       icon: Icons.backfill,        desc: 'Request Data Entry',  color: 'bg-amber-50 text-amber-600',     group: 'Reports'    },
-      { id: 'complaints',      label: 'Complaints',     icon: Icons.complaints,      desc: 'Employee Reports',    color: 'bg-rose-50 text-rose-600',       group: 'Personnel',  comingSoon: true },
+      { id: 'complaints',      label: 'Complaints',     icon: Icons.complaints,      desc: 'Employee Reports',    color: 'bg-rose-50 text-rose-600',       group: 'Personnel'  },
       { id: 'how_to',          label: 'How-To',         icon: Icons.how_to,          desc: 'Manual',              color: 'bg-slate-100 text-slate-600',    group: 'System'     },
       { id: 'settings',        label: 'Settings',       icon: Icons.settings,        desc: 'Node Config',         color: 'bg-rose-50 text-rose-600',       group: 'System'     },
     ];
     
     const hidden = new Set<string>();
     if (isRelief) {
-      ['settings', 'salaries', 'expense_reports', 'monthly_bills', 'complaints'].forEach(id => hidden.add(id));
+      ['settings', 'salaries', 'expense_reports', 'monthly_bills'].forEach(id => hidden.add(id));
     }
     if (!vaultEnabled) hidden.add('monthly_bills');
     return hidden.size > 0 ? tabs.filter(t => !hidden.has(t.id)) : tabs;
