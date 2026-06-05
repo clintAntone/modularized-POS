@@ -1475,7 +1475,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
             <div className="bg-white rounded-[28px] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
 
               {/* ── Header (dark) ── */}
-              <div className="bg-slate-900 px-7 pt-6 pb-5 shrink-0">
+              <div className="bg-slate-900 px-4 sm:px-7 pt-5 sm:pt-6 pb-5 shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Vault Details</p>
@@ -1500,9 +1500,10 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   </div>
                 </div>
 
-                {/* Stats inline — balance is hero, others secondary */}
+                {/* Stats — balance hero + secondary grid */}
                 {enabled && (
-                  <div className="mt-5 flex items-end justify-between gap-6 flex-wrap">
+                  <div className="mt-5 space-y-4">
+                    {/* Balance hero */}
                     <div>
                       <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Current Balance</p>
                       <p className={`text-3xl font-black tabular-nums leading-none ${isFull ? 'text-emerald-400' : 'text-white'}`}>
@@ -1514,21 +1515,22 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-6 pb-0.5">
-                      <div className="text-right">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Deposited</p>
-                        <p className="text-sm font-black text-emerald-400 tabular-nums">+₱{totalDeposited.toLocaleString()}</p>
-                        <p className="text-[9px] text-slate-500 mt-0.5">{branchHistory.length} entries</p>
+                    {/* Secondary stats — equal-width tiles */}
+                    <div className={`grid gap-2 ${initialBalance > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                      <div className="bg-white/5 rounded-2xl px-3 py-2.5">
+                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Deposited</p>
+                        <p className="text-[13px] font-black text-emerald-400 tabular-nums leading-none">+₱{totalDeposited.toLocaleString()}</p>
+                        <p className="text-[8px] text-slate-600 mt-1">{branchHistory.length} entries</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Withdrawn</p>
-                        <p className="text-sm font-black text-rose-400 tabular-nums">−₱{totalWithdrawals.toLocaleString()}</p>
-                        <p className="text-[9px] text-slate-500 mt-0.5">{branchWithdrawals.length} entries</p>
+                      <div className="bg-white/5 rounded-2xl px-3 py-2.5">
+                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Withdrawn</p>
+                        <p className="text-[13px] font-black text-rose-400 tabular-nums leading-none">−₱{totalWithdrawals.toLocaleString()}</p>
+                        <p className="text-[8px] text-slate-600 mt-1">{branchWithdrawals.length} entries</p>
                       </div>
                       {initialBalance > 0 && (
-                        <div className="text-right">
-                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Starting</p>
-                          <p className="text-sm font-black text-slate-300 tabular-nums">₱{initialBalance.toLocaleString()}</p>
+                        <div className="bg-white/5 rounded-2xl px-3 py-2.5">
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Starting</p>
+                          <p className="text-[13px] font-black text-slate-300 tabular-nums leading-none">₱{initialBalance.toLocaleString()}</p>
                         </div>
                       )}
                     </div>
@@ -1548,20 +1550,20 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
               {/* ── Body ── */}
               <div className="flex-1 overflow-y-auto overscroll-contain">
-                <div className="px-7 py-5 space-y-5">
+                <div className="px-4 sm:px-7 py-5 space-y-5">
 
                   {/* Action buttons */}
                   {!isReadOnly && !isDepositing && !isEditing && (
                     <div className="flex gap-2">
                       {enabled && (
                         <button onClick={() => { setDepositingId(branch.id); setDepositInput(''); setRoiSourceDate(''); }}
-                          className="h-9 px-5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all flex items-center gap-2">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
+                          className="flex-1 sm:flex-none h-11 sm:h-9 px-5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
                           Deposit
                         </button>
                       )}
                       <button onClick={() => startEdit(branch)}
-                        className="h-9 px-5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all">
+                        className="flex-1 sm:flex-none h-11 sm:h-9 px-5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all">
                         Configure
                       </button>
                     </div>
@@ -1722,31 +1724,31 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   {(branchHistory.length > 0 || branchWithdrawals.length > 0) && (
                     <div className="space-y-3">
                       {/* Tab row */}
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-3">
                         <button
                           onClick={() => { setTxHistoryTab('deposits'); setVisibleDeposits(20); }}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                         >
-                          ↓ Deposits
+                          <span className="hidden sm:inline">↓ </span>Deposits
                           <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{branchHistory.length}</span>
                         </button>
                         <button
                           onClick={() => { setTxHistoryTab('withdrawals'); setVisibleWithdrawals(20); }}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                         >
-                          ↑ Withdrawals
+                          <span className="hidden sm:inline">↑ </span>Withdrawals
                           <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>{branchWithdrawals.length}</span>
                         </button>
                         <div className="ml-auto">
                           <button
                             onClick={() => handleExportBranchCSV(branch.id, branch.name, txHistoryTab)}
                             title={`Export ${txHistoryTab} as CSV`}
-                            className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 text-slate-500 hover:text-slate-700 text-[9px] font-black uppercase tracking-widest transition-all"
+                            className="h-7 w-7 sm:w-auto sm:px-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 text-slate-500 hover:text-slate-700 text-[9px] font-black uppercase tracking-widest transition-all"
                           >
                             <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                             </svg>
-                            Export
+                            <span className="hidden sm:inline">Export</span>
                           </button>
                         </div>
                       </div>
