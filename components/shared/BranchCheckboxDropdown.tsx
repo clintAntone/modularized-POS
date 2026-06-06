@@ -36,8 +36,12 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
     .sort((a, b) => {
       const aChecked = selectedIds.includes(a.id);
       const bChecked = selectedIds.includes(b.id);
-      if (aChecked === bChecked) return 0;
-      return aChecked ? -1 : 1;
+      if (aChecked !== bChecked) return aChecked ? -1 : 1;
+      // Active branches above inactive
+      const aInactive = a.isEnabled === false;
+      const bInactive = b.isEnabled === false;
+      if (aInactive !== bInactive) return aInactive ? 1 : -1;
+      return 0;
     });
 
   const label =
@@ -125,10 +129,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
 
             {filtered.map(branch => {
               const checked = selectedIds.includes(branch.id);
+              const inactive = branch.isEnabled === false;
               return (
                 <label
                   key={branch.id}
-                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 group"
+                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 group ${inactive ? 'opacity-60' : ''}`}
                 >
                   <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                     checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'
@@ -143,6 +148,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                   <span className={`text-[10px] font-bold uppercase tracking-widest truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
                     {branch.name}
                   </span>
+                  {inactive && (
+                    <span className="ml-auto shrink-0 text-[7px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                      Inactive
+                    </span>
+                  )}
                 </label>
               );
             })}

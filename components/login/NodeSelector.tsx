@@ -247,25 +247,25 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                       className={`w-full backdrop-blur-md rounded-[20px] text-left transition-all border shadow-sm flex items-center justify-between overflow-hidden relative group cursor-pointer ${
                         b.isEnabled
                           ? 'bg-white/80 border-slate-100/80 hover:shadow-md hover:bg-white hover:border-slate-200 active:scale-[0.99]'
-                          : 'bg-white/60 border-rose-100/60 hover:shadow-md hover:bg-white active:scale-[0.99]'
+                          : 'bg-white/60 border-amber-100/60 hover:shadow-md hover:bg-white active:scale-[0.99]'
                       }`}
                     >
-                      {/* Red ribbon for suspended */}
+                      {/* Amber ribbon for inactive */}
                       {!b.isEnabled && (
-                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose-400 rounded-r-full" />
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-400 rounded-r-full" />
                       )}
 
                       <div className="flex items-center gap-4 min-w-0 flex-1 pl-5 pr-3 py-4">
                         <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
                           b.isEnabled
                             ? 'bg-slate-50 text-slate-400 group-hover:bg-slate-900 group-hover:text-white'
-                            : 'bg-rose-50 text-rose-300 group-hover:bg-rose-500 group-hover:text-white'
+                            : 'bg-amber-50 text-amber-400 group-hover:bg-amber-500 group-hover:text-white'
                         }`}>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                         </div>
                         <div className="min-w-0">
                           <h3 className={`font-bold uppercase text-[14px] tracking-tight leading-tight truncate transition-colors ${
-                            b.isEnabled ? 'text-slate-900 group-hover:text-slate-700' : 'text-slate-600 group-hover:text-slate-800'
+                            b.isEnabled ? 'text-slate-900 group-hover:text-slate-700' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {b.name.replace(/BRANCH - /i, '')}
                           </h3>
@@ -273,7 +273,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                             <span className="text-[8px] font-black text-slate-300 font-mono tracking-widest">TRACE-HC{b.id.slice(0,4).toUpperCase()}</span>
                             {b.isEnabled
                               ? <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isOpen ? 'bg-emerald-400' : 'bg-slate-200'}`} />
-                              : <span className="text-[7px] font-black text-rose-400 uppercase tracking-widest">Suspended</span>
+                              : <span className="text-[7px] font-black text-amber-400 uppercase tracking-widest">Inactive</span>
                             }
                           </div>
                         </div>
@@ -281,7 +281,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
 
                       <div className="flex items-center gap-3 pr-4 shrink-0">
                         {!b.isEnabled && (
-                          <span className="text-[9px] font-black text-rose-300 group-hover:text-rose-500 transition-colors uppercase tracking-widest hidden sm:block">Access Suspended</span>
+                          <span className="text-[9px] font-black text-amber-300 group-hover:text-amber-500 transition-colors uppercase tracking-widest hidden sm:block">Inactive</span>
                         )}
                         {b.isEnabled && (
                           <span className="text-[9px] font-black text-slate-300 group-hover:text-slate-500 transition-colors uppercase tracking-widest hidden sm:block">Link Terminal</span>
@@ -289,7 +289,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                         <div className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
                           b.isEnabled
                             ? 'border-slate-100 text-slate-300 group-hover:text-slate-600 group-hover:border-slate-200'
-                            : 'border-rose-100 text-rose-300 group-hover:text-rose-500 group-hover:border-rose-200'
+                            : 'border-amber-100 text-amber-300 group-hover:text-amber-500 group-hover:border-amber-200'
                         }`}>
                           <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg>
                         </div>

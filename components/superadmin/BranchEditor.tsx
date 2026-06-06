@@ -242,7 +242,6 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <OperationsRegistry
                         branchId={branch.id}
                         isOpen={localBranch.isOpen}
-                        isEnabled={localBranch.isEnabled ?? true}
                         manager={localBranch.manager || ''}
                         tempManager={localBranch.tempManager || ''}
                         potentialManagers={potentialManagers}
@@ -285,23 +284,24 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     />
 
                     <ConnectivityControls
-                        isEnabled={branch.isEnabled}
+                        isEnabled={localBranch.isEnabled}
                         isManagerUnassigned={isManagerUnassigned}
                         isSaving={isSaving}
                         isReadOnly={isReadOnly}
                         onToggle={() => {
                             playSound('warning');
+                            const currentlyEnabled = localBranch.isEnabled;
                             setConfirmState({
                                 isOpen: true,
-                                title: branch.isEnabled ? `Suspend Branch Access?` : `Restore Branch Access?`,
-                                message: branch.isEnabled
-                                    ? `This will immediately block all Manager logins and POS activity for ${branch.name}.`
-                                    : `This will allow ${branch.name} to resume network activity.`,
-                                variant: branch.isEnabled ? 'danger' : 'success',
+                                title: currentlyEnabled ? `Deactivate Branch?` : `Activate Branch?`,
+                                message: currentlyEnabled
+                                    ? `${branch.name} will be marked as inactive. It will no longer appear in active operations but existing data is preserved.`
+                                    : `${branch.name} will be marked as active and resume normal operations.`,
+                                variant: currentlyEnabled ? 'warning' : 'success',
                                 onConfirm: () => {
-                                    onToggle(branch.id, branch.isEnabled);
-                                    setLocalBranch(prev => ({ ...prev, isEnabled: !branch.isEnabled }));
-                                    showToast(`Branch ${branch.isEnabled ? 'Access Suspended' : 'Access Restored'}`);
+                                    onToggle(branch.id, currentlyEnabled);
+                                    setLocalBranch(prev => ({ ...prev, isEnabled: !currentlyEnabled }));
+                                    showToast(`Branch ${currentlyEnabled ? 'set to Inactive' : 'set to Active'}`);
                                     setConfirmState(p => ({ ...p, isOpen: false }));
                                 }
                             });

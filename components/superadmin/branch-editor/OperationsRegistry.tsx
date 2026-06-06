@@ -9,7 +9,6 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 interface OperationsRegistryProps {
   branchId: string;
   isOpen: boolean;
-  isEnabled: boolean;
   manager: string;
   tempManager?: string;
   potentialManagers: Employee[];
@@ -18,7 +17,7 @@ interface OperationsRegistryProps {
 }
 
 export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
-  branchId, isOpen, isEnabled, manager, tempManager, potentialManagers, isSaving, onUpdate
+  branchId, isOpen, manager, tempManager, potentialManagers, isSaving, onUpdate
 }) => {
   const isManagerUnassigned = (!manager || manager.trim() === '') && (!tempManager || tempManager.trim() === '');
   
@@ -116,22 +115,6 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border border-slate-100 transition-all duration-300">
-          <div className="space-y-0.5 overflow-hidden pr-4">
-            <p className="text-[10px] font-bold uppercase text-slate-900 tracking-widest">Branch Status</p>
-            <p className="text-[9px] font-semibold text-slate-400 uppercase">
-              {isEnabled ? 'Branch is active and operational' : 'Branch is inactive — visible but disabled'}
-            </p>
-          </div>
-          <button
-            disabled={isSaving}
-            onClick={() => { playSound('click'); onUpdate({ isEnabled: !isEnabled }); }}
-            className={`relative rounded-full transition-all duration-300 disabled:opacity-40 shrink-0 ${isEnabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-200'}`}
-            style={{ height: '24px', width: '44px' }}
-          >
-            <span className={`absolute top-[3px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all duration-300 ${isEnabled ? 'left-[23px]' : 'left-[3px]'}`} />
-          </button>
-        </div>
       </div>
     </section>
   );

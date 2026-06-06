@@ -27,6 +27,13 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [allLoaded, setAllLoaded] = useState(false);
 
+  // Reset older-fetch state whenever the branch filter changes so stale
+  // "allLoaded" from a previous selection doesn't block fetching for a new one.
+  useEffect(() => {
+    setOlderReports([]);
+    setAllLoaded(false);
+  }, [selectedBranchIds]);
+
   // Combined reports: global (recent) + older loaded on demand
   const combinedReports = useMemo(() => {
     if (olderReports.length === 0) return salesReports;
@@ -36,24 +43,40 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // Filter reports to only selected branches (empty = all) — declared before
+  // handleLoadOlder so it can be referenced in the callback's dep array.
+  const filteredReports = useMemo(() => {
+    if (selectedBranchIds.length === 0) return combinedReports;
+    return combinedReports.filter(r => selectedBranchIds.includes(r.branchId));
+  }, [combinedReports, selectedBranchIds]);
+
   const handleLoadOlder = useCallback(async () => {
     if (!supabase || loadingOlder || allLoaded || salesReportsLoading) return;
     setLoadingOlder(true);
     try {
-      // Find oldest date currently loaded, fetch everything before it
+      // Use filteredReports (branch-scoped) to find the oldest visible date so
+      // we don't jump past dates that belong to other branches.
+      const sourceReports = filteredReports.length > 0 ? filteredReports : combinedReports;
       const allCurrentIds = new Set(combinedReports.map(r => r.id));
-      const oldestDate = combinedReports.reduce((min, r) => r.reportDate < min ? r.reportDate : min,
-        combinedReports[0]?.reportDate ?? '9999-12-31');
+      const oldestDate = sourceReports.reduce(
+        (min, r) => r.reportDate < min ? r.reportDate : min,
+        sourceReports[0]?.reportDate ?? '9999-12-31'
+      );
 
-      const scopedBranchIds = branches.map(b => b.id).filter(id => id !== 'all');
+      // Scope query to the active branch filter when set, else all known branches.
+      const queryBranchIds = selectedBranchIds.length > 0
+        ? selectedBranchIds
+        : branches.map(b => b.id).filter(id => id !== 'all');
+
       let query = supabase
         .from(DB_TABLES.SALES_REPORTS)
         .select('*')
         .lt(DB_COLUMNS.REPORT_DATE, oldestDate)
         .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+        .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
         .limit(500);
-      if (scopedBranchIds.length > 0) {
-        query = query.in(DB_COLUMNS.BRANCH_ID, scopedBranchIds);
+      if (queryBranchIds.length > 0) {
+        query = query.in(DB_COLUMNS.BRANCH_ID, queryBranchIds);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -79,19 +102,20 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
     } finally {
       setLoadingOlder(false);
     }
-  }, [combinedReports, loadingOlder, allLoaded]);
+  }, [filteredReports, combinedReports, selectedBranchIds, branches, loadingOlder, allLoaded, salesReportsLoading]);
 
-  // Trigger load when sentinel scrolls into view
+  // Trigger load when sentinel scrolls into view. Re-attaches after each load
+  // so if the sentinel is still in the viewport it fires again immediately.
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) handleLoadOlder(); },
-      { rootMargin: '300px' }
+      { rootMargin: '400px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [handleLoadOlder]);
+  }, [handleLoadOlder, loadingOlder, allLoaded]);
 
   useEffect(() => {
     localStorage.setItem('archive_filter_branches', JSON.stringify(selectedBranchIds));
@@ -137,12 +161,6 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
     }
     return consolidatedBranch;
   }, [selectedBranchIds, branches, consolidatedBranch]);
-
-  // Filter reports to only selected branches (empty = all)
-  const filteredReports = useMemo(() => {
-    if (selectedBranchIds.length === 0) return combinedReports;
-    return combinedReports.filter(r => selectedBranchIds.includes(r.branchId));
-  }, [combinedReports, selectedBranchIds]);
 
   return (
       <div className="space-y-6 md:space-y-8">

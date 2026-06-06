@@ -32,7 +32,7 @@ export const ConnectivityControls: React.FC<ConnectivityControlsProps> = ({
           }`}
         >
           {isEnabled ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-          {isEnabled ? 'Suspend' : 'Restore'}
+          {isEnabled ? 'Deactivate' : 'Activate'}
         </button>
         <button
           disabled={isSaving}

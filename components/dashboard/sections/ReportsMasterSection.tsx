@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Branch, BranchVault, SalesReport } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
@@ -73,21 +73,6 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     setVisibleCount(PAGE_SIZE); // Reset on view/filter change
   }, [view, debouncedSearchQuery, startDate, endDate]);
 
-  // IntersectionObserver to load more when sentinel enters viewport
-  const loadMore = useCallback(() => {
-    setVisibleCount(c => c + PAGE_SIZE);
-  }, []);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      entries => { if (entries[0].isIntersecting) loadMore(); },
-      { rootMargin: '200px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [loadMore]);
 
   useEffect(() => {
     if (selectedReport) {
@@ -311,6 +296,26 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     });
   }, [displayData, sortField, sortOrder, branches]);
 
+  // IntersectionObserver to load more when sentinel enters viewport.
+  // Depends on both visibleCount AND sortedData.length so it re-attaches when:
+  //   (a) a batch finishes loading (visibleCount ticks up), OR
+  //   (b) new data arrives from props while visibleCount hasn't changed yet
+  //       (e.g. ArchiveHub loads older records and sortedData grows).
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(c => c + PAGE_SIZE);
+        }
+      },
+      { rootMargin: '300px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleCount, sortedData.length]);
+
   const handleExportPDF = async (confirmed = false) => {
     if (!confirmed) {
       playSound('warning');
@@ -494,7 +499,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     const fetchBoundaryStr = fetchBoundaryDate.toISOString().slice(0, 10);
 
     const targetBranches = (branch.id === 'all' ? branches : branches.filter(b => b.id === branch.id))
-      .filter(b => !b.name.toUpperCase().includes('TEST'));
+      .filter(b => !b.name.toUpperCase().includes('TEST'))
+      .filter(b => b.isEnabled !== false);  // skip inactive branches
     const result: { branch: Branch; missingDates: string[] }[] = [];
 
     targetBranches.forEach(b => {
@@ -512,12 +518,22 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       cycleStart.setDate(cycleStart.getDate() - daysAgo);
       const cycleStartStr = cycleStart.toISOString().slice(0, 10);
 
+      // Find this branch's earliest report — don't flag gaps before it was operating.
+      // If no reports at all, the branch is brand-new and should be skipped entirely.
+      const branchReports = salesReports.filter(r => r.branchId === b.id);
+      if (branchReports.length === 0) return;
+      const firstReportDate = branchReports.reduce(
+        (min, r) => (r.reportDate < min ? r.reportDate : min),
+        branchReports[0].reportDate
+      );
+
       // Respect the branch's overall data start date, but never go further back
       // than the 90-day fetch boundary — reports beyond that aren't loaded.
       const effectiveStart = [
         cycleStartStr,
         b.cycleStartDate,
         fetchBoundaryStr,
+        firstReportDate,
       ].filter(Boolean).reduce((latest, d) => (d! > latest ? d! : latest), cycleStartStr);
 
       // Walk each day from effectiveStart → yesterday and find missing ones
