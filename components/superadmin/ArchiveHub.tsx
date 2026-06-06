@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Branch, BranchVault, SalesReport } from '../../types';
 import { ReportsMasterSection } from '../dashboard/sections/ReportsMasterSection';
 import { playSound } from '../../lib/audio';
-import { toDateStr } from '@/src/utils/reportUtils';
+import { toDateStr, normalizeDateStr } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -63,7 +63,7 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
       const mapped: SalesReport[] = data
         .filter((r: any) => !allCurrentIds.has(r[DB_COLUMNS.ID]))
         .map((r: any) => ({
-          id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: r[DB_COLUMNS.REPORT_DATE],
+          id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]),
           submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
           grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0),
           totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),

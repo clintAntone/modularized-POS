@@ -1,5 +1,16 @@
 import { SalesReport, Branch } from '@/types';
 
+// Normalizes any date value from Supabase into a plain 'YYYY-MM-DD' string.
+// Handles ISO timestamps ('2026-04-10T16:00:00+08:00'), non-padded months ('2026-4-10'), etc.
+export function normalizeDateStr(raw: string | null | undefined): string {
+    if (!raw) return '';
+    const s = raw.split('T')[0];
+    const parts = s.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return s;
+    const [y, mo, d] = parts;
+    return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 export function toDateStr(d: Date): string {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');

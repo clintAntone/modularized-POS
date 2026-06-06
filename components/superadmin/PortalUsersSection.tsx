@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { hashPin, generateSalt } from '../../lib/crypto';
@@ -76,8 +76,17 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
   const [isSaving, setIsSaving]             = useState(false);
   const [formError, setFormError]           = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [branchSearch, setBranchSearch] = useState('');
 
   const activeBranches = branches.filter(b => b.isEnabled);
+
+  const filteredBranches = useMemo(() => {
+    const q = branchSearch.trim().toUpperCase();
+    if (!q) return activeBranches;
+    return activeBranches.filter(b =>
+      b.name.toUpperCase().includes(q) || (b.manager || '').toUpperCase().includes(q)
+    );
+  }, [activeBranches, branchSearch]);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -552,75 +561,113 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
                   {/* Branch multi-select */}
                   {form.restrictBranches && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          Select Branches
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setForm(p => ({ ...p, branchIds: activeBranches.map(b => b.id) }))}
-                            className="text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700"
-                          >
-                            All
-                          </button>
-                          <span className="text-slate-200">·</span>
-                          <button
-                            type="button"
-                            onClick={() => setForm(p => ({ ...p, branchIds: [] }))}
-                            className="text-[8px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600"
-                          >
-                            None
-                          </button>
-                        </div>
-                      </div>
 
-                      {activeBranches.length === 0 ? (
-                        <p className="text-[9px] text-slate-300 text-center py-4">No active branches found.</p>
-                      ) : (
-                        <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
-                          {activeBranches.map(branch => {
-                            const selected = form.branchIds.includes(branch.id);
-                            const shortName = branch.name.replace(/BRANCH\s*-\s*/i, '').trim();
-                            return (
-                              <button
-                                type="button"
-                                key={branch.id}
-                                onClick={() => toggleBranch(branch.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${selected ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600 border border-slate-100 hover:border-indigo-200'}`}
-                              >
-                                <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${selected ? 'border-white bg-white/20' : 'border-slate-300'}`}>
-                                  {selected && (
-                                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className={`text-[10px] font-black uppercase tracking-widest truncate ${selected ? 'text-white' : 'text-slate-700'}`}>
-                                    {shortName}
-                                  </p>
-                                  {branch.manager && (
-                                    <p className={`text-[8px] uppercase tracking-widest mt-0.5 ${selected ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                      {branch.manager}
-                                    </p>
-                                  )}
-                                </div>
-                                {selected && (
-                                  <svg className="w-3.5 h-3.5 text-indigo-200 ml-auto shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      {/* Selected chips — tap to remove */}
+                      {form.branchIds.length > 0 ? (
+                        <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-1.5">
+                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">
+                            {form.branchIds.length} of {activeBranches.length} selected — tap to remove
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {form.branchIds.map(id => {
+                              const b = activeBranches.find(br => br.id === id);
+                              if (!b) return null;
+                              const short = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
+                              return (
+                                <button
+                                  type="button"
+                                  key={id}
+                                  onClick={() => toggleBranch(id)}
+                                  className="flex items-center gap-1.5 bg-indigo-600 text-white pl-2.5 pr-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                                >
+                                  {short}
+                                  <svg className="w-2.5 h-2.5 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                   </svg>
-                                )}
-                              </button>
-                            );
-                          })}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">No branches selected — user won't be able to log in.</p>
                         </div>
                       )}
 
-                      {form.restrictBranches && form.branchIds.length > 0 && (
-                        <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest text-center">
-                          {form.branchIds.length} of {activeBranches.length} branch{form.branchIds.length !== 1 ? 'es' : ''} selected
-                        </p>
+                      {/* Search + All / None */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+                          </svg>
+                          <input
+                            type="text"
+                            value={branchSearch}
+                            onChange={e => setBranchSearch(e.target.value)}
+                            placeholder="Search branches…"
+                            className="w-full h-8 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, branchIds: activeBranches.map(b => b.id) }))}
+                          className="text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 px-1"
+                        >All</button>
+                        <span className="text-slate-200 text-xs">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, branchIds: [] }))}
+                          className="text-[8px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 px-1"
+                        >None</button>
+                      </div>
+
+                      {/* Compact 2-col branch grid */}
+                      {activeBranches.length === 0 ? (
+                        <p className="text-[9px] text-slate-300 text-center py-4">No active branches found.</p>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto rounded-xl">
+                          {filteredBranches.length === 0 ? (
+                            <p className="text-[9px] text-slate-300 text-center py-4">No branches match "{branchSearch}"</p>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1.5 pr-0.5">
+                              {filteredBranches.map(branch => {
+                                const selected = form.branchIds.includes(branch.id);
+                                const shortName = branch.name.replace(/BRANCH\s*-\s*/i, '').trim();
+                                return (
+                                  <button
+                                    type="button"
+                                    key={branch.id}
+                                    onClick={() => toggleBranch(branch.id)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all active:scale-95 ${
+                                      selected
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50'
+                                    }`}
+                                  >
+                                    <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${selected ? 'border-white/60 bg-white/20' : 'border-slate-300'}`}>
+                                      {selected && (
+                                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className={`text-[9px] font-black uppercase tracking-widest truncate leading-snug ${selected ? 'text-white' : 'text-slate-700'}`}>
+                                        {shortName}
+                                      </p>
+                                      {branch.manager && (
+                                        <p className={`text-[7px] uppercase tracking-widest truncate leading-snug ${selected ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                          {branch.manager.split(' ')[0]}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

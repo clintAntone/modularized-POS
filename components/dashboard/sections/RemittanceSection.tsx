@@ -322,9 +322,11 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     return map;
   }, [vaultTransactions, branch.id]);
 
+  const [grossBreakdownOpen, setGrossBreakdownOpen] = useState(false);
+
   // All completed periods sorted most-recent first.
   const allGroups = useMemo(() => {
-    const groups: Record<string, { label: string; weekEnd: Date; aggregate: any }> = {};
+    const groups: Record<string, { label: string; weekEnd: Date; aggregate: any; reports: typeof salesReports }> = {};
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     salesReports
@@ -342,6 +344,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               grossSales: 0, totalStaffPay: 0, totalExpenses: 0,
               totalVaultProvision: 0, netRoi: 0, reportCount: 0,
             },
+            reports: [],
           };
         }
         if (weekEnd > groups[key].weekEnd) groups[key].weekEnd = weekEnd;
@@ -349,22 +352,31 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         const gross      = report.grossSales || 0;
         const staffPay   = report.totalStaffPay || 0;
         const expenses   = report.totalExpenses || 0;
-        // Prefer live vault transactions over the snapshot stored in the report —
-        // the stored value can be 0 if the deposit was made after auto-save ran.
-        const vaultDeposit = vaultDepositByDate[report.reportDate] ?? report.totalVaultProvision ?? 0;
+        // Use the larger of live vault deposit vs stored provision.
+        // Live is preferred when stored = 0 (deposit made after auto-save).
+        // Stored is preferred when live is missing or stale, ensuring
+        // Remittances matches the Reports tab which uses stored values.
+        const liveVault   = vaultDepositByDate[report.reportDate] ?? 0;
+        const storedVault = report.totalVaultProvision ?? 0;
+        const vaultDeposit = Math.max(liveVault, storedVault);
         agg.grossSales          += gross;
         agg.totalStaffPay       += staffPay;
         agg.totalExpenses       += expenses;
         agg.totalVaultProvision += vaultDeposit;
-        // Recompute net ROI from components so it's always consistent, regardless of
-        // whether the stored net_roi had vault already deducted.
         agg.netRoi              += gross - staffPay - expenses - vaultDeposit;
         agg.reportCount         += 1;
+        groups[key].reports.push(report);
       });
 
     return Object.keys(groups)
       .sort((a, b) => Number(b) - Number(a))
-      .map(key => ({ key, label: groups[key].label, weekEnd: groups[key].weekEnd, aggregate: groups[key].aggregate }));
+      .map(key => ({
+        key,
+        label: groups[key].label,
+        weekEnd: groups[key].weekEnd,
+        aggregate: groups[key].aggregate,
+        reports: groups[key].reports.sort((a, b) => a.reportDate < b.reportDate ? -1 : 1),
+      }));
   }, [salesReports, branch.id]);
 
   // Periods whose weekEnd has passed and haven't been approved yet
@@ -414,6 +426,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
   useEffect(() => {
     if (currentGroup) fetchSubmission(currentGroup.label);
+    setGrossBreakdownOpen(false);
   }, [currentGroup?.label, branch.id]);
 
   useEffect(() => {
@@ -702,10 +715,42 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
           {/* LEFT — Receipt */}
           <div className="px-6 py-5 space-y-0 font-mono text-[12px]">
-            <div className="flex justify-between py-1.5">
-              <span className="text-slate-500">Gross Sales</span>
-              <span className="font-bold text-slate-900 tabular-nums">{fmt(agg.grossSales)}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setGrossBreakdownOpen(o => !o)}
+              className="w-full flex items-center justify-between py-1.5 group"
+            >
+              <span className="text-slate-500 group-hover:text-slate-700 transition-colors flex items-center gap-1.5">
+                Gross Sales
+                <svg className={`w-3 h-3 text-slate-400 transition-transform ${grossBreakdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </span>
+              <span className="font-bold text-slate-900 tabular-nums group-hover:text-indigo-700 transition-colors">{fmt(agg.grossSales)}</span>
+            </button>
+
+            {/* Gross breakdown — per-day list */}
+            {grossBreakdownOpen && currentGroup.reports.length > 0 && (
+              <div className="mb-1 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{currentGroup.reports.length} daily reports</span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{fmt(agg.grossSales)} total</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                  {currentGroup.reports.map(r => {
+                    const d = parseDate(r.reportDate);
+                    const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+                    return (
+                      <div key={r.id} className="flex items-center justify-between px-3 py-2">
+                        <span className="text-[9px] font-bold text-slate-500">{dayLabel}</span>
+                        <span className="text-[10px] font-black text-slate-800 tabular-nums">{fmt(r.grossSales || 0)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between py-1.5">
               <span className="text-slate-500">Staff Payroll</span>
               <span className="font-bold text-rose-600 tabular-nums">-{fmt(agg.totalStaffPay)}</span>

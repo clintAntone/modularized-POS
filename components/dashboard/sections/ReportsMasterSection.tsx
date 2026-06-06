@@ -12,7 +12,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { ReportFilters } from './reports-master/ReportFilters';
 import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
-import { toDateStr, getWeekRange, getReportMonth, parseDate } from '@/src/utils/reportUtils';
+import { toDateStr, getWeekRange, getReportMonth, parseDate, normalizeDateStr } from '@/src/utils/reportUtils';
 
 interface ReportsMasterProps {
   branch: Branch;
@@ -429,7 +429,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   const mapRawReport = (r: any): SalesReport => ({
     id: r[DB_COLUMNS.ID],
     branchId: r[DB_COLUMNS.BRANCH_ID],
-    reportDate: r[DB_COLUMNS.REPORT_DATE],
+    reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]),
     submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
     grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0),
     totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
@@ -477,6 +477,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
   // Missing reports: days within the current weekly cycle (cycleStart → yesterday) with no report.
   // Each branch has its own cutoff day — cycle starts the day after cutoff.
+  // Cap the lookback at 90 days to match the data fetch window — dates older than that
+  // are simply outside the loaded range and should not be flagged as missing.
   const missingBranches = useMemo(() => {
     const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
     const todayDate = new Date(manilaToday + 'T12:00:00+08:00');
@@ -485,6 +487,11 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+    // 90-day fetch boundary — never flag dates older than this as "missing"
+    const fetchBoundaryDate = new Date(todayDate);
+    fetchBoundaryDate.setDate(fetchBoundaryDate.getDate() - 90);
+    const fetchBoundaryStr = fetchBoundaryDate.toISOString().slice(0, 10);
 
     const targetBranches = (branch.id === 'all' ? branches : branches.filter(b => b.id === branch.id))
       .filter(b => !b.name.toUpperCase().includes('TEST'));
@@ -505,10 +512,13 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       cycleStart.setDate(cycleStart.getDate() - daysAgo);
       const cycleStartStr = cycleStart.toISOString().slice(0, 10);
 
-      // Respect the branch's overall data start date
-      const effectiveStart = (b.cycleStartDate && b.cycleStartDate > cycleStartStr)
-        ? b.cycleStartDate
-        : cycleStartStr;
+      // Respect the branch's overall data start date, but never go further back
+      // than the 90-day fetch boundary — reports beyond that aren't loaded.
+      const effectiveStart = [
+        cycleStartStr,
+        b.cycleStartDate,
+        fetchBoundaryStr,
+      ].filter(Boolean).reduce((latest, d) => (d! > latest ? d! : latest), cycleStartStr);
 
       // Walk each day from effectiveStart → yesterday and find missing ones
       const missingDates: string[] = [];

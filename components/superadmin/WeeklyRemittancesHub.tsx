@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Branch, SalesReport } from '../../types';
 import { playSound } from '../../lib/audio';
-import { getWeekRange, parseDate } from '../../src/utils/reportUtils';
+import { getWeekRange, parseDate, normalizeDateStr } from '../../src/utils/reportUtils';
 import { getTrueDate } from '../../lib/time';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -64,6 +64,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           .from(DB_TABLES.SALES_REPORTS)
           .select(cols)
           .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+          .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
           .range(from, from + PAGE - 1);
         if (error) throw error;
         if (data && data.length > 0) allRows.push(...data);
@@ -74,7 +75,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       return allRows.map((r: any) => ({
         id: r[DB_COLUMNS.ID],
         branchId: r[DB_COLUMNS.BRANCH_ID],
-        reportDate: r[DB_COLUMNS.REPORT_DATE],
+        reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]),
         submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
         grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0),
         totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
@@ -132,6 +133,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [isReviewing, setIsReviewing] = useState(false);
   const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string } | null>(null);
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
+  const [openGrossBreakdown, setOpenGrossBreakdown] = useState<string | null>(null);
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
   const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
@@ -417,6 +419,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           groupLevy: branch.groupLevy || null,
           grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0,
           reportIds: [],
+          dailyReports: [] as { reportDate: string; grossSales: number }[],
           branchLabel: label,
         };
       }
@@ -428,6 +431,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       agg.totalVaultProvision += report.totalVaultProvision || 0;
       agg.netRoi              += report.netRoi || 0;
       agg.reportIds.push(report.id);
+      agg.dailyReports.push({ reportDate: report.reportDate, grossSales: report.grossSales || 0 });
     });
 
     return Object.keys(groups)
@@ -1591,10 +1595,48 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       <div className="px-6 py-5 space-y-0 font-mono text-[12px]">
 
                         {/* Line items */}
-                        <div className="flex justify-between py-1.5">
-                          <span className="text-slate-500">Gross Sales</span>
-                          <span className="font-bold text-slate-900 tabular-nums">{fmt(report.grossSales)}</span>
-                        </div>
+                        {(() => {
+                          const breakdownKey = `${group.label}-${report.branchId}`;
+                          const isOpen = openGrossBreakdown === breakdownKey;
+                          const sorted = [...(report.dailyReports || [])].sort((a, b) => a.reportDate < b.reportDate ? -1 : 1);
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setOpenGrossBreakdown(isOpen ? null : breakdownKey)}
+                                className="w-full flex items-center justify-between py-1.5 group"
+                              >
+                                <span className="text-slate-500 group-hover:text-slate-700 transition-colors flex items-center gap-1.5">
+                                  Gross Sales
+                                  <svg className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                                  </svg>
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums group-hover:text-indigo-700 transition-colors">{fmt(report.grossSales)}</span>
+                              </button>
+                              {isOpen && sorted.length > 0 && (
+                                <div className="mb-1 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
+                                  <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{sorted.length} daily reports</span>
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{fmt(report.grossSales)} total</span>
+                                  </div>
+                                  <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                                    {sorted.map((r, i) => {
+                                      const d = parseDate(r.reportDate);
+                                      const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+                                      return (
+                                        <div key={i} className="flex items-center justify-between px-3 py-2">
+                                          <span className="text-[9px] font-bold text-slate-500">{dayLabel}</span>
+                                          <span className="text-[10px] font-black text-slate-800 tabular-nums">{fmt(r.grossSales)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         <div className="flex justify-between py-1.5">
                           <span className="text-slate-500">Staff Payroll</span>
                           <span className="font-bold text-rose-600 tabular-nums">-{fmt(report.totalStaffPay)}</span>

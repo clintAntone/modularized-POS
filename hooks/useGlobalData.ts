@@ -6,8 +6,10 @@ import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { getTrueDate } from '../lib/time';
+import { normalizeDateStr } from '../src/utils/reportUtils';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
+
 
 // Explicit column lists — avoids over-fetching with select('*')
 const COLS = {
@@ -350,14 +352,32 @@ export const useGlobalData = (auth: AuthState) => {
             const lbd = lookbackDate;
             const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
 
-            let query = supabase.from(DB_TABLES.SALES_REPORTS).select(COLS.salesReports).order(DB_COLUMNS.REPORT_DATE, { ascending: false }).gte(DB_COLUMNS.REPORT_DATE, lookbackYmd).limit(2000);
-            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
-                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+            // Paginate in 1000-row pages with a stable secondary sort (submitted_at)
+            // so that rows with the same report_date don't flip in/out across queries
+            // or get skipped at page boundaries. The 90-day gte filter keeps each page
+            // small; branch managers cap at one page (500 rows is enough for one branch).
+            const PAGE_SIZE = auth.user?.role === UserRole.BRANCH_MANAGER ? 500 : 1000;
+            const allRows: any[] = [];
+            let from = 0;
+            while (true) {
+                let q = supabase
+                    .from(DB_TABLES.SALES_REPORTS)
+                    .select(COLS.salesReports)
+                    .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+                    .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+                    .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
+                    .range(from, from + PAGE_SIZE - 1);
+                if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
+                    q = q.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+                }
+                const { data: pageData, error: pageError } = await q;
+                if (pageError) throw pageError;
+                if (pageData && pageData.length > 0) allRows.push(...pageData);
+                if (!pageData || pageData.length < PAGE_SIZE) break;
+                from += PAGE_SIZE;
             }
-            const { data, error } = await query;
-            if (error) throw error;
-            return data.map(r => ({
-                id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: r[DB_COLUMNS.REPORT_DATE], submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
+            return allRows.map(r => ({
+                id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
                 totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
                 netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
