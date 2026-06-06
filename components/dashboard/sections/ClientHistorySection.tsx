@@ -412,7 +412,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         </svg>
         <input
           type="text"
-          placeholder="Search client by name to view profile…"
+          placeholder="SEARCH CLIENT BY NAME TO VIEW PROFILE..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full h-12 pl-11 pr-10 bg-white border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal text-slate-700"

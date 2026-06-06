@@ -334,7 +334,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
           <input
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search by name..."
+            placeholder="SEARCH NAME, AMOUNT...."
             className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all shadow-sm placeholder:text-slate-300 text-slate-700"
           />
           {searchTerm && (

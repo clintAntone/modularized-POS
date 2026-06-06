@@ -942,7 +942,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   type="text"
                   value={billsSearch}
                   onChange={e => setBillsSearch(e.target.value)}
-                  placeholder="Search by name, amount…"
+                  placeholder="SEARCH NAME, AMOUNT...."
                   className="w-full pl-8 pr-8 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
                 />
                 {billsSearch && (
@@ -1090,7 +1090,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   type="text"
                   value={historySearch}
                   onChange={e => setHistorySearch(e.target.value)}
-                  placeholder="Search by name or amount…"
+                  placeholder="SEARCH NAME, AMOUNT...."
                   className="w-full pl-8 pr-8 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
                 />
                 {historySearch && (

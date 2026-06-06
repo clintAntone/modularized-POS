@@ -657,7 +657,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <input 
               type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
-              placeholder="Search by name or employee ID..."
+              placeholder="SEARCH NAME OR EMPLOYEE ID..."
               className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-[13px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
             />
           </div>

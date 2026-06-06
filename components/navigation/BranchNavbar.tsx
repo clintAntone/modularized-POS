@@ -20,7 +20,7 @@ import {
   MoreHorizontal,
   X,
   UserSearch,
-  TrendingDown,
+
   Flag,
 } from 'lucide-react';
 
@@ -48,7 +48,7 @@ const Icons = {
   developer: <Code className={c} />,
   how_to: <HelpCircle className={c} />,
   backfill: <Upload className={c} />,
-  insights: <TrendingDown className={c} />,
+  insights: <TrendingUp className={c} />,
   complaints: <Flag className={c} />,
   more: <MoreHorizontal className="w-6 h-6 sm:w-5 sm:h-5" />
 };
