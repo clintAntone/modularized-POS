@@ -397,12 +397,41 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
   // ── Browse View ───────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h3 className={UI_THEME.text.title}>Client Lookup</h3>
-        <p className={UI_THEME.text.metadata}>
-          {loading ? 'Loading client records…' : `${allProfiles.length} unique clients · ${allTransactions.length} total sessions`}
-        </p>
+
+      {/* ── Header Hero Card ── */}
+      <div className="bg-slate-900 rounded-[24px] p-5 flex items-center justify-between gap-4">
+        {/* Left: icon + title + subtitle */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Client Lookup</p>
+            <p className="text-[15px] font-black text-white uppercase tracking-tight leading-none truncate">
+              {branch.name}
+            </p>
+          </div>
+        </div>
+
+        {/* Right: KPI tiles */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Unique clients */}
+          <div className="bg-white/10 rounded-2xl px-3.5 py-2.5 text-center min-w-[64px]">
+            <p className="text-[22px] font-black text-white tabular-nums leading-none">
+              {loading ? '—' : allProfiles.length}
+            </p>
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 leading-none">Clients</p>
+          </div>
+          {/* Total sessions */}
+          <div className="bg-indigo-500/20 border border-indigo-500/30 rounded-2xl px-3.5 py-2.5 text-center min-w-[64px]">
+            <p className="text-[22px] font-black text-indigo-300 tabular-nums leading-none">
+              {loading ? '—' : allTransactions.length}
+            </p>
+            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-1 leading-none">Sessions</p>
+          </div>
+        </div>
       </div>
 
       {/* Search */}
@@ -480,7 +509,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
       ) : (
         /* ── Default view: activity summary by day (no client names) ── */
         dailySummary.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+          <div className="bg-white rounded-[24px] border border-slate-100 p-16 text-center shadow-sm">
             <div className="flex flex-col items-center gap-3 opacity-20">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -490,59 +519,126 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Client names are hidden — search by name to view a profile
-              </p>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Past Activity</p>
-                <div className="flex items-center gap-4">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sessions</p>
-                </div>
+
+            {/* Privacy notice pill */}
+            <div className="flex items-center gap-0">
+              <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5">
+                <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">
+                  Client names are hidden — search by name to view a profile
+                </p>
               </div>
-              <div className="divide-y divide-slate-50">
-                {dailySummary.map(entry => {
-                  const label = labelDateKey(entry.dateKey);
-                  const isToday = label === 'Today';
-                  const isYesterday = label === 'Yesterday';
-                  return (
-                    <div key={entry.dateKey} className="px-5 py-3.5 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-indigo-500 animate-pulse' : isYesterday ? 'bg-slate-400' : 'bg-slate-200'}`} />
-                        <div className="min-w-0">
-                          <p className={`text-[11px] font-black uppercase tracking-tight ${isToday ? 'text-indigo-600' : 'text-slate-700'}`}>
-                            {label}
-                          </p>
-                          {!isToday && !isYesterday && (
-                            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest hidden sm:block">
-                              {entry.dateKey}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6 shrink-0">
-                        <div className="text-right hidden sm:block">
-                          <p className="text-[12px] font-black text-slate-700 tabular-nums">{entry.clientCount}</p>
-                          <p className="text-[9px] font-bold text-slate-300 uppercase">client{entry.clientCount !== 1 ? 's' : ''}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`text-[12px] font-black tabular-nums ${isToday ? 'text-indigo-600' : 'text-slate-700'}`}>
-                            {entry.sessionCount}
-                          </p>
-                          <p className="text-[9px] font-bold text-slate-300 uppercase">session{entry.sessionCount !== 1 ? 's' : ''}</p>
-                        </div>
-                      </div>
+            </div>
+
+            {/* Daily activity list */}
+            {(() => {
+              const maxSessions = Math.max(...dailySummary.map(e => e.sessionCount), 1);
+              return (
+                <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
+                  {/* List header */}
+                  <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Activity</p>
+                    <div className="flex items-center gap-5">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sessions</p>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="divide-y divide-slate-50">
+                    {dailySummary.map(entry => {
+                      const label = labelDateKey(entry.dateKey);
+                      const isToday = label === 'Today';
+                      const isYesterday = label === 'Yesterday';
+                      const barPct = maxSessions > 0 ? (entry.sessionCount / maxSessions) * 100 : 0;
+                      const hasActivity = entry.sessionCount > 0;
+
+                      // Formatted date for older rows: "Mon, Jun 3"
+                      const formattedDate = (() => {
+                        const d = new Date(entry.dateKey + 'T12:00:00');
+                        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      })();
+
+                      return (
+                        <div
+                          key={entry.dateKey}
+                          className={`px-5 py-3.5 flex items-center gap-4 ${isToday ? 'bg-indigo-50/60' : ''}`}
+                        >
+                          {/* Left: dot + label + progress bar */}
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="flex items-center gap-2.5">
+                              {/* Status dot */}
+                              {isToday ? (
+                                <span className="relative flex shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                                </span>
+                              ) : (
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${isYesterday ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                              )}
+
+                              {/* Date label */}
+                              <p className={`text-[11px] font-black uppercase tracking-tight leading-none ${
+                                isToday
+                                  ? 'text-indigo-600'
+                                  : isYesterday
+                                  ? 'text-slate-600'
+                                  : 'text-slate-400'
+                              }`}>
+                                {isToday || isYesterday ? label : formattedDate}
+                              </p>
+                            </div>
+
+                            {/* Mini progress bar */}
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden ml-4.5">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  !hasActivity
+                                    ? 'bg-slate-200'
+                                    : isToday
+                                    ? 'bg-indigo-400'
+                                    : 'bg-emerald-400'
+                                }`}
+                                style={{ width: hasActivity ? `${barPct}%` : '4%', opacity: hasActivity ? 1 : 0.4 }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Right: counts */}
+                          <div className="flex items-center gap-5 shrink-0">
+                            {/* Clients (hidden on mobile) */}
+                            <div className="text-right hidden sm:block">
+                              <p className={`text-[13px] font-black tabular-nums leading-none ${
+                                isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
+                              }`}>
+                                {entry.clientCount}
+                              </p>
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
+                                client{entry.clientCount !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+
+                            {/* Sessions */}
+                            <div className="text-right">
+                              <p className={`text-[13px] font-black tabular-nums leading-none ${
+                                isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
+                              }`}>
+                                {entry.sessionCount}
+                              </p>
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
+                                session{entry.sessionCount !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )
       )}

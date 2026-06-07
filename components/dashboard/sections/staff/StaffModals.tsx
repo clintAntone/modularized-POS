@@ -22,6 +22,7 @@ interface StaffModalsProps {
   branches: Branch[];
   allEmployees?: Employee[];
   branchId: string;
+  clockOutLocked?: boolean;
   onCloseModals: () => void;
   onCloseRecovery: () => void;
   onTimeAction: () => void;
@@ -251,30 +252,27 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
               <div className="flex flex-col items-center gap-4 select-none">
                 {(() => {
                   const r = 54;
-                  const circ = 2 * Math.PI * r; // ≈ 339.3
+                  const circ = 2 * Math.PI * r;
                   const offset = circ * (1 - holdProgress / 100);
-                  const color = isClockIn ? '#059669' : '#e11d48'; // emerald-600 / rose-600
-                  const trackColor = isClockIn ? '#d1fae5' : '#ffe4e6'; // emerald-100 / rose-100
+                  const color = isClockIn ? '#059669' : '#e11d48';
+                  const trackColor = isClockIn ? '#d1fae5' : '#ffe4e6';
                   const confirmed = holdProgress >= 100;
+                  const locked = !isClockIn && !!props.clockOutLocked;
 
                   return (
                     <button
-                      disabled={props.isSyncing || confirmed}
-                      onMouseDown={startHold}
-                      onMouseUp={cancelHold}
-                      onMouseLeave={cancelHold}
-                      onTouchStart={e => { e.preventDefault(); startHold(); }}
-                      onTouchEnd={cancelHold}
-                      onTouchCancel={cancelHold}
+                      disabled={props.isSyncing || confirmed || locked}
+                      onMouseDown={locked ? undefined : startHold}
+                      onMouseUp={locked ? undefined : cancelHold}
+                      onTouchStart={locked ? undefined : () => startHold()}
+                      onTouchEnd={locked ? undefined : cancelHold}
+                      onTouchCancel={locked ? undefined : cancelHold}
                       onContextMenu={e => e.preventDefault()}
-                      className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-transform ${props.isSyncing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', background: confirmed ? color : trackColor }}
+                      className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full flex items-center justify-center shadow-xl transition-all ${locked || props.isSyncing ? 'opacity-40 cursor-not-allowed' : 'active:scale-95 cursor-pointer'}`}
+                      style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', background: confirmed ? color : trackColor, pointerEvents: locked ? 'none' : undefined }}
                     >
-                      {/* Clock SVG */}
                       <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 128 128">
-                        {/* Track ring */}
                         <circle cx="64" cy="64" r={r} fill="none" stroke={trackColor} strokeWidth="8" />
-                        {/* Progress arc */}
                         <circle
                           cx="64" cy="64" r={r}
                           fill="none"
@@ -285,7 +283,6 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                           strokeDashoffset={offset}
                           style={{ transition: 'stroke-dashoffset 20ms linear' }}
                         />
-                        {/* Clock tick marks at 12/3/6/9 */}
                         {[0, 90, 180, 270].map(deg => {
                           const rad = (deg * Math.PI) / 180;
                           const x1 = 64 + (r - 10) * Math.cos(rad);
@@ -296,7 +293,6 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                         })}
                       </svg>
 
-                      {/* Center content */}
                       <span className="relative z-10 flex flex-col items-center gap-1 pointer-events-none">
                         {props.isSyncing ? (
                           <span className="w-6 h-6 border-2 border-current/30 border-t-current rounded-full animate-spin" style={{ borderTopColor: color }} />
@@ -321,8 +317,8 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
                 {/* Hint */}
                 {!isHolding && holdProgress === 0 && !props.isSyncing && (
-                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">
-                    Press and hold to confirm
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-center" style={{ color: (!isClockIn && props.clockOutLocked) ? '#fca5a5' : '#cbd5e1' }}>
+                    {!isClockIn && props.clockOutLocked ? 'Available after 1 min from clock-in' : 'Press and hold to confirm'}
                   </p>
                 )}
 

@@ -43,10 +43,12 @@ interface ComplaintsSectionProps {
   complaints: EmployeeComplaint[];
   filedById: string;
   filedByName: string;
+  managerPin?: string; // plain-text loginPin from auth state
+  isDelegate?: boolean; // relief managers and portal users cannot file complaints
 }
 
 export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
-  branch, employees, complaints, filedById, filedByName,
+  branch, employees, complaints, filedById, filedByName, managerPin, isDelegate,
 }) => {
   const [reportEmployee, setReportEmployee] = useState<Employee | null>(null);
   const [expandedEmpId, setExpandedEmpId] = useState<string | null>(null);
@@ -137,6 +139,14 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
         </div>
       </div>
 
+      {/* ── Delegate notice ── */}
+      {isDelegate && (
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={2.5} />
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">View only — only the assigned branch manager can file complaints</p>
+        </div>
+      )}
+
       {/* ── Success toast ── */}
       {submitted && (
         <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 animate-in slide-in-from-top-2 duration-300">
@@ -211,13 +221,16 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                       <ChevronDown className={`w-4 h-4 text-slate-300 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                     )}
 
-                    <button
-                      onClick={e => { e.stopPropagation(); playSound('click'); setReportEmployee(emp); }}
-                      className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-600 active:scale-95 transition-all flex items-center justify-center"
-                      title="File a report"
-                    >
-                      <Flag className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    </button>
+                    {!isDelegate && (
+                      <button
+                        onClick={e => { e.stopPropagation(); playSound('click'); setReportEmployee(emp); }}
+                        className="shrink-0 h-8 rounded-xl bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-600 active:scale-95 transition-all flex items-center justify-center gap-1.5 px-2 sm:px-3"
+                        title="File a report"
+                      >
+                        <Flag className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                        <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Report</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Expanded complaint history */}
@@ -226,7 +239,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                       {empComplaints.map(c => {
                         const isComplaintExpanded = expandedComplaintId === c.id;
                         const statusMeta = STATUS_META[c.status] || STATUS_META.PENDING;
-                        const reportColor = REPORT_COLOR[c.reportType] || REPORT_COLOR.OTHER;
+                        const reportColor = REPORT_COLOR[c.reportType] || 'bg-slate-50 text-slate-500 border-slate-200';
                         const filedDate = new Date(c.filedAt).toLocaleDateString('en-PH', {
                           timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric',
                         });
@@ -258,13 +271,21 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Incident Date</p>
-                                    <p className="text-[11px] font-bold text-slate-700">{c.incidentDate || '—'}</p>
+                                    <p className="text-[11px] font-bold text-slate-700">
+                                      {c.incidentDate || '—'}{c.incidentTime ? ` · ${c.incidentTime}` : ''}
+                                    </p>
                                   </div>
                                   <div>
                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Filed By</p>
                                     <p className="text-[11px] font-bold text-slate-700">{c.filedByName || '—'}</p>
                                   </div>
                                 </div>
+                                {c.witnesses && (
+                                  <div>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Witnesses</p>
+                                    <p className="text-[11px] font-semibold text-slate-700">{c.witnesses}</p>
+                                  </div>
+                                )}
                                 {c.description && (
                                   <div>
                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
@@ -319,6 +340,8 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
           branch={branch}
           filedById={filedById}
           filedByName={filedByName}
+          managerPin={managerPin}
+          priorComplaints={complaintsByEmp[reportEmployee.id] || []}
           onClose={() => setReportEmployee(null)}
           onSubmitted={handleSubmitted}
         />

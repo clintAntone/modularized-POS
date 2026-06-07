@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Branch, Employee, Transaction, Attendance } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
@@ -98,9 +99,29 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     return () => clearInterval(timer);
   }, []);
 
-  const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', { 
-    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' 
+  const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(now), [now]);
+
+  // 1-second tick only while clock-out modal is open, to unlock after 1 minute
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!isTimeModalOpen) return;
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [isTimeModalOpen]);
+
+  const clockOutLocked = useMemo(() => {
+    if (!isTimeModalOpen || !selectedEmpForTime) return false;
+    const ongoingRec = (attendance || []).find(a =>
+      a.employeeId === selectedEmpForTime.id && a.date === todayStr && a.clockIn && !a.clockOut
+    );
+    if (!ongoingRec) return false;
+    const elapsed = (getTrueDate().getTime() - new Date(ongoingRec.clockIn).getTime()) / 1000;
+    return elapsed < 60;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTimeModalOpen, selectedEmpForTime?.id, attendance, todayStr, tick]);
+
 
   useEffect(() => {
     if (toast) {
@@ -811,11 +832,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   return (
     <>
     <div className="space-y-4 sm:space-y-6">
-      {toast && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[5000] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+      {toast && createPortal(
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
           {toast.message}
-        </div>
+        </div>,
+        document.body
       )}
 
       <StaffModals 
@@ -832,6 +854,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         profileFile={profileFile}
         fileInputRef={fileInputRef}
         getShiftState={getShiftState}
+        clockOutLocked={clockOutLocked}
         onTimeAction={handleTimeAction}
         onSaveEmployee={handleSaveEmployee}
         onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); }}

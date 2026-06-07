@@ -181,6 +181,8 @@ export const DB_COLUMNS = {
   // Employee Complaints
   REPORT_TYPE: 'report_type',
   INCIDENT_DATE: 'incident_date',
+  INCIDENT_TIME: 'incident_time',
+  WITNESSES: 'witnesses',
   FILED_BY_ID: 'filed_by_id',
   FILED_BY_NAME: 'filed_by_name',
   FILED_AT: 'filed_at',

@@ -40,6 +40,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [revealedDeleteId, setRevealedDeleteId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const justLongPressed = useRef(false);
 
   const [attendanceForm, setAttendanceForm] = useState({
     lateDeduction: 0,
@@ -142,10 +143,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     }
   };
 
-  const startLongPress = (name: string, count: number) => {
-    if (count > 0) return;
+  const startLongPress = (name: string) => {
     longPressTimer.current = setTimeout(() => {
       setRevealedDeleteId(name);
+      justLongPressed.current = true;
       playSound('click');
       longPressTimer.current = null;
     }, 600);
@@ -350,7 +351,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-1" onClick={() => { if (justLongPressed.current) { justLongPressed.current = false; return; } setRevealedDeleteId(null); }}>
           {sortedStaff.map((data) => {
             const name = data.name;
             const late = Number(data.attendance?.lateDeduction || 0);
@@ -365,11 +366,13 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             return (
                 <div
                     key={data.employeeId || name}
-                    className={`${data.isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${data.isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden active:scale-[0.99] cursor-default`}
-                    onTouchStart={(e) => startLongPress(name, data.count)}
+                    className={`${data.isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${data.isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
+                    onTouchStart={() => startLongPress(name)}
                     onTouchEnd={cancelLongPress}
-                    onMouseDown={(e) => startLongPress(name, data.count)}
+                    onTouchMove={cancelLongPress}
+                    onMouseDown={() => startLongPress(name)}
                     onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
                 >
                     {isSettled && (
                       <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
@@ -388,8 +391,42 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     )}
                   </div>
 
-                  {data.count === 0 && (
-                      <button onClick={(e) => { e.stopPropagation(); handleHideStaff(name); }} className={`absolute top-4 right-4 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-xl border border-slate-100 text-rose-500 z-[70] transition-all duration-300 ${revealedDeleteId === name ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                  {/* Long-press remove overlay */}
+                  {revealedDeleteId === name && (
+                    <div className="absolute inset-0 z-[60] bg-slate-900/80 backdrop-blur-sm rounded-[inherit] flex flex-col animate-in fade-in duration-150">
+                      {/* Centered content */}
+                      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                        {data.count > 0 ? (
+                          <>
+                            <div className="w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center">
+                              <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                            </div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center px-4">Has {data.count} session{data.count !== 1 ? 's' : ''} — cannot remove</p>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={e => { e.stopPropagation(); handleHideStaff(name); setRevealedDeleteId(null); playSound('click'); }}
+                              className="w-16 h-16 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-95 transition-all flex items-center justify-center shadow-lg"
+                            >
+                              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                            </button>
+                            <p className="text-[9px] font-black text-white uppercase tracking-widest">Remove from today</p>
+                          </>
+                        )}
+                      </div>
+                      {/* Cancel pinned to bottom */}
+                      <div className="px-4 pb-4">
+                        <button
+                          onMouseDown={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); setRevealedDeleteId(null); }}
+                          className="w-full py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all text-[10px] font-black text-slate-200 uppercase tracking-widest"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   <div className="flex flex-col gap-3 sm:gap-6">

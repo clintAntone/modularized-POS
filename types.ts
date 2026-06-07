@@ -245,6 +245,8 @@ export interface EmployeeComplaint {
   employeeName: string;
   reportType: string;
   incidentDate: string;
+  incidentTime?: string;
+  witnesses?: string;
   description: string;
   filedById: string;
   filedByName: string;
