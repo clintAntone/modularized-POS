@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Attendance, Branch, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -19,7 +19,7 @@ interface AttendanceHubProps {
   isReadOnly?: boolean;
 }
 
-export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branches, employees, onRefresh, isReadOnly }) => {
+export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employees, onRefresh, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
@@ -36,29 +36,63 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
   const [isDeleting, setIsDeleting] = useState(false);
   const [resetConfirmLog, setResetConfirmLog] = useState<Attendance | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Server-side attendance fetch based on current filters
+  const [serverAttendance, setServerAttendance] = useState<Attendance[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const fetchRef = useRef(0);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const token = ++fetchRef.current;
+    setIsFetching(true);
+    (async () => {
+      try {
+        // Date range: convert local YYYY-MM-DD to full-day ISO range in Manila time
+        const fromIso = dateFrom ? `${dateFrom}T00:00:00+08:00` : undefined;
+        const toIso   = dateTo   ? `${dateTo}T23:59:59+08:00`   : undefined;
+
+        let query = supabase
+          .from(DB_TABLES.ATTENDANCE)
+          .select([
+            DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
+            DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
+            DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
+            DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
+          ].join(','))
+          .order(DB_COLUMNS.CLOCK_IN, { ascending: false });
+
+        if (fromIso) query = query.gte(DB_COLUMNS.CLOCK_IN, fromIso);
+        if (toIso)   query = query.lte(DB_COLUMNS.CLOCK_IN, toIso);
+        if (selectedBranchIds.length > 0) query = query.in(DB_COLUMNS.BRANCH_ID, selectedBranchIds);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (token !== fetchRef.current) return; // stale
+
+        setServerAttendance((data || []).map((att: any) => ({
+          id: att[DB_COLUMNS.ID], branchId: att[DB_COLUMNS.BRANCH_ID], employeeId: att[DB_COLUMNS.EMPLOYEE_ID],
+          staffName: att[DB_COLUMNS.STAFF_NAME], date: att[DB_COLUMNS.DATE], clockIn: att[DB_COLUMNS.CLOCK_IN],
+          clockOut: att[DB_COLUMNS.CLOCK_OUT], status: att[DB_COLUMNS.STATUS],
+          lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
+          otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0),
+          isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]), createdAt: att[DB_COLUMNS.CREATED_AT],
+        })));
+      } catch (err) {
+        console.error('AttendanceHub fetch error:', err);
+      } finally {
+        if (token === fetchRef.current) setIsFetching(false);
+      }
+    })();
+  }, [dateFrom, dateTo, selectedBranchIds, refreshTick]);
+
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'
     : selectedBranchIds.length === 1 ? (branches.find(b => b.id === selectedBranchIds[0])?.name ?? 'Branch')
     : `${selectedBranchIds.length} Branches`;
 
   const filteredAttendance = useMemo(() => {
-    let res = [...attendance].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
-
-    if (selectedBranchIds.length > 0) {
-      res = res.filter(a => selectedBranchIds.includes(a.branchId));
-    }
-
-    if (dateFrom || dateTo) {
-      res = res.filter(a => {
-        const clockInDate = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Manila',
-          year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(new Date(a.clockIn));
-        if (dateFrom && clockInDate < dateFrom) return false;
-        if (dateTo   && clockInDate > dateTo)   return false;
-        return true;
-      });
-    }
+    let res = [...serverAttendance];
 
     if (searchTerm.trim()) {
       const term = searchTerm.trim();
@@ -69,7 +103,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
     }
 
     return res;
-  }, [attendance, selectedBranchIds, dateFrom, dateTo, searchTerm, branches]);
+  }, [serverAttendance, searchTerm, branches]);
 
   const paginatedAttendance = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -109,7 +143,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
 
       playSound('success');
       setDeleteConfirmLog(null);
-      onRefresh?.();
+      setRefreshTick(t => t + 1); onRefresh?.();
     } catch (err) {
       console.error('Failed to delete attendance entry:', err);
       playSound('warning');
@@ -153,7 +187,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
       });
 
       playSound('success');
-      onRefresh?.();
+      setRefreshTick(t => t + 1); onRefresh?.();
     } catch (err) {
       console.error('Failed to reset clock out:', err);
       alert('Failed to reset clock out. Please try again.');
@@ -384,7 +418,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                     const employee  = employees.find(e => e.id === log.employeeId);
                     const homeBranch = branches.find(b => b.id === employee?.branchId);
                     const isRelief  = homeBranch && homeBranch.id !== branch?.id;
-                    const isActive  = !log.clockOut;
+                    const isActive  = !log.clockOut && isToday(log.date);
 
                     const durationMs   = log.clockOut ? new Date(log.clockOut).getTime() - new Date(log.clockIn).getTime() : null;
                     const durationHrs  = durationMs !== null ? Math.floor(durationMs / 3600000) : null;
@@ -448,8 +482,10 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                             <p className="text-[13px] font-black text-rose-500 tabular-nums tracking-tight">
                               {new Date(log.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
-                          ) : (
+                          ) : isActive ? (
                             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest animate-pulse">Active</span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-slate-400 italic">No clockout recorded</span>
                           )}
                         </td>
 
@@ -506,8 +542,17 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                 ) : (
                   <tr>
                     <td colSpan={9} className="px-6 py-20 text-center">
-                      <div className="text-4xl mb-4 opacity-20">📂</div>
-                      <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No attendance records found</div>
+                      {isFetching ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-7 h-7 border-[3px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />
+                          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-4xl mb-4 opacity-20">📂</div>
+                          <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No attendance records found</div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -594,9 +639,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                             <p className="text-[20px] font-black text-slate-900 tabular-nums leading-none tracking-tighter">
                               {new Date(log.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
-                          ) : (
+                          ) : isActive ? (
                             <p className="text-[13px] font-black text-slate-300 leading-none tracking-tight italic">
                               In Progress…
+                            </p>
+                          ) : (
+                            <p className="text-[11px] font-bold text-slate-400 leading-none italic">
+                              No clockout recorded
                             </p>
                           )}
                         </div>
@@ -607,9 +656,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                             Duration: {durationHrs}h {durationMins}m
                           </p>
-                        ) : (
+                        ) : isActive ? (
                           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-pulse">
                             Shift ongoing
+                          </p>
+                        ) : (
+                          <p className="text-[10px] font-bold text-slate-400 italic">
+                            No clockout recorded
                           </p>
                         )}
                       </div>
@@ -645,9 +698,18 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ attendance, branch
                 );
               })
             ) : (
-              <div className="py-20 text-center bg-white rounded-[24px] border border-slate-100">
-                <div className="text-4xl mb-3 opacity-30">📂</div>
-                <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No records found</div>
+              <div className="py-20 text-center bg-white rounded-[24px] border border-slate-100 flex flex-col items-center gap-3">
+                {isFetching ? (
+                  <>
+                    <div className="w-7 h-7 border-[3px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />
+                    <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-4xl opacity-30">📂</div>
+                    <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No records found</div>
+                  </>
+                )}
               </div>
             )}
           </div>

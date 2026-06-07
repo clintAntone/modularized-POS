@@ -6,9 +6,11 @@ interface SessionLogsProps {
   transactions: Transaction[];
   /** Branch services used for price lookup — avoids a broken DB query */
   services?: Service[];
+  /** Optional override to display a total count beside the heading */
+  totalCount?: number;
 }
 
-export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [] }) => {
+export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [], totalCount }) => {
   // Build a price lookup map from branch services (in-memory, no DB round-trip)
   const serviceMap = useMemo(() => (
     Object.fromEntries(services.map(s => [s.id, s]))
@@ -28,7 +30,12 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
   return (
       <div className="space-y-4">
         <div>
-          <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
+          <div className="flex items-baseline gap-2">
+            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
+            {totalCount !== undefined && (
+              <span className="text-[10px] font-bold text-slate-400">({totalCount})</span>
+            )}
+          </div>
           <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Lists of clients today</p>
         </div>
 

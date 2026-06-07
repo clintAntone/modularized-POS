@@ -1377,7 +1377,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               connStatus={connStatus}
               pendingSyncCount={pendingSyncCount}
           />
-          <SessionLogs transactions={txs} services={branch?.services ?? []} />
+          <SessionLogs transactions={txs} services={branch?.services ?? []} totalCount={txs.length} />
           <StaffPerformance
               branch={branch}
               staffSummary={metrics.staffSummary}

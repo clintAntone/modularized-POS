@@ -1001,7 +1001,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 </div>
             ) : (
                 <>
-                  <SessionLogs transactions={report.sessionData || []} services={branch?.services ?? []} />
+                  <SessionLogs transactions={report.sessionData || []} services={branch?.services ?? []} totalCount={(report.sessionData || []).length} />
 
                   <div className="space-y-4">
                     <h4 className={`${UI_THEME.text.label} ml-4`}>Staff Performance Matrix</h4>
