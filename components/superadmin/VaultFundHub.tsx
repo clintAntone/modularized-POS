@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Branch, SalesReport, VaultTransaction } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -24,10 +24,145 @@ interface VaultFundHubProps {
 
 type SortMode = 'name' | 'progress' | 'balance';
 
+// ── Vault Line Chart ─────────────────────────────────────────────────────────
+interface VaultChartProps {
+  deposits: { date: string; amount: number }[];
+  withdrawals: { date: string; amount: number }[];
+}
+const VaultLineChart: React.FC<VaultChartProps> = ({ deposits, withdrawals }) => {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; date: string; dep: number; wit: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const W = 560; const H = 200; const PAD = { t: 16, r: 16, b: 24, l: 56 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+
+  const points = useMemo(() => {
+    const dateSet = new Set([...deposits.map(d => d.date), ...withdrawals.map(d => d.date)]);
+    const dates = Array.from(dateSet).sort();
+    if (dates.length === 0) return { dates: [], depPts: [], witPts: [] };
+
+    let cumDep = 0; let cumWit = 0;
+    const depMap: Record<string, number> = {};
+    const witMap: Record<string, number> = {};
+    deposits.forEach(d => { depMap[d.date] = (depMap[d.date] ?? 0) + d.amount; });
+    withdrawals.forEach(d => { witMap[d.date] = (witMap[d.date] ?? 0) + d.amount; });
+
+    const depPts: { date: string; val: number; daily: number }[] = [];
+    const witPts: { date: string; val: number; daily: number }[] = [];
+    dates.forEach(date => {
+      const dailyDep = depMap[date] ?? 0;
+      const dailyWit = witMap[date] ?? 0;
+      cumDep += dailyDep;
+      cumWit += dailyWit;
+      depPts.push({ date, val: cumDep, daily: dailyDep });
+      witPts.push({ date, val: cumWit, daily: dailyWit });
+    });
+    return { dates, depPts, witPts };
+  }, [deposits, withdrawals]);
+
+  const maxVal = useMemo(() => {
+    const all = [...points.depPts.map(p => p.daily), ...points.witPts.map(p => p.daily)];
+    return Math.max(...all, 1);
+  }, [points]);
+
+  const scaleX = (i: number) => points.dates.length < 2 ? cW / 2 : (i / (points.dates.length - 1)) * cW;
+  const scaleY = (v: number) => cH - (v / maxVal) * cH;
+
+  const toPath = (pts: { daily: number }[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i).toFixed(1)} ${scaleY(p.daily).toFixed(1)}`).join(' ');
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || points.dates.length === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const rawX = (e.clientX - rect.left - PAD.l) * (W / rect.width);
+    const idx = Math.min(points.dates.length - 1, Math.max(0, Math.round((rawX / cW) * (points.dates.length - 1))));
+    const svgX = PAD.l + scaleX(idx);
+    const svgY = PAD.t + scaleY(points.depPts[idx]?.val ?? 0);
+    setTooltip({ x: svgX, y: svgY, date: points.dates[idx], dep: points.depPts[idx]?.daily ?? 0, wit: points.witPts[idx]?.daily ?? 0 });
+  }, [points, cW, cH, maxVal]);
+
+  if (points.dates.length === 0) return null;
+
+  const tickCount = 4;
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((maxVal / tickCount) * i));
+  const xTickIndices = points.dates.length <= 6
+    ? points.dates.map((_, i) => i)
+    : [0, Math.floor(points.dates.length / 3), Math.floor((2 * points.dates.length) / 3), points.dates.length - 1];
+
+  return (
+    <div className="relative">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setTooltip(null)}
+      >
+        {/* Grid lines */}
+        {yTicks.map(tick => (
+          <line key={tick} x1={PAD.l} x2={W - PAD.r} y1={PAD.t + scaleY(tick)} y2={PAD.t + scaleY(tick)} stroke="#f1f5f9" strokeWidth="1" />
+        ))}
+
+        {/* Y-axis labels */}
+        {yTicks.map(tick => (
+          <text key={tick} x={PAD.l - 6} y={PAD.t + scaleY(tick) + 4} textAnchor="end" fontSize="9" fill="#94a3b8" fontFamily="monospace">
+            {tick >= 1000 ? `${(tick / 1000).toFixed(tick % 1000 === 0 ? 0 : 1)}k` : tick}
+          </text>
+        ))}
+
+        {/* X-axis labels */}
+        {xTickIndices.map(i => (
+          <text key={i} x={PAD.l + scaleX(i)} y={H - 6} textAnchor="middle" fontSize="8" fill="#94a3b8">
+            {points.dates[i]?.slice(5)}
+          </text>
+        ))}
+
+        {/* Deposit line */}
+        {points.depPts.length > 1 && (
+          <path d={toPath(points.depPts)} fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" transform={`translate(${PAD.l},${PAD.t})`} />
+        )}
+
+        {/* Withdrawal line */}
+        {points.witPts.length > 1 && (
+          <path d={toPath(points.witPts)} fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" transform={`translate(${PAD.l},${PAD.t})`} />
+        )}
+
+        {/* Tooltip crosshair */}
+        {tooltip && (
+          <>
+            <line x1={tooltip.x} x2={tooltip.x} y1={PAD.t} y2={H - PAD.b} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx={tooltip.x} cy={PAD.t + scaleY(points.depPts[points.dates.indexOf(tooltip.date)]?.daily ?? 0)} r="3.5" fill="#10b981" />
+            <circle cx={tooltip.x} cy={PAD.t + scaleY(points.witPts[points.dates.indexOf(tooltip.date)]?.daily ?? 0)} r="3.5" fill="#f43f5e" />
+          </>
+        )}
+      </svg>
+
+      {/* Tooltip box */}
+      {tooltip && (
+        <div className="absolute z-10 pointer-events-none bg-slate-900 text-white rounded-xl px-3 py-2 text-[10px] shadow-xl space-y-1"
+          style={{ left: Math.min(tooltip.x / (W / 100), 70) + '%', top: '4px', transform: 'translateX(-50%)' }}>
+          <p className="font-black text-slate-300 uppercase tracking-widest">{tooltip.date}</p>
+          <p className="text-emerald-400 font-bold">↓ Deposited: ₱{tooltip.dep.toLocaleString()}</p>
+          <p className="text-rose-400 font-bold">↑ Withdrawn: ₱{tooltip.wit.toLocaleString()}</p>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-1 px-1">
+        <div className="flex items-center gap-1.5"><div className="w-4 h-0.5 bg-emerald-500 rounded" /><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Deposits</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-4 h-0.5 bg-rose-500 rounded" /><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Withdrawals</span></div>
+      </div>
+    </div>
+  );
+};
+
 export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesReports, vaultTransactions = [], isReadOnly, onRefresh }) => {
   const [vaultRows, setVaultRows] = useState<Record<string, VaultRow>>({});
   const [loadingVaults, setLoadingVaults] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [chartModalBranchId, setChartModalBranchId] = useState<string | null>(null);
+  const [chartExpanded, setChartExpanded] = useState(false);
   const [editTarget, setEditTarget] = useState('');
   const [editInitialBalance, setEditInitialBalance] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
@@ -254,6 +389,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   // Reset tab and pagination when detail modal opens
   useEffect(() => {
     if (detailBranchId) {
+      setChartExpanded(false);
       setTxHistoryTab('deposits');
       setVisibleDeposits(20);
       setVisibleWithdrawals(20);
@@ -1095,20 +1231,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       </div>
                     </div>
 
-                    {/* Toggle + deposit + edit */}
+                    {/* Configure button */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {!isReadOnly && enabled && !isEditing && !isDepositing && (
-                        <button
-                          onClick={() => { setDepositingId(branch.id); setDepositInput(''); setEditingId(null); playSound('click'); }}
-                          className="h-8 px-3 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-700 hover:text-emerald-900 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
-                          title="Deposit to vault"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" />
-                          </svg>
-                          Deposit
-                        </button>
-                      )}
                       {!isReadOnly && !isEditing && !isDepositing && (
                         <button
                           onClick={() => { startEdit(branch); setDepositingId(null); }}
@@ -1125,21 +1249,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                           </svg>
                         </button>
                       )}
-                      <button
-                        onClick={() => { if (!isReadOnly && !isToggling) setConfirmToggleBranch(branch); }}
-                        disabled={isReadOnly || isToggling}
-                        title={enabled ? 'Disable vault' : 'Enable vault'}
-                        className={`relative rounded-full transition-all duration-300 shrink-0 disabled:opacity-50 cursor-pointer ${
-                          enabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.35)]' : 'bg-slate-200'
-                        }`}
-                        style={{ height: '26px', width: '46px' }}
-                      >
-                        <span
-                          className={`absolute top-[3px] w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${
-                            enabled ? 'left-[23px]' : 'left-[3px]'
-                          }`}
-                        />
-                      </button>
                     </div>
                   </div>
 
@@ -1245,52 +1354,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   </div>
                 )}
 
-                {/* Deposit History */}
-                {enabled && depositCount > 0 && (
-                  <div className="border-t border-slate-50">
-                    <button
-                      onClick={() => toggleHistory(branch.id)}
-                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        Deposit History · {depositCount} {depositCount === 1 ? 'entry' : 'entries'}
-                      </span>
-                      <svg
-                        className={`w-3.5 h-3.5 text-slate-300 transition-transform duration-200 ${historyOpen.has(branch.id) ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {historyOpen.has(branch.id) && (
-                      <div className="px-5 pb-4 max-h-52 overflow-y-auto overscroll-contain space-y-px">
-                        {(branchDepositHistory[branch.id] ?? []).slice(0, 30).map((entry, i) => {
-                          const [y, m, d] = entry.date.split('-').map(Number);
-                          const formatted = new Intl.DateTimeFormat('en-PH', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          }).format(new Date(y, m - 1, d));
-                          const isAdmin = entry.category === 'ADMIN_DEPOSIT';
-                          return (
-                            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-bold text-slate-400">{formatted}</span>
-                                <span className={`text-[8px] font-black uppercase tracking-widest ${isAdmin ? 'text-violet-400' : 'text-emerald-500'}`}>
-                                  {isAdmin ? 'Admin' : 'Manager'}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-[11px] font-black text-emerald-600 tabular-nums">
-                                  +₱{entry.amount.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Deposit form */}
                 {!isReadOnly && isDepositing && (() => {
@@ -1357,6 +1420,22 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 {/* Edit form */}
                 {!isReadOnly && isEditing && (
                   <div className="px-5 pb-5 space-y-3 border-t border-slate-100 pt-4">
+                    {/* Toggle inside configure */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Vault Enabled</p>
+                        <p className="text-[8px] text-slate-400 font-medium mt-0.5">{enabled ? 'Active — provisions collected' : 'Inactive'}</p>
+                      </div>
+                      <button
+                        onClick={() => { if (!isToggling) setConfirmToggleBranch(branch); }}
+                        disabled={isToggling}
+                        className={`relative rounded-full transition-all duration-300 shrink-0 disabled:opacity-50 cursor-pointer ${enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                        style={{ height: '26px', width: '46px' }}
+                      >
+                        <span className={`absolute top-[3px] w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${enabled ? 'left-[23px]' : 'left-[3px]'}`} />
+                      </button>
+                    </div>
+                    <div className="border-t border-slate-100" />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Target (₱)</label>
@@ -1478,11 +1557,42 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const roiOptions = roiOptionsByBranch[branch.id] ?? [];
 
         return (
+          <>
+          {/* Landscape chart modal — mobile only */}
+          {chartModalBranchId === branch.id && (
+            <div className="fixed inset-0 z-[1200] bg-slate-900 sm:hidden flex flex-col" style={{ touchAction: 'none' }}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+                <div>
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Deposit & Withdrawal Trend</p>
+                  <p className="text-[13px] font-black text-white uppercase tracking-tight leading-none mt-0.5">{branch.name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setChartModalBranchId(null);
+                    try { (screen.orientation as any).unlock?.(); } catch (_) {}
+                  }}
+                  className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              {/* Chart — fills remaining space */}
+              <div className="flex-1 px-3 pb-6 flex items-center">
+                <VaultLineChart
+                  deposits={branchHistory.map(e => ({ date: e.date, amount: e.amount }))}
+                  withdrawals={branchWithdrawals.map(e => ({ date: e.date, amount: e.amount }))}
+                />
+              </div>
+              {/* Rotate hint */}
+              <p className="text-center text-[8px] text-slate-600 font-bold uppercase tracking-widest pb-4 shrink-0">Rotate phone for landscape view</p>
+            </div>
+          )}
           <div
-            className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[1100] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm"
             onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
           >
-            <div className="bg-white rounded-[28px] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="bg-white rounded-[20px] sm:rounded-[28px] w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden">
 
               {/* ── Header (dark) ── */}
               <div className="bg-slate-900 px-4 sm:px-7 pt-5 sm:pt-6 pb-5 shrink-0">
@@ -1496,12 +1606,12 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2.5 shrink-0 mt-0.5">
+                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
                     {!isReadOnly && (
-                      <button onClick={() => { if (!togglingId) setConfirmToggleBranch(branch); }} disabled={!!togglingId}
-                        className={`relative rounded-full transition-all duration-300 disabled:opacity-50 cursor-pointer shrink-0 ${enabled ? 'bg-emerald-500' : 'bg-slate-600'}`}
-                        style={{ height: '26px', width: '46px' }} title={enabled ? 'Disable Vault' : 'Enable Vault'}>
-                        <span className={`absolute top-[3px] w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${enabled ? 'left-[23px]' : 'left-[3px]'}`} />
+                      <button onClick={() => startEdit(branch)}
+                        className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
+                        title="Configure">
+                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </button>
                     )}
                     <button onClick={closeModal} className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
@@ -1562,22 +1672,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
               <div className="flex-1 overflow-y-auto overscroll-contain">
                 <div className="px-4 sm:px-7 py-5 space-y-5">
 
-                  {/* Action buttons */}
-                  {!isReadOnly && !isDepositing && !isEditing && (
-                    <div className="flex gap-2">
-                      {enabled && (
-                        <button onClick={() => { setDepositingId(branch.id); setDepositInput(''); setRoiSourceDate(''); }}
-                          className="flex-1 sm:flex-none h-11 sm:h-9 px-5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2">
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
-                          Deposit
-                        </button>
-                      )}
-                      <button onClick={() => startEdit(branch)}
-                        className="flex-1 sm:flex-none h-11 sm:h-9 px-5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all">
-                        Configure
-                      </button>
-                    </div>
-                  )}
 
                   {/* Deposit form */}
                   {!isReadOnly && isDepositing && (
@@ -1685,6 +1779,21 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                         <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Configure Vault</p>
                       </div>
                       <div className="p-5 space-y-4">
+                        {/* Vault enable toggle */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Vault Enabled</p>
+                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">{enabled ? 'Active — provisions are being collected' : 'Inactive — no provisions collected'}</p>
+                          </div>
+                          <button
+                            onClick={() => handleToggle(branch)}
+                            disabled={!!togglingId}
+                            className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${enabled ? 'bg-emerald-500' : 'bg-slate-300'} disabled:opacity-50`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                        <div className="border-t border-slate-100" />
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Target (₱)</label>
@@ -1730,8 +1839,31 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                     </div>
                   )}
 
+                  {/* ── Line Chart (desktop only, collapsible) ── */}
+                  {!isEditing && (branchHistory.length > 0 || branchWithdrawals.length > 0) && (
+                    <div className="hidden sm:block rounded-2xl border border-slate-100 overflow-hidden">
+                      <button
+                        onClick={() => setChartExpanded(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                      >
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Deposit & Withdrawal Trend</span>
+                        <svg className={`w-3.5 h-3.5 text-slate-300 transition-transform duration-200 ${chartExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {chartExpanded && (
+                        <div className="p-4 bg-slate-50 border-t border-slate-100">
+                          <VaultLineChart
+                            deposits={branchHistory.map(e => ({ date: e.date, amount: e.amount }))}
+                            withdrawals={branchWithdrawals.map(e => ({ date: e.date, amount: e.amount }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* ── Transaction History ── */}
-                  {(branchHistory.length > 0 || branchWithdrawals.length > 0) && (
+                  {!isEditing && (branchHistory.length > 0 || branchWithdrawals.length > 0) && (
                     <div className="space-y-3">
                       {/* Tab row */}
                       <div className="flex items-center gap-1.5 border-b border-slate-100 pb-3">
@@ -1749,7 +1881,17 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                           <span className="hidden sm:inline">↑ </span>Withdrawals
                           <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>{branchWithdrawals.length}</span>
                         </button>
-                        <div className="ml-auto">
+                        <div className="ml-auto flex items-center gap-1.5">
+                          {!isReadOnly && enabled && !isDepositing && !isEditing && (
+                            <button
+                              onClick={() => { setDepositingId(branch.id); setDepositInput(''); setRoiSourceDate(''); }}
+                              title="Deposit to vault"
+                              className="h-7 w-7 sm:w-auto sm:px-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 text-[9px] font-black uppercase tracking-widest transition-all"
+                            >
+                              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
+                              <span className="hidden sm:inline">Deposit</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleExportBranchCSV(branch.id, branch.name, txHistoryTab)}
                             title={`Export ${txHistoryTab} as CSV`}
@@ -1896,6 +2038,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
               </div>
             </div>
           </div>
+          </>
         );
       })()}
 

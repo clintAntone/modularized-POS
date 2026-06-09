@@ -65,21 +65,30 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
     });
   }, [employees, branch]);
 
+  // Include complaints filed at this branch OR filed by another branch about an employee who belongs here
+  const homeBranchEmpIds = useMemo(() => new Set(employees.filter(e => e.branchId === branch.id).map(e => e.id)), [employees, branch.id]);
+  const relevantComplaints = useMemo(() =>
+    complaints.filter(c =>
+      c.branchId === branch.id ||
+      // Cross-branch complaints about home employees: only show once acknowledged (not while still pending/unproven)
+      (homeBranchEmpIds.has(c.employeeId) && c.status !== 'PENDING')
+    ),
+  [complaints, branch.id, homeBranchEmpIds]);
+
   const complaintsByEmp = useMemo(() => {
     const map: Record<string, EmployeeComplaint[]> = {};
-    complaints
-      .filter(c => c.branchId === branch.id)
+    relevantComplaints
       .sort((a, b) => b.filedAt.localeCompare(a.filedAt))
       .forEach(c => {
         if (!map[c.employeeId]) map[c.employeeId] = [];
         map[c.employeeId].push(c);
       });
     return map;
-  }, [complaints, branch.id]);
+  }, [relevantComplaints]);
 
-  const totalComplaints = complaints.filter(c => c.branchId === branch.id).length;
-  const activeComplaints = complaints.filter(c => c.branchId === branch.id && c.status !== 'DISMISSED').length;
-  const pendingCount = complaints.filter(c => c.branchId === branch.id && c.status === 'PENDING').length;
+  const totalComplaints = relevantComplaints.length;
+  const activeComplaints = relevantComplaints.filter(c => c.status !== 'DISMISSED').length;
+  const pendingCount = relevantComplaints.filter(c => c.status === 'PENDING').length;
 
   const handleSubmitted = () => {
     setReportEmployee(null);

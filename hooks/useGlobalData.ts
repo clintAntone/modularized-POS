@@ -514,7 +514,20 @@ export const useGlobalData = (auth: AuthState) => {
                 .select(COLS.employeeComplaints)
                 .order(DB_COLUMNS.FILED_AT, { ascending: false });
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
-                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+                const branchId = auth.user.branchId;
+                // Also include complaints filed by other branches about employees who belong here
+                const { data: branchEmps } = await supabase
+                    .from(DB_TABLES.EMPLOYEES)
+                    .select(DB_COLUMNS.ID)
+                    .eq(DB_COLUMNS.BRANCH_ID, branchId);
+                const empIds = (branchEmps || []).map((e: any) => e[DB_COLUMNS.ID]);
+                if (empIds.length > 0) {
+                    query = query.or(
+                        `${DB_COLUMNS.BRANCH_ID}.eq.${branchId},${DB_COLUMNS.EMPLOYEE_ID}.in.(${empIds.join(',')})`
+                    );
+                } else {
+                    query = query.eq(DB_COLUMNS.BRANCH_ID, branchId);
+                }
             }
             const { data, error } = await query;
             if (error) throw error;
@@ -688,7 +701,17 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.ATTENDANCE }, () => refreshDatabase('attendance'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => refreshDatabase('salesReports'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_CATALOGS }, () => refreshDatabase('service_catalogs'))
-            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DB_TABLES.REQUESTS }, (payload: any) => {
+                refreshDatabase('requests');
+                // When a CREATE_EMPLOYEE or DISABLE_EMPLOYEE request is approved/rejected,
+                // force-refresh employees immediately so the staff tab updates without a manual refresh
+                const type = payload.new?.type;
+                const status = payload.new?.status;
+                if ((type === 'CREATE_EMPLOYEE' || type === 'DISABLE_EMPLOYEE') && (status === 'APPROVED' || status === 'REJECTED')) {
+                    refreshDatabase('employees');
+                }
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEE_COMPLAINTS }, () => refreshDatabase('employeeComplaints'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.VAULT_TRANSACTIONS }, () => refreshDatabase('vaultTransactions'))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.AUDIT_LOGS }, () => refreshDatabase('auditLogs'))
