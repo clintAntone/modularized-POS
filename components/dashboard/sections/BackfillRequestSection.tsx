@@ -40,13 +40,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
   const personnelDropdownRef = useRef<HTMLDivElement>(null);
 
   const yesterday = useMemo(() => {
-    // Use Manila time so dates don't shift at late hours when UTC is still the prior day
-    const manilaToday = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(getTrueDate());
+    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(getTrueDate());
     const d = new Date(manilaToday + 'T12:00:00');
     d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
   }, []);
 
   const [formData, setFormData] = useState({ date: yesterday, grossSales: '', notes: '' });

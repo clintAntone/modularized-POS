@@ -31,11 +31,20 @@ const REPORT_COLOR: Record<string, string> = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  NONE:      '',
-  SUSPENDED: 'Suspended',
-  WARNING:   'Warning Issued',
-  NOTED:     'Noted',
+  NONE:            '',
+  SUSPENDED:       'Suspended',
+  WARNING:         'Warning Issued',
+  VERBAL_WARNING:  'Verbal Warning',
+  WRITTEN_WARNING: 'Written Warning',
+  FINAL_WARNING:   'Final Warning',
+  NOTED:           'Noted on Record',
 };
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 
 interface ComplaintsSectionProps {
   branch: Branch;
@@ -245,7 +254,9 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                   {/* Expanded complaint history */}
                   {isExpanded && empComplaints.length > 0 && (
                     <div className="px-3 pb-3 space-y-2 bg-slate-50/60 border-t border-slate-100">
-                      {empComplaints.map(c => {
+                      {empComplaints.map((c, _i, arr) => {
+                        const sorted = [...arr].sort((a, b) => a.filedAt.localeCompare(b.filedAt));
+                        const offenseNum = sorted.findIndex(x => x.id === c.id) + 1;
                         const isComplaintExpanded = expandedComplaintId === c.id;
                         const statusMeta = STATUS_META[c.status] || STATUS_META.PENDING;
                         const reportColor = REPORT_COLOR[c.reportType] || 'bg-slate-50 text-slate-500 border-slate-200';
@@ -260,9 +271,12 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                           >
                             {/* Complaint summary row */}
                             <button
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                              className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
                               onClick={() => setExpandedComplaintId(isComplaintExpanded ? null : c.id)}
                             >
+                              <span className="shrink-0 text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
+                                {ordinal(offenseNum)}
+                              </span>
                               <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${reportColor}`}>
                                 {REPORT_LABEL[c.reportType] || c.reportType || '—'}
                               </span>

@@ -252,7 +252,7 @@ export interface EmployeeComplaint {
   filedByName: string;
   filedAt: string;
   status: 'PENDING' | 'ACKNOWLEDGED' | 'DISMISSED';
-  actionTaken: 'NONE' | 'SUSPENDED' | 'WARNING' | 'NOTED';
+  actionTaken: 'NONE' | 'SUSPENDED' | 'WARNING' | 'VERBAL_WARNING' | 'WRITTEN_WARNING' | 'FINAL_WARNING' | 'NOTED';
   judgment?: string;
   resolution?: string;
   reviewedBy?: string;

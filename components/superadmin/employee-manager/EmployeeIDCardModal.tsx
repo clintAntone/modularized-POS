@@ -31,6 +31,14 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
     cardWrap?.classList.remove('hidden');
     backWrap?.classList.remove('hidden');
 
+    // Suppress cross-origin CSS warnings from html-to-image (harmless, datepicker CDN stylesheet)
+    const _origError = console.error;
+    console.error = (...args: any[]) => {
+      const msg = String(args[0] ?? '');
+      if (msg.includes('cssRules') || msg.includes('remote stylesheet')) return;
+      _origError.apply(console, args);
+    };
+
     try {
       const cardWidthIn = 2.5;
       const padding = 0.2;
@@ -56,8 +64,9 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
       const safeName = (employee.name || 'employee').replace(/\s+/g, '_').toLowerCase();
       pdf.save(`id_${safeName}.pdf`);
     } catch (err) {
-      console.error('[DownloadID]', err);
+      _origError('[DownloadID]', err);
     } finally {
+      console.error = _origError;
       // Restore mobile hidden state
       if (flipped) cardWrap?.classList.add('hidden');
       else backWrap?.classList.add('hidden');

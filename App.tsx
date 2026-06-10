@@ -165,7 +165,7 @@ const App: React.FC = () => {
         document.head.appendChild(styleTag);
       }
       styleTag.innerHTML = `
-        body, button, input, select, textarea {
+        *, *::before, *::after, body, button, input, select, textarea {
           font-family: '${fontFamily}', sans-serif !important;
         }
       `;

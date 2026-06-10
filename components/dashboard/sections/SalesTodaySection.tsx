@@ -106,7 +106,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const yesterdayStr = useMemo(() => {
     const d = new Date(todayStr + 'T12:00:00');
     d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
   }, [todayStr]);
 
   // Previous-day report — available for late vault deposits when the manager's shift crossed midnight

@@ -31,6 +31,7 @@ interface BranchNavbarProps {
   isRelief: boolean;
   showBillsAlert?: boolean;
   vaultEnabled?: boolean;
+  hasVaultRecord?: boolean;
 }
 
 const c = "w-[19px] h-[19px]";
@@ -58,7 +59,7 @@ const Icons = {
 const estimateTabWidth = (label: string) => 62 + label.length * 9;
 const MORE_BUTTON_WIDTH = 96; // "More" button estimated width
 
-export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false, vaultEnabled = false }) => {
+export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false, vaultEnabled = false, hasVaultRecord = false }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   // containerWidth tracks the actual pixel width of the desktop nav strip
   const [containerWidth, setContainerWidth] = useState(
@@ -121,7 +122,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     if (isRelief) {
       ['settings', 'salaries', 'expense_reports', 'monthly_bills'].forEach(id => hidden.add(id));
     }
-    if (!vaultEnabled) hidden.add('monthly_bills');
+    if (!vaultEnabled && !hasVaultRecord) hidden.add('monthly_bills');
     return hidden.size > 0 ? tabs.filter(t => !hidden.has(t.id)) : tabs;
   }, [enableShiftTracking, isRelief]);
 

@@ -390,6 +390,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           isRelief={props.isRelief}
           showBillsAlert={false}
           vaultEnabled={props.branch.vaultEnabled ?? false}
+          hasVaultRecord={!!props.branchVault}
         />
       </div>
 

@@ -227,7 +227,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           t.id,
         ]);
       });
-    downloadCSV(rows, `vault-all-transactions-${new Date().toISOString().slice(0, 10)}.csv`);
+    downloadCSV(rows, `vault-all-transactions-${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())}.csv`);
     playSound('success');
   };
 
@@ -270,7 +270,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       ]);
     });
 
-    downloadCSV(rows, `vault-${safeLabel}-${safeName}-${new Date().toISOString().slice(0, 10)}.csv`);
+    downloadCSV(rows, `vault-${safeLabel}-${safeName}-${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())}.csv`);
     playSound('success');
   };
 

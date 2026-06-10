@@ -762,6 +762,19 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         </div>
       )}
 
+      {/* Vault disabled notice */}
+      {!branch.vaultEnabled && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest leading-none">Vault Disabled</p>
+            <p className="text-[9px] font-bold text-amber-600 mt-0.5">This vault is archived. Balance and history are read-only.</p>
+          </div>
+        </div>
+      )}
+
       {/* ── Vault Balance KPI ── */}
       <div className={`bg-slate-900 text-white p-6 sm:p-8 ${UI_THEME.radius.card} shadow-xl space-y-5`}>
         <div className="space-y-4">
@@ -844,7 +857,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         })()}
 
         {/* Deposit to Vault button */}
-        {!isClosedMode && (
+        {!isClosedMode && branch.vaultEnabled && (
           <button
             onClick={() => {
               const firstReport = currentWeekReports[0];
@@ -914,7 +927,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 </div>
                 {/* Right: Pay Bill button */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                  {!isClosedMode && (
+                  {!isClosedMode && branch.vaultEnabled && (
                     <button
                       onClick={() => {
                         setWithdrawLabel('');
