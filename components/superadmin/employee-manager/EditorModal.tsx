@@ -4,6 +4,7 @@ import { DB_COLUMNS } from '../../../constants/db_schema';
 import { WorkplaceAuthorizationGrid, ROLE_ORDER } from './SharedComponents';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
+import { getManilaTodayStr } from '../../../lib/time';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 interface PersonalDetailsPayload {
@@ -559,12 +560,12 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                   <label className={labelCls}>Date Started</label>
-                  <input type="date" value={pdDetails.dateStart||''} max={new Date().toISOString().split('T')[0]} onChange={e => updPd({ dateStart: e.target.value })} className={`${pdErrors.dateStart ? pdInputErrCls : pdInputCls}${!pdDetails.dateStart ? ' date-empty' : ''}`} />
+                  <input type="date" value={pdDetails.dateStart||''} max={getManilaTodayStr()} onChange={e => updPd({ dateStart: e.target.value })} className={`${pdErrors.dateStart ? pdInputErrCls : pdInputCls}${!pdDetails.dateStart ? ' date-empty' : ''}`} />
                   {fieldErr('dateStart')}
                 </div>
                   <div>
                     <label className={labelCls}>Date of Birth</label>
-                    <input type="date" value={pdDetails.dateOfBirth||''} max={new Date().toISOString().split('T')[0]} onChange={e => updPd({ dateOfBirth: e.target.value })} className={`${pdErrors.dateOfBirth ? pdInputErrCls : pdInputCls}${!pdDetails.dateOfBirth ? ' date-empty' : ''}`} />
+                    <input type="date" value={pdDetails.dateOfBirth||''} max={getManilaTodayStr()} onChange={e => updPd({ dateOfBirth: e.target.value })} className={`${pdErrors.dateOfBirth ? pdInputErrCls : pdInputCls}${!pdDetails.dateOfBirth ? ' date-empty' : ''}`} />
                     {fieldErr('dateOfBirth')}
                   </div>
                 </div>

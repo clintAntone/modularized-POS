@@ -8,6 +8,8 @@ import { deleteFileByUrl } from '../../lib/storage';
 import { supabase } from '../../lib/supabase';
 import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
 import { getEmployeeRole } from '../../lib/payroll';
+import { getManilaTodayStr } from '../../lib/time';
+import { invalidateBranchSessions } from '../../lib/audit';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -236,6 +238,12 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             [DB_COLUMNS.DESCRIPTION]: `Administrator handled credentials reset for: ${target.name || 'UNNAMED'}. Access reverted to Setup Mode.`,
             [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
         });
+
+        const affectedBranchIds = [
+            target.branchId,
+            ...Object.keys(target.branchAllowances || {}),
+        ].filter(Boolean) as string[];
+        if (affectedBranchIds.length > 0) await invalidateBranchSessions(affectedBranchIds);
 
         playSound('success');
         setShowAdminWipeConfirm(null);
@@ -589,7 +597,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         doc.text('HILOT CENTER — CONFIDENTIAL', 14, doc.internal.pageSize.getHeight() - 8);
       }
 
-      doc.save(`STAFF_DIRECTORY_${now.toISOString().split('T')[0]}.pdf`);
+      doc.save(`STAFF_DIRECTORY_${getManilaTodayStr()}.pdf`);
       playSound('success');
     } catch (error) {
       console.error('PDF Export failed:', error);

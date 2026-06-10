@@ -5,6 +5,7 @@ import { playSound } from '../../lib/audio';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
+import { getManilaTodayStr } from '../../lib/time';
 
 interface ExpensesHubProps {
   branches: Branch[];
@@ -33,7 +34,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
   const setDatePreset = (preset: 'today' | 'week' | 'month') => {
     playSound('click');
     const now = new Date();
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const fmt = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
     if (preset === 'today') {
       const t = fmt(now); setStartDate(t); setEndDate(t);
     } else if (preset === 'week') {
@@ -102,7 +103,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
         headStyles: { fillColor: [5, 150, 105] },
         styles: { fontSize: 7 }
       });
-      doc.save(`EXPENSES_LEDGER_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`EXPENSES_LEDGER_${getManilaTodayStr()}.pdf`);
       playSound('success');
     } catch { alert('Failed to generate PDF.'); }
     finally { setIsExporting(false); }

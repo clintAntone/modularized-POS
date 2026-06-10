@@ -99,6 +99,9 @@ export const useGlobalData = (auth: AuthState) => {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
     const [displayChanges, setDisplayChanges] = useState(false);
+    // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
+    // loading to avoid a network congestion spike on login.
+    const [deferredEnabled, setDeferredEnabled] = useState(false);
 
     const isSyncingQueue = useRef(false);
 
@@ -289,6 +292,12 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 5 * 60 * 1000
     });
 
+    // Reset deferred flag on logout; enable it once the lightweight core queries settle.
+    useEffect(() => {
+        if (!auth.user) { setDeferredEnabled(false); return; }
+        if (!branchesLoading && !employeesLoading) setDeferredEnabled(true);
+    }, [auth.user, branchesLoading, employeesLoading]);
+
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
         queryFn: async () => {
@@ -316,7 +325,7 @@ export const useGlobalData = (auth: AuthState) => {
                 note: t[DB_COLUMNS.NOTE]
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -339,7 +348,7 @@ export const useGlobalData = (auth: AuthState) => {
                 name: e[DB_COLUMNS.NAME], amount: Number(e[DB_COLUMNS.AMOUNT] || 0), category: e[DB_COLUMNS.CATEGORY], receiptImage: e[DB_COLUMNS.RECEIPT_IMAGE]
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -387,7 +396,7 @@ export const useGlobalData = (auth: AuthState) => {
                 vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -399,7 +408,7 @@ export const useGlobalData = (auth: AuthState) => {
                 .from(DB_TABLES.VAULT_TRANSACTIONS)
                 .select(COLS.vaultTransactions)
                 .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
-                .limit(10000);
+                .limit(1000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -418,7 +427,7 @@ export const useGlobalData = (auth: AuthState) => {
                 createdAt: r[DB_COLUMNS.CREATED_AT],
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
 
@@ -442,7 +451,7 @@ export const useGlobalData = (auth: AuthState) => {
                 description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME]
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -469,7 +478,7 @@ export const useGlobalData = (auth: AuthState) => {
                 createdAt: att[DB_COLUMNS.CREATED_AT]
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -501,7 +510,7 @@ export const useGlobalData = (auth: AuthState) => {
                 updatedAt: r[DB_COLUMNS.UPDATED_AT]
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -550,7 +559,7 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewedAt: c[DB_COLUMNS.REVIEWED_AT] ?? undefined,
             }));
         },
-        enabled: !!supabase && !!auth.user,
+        enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
 

@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { hashPin, generateSalt } from '../../../lib/crypto';
 import { playSound } from '../../../lib/audio';
+import { invalidateBranchSessions } from '../../../lib/audit';
 
 type User = Exclude<AuthState['user'], null>;
 
@@ -64,7 +65,8 @@ export function useMyAccount(user: User, isPortalUser: boolean) {
     if (conflict) { setMyAccountError('That username is already in use.'); return; }
     updates[DB_COLUMNS.USERNAME] = newUsername;
 
-    if (myAccountForm.pin) {
+    const pinChanged = !!myAccountForm.pin;
+    if (pinChanged) {
       const salt = generateSalt();
       const hash = await hashPin(myAccountForm.pin, salt);
       updates[DB_COLUMNS.LOGIN_PIN] = hash;
@@ -78,6 +80,7 @@ export function useMyAccount(user: User, isPortalUser: boolean) {
         .update(updates)
         .eq('id', user.employeeId!);
       if (error) throw error;
+      if (pinChanged && user.branchId) await invalidateBranchSessions([user.branchId]);
       playSound('success');
       setMyAccountSuccess(true);
       setMyAccountForm(f => ({ ...f, confirmUsername: f.username, pin: '', confirmPin: '' }));

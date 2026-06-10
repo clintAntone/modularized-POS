@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { playSound, resumeAudioContext } from '../../lib/audio';
+import { getManilaTodayStr } from '../../lib/time';
 
 interface ExportOptions {
   schema: boolean;
@@ -169,7 +170,7 @@ export const DataExportHub: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `hilot_core_full_backup_${new Date().toISOString().split('T')[0]}.sql`;
+      link.download = `hilot_core_full_backup_${getManilaTodayStr()}.sql`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

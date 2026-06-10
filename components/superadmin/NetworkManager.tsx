@@ -6,6 +6,7 @@ import { Pagination } from '../dashboard/sections/common/Pagination';
 import { playSound } from '../../lib/audio';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getManilaTodayStr } from '../../lib/time';
 
 interface NetworkManagerProps {
   branches: Branch[];
@@ -120,7 +121,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
         rowPageBreak: 'avoid'
       });
 
-      doc.save(`NETWORK_REGISTRY_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`NETWORK_REGISTRY_${getManilaTodayStr()}.pdf`);
       playSound('success');
     } catch (error) {
       console.error('PDF Export failed:', error);

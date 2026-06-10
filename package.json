@@ -8,7 +8,8 @@
     "build": "vite build",
     "start": "NODE_ENV=production tsx server.ts",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && node scripts/check-dates.mjs",
+    "check:dates": "node scripts/check-dates.mjs",
     "cap:sync": "npm run build && npx cap sync",
     "cap:open": "npx cap open android",
     "cap:assets": "npx @capacitor/assets generate --android --icon src/assets/icon.png --splash src/assets/splash.png"

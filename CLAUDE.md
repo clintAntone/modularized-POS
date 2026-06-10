@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev          # Vite dev server
 npm run build        # Production build → dist/
 npm run lint         # Type-check only (tsc --noEmit) — no separate test runner
+npm start            # Run Node.js production server (tsx server.ts)
 npm run cap:sync     # Build + sync to Capacitor Android project
 npm run cap:open     # Open Android Studio
+npm run cap:assets   # Generate Capacitor icon/splash assets
 ```
 
 ## Architecture Overview
@@ -27,6 +29,8 @@ useAuth() → useGlobalData(auth) → Supabase (PostgreSQL + Realtime)
 
 `useGlobalData` (`hooks/useGlobalData.ts`) is the single source of truth — it loads all entities (branches, transactions, employees, expenses, attendance, sales reports, vault data, system config) and exposes them to the entire app. Components receive data as props from the top-level dashboard components, not by calling Supabase directly.
 
+`useOptimizedData` and `useNetworkData` are opt-in performance alternatives, not replacements. `useOptimizedData` adds a 60s client-side TTL cache to reduce egress. `useNetworkData` wraps React Query for granular per-entity fetching (`useBranches`, `useEmployees`, `useTransactions`, etc.) with a 90-day lookback and branch filtering.
+
 ## Key Conventions
 
 **Database access** — Always use `DB_TABLES` and `DB_COLUMNS` from `constants/db_schema.ts` rather than raw string literals. All columns are mapped there.
@@ -35,7 +39,7 @@ useAuth() → useGlobalData(auth) → Supabase (PostgreSQL + Realtime)
 
 **Time & timezone** — All date comparisons must use Manila time. Use `toManilaDateStr()` from `lib/time.ts`. Never use `new Date().toISOString().slice(0,10)` for date keys.
 
-**Audit logging** — Every DB write (insert/update/delete) should call `logAudit()` from `lib/audit.ts`.
+**Audit logging** — Every DB write (insert/update/delete) should call `logAudit()` from `lib/audit.ts`. Also exports `invalidateGlobalSessions()` (bumps `refresh_signal` on all branches + sets `force_logout_registry['GLOBAL']` in `system_config`) and `invalidateBranchSessions(branchIds)` for per-branch force-logout — call these on PIN or credential changes.
 
 **Offline queue** — Writes that fail while offline are queued in localStorage (`hilot_core_pending_sync_v1`) and flushed on reconnect via `flushOfflineQueue()`. Upsert with `onConflict` is the safe write pattern.
 
@@ -56,7 +60,7 @@ useAuth() → useGlobalData(auth) → Supabase (PostgreSQL + Realtime)
 
 **POS / Transactions** — Services can have a primary provider (therapist) and secondary provider (bonesetter), each with their own commission. Commission can be fixed or percentage-based. A transaction records both `therapistId/Name` and `bonesetterId/Name`.
 
-**Vault** — Branches optionally have a vault (`branch_vaults` table). When `vaultEnabled = true` on a branch, daily reports deduct a provision into the vault. Vault transactions are typed: `DEPOSIT`, `ADMIN_DEPOSIT`, `WITHDRAWAL`, `VAULT_WITHDRAWAL`. The `net_roi` on a `sales_report` is reduced when a superadmin deposits from that report's ROI.
+**Vault** — Branches optionally have a vault (`branch_vaults` table). When `vaultEnabled = true` on a branch, daily reports deduct a provision into the vault. Vault transactions are typed: `DEPOSIT`, `ADMIN_DEPOSIT`, `WITHDRAWAL`, `VAULT_WITHDRAWAL`. The `net_roi` on a `sales_report` is reduced when a superadmin deposits from that report's ROI. When creating expenses linked to vault operations, use the full `ExpenseCategory` enum from `types/index.ts` — it includes `VAULT_FUND_DEPOSIT` and `VAULT_REMITTANCE` beyond the basic vault types.
 
 **Payroll** — Weekly cycle (7 days). Allowances adjust for half-days and late deductions. Relievers (employees working at a non-home branch) are tracked separately from regular staff.
 
@@ -81,6 +85,14 @@ useAuth() → useGlobalData(auth) → Supabase (PostgreSQL + Realtime)
 | Branch manager tabs | `components/dashboard/sections/` |
 | Shared/reusable UI | `components/shared/` |
 | What's New modal | `components/branch-manager/modals/WhatsNewModal.tsx` |
+
+## Modal Pattern
+
+Modals are rendered via React Portals (`createPortal`). Layout follows a consistent three-part structure: dark header (`slate-900`), scrollable body, and bordered footer with CTA. Step-through modals (e.g. `WhatsNewModal`) use `activeIdx` state + a `useRef` array of card refs to scroll-into-view on progression. Show-once logic uses `localStorage` markers keyed by release version + Manila date (`toManilaDateStr()`).
+
+## Database Notes
+
+All Supabase tables use permissive all-pass RLS (`USING true WITH CHECK true`). The security boundary is the anon key, not DB-level policy. Feature tables are set up via separate SQL files in `supabase/` (e.g. `bill_payments_setup.sql`, `portal_users_setup.sql`). A Supabase Edge Function at `supabase/functions/notify-branch-not-opened/` runs at midnight Manila time to flag branches that didn't open.
 
 ## Mobile Build
 

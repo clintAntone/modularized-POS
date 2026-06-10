@@ -13,6 +13,9 @@ import { ReportFilters } from './reports-master/ReportFilters';
 import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
 import { toDateStr, getWeekRange, getReportMonth, parseDate, normalizeDateStr } from '@/src/utils/reportUtils';
+import { getManilaTodayStr } from '../../../lib/time';
+
+const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 
 interface ReportsMasterProps {
   branch: Branch;
@@ -412,7 +415,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
         }
       });
 
-      doc.save(`NETWORK_REPORTS_${view.toUpperCase()}_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`NETWORK_REPORTS_${view.toUpperCase()}_${getManilaTodayStr()}.pdf`);
       playSound('success');
     } catch (error) {
       console.error('PDF Export failed:', error);
@@ -491,12 +494,12 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
     const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+    const yesterdayStr = manilaYMD(yesterdayDate);
 
     // 90-day fetch boundary — never flag dates older than this as "missing"
     const fetchBoundaryDate = new Date(todayDate);
     fetchBoundaryDate.setDate(fetchBoundaryDate.getDate() - 90);
-    const fetchBoundaryStr = fetchBoundaryDate.toISOString().slice(0, 10);
+    const fetchBoundaryStr = manilaYMD(fetchBoundaryDate);
 
     const targetBranches = (branch.id === 'all' ? branches : branches.filter(b => b.id === branch.id))
       .filter(b => !b.name.toUpperCase().includes('TEST'))
@@ -516,7 +519,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
       const cycleStart = new Date(todayDate);
       cycleStart.setDate(cycleStart.getDate() - daysAgo);
-      const cycleStartStr = cycleStart.toISOString().slice(0, 10);
+      const cycleStartStr = manilaYMD(cycleStart);
 
       // Find this branch's earliest report — don't flag gaps before it was operating.
       // If no reports at all, the branch is brand-new and should be skipped entirely.
@@ -541,7 +544,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       const cursor = new Date(effectiveStart + 'T12:00:00+08:00');
 
       while (cursor <= yesterdayDate) {
-        const dateStr = cursor.toISOString().slice(0, 10);
+        const dateStr = manilaYMD(cursor);
         const report = salesReports.find(r => r.branchId === b.id && r.reportDate === dateStr);
         if (!report) missingDates.push(dateStr);
         cursor.setDate(cursor.getDate() + 1);

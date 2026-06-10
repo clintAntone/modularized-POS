@@ -218,6 +218,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
         { [DB_COLUMNS.KEY]: 'master_admin_pin_salt', [DB_COLUMNS.VALUE]: salt },
       ], { onConflict: DB_COLUMNS.KEY });
       if (error) throw error;
+      await invalidateGlobalSessions();
       await logAudit({
         branchId: null,
         activityType: 'UPDATE',

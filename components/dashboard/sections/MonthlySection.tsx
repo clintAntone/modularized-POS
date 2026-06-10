@@ -4,6 +4,8 @@ import { Branch, SalesReport } from '../../../types';
 import { TabID } from '../../BranchManagerDashboard';
 import { playSound } from '../../../lib/audio';
 
+const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
+
 interface MonthlySectionProps {
   branch: Branch;
   salesReports: SalesReport[];
@@ -31,8 +33,8 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
       const cycleEnd = new Date(iterDate.getFullYear(), iterDate.getMonth() + 1, 0);
       cycleEnd.setHours(23, 59, 59, 999);
       
-      const startStr = cycleStart.toISOString().split('T')[0];
-      const endStr = cycleEnd.toISOString().split('T')[0];
+      const startStr = manilaYMD(cycleStart);
+      const endStr = manilaYMD(cycleEnd);
 
       // Sum finalized reports within this month
       const cycleReports = filteredReports.filter(r => r.reportDate >= startStr && r.reportDate <= endStr);

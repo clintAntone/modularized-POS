@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Employee, Branch } from '../../../types';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { ROLE_ORDER } from './SharedComponents';
-const icon = '/icon.png';
+const icon = localStorage.getItem('hilot_cached_logo') || '/icon.png';
 import { APP_NAME } from '../../../constants';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
@@ -17,42 +17,50 @@ interface EmployeeIDCardModalProps {
 
 export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employee, branches, onClose }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [flipped, setFlipped] = useState(false);
 
   const handleDownloadPDF = async () => {
-    if (!cardRef.current || isDownloading) return;
+    if (!cardRef.current || !backRef.current || isDownloading) return;
     setIsDownloading(true);
+
+    // On mobile one card is hidden — temporarily reveal both for capture
+    const cardWrap = cardRef.current.parentElement as HTMLElement;
+    const backWrap = backRef.current.parentElement as HTMLElement;
+    cardWrap?.classList.remove('hidden');
+    backWrap?.classList.remove('hidden');
+
     try {
-      // Capture at 3× for crisp PDF resolution
-      const dataUrl = await toPng(cardRef.current, {
-        cacheBust: true,
-        pixelRatio: 3,
-        backgroundColor: '#ffffff',
-      });
+      const cardWidthIn = 2.5;
+      const padding = 0.2;
 
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise(resolve => { img.onload = resolve; });
+      const frontUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 3, backgroundColor: '#ffffff' });
+      const frontImg = new Image();
+      frontImg.src = frontUrl;
+      await new Promise(resolve => { frontImg.onload = resolve; });
+      const frontHeightIn = (frontImg.naturalHeight / frontImg.naturalWidth) * cardWidthIn;
 
-      // Card physical size: 2.5in × ~4.3in at 72dpi (jsPDF default)
-      const cardWidthIn  = 2.5;
-      const cardHeightIn = (img.naturalHeight / img.naturalWidth) * cardWidthIn;
-      const pageW = cardWidthIn  + 0.4;  // 0.2in padding each side
-      const pageH = cardHeightIn + 0.4;
+      const backUrl = await toPng(backRef.current, { cacheBust: true, pixelRatio: 3, backgroundColor: '#ffffff' });
+      const backImg = new Image();
+      backImg.src = backUrl;
+      await new Promise(resolve => { backImg.onload = resolve; });
+      const backHeightIn = (backImg.naturalHeight / backImg.naturalWidth) * cardWidthIn;
 
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'in',
-        format: [pageW, pageH],
-      });
-
-      pdf.addImage(dataUrl, 'PNG', 0.2, 0.2, cardWidthIn, cardHeightIn);
+      const pageW = cardWidthIn + padding * 2;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: [pageW, frontHeightIn + padding * 2] });
+      pdf.addImage(frontUrl, 'PNG', padding, padding, cardWidthIn, frontHeightIn);
+      pdf.addPage([pageW, backHeightIn + padding * 2]);
+      pdf.addImage(backUrl, 'PNG', padding, padding, cardWidthIn, backHeightIn);
 
       const safeName = (employee.name || 'employee').replace(/\s+/g, '_').toLowerCase();
       pdf.save(`id_${safeName}.pdf`);
     } catch (err) {
       console.error('[DownloadID]', err);
     } finally {
+      // Restore mobile hidden state
+      if (flipped) cardWrap?.classList.add('hidden');
+      else backWrap?.classList.add('hidden');
       setIsDownloading(false);
     }
   };
@@ -78,7 +86,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
     if (b.manager?.toUpperCase() === (employee.name || '').toUpperCase()) return true;
     if (b.tempManager?.toUpperCase() === (employee.name || '').toUpperCase()) return true;
     return false;
-  });
+  }).sort((a, b) => (a.id === employee.branchId ? -1 : b.id === employee.branchId ? 1 : 0));
 
 
   // Collect unique roles across all branch allowances + base role
@@ -122,15 +130,25 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xl flex items-start sm:items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="flex flex-col items-center gap-4 w-full max-w-[320px] animate-in zoom-in-95 duration-200"
+        className="flex flex-col items-center gap-3 w-full max-w-[320px] sm:max-w-[680px] animate-in zoom-in-95 duration-200 my-auto"
         onClick={e => e.stopPropagation()}
       >
+        {/* Cards — 2-column on desktop, single with flip on mobile */}
+        <div className="w-full sm:grid sm:grid-cols-2 sm:gap-4 sm:items-stretch">
+
+          {/* Front wrapper */}
+          <div
+            className={`flex flex-col gap-2 ${flipped ? 'hidden sm:flex' : 'flex'} sm:h-full sm:cursor-default cursor-pointer`}
+            onClick={() => setFlipped(true)}
+          >
+            <p className="hidden sm:block text-[8px] font-black text-white/30 uppercase tracking-widest text-center">Front</p>
+
         {/* ID Card — fixed portrait badge */}
-        <div ref={cardRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl" style={{ border: '1.5px solid #e2e8f0', minHeight: '500px' }}>
+        <div ref={cardRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
 
           {/* ── Wrapper so photo can overlap the header/body seam without being clipped ── */}
           <div className="relative">
@@ -175,7 +193,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           </div>
 
           {/* ── White body ── */}
-          <div className="bg-white pb-6 px-6 flex flex-col items-center" style={{ paddingTop: '62px' }}>
+          <div className="bg-white pb-6 px-6 flex flex-col items-center flex-1" style={{ paddingTop: '62px' }}>
 
             {/* Primary role badge (e.g. MANAGER) */}
             {roles.includes('MANAGER') && (
@@ -266,8 +284,8 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             </div>
 
             {/* Footer */}
-            <div className="w-full pt-3 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Official Company ID</p>
+            <div className="mt-auto w-full pt-3 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -277,12 +295,130 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 w-full">
+          </div> {/* /front wrapper */}
+
+          {/* Back wrapper */}
+          <div
+            className={`flex flex-col gap-2 ${!flipped ? 'hidden sm:flex' : 'flex'} sm:h-full sm:cursor-default cursor-pointer`}
+            onClick={() => setFlipped(false)}
+          >
+            <p className="hidden sm:block text-[8px] font-black text-white/30 uppercase tracking-widest text-center">Back</p>
+
+        {/* ── Back Card ── */}
+        <div ref={backRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col sm:h-full" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
+
+          {/* Dark header */}
+          <div className="relative bg-slate-900 overflow-hidden px-5 py-4">
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-emerald-500/15" />
+            <div className="absolute top-4 right-8 w-20 h-20 rounded-full bg-indigo-500/20" />
+            <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-slate-700/50" />
+            <div className="relative z-10 flex items-center gap-2">
+              <img src={icon} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow-sm" />
+              <div>
+                <p className="text-[10px] font-black text-white uppercase tracking-[0.18em] leading-none">{APP_NAME}</p>
+                <p className="text-[7px] font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
+              </div>
+            </div>
+          </div>
+
+          {/* White body */}
+          <div className="bg-white px-6 pt-4 pb-6 flex flex-col gap-3 flex-1">
+
+            {/* Certification text */}
+            <p className="text-[9px] text-slate-500 text-center leading-relaxed">
+              This certifies that the bearer whose name and photograph appear hereon is an authorized employee of{' '}
+              <span className="font-black text-slate-800">{APP_NAME}</span>.
+            </p>
+
+            <div className="w-full h-px bg-slate-100" />
+
+            {/* Detail rows */}
+            <div className="space-y-2">
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Name</p>
+                <p className="text-[10px] font-black text-slate-900 leading-tight">{fullNameFormatted}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">ID No.</p>
+                <p className="text-[10px] font-black text-slate-900 font-mono tracking-wider">{(empId || '').toUpperCase()}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Branch</p>
+                <p className="text-[10px] font-black text-slate-900">{homeBranch?.name || '—'}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Contact</p>
+                <p className="text-[10px] font-black text-slate-900">{employee.details?.contactNumber || '—'}</p>
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-slate-100" />
+
+            {/* Emergency contact */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">In Case of Emergency</p>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Name</p>
+                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactName || '—'}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Relationship</p>
+                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactRelationship || '—'}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Number</p>
+                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactNumber || '—'}</p>
+              </div>
+              <div className="flex gap-3">
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Address</p>
+                <p className="text-[10px] font-black text-slate-900 leading-tight">{employee.details?.emergencyContactAddress || '—'}</p>
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-slate-100" />
+
+            {/* Signature lines */}
+            <div className="flex gap-4">
+              <div className="flex-1 flex flex-col items-center">
+                <div className="w-full h-7 border-b border-slate-300" />
+                <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center">Employee Signature</p>
+              </div>
+              <div className="flex-1 flex flex-col items-center">
+                <div className="w-full h-7 border-b border-slate-300" />
+                <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center">Authorized By</p>
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-slate-100" />
+
+            {/* If found */}
+            <div className="text-center">
+              <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mb-1">If found, please return to:</p>
+              <p className="text-[9px] font-black text-slate-800 uppercase tracking-wide">{APP_NAME}</p>
+              <p className="text-[7px] text-slate-500 mt-0.5">{homeBranch?.name || '—'}</p>
+            </div>
+
+            {/* Footer — mt-auto pins it to the bottom */}
+            <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+          </div> {/* /back wrapper */}
+        </div> {/* /cards grid */}
+
+        {/* Action buttons — full width on mobile, aligned under each card on desktop */}
+        <div className="flex gap-2 w-full sm:grid sm:grid-cols-2 sm:gap-4">
           <button
             onClick={handleDownloadPDF}
             disabled={isDownloading}
-            className="flex-1 flex items-center justify-center gap-2 h-10 bg-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 h-11 bg-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
           >
             {isDownloading ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -295,7 +431,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           </button>
           <button
             onClick={onClose}
-            className="flex-1 h-10 bg-slate-900 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+            className="flex-1 h-11 bg-slate-900 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white hover:bg-slate-800 transition-all active:scale-95"
           >
             Close
           </button>

@@ -140,7 +140,7 @@ export const useSalesReports = (branchId?: string) => {
         queryFn: async () => {
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
-            const lookbackYmd = lookbackDate.toISOString().split('T')[0];
+            const lookbackYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(lookbackDate);
 
             let query = supabase.from(DB_TABLES.SALES_REPORTS)
                 .select('*')

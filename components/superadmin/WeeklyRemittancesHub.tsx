@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Branch, SalesReport } from '../../types';
 import { playSound } from '../../lib/audio';
 import { getWeekRange, parseDate, normalizeDateStr } from '../../src/utils/reportUtils';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { jsPDF } from 'jspdf';
@@ -780,7 +780,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         }
       });
 
-      doc.save(`Weekly_Remittances_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Weekly_Remittances_${getManilaTodayStr()}.pdf`);
       playSound('success');
     } catch (err) {
       console.error('PDF export failed:', err);

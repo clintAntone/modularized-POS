@@ -180,9 +180,10 @@ export const useOptimizedData = (auth: AuthState) => {
     const today = new Date();
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     
+    const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
     return {
-      start: sevenDaysAgo.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0]
+      start: manilaYMD(sevenDaysAgo),
+      end: manilaYMD(today)
     };
   };
 

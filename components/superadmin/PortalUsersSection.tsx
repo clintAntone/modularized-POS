@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { hashPin, generateSalt } from '../../lib/crypto';
+import { invalidateBranchSessions, invalidateGlobalSessions } from '../../lib/audit';
 import { Branch, PortalUser, PortalPermissions } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 
@@ -77,6 +78,10 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
   const [formError, setFormError]           = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [branchSearch, setBranchSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [tabFilter, setTabFilter] = useState<string[]>([]);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
 
   const activeBranches = branches.filter(b => b.isEnabled);
 
@@ -118,6 +123,13 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    if (!tabDropdownOpen) return;
+    const close = () => setTabDropdownOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [tabDropdownOpen]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -190,7 +202,8 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
           [DB_COLUMNS.IS_ACTIVE]:    form.isActive,
           [DB_COLUMNS.UPDATED_AT]:   new Date().toISOString(),
         };
-        if (form.pin) {
+        const pinChanged = !!form.pin;
+        if (pinChanged) {
           const salt = generateSalt();
           const hash = await hashPin(form.pin, salt);
           update[DB_COLUMNS.LOGIN_PIN] = hash;
@@ -198,6 +211,13 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
         }
         const { error } = await supabase.from(DB_TABLES.PORTAL_USERS).update(update).eq(DB_COLUMNS.ID, editingId);
         if (error) throw error;
+        if (pinChanged) {
+          if (form.isSuperadmin || !form.restrictBranches || form.branchIds.length === 0) {
+            await invalidateGlobalSessions();
+          } else {
+            await invalidateBranchSessions(form.branchIds);
+          }
+        }
       } else {
         const salt = generateSalt();
         const hash = await hashPin(form.pin, salt);
@@ -253,6 +273,35 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
   const activeCount  = users.filter(u => u.isActive).length;
   const adminCount   = users.filter(u => u.isSuperadmin).length;
 
+  const filteredUsers = useMemo(() => {
+    let list = users;
+    const q = userSearch.trim().toUpperCase();
+    if (q) list = list.filter(u =>
+      u.displayName.toUpperCase().includes(q) || u.username.toUpperCase().includes(q)
+    );
+    if (tabFilter.length > 0) list = list.filter(u =>
+      u.isSuperadmin || tabFilter.every(t => !!u.permissions?.tabs?.[t as AdminTab])
+    );
+    return list;
+  }, [users, userSearch, tabFilter]);
+
+  const handleToggleActive = async (u: PortalUser) => {
+    if (togglingId) return;
+    setTogglingId(u.id);
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.PORTAL_USERS)
+        .update({ [DB_COLUMNS.IS_ACTIVE]: !u.isActive, [DB_COLUMNS.UPDATED_AT]: new Date().toISOString() })
+        .eq(DB_COLUMNS.ID, u.id);
+      if (error) throw error;
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isActive: !u.isActive } : x));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const getInitials = (name: string) =>
     name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
@@ -261,20 +310,20 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
 
       {/* ── Dark header card ── */}
       <div className="bg-slate-900 rounded-[24px] px-5 py-5 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+            <svg className="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-black uppercase tracking-tight text-white leading-none">Portal Users</h2>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Limited dashboard accounts</p>
+            <h2 className="text-[13px] font-black uppercase tracking-tight text-white leading-none truncate">Portal Users</h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Limited dashboard accounts</p>
           </div>
           <button
             onClick={openCreate}
-            className="shrink-0 h-9 px-4 bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-slate-100 active:scale-95 transition-all flex items-center gap-1.5"
+            className="shrink-0 h-9 px-4 bg-indigo-500 hover:bg-indigo-400 active:scale-95 transition-all rounded-2xl flex items-center gap-1.5 shadow-lg shadow-indigo-900/40"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
-            New
+            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M12 4v16m8-8H4"/></svg>
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">New User</span>
           </button>
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -314,12 +363,97 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
         </div>
       ) : (
         <div className="bg-white border border-slate-100 rounded-[24px] overflow-hidden shadow-sm">
-          <div className="px-5 py-3.5 bg-slate-900 flex items-center justify-between">
-            <p className="text-[9px] font-black text-white uppercase tracking-widest">Accounts</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{users.length} user{users.length !== 1 ? 's' : ''}</p>
+          <div className="px-5 py-3.5 bg-slate-900 flex items-center justify-between gap-3">
+            <p className="text-[9px] font-black text-white uppercase tracking-widest shrink-0">Accounts</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest shrink-0 ml-auto">
+              {filteredUsers.length}/{users.length}
+            </p>
           </div>
+
+          {/* Search + Tab filter */}
+          <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+              </svg>
+              <input
+                type="text"
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                placeholder="SEARCH NAME OR USERNAME…"
+                className="w-full h-9 pl-8 pr-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black text-slate-700 uppercase tracking-widest placeholder:font-bold placeholder:tracking-widest placeholder:text-slate-300 outline-none focus:border-slate-300 focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Custom tab filter dropdown */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setTabDropdownOpen(o => !o)}
+                className={`h-9 px-3 flex items-center gap-1.5 border rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tabFilter.length > 0 ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100'}`}
+              >
+                <span>{tabFilter.length > 0 ? `${tabFilter.length} Tab${tabFilter.length > 1 ? 's' : ''}` : 'All Tabs'}</span>
+                <svg className={`w-2.5 h-2.5 opacity-60 transition-transform ${tabDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              {tabDropdownOpen && (
+                <div className="absolute right-0 top-10 z-50 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-50">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filter by Tab</p>
+                    {tabFilter.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setTabFilter([])}
+                        className="text-[8px] font-black text-rose-400 uppercase tracking-widest hover:text-rose-600"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {CATEGORIES.map(cat => (
+                      <div key={cat}>
+                        <p className="px-4 pt-2.5 pb-1 text-[8px] font-black text-slate-300 uppercase tracking-widest">{cat}</p>
+                        {TAB_DEFINITIONS.filter(t => t.category === cat).map(t => {
+                          const checked = tabFilter.includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setTabFilter(prev =>
+                                checked ? prev.filter(x => x !== t.id) : [...prev, t.id]
+                              )}
+                              className="w-full px-4 py-2 flex items-center gap-2.5 text-left hover:bg-slate-50 transition-all"
+                            >
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${checked ? 'bg-slate-900 border-slate-900' : 'border-slate-300'}`}>
+                                {checked && (
+                                  <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${checked ? 'text-slate-900' : 'text-slate-500'}`}>{t.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="divide-y divide-slate-50">
-            {users.map(u => {
+            {filteredUsers.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No users match your filter</p>
+              </div>
+            ) : null}
+            {filteredUsers.map(u => {
               const label   = branchLabel(u);
               const count   = grantedCount(u);
               const isMe    = u.id === currentUserId;
@@ -361,6 +495,21 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
 
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Quick active toggle switch */}
+                    {!isMe && (
+                      <button
+                        onClick={() => handleToggleActive(u)}
+                        disabled={togglingId === u.id}
+                        title={u.isActive ? 'Disable account' : 'Enable account'}
+                        className={`relative w-11 h-6 rounded-full transition-all duration-300 disabled:opacity-50 shrink-0 ${u.isActive ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                      >
+                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300 ${u.isActive ? 'left-[22px]' : 'left-0.5'}`}>
+                          {togglingId === u.id && (
+                            <div className="w-full h-full rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+                          )}
+                        </div>
+                      </button>
+                    )}
                     <button
                       onClick={() => openEdit(u)}
                       className="h-8 px-3 text-[9px] font-bold uppercase tracking-widest text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all active:scale-95"
