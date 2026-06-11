@@ -24,6 +24,8 @@ export const DB_TABLES = {
   DEVICE_LOGS: 'device_logs',
   VAULT_TRANSACTIONS: 'vault_transactions',
   EMPLOYEE_COMPLAINTS: 'employee_complaints',
+  SERVICE_TEMPLATES: 'service_templates',
+  BRANCH_SERVICES: 'branch_services',
 };
 
 export const DB_COLUMNS = {

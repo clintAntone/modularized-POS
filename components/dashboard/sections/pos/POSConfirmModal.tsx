@@ -3,6 +3,7 @@ import { Service } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 import { POSMode } from '../POSSection';
+import { PWD_BASE_THRESHOLD, PWD_DISCOUNT_HIGH, PWD_DISCOUNT_LOW } from '../../../../lib/payroll';
 
 interface POSConfirmModalProps {
     mode: POSMode;
@@ -27,9 +28,8 @@ export const POSConfirmModal: React.FC<POSConfirmModalProps> = (props) => {
     
     const currentBasePrice = useMemo(() => standardServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0), [standardServices]);
     
-    // FIX: Update threshold to 900 as per user request
-    const pwdDiscount = (props.formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > 900 ? 100 : 50) : 0;
-    const totalDiscount = props.formData.discount + pwdDiscount;
+    const pwdDiscount = (props.formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
+    const totalDiscount = Math.min(currentBasePrice, Math.max(0, props.formData.discount || 0) + pwdDiscount);
     const totalCalculated = Math.max(0, currentBasePrice - totalDiscount);
 
     const calculateTotalCommission = (services: Service[], discount: number, roleToCalculate: 'THERAPIST' | 'BONESETTER'): number => {

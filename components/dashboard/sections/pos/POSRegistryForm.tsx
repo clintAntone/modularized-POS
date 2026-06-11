@@ -91,6 +91,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                             <input
                                 ref={inputRef}
                                 value={props.formData.client_name}
+                                maxLength={50}
                                 onChange={e => {
                                     props.setFormData((prev: any) => ({ ...prev, client_name: e.target.value }));
                                     setShowSuggestions(true);

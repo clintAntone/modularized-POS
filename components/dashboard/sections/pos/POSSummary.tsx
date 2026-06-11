@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Service } from '../../../../types';
 import { playSound } from '../../../../lib/audio';
 import { POSMode } from '../POSSection';
+import { PWD_BASE_THRESHOLD, PWD_DISCOUNT_HIGH, PWD_DISCOUNT_LOW } from '../../../../lib/payroll';
 import { Check, Banknote, Smartphone } from 'lucide-react';
 
 interface POSSummaryProps {
@@ -23,12 +24,21 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
 
     const currentBasePrice = useMemo(() => standardServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0), [standardServices]);
 
-    // FIX: Match the corrected threshold logic for precisely ₱900 and above
-    const pwdDiscount = useMemo(() => (props.formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > 900 ? 100 : 50) : 0, [props.formData.is_pwd_senior, currentBasePrice]);
+    const pwdDiscount = useMemo(() => (props.formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0, [props.formData.is_pwd_senior, currentBasePrice]);
 
+    const maxDiscount = currentBasePrice - pwdDiscount;
     const manualDiscount = Math.max(0, Number(props.formData.discount || 0));
-    const totalDiscount = Math.min(currentBasePrice, manualDiscount + pwdDiscount);
+    const isDiscountInvalid = manualDiscount > maxDiscount && currentBasePrice > 0;
+    const effectiveManualDiscount = isDiscountInvalid ? 0 : manualDiscount;
+    const totalDiscount = Math.min(currentBasePrice, effectiveManualDiscount + pwdDiscount);
     const totalCalculated = Math.max(0, currentBasePrice - totalDiscount);
+
+    const [shaking, setShaking] = useState(false);
+    const triggerShake = useCallback(() => {
+        setShaking(true);
+        playSound('warning');
+        setTimeout(() => setShaking(false), 400);
+    }, []);
 
     const isLeadSelected = props.primaryRole === 'THERAPIST' ? props.formData.therapist_name : props.formData.bonesetter_name;
     const isSupportSelected = props.primaryRole === 'THERAPIST' ? props.formData.bonesetter_name : props.formData.therapist_name;
@@ -36,7 +46,8 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
     const isReady = props.formData.client_name &&
         (props.formData.selected_service_ids.length > 0 || props.formData.loyalty_service_ids.length > 0) &&
         isLeadSelected &&
-        (!props.isDualProviderRequired || isSupportSelected);
+        (!props.isDualProviderRequired || isSupportSelected) &&
+        !isDiscountInvalid;
 
     return (
         <div className="bg-[#0F172A] text-white p-8 rounded-[44px] shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
@@ -68,7 +79,15 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                                 )}
                             </div>
                             <button
-                                onClick={() => { playSound('click'); props.setFormData({...props.formData, is_pwd_senior: !props.formData.is_pwd_senior}); }}
+                                onClick={() => {
+                                    playSound('click');
+                                    const toggling_on = !props.formData.is_pwd_senior;
+                                    const newPwdDiscount = toggling_on
+                                        ? (currentBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW)
+                                        : 0;
+                                    const cappedDiscount = Math.max(0, Math.min(currentBasePrice - newPwdDiscount, Number(props.formData.discount || 0)));
+                                    props.setFormData({ ...props.formData, is_pwd_senior: toggling_on, discount: cappedDiscount });
+                                }}
                                 className={`w-12 h-6 rounded-full transition-all relative ${props.formData.is_pwd_senior ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'bg-slate-700'}`}
                             >
                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${props.formData.is_pwd_senior ? 'left-7' : 'left-1'}`}></div>
@@ -85,11 +104,25 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                             </div>
                             <input
                                 type="number"
+                                min="0"
                                 value={props.formData.discount || ''}
-                                onChange={e => props.setFormData({...props.formData, discount: Math.max(0, Math.min(currentBasePrice - pwdDiscount, Number(e.target.value)))})}
-                                className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-white font-bold outline-none focus:border-emerald-500 transition-all shadow-inner tabular-nums"
+                                onChange={e => {
+                                    const val = Math.max(0, Number(e.target.value));
+                                    props.setFormData({...props.formData, discount: val});
+                                    if (val > maxDiscount && currentBasePrice > 0) triggerShake();
+                                }}
+                                className={`w-full p-4 rounded-xl font-bold outline-none transition-all shadow-inner tabular-nums ${
+                                    isDiscountInvalid
+                                        ? `bg-rose-500/10 border-2 border-rose-500 text-rose-400 ${shaking ? 'animate-shake' : ''}`
+                                        : 'bg-white/5 border border-white/10 text-white focus:border-emerald-500'
+                                }`}
                                 placeholder="0"
                             />
+                            {isDiscountInvalid && (
+                                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    Max discount is ₱{maxDiscount.toLocaleString()}
+                                </p>
+                            )}
                         </div>
                     </div>
 

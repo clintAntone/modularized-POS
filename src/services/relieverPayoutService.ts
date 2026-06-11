@@ -52,7 +52,7 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
                         const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === name && e.branchId === branch.id);
                         if (homeBranchMatch) return;
                         let allowance = getEmployeeAllowance(emp, branch.id);
-                        if (att.is_half_day === true || att.isHalfDay === true) allowance /= 2;
+                        if (att.is_half_day === true) allowance /= 2;
                         relieverData[name] = {
                             commission: 0,
                             allowance,
@@ -64,47 +64,43 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
             }
         });
 
-        // 2. Add Commissions from Transactions
+        // 2. Add Commissions from Transactions (ID-based matching)
         (latestTxs || []).forEach(t => {
-            const therapist = (t.therapist_name || t.therapistName)?.trim().toUpperCase();
-            const bonesetter = (t.bonesetter_name || t.bonesetterName)?.trim().toUpperCase();
+            const therapistId = t.therapist_id || t.therapistId;
+            const bonesetterId = t.bonesetter_id || t.bonesetterId;
 
-            if (therapist && !hiddenStaffNames?.has(therapist)) {
-                // If a home-branch employee with this name exists, they are regular staff — not a reliever.
-                const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === therapist && e.branchId === branch.id);
-                if (!homeBranchMatch) {
-                    const emp = employees.find(e => e.name?.trim().toUpperCase() === therapist);
-                    if (emp && emp.branchId !== branch.id) {
-                        const cfg = emp.branchAllowances?.[branch.id];
-                        const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                        const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
-                        const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
-                        if (!isMainManager && !isTempManager && !excluded) {
-                            if (!relieverData[therapist]) {
-                                relieverData[therapist] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
-                            }
-                            relieverData[therapist].commission += (Number(t.primary_commission || t.primaryCommission) || 0);
+            if (therapistId) {
+                const emp = employees.find(e => e.id === therapistId);
+                if (emp && emp.branchId !== branch.id) {
+                    const name = emp.name?.trim().toUpperCase();
+                    if (!name || hiddenStaffNames?.has(name)) return;
+                    const cfg = emp.branchAllowances?.[branch.id];
+                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                    const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                    const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                    if (!isMainManager && !isTempManager && !excluded) {
+                        if (!relieverData[name]) {
+                            relieverData[name] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
                         }
+                        relieverData[name].commission += (Number(t.primary_commission || t.primaryCommission) || 0);
                     }
                 }
             }
 
-            if (bonesetter && !hiddenStaffNames?.has(bonesetter)) {
-                // If a home-branch employee with this name exists, they are regular staff — not a reliever.
-                const homeBranchMatch = employees.find(e => e.name?.trim().toUpperCase() === bonesetter && e.branchId === branch.id);
-                if (!homeBranchMatch) {
-                    const emp = employees.find(e => e.name?.trim().toUpperCase() === bonesetter);
-                    if (emp && emp.branchId !== branch.id) {
-                        const cfg = emp.branchAllowances?.[branch.id];
-                        const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
-                        const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
-                        const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
-                        if (!isMainManager && !isTempManager && !excluded) {
-                            if (!relieverData[bonesetter]) {
-                                relieverData[bonesetter] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
-                            }
-                            relieverData[bonesetter].commission += (Number(t.secondary_commission || t.secondaryCommission) || 0);
+            if (bonesetterId) {
+                const emp = employees.find(e => e.id === bonesetterId);
+                if (emp && emp.branchId !== branch.id) {
+                    const name = emp.name?.trim().toUpperCase();
+                    if (!name || hiddenStaffNames?.has(name)) return;
+                    const cfg = emp.branchAllowances?.[branch.id];
+                    const excluded = typeof cfg === 'object' && cfg !== null ? (cfg.excludeFromReliever || false) : false;
+                    const isMainManager = branch.manager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                    const isTempManager = branch.tempManager?.toUpperCase() === emp.name?.trim().toUpperCase();
+                    if (!isMainManager && !isTempManager && !excluded) {
+                        if (!relieverData[name]) {
+                            relieverData[name] = { commission: 0, allowance: getEmployeeAllowance(emp, branch.id), ot: 0, late: 0 };
                         }
+                        relieverData[name].commission += (Number(t.secondary_commission || t.secondaryCommission) || 0);
                     }
                 }
             }

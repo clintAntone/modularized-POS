@@ -29,6 +29,7 @@ const DevicesHub        = React.lazy(() => import('./DevicesHub').then(m => ({ d
 const InsightsHub       = React.lazy(() => import('./InsightsHub').then(m => ({ default: m.InsightsHub })));
 const HowToSection      = React.lazy(() => import('../dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection })));
 const ReportAuditHub    = React.lazy(() => import('./ReportAuditHub').then(m => ({ default: m.ReportAuditHub })));
+const ServiceTemplatesHub = React.lazy(() => import('./ServiceTemplatesHub').then(m => ({ default: m.ServiceTemplatesHub })));
 
 import { SuperAdminNavbar } from '../navigation/SuperAdminNavbar';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -65,7 +66,7 @@ interface SuperAdminDashboardProps {
   permissions?: PortalPermissions; // undefined = superadmin (full access)
 }
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'service_templates';
 
 // Isolated clock — has its own 1s timer so the parent dashboard doesn't re-render every second
 const LiveClock = memo(() => {
@@ -292,7 +293,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('portal_users') && <div className={activeTab !== 'portal_users' ? 'hidden' : ''}><PortalUsersSection currentUserId={user.employeeId} branches={branches} /></div>}
           {mountedTabs.has('insights')      && <div className={activeTab !== 'insights'      ? 'hidden' : ''}><InsightsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('report_audit')  && <div className={activeTab !== 'report_audit'  ? 'hidden' : ''}><ReportAuditHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} /></div>}
-          {mountedTabs.has('how_to')       && <div className={activeTab !== 'how_to'       ? 'hidden' : ''}><HowToSection role={UserRole.SUPERADMIN} /></div>}
+          {mountedTabs.has('how_to')            && <div className={activeTab !== 'how_to'            ? 'hidden' : ''}><HowToSection role={UserRole.SUPERADMIN} /></div>}
+          {mountedTabs.has('service_templates') && <div className={activeTab !== 'service_templates' ? 'hidden' : ''}><ServiceTemplatesHub branches={branches} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} /></div>}
         </React.Suspense>
       </main>
 

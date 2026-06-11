@@ -41,4 +41,16 @@ input[type="date"].date-empty::-webkit-datetime-edit-text {
     from { stroke-dashoffset: 94.2; }
     to   { stroke-dashoffset: 0; }
   }
+
+  --animate-shake: shake 0.4s ease-in-out;
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%       { transform: translateX(-6px); }
+    30%       { transform: translateX(6px); }
+    45%       { transform: translateX(-5px); }
+    60%       { transform: translateX(5px); }
+    75%       { transform: translateX(-3px); }
+    90%       { transform: translateX(3px); }
+  }
 }

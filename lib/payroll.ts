@@ -1,5 +1,10 @@
 import { Employee } from '../types';
 
+// PWD / Senior discount thresholds
+export const PWD_BASE_THRESHOLD = 900;
+export const PWD_DISCOUNT_HIGH = 100;
+export const PWD_DISCOUNT_LOW = 50;
+
 /**
  * MAINFRAME PAYROLL UTILITIES
  * 

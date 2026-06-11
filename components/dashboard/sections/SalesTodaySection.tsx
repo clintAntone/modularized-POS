@@ -114,9 +114,12 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     salesReports.find(r => r.branchId === branch.id && r.reportDate === yesterdayStr) ?? null,
   [salesReports, branch.id, yesterdayStr]);
 
-  // Tracks each employee's branch assignment — changes when someone becomes a reliever
+  // Tracks branch assignments AND allowance overrides — re-syncs reliever payouts when either changes
   const employeeBranchFingerprint = useMemo(
-    () => employees.map(e => `${e.id}:${e.branchId}`).sort().join('|'),
+    () => employees.map(e => {
+      const allowanceKey = e.branchAllowances ? JSON.stringify(e.branchAllowances) : '';
+      return `${e.id}:${e.branchId}:${allowanceKey}`;
+    }).sort().join('|'),
     [employees]
   );
 

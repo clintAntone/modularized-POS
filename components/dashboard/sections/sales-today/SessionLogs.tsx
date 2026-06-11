@@ -173,7 +173,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
           </div>
 
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-4 p-4 bg-slate-100/80">
+          <div className="md:hidden space-y-3 p-3">
             {transactions.length > 0 ? transactions.map(t => {
               const totalDeduction = (Number(t.discount) || 0);
               const therapistComm = Number(t.primaryCommission) || 0;
@@ -182,75 +182,87 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
               const netTotal = (Number(t.basePrice) - totalDeduction);
               const netRoi = (netTotal - therapistComm - bonesetterComm + sessionDeduction);
               const isPaid = t.paymentStatus === 'PAID';
+              const time = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Manila',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              }).format(new Date(t.timestamp));
 
               return (
-                <div key={t.id} className="p-5 space-y-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div className="min-w-0 pr-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Session</span>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">#{t.id.slice(-4).toUpperCase()}</span>
-                      </div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        {new Intl.DateTimeFormat('en-US', {
-                          timeZone: 'Asia/Manila',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true
-                        }).format(new Date(t.timestamp))}
-                      </p>
-                      <h5 className="font-black text-slate-900 uppercase text-[15px] tracking-tight leading-none">{t.clientName}</h5>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-black text-slate-900 text-xl tracking-tightest leading-none mb-1.5">₱{netTotal.toLocaleString()}</p>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border leading-none uppercase ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                        {t.paymentMethod === 'GCASH' ? '📱 GCash' : '💵 Cash'}
-                      </span>
-                    </div>
-                  </div>
+                <div key={t.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  {/* Accent bar */}
+                  <div className={`h-0.5 ${isPaid ? 'bg-gradient-to-r from-slate-100 via-emerald-400 to-slate-100' : 'bg-gradient-to-r from-slate-100 via-amber-400 to-slate-100'}`} />
 
-                  <div className="bg-slate-50 rounded-2xl p-4 space-y-3 border border-slate-100">
-                    <div className="flex flex-col gap-1.5">
+                  <div className="p-5 space-y-4">
+                    {/* Top row: time + payment */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{time}</span>
+                      <div className="flex items-center gap-1.5">
+                        {!isPaid && (
+                          <span className="text-[8px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-lg uppercase tracking-widest animate-pulse">Pending</span>
+                        )}
+                        <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {t.paymentMethod === 'GCASH' ? 'GCash' : 'Cash'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Client + amount */}
+                    <div className="flex items-start justify-between gap-3">
+                      <h5 className="font-black text-slate-900 text-[18px] uppercase tracking-tight leading-none">{t.clientName}</h5>
+                      <div className="text-right shrink-0">
+                        <p className="font-black text-slate-900 text-[22px] tabular-nums tracking-tighter leading-none">₱{netTotal.toLocaleString()}</p>
+                        {totalDeduction > 0 && (
+                          <p className="text-[9px] font-bold text-slate-300 line-through tabular-nums mt-0.5">₱{(Number(t.basePrice) || 0).toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Services */}
+                    <div className="flex flex-wrap gap-1.5">
                       {getServiceItems(t).map((srv, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-black text-slate-600 bg-white px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-tight">
-                            {srv.name}
-                          </span>
+                        <div key={idx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-xl">
+                          <span className="text-[9px] font-black text-slate-700 uppercase tracking-tight">{srv.name}</span>
                           {srv.price !== null && (
-                            <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0">₱{srv.price.toLocaleString()}</span>
+                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">₱{srv.price.toLocaleString()}</span>
                           )}
                         </div>
                       ))}
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 pt-1">
-                      {t.therapistName && (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Therapist</span>
-                          <span className="text-[11px] font-bold text-slate-700 truncate uppercase tracking-tight">{t.therapistName}</span>
-                          <span className="text-[9px] font-bold text-emerald-600 tabular-nums">₱{therapistComm.toLocaleString()}</span>
-                        </div>
-                      )}
-                      {t.bonesetterName && (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Bonesetter</span>
-                          <span className="text-[11px] font-bold text-slate-700 truncate uppercase tracking-tight">{t.bonesetterName}</span>
-                          <span className="text-[9px] font-bold text-indigo-600 tabular-nums">₱{bonesetterComm.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
+
+                    {/* Staff */}
+                    {(t.therapistName || t.bonesetterName) && (
+                      <div className="flex gap-4 pt-3 border-t border-slate-100">
+                        {t.therapistName && (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Therapist</p>
+                            <p className="text-[13px] font-black text-slate-900 uppercase truncate leading-tight">{t.therapistName}</p>
+                            <p className="text-[12px] font-black text-emerald-600 tabular-nums mt-0.5">₱{therapistComm.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {t.bonesetterName && (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Bonesetter</p>
+                            <p className="text-[13px] font-black text-slate-900 uppercase truncate leading-tight">{t.bonesetterName}</p>
+                            <p className="text-[12px] font-black text-indigo-600 tabular-nums mt-0.5">₱{bonesetterComm.toLocaleString()}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex justify-between items-center pt-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {/* Footer strip: status + ROI */}
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {isPaid ? 'Paid' : 'Pending'}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Net ROI</span>
-                      <span className="text-lg font-black text-slate-900 tracking-tighter leading-none">₱{netRoi.toLocaleString()}</span>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Net ROI</p>
+                      <p className="text-[15px] font-black text-slate-900 tabular-nums tracking-tighter leading-none">₱{netRoi.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

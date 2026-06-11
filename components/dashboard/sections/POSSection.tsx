@@ -16,8 +16,8 @@ import { QRCodeSVG } from 'qrcode.react';
 
 import { paymongoService } from '@/src/services/paymongo';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
-import { useAddTransaction, useUpdateTransaction, useDeleteTransaction, useAddAuditLog } from '../../../hooks/useNetworkData';
-import { getEmployeeRole, getEmployeeAllowance } from '../../../lib/payroll';
+import { useAddTransaction, useUpdateTransaction, useDeleteTransaction, useAddAuditLog, useBranchServiceTemplates } from '../../../hooks/useNetworkData';
+import { getEmployeeRole, getEmployeeAllowance, PWD_BASE_THRESHOLD, PWD_DISCOUNT_HIGH, PWD_DISCOUNT_LOW } from '../../../lib/payroll';
 import { getTrueDate, getTrueManilaISOString, toManilaDateStr } from '../../../lib/time';
 import { CreditCard, Check, Trash2 } from 'lucide-react';
 
@@ -120,7 +120,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
     }, [transactions, branch.id, todayStr]);
 
-    const activeServices = useMemo(() => (branch.services || []), [branch.services]);
+    const { data: branchServiceTemplates } = useBranchServiceTemplates(branch.id);
+    const activeServices = useMemo(() => branchServiceTemplates || branch.services || [], [branchServiceTemplates, branch.services]);
 
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
@@ -171,9 +172,10 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         }).map(e => ({ ...e, currentRole: getEmployeeRole(e, branch.id) })), [activeStaff, branch.id]);
 
     const resetForm = () => {
-        setFormData({ 
-            id: '', 
-            client_name: '', 
+        setFormData({
+            id: '',
+            original_timestamp: '',
+            client_name: '',
             therapist_name: '', 
             therapist_id: '', 
             bonesetter_name: '', 
@@ -212,6 +214,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
 
         setFormData({
             id: tx.id,
+            original_timestamp: tx.timestamp,
             client_name: tx.clientName,
             therapist_name: tx.therapistName || '',
             therapist_id: tx.therapistId || '',
@@ -237,16 +240,32 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         ];
 
         if (allSelectedServices.length === 0 || isProcessing || isClosedMode) return;
+
+        // Validate selected staff are still on-duty at submit time
+        const isStillOnDuty = (id: string) => {
+            if (!id) return true; // no staff selected for this slot, skip
+            const rec = attendance.find(a => a.employeeId === id && a.date === todayStr);
+            return rec && rec.clockIn && !rec.clockOut;
+        };
+        if (formData.therapist_id && !isStillOnDuty(formData.therapist_id)) {
+            alert('The selected therapist is no longer on duty. Please re-select staff before finalizing.');
+            return;
+        }
+        if (formData.bonesetter_id && !isStillOnDuty(formData.bonesetter_id)) {
+            alert('The selected bonesetter is no longer on duty. Please re-select staff before finalizing.');
+            return;
+        }
+
         setIsProcessing(true);
 
         const manilaTimestamp = getTrueManilaISOString();
 
         const timestamp = mode === 'EDITING'
-            ? (todayTxs.find(t => t.id === formData.id)?.timestamp || manilaTimestamp)
+            ? (formData.original_timestamp || todayTxs.find(t => t.id === formData.id)?.timestamp || manilaTimestamp)
             : manilaTimestamp;
 
         const currentBasePrice = standardServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-        const pwdDiscount = (formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > 900 ? 100 : 50) : 0;
+        const pwdDiscount = (formData.is_pwd_senior && currentBasePrice > 0) ? (currentBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
         const totalDiscount = Math.min(currentBasePrice, Number(formData.discount || 0) + pwdDiscount);
         const totalCalculated = Math.max(0, currentBasePrice - totalDiscount);
 
@@ -446,6 +465,19 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
 
         setIsProcessing(true);
         try {
+            // Verify record still exists before deleting
+            const { data: existing } = await supabase
+                .from(DB_TABLES.TRANSACTIONS)
+                .select('id')
+                .eq(DB_COLUMNS.ID, targetTx.id)
+                .single();
+
+            if (!existing) {
+                setTxToDelete(null);
+                setIsProcessing(false);
+                return;
+            }
+
             // Run delete and audit log in parallel — audit log doesn't depend on delete result
             await Promise.all([
                 deleteTransaction.mutateAsync({ id: targetTx.id, branchId: branch.id }),

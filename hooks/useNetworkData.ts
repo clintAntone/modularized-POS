@@ -114,6 +114,52 @@ export const useTransactions = (branchId?: string) => {
     });
 };
 
+export const useBranchServiceTemplates = (branchId: string) => {
+    return useQuery({
+        queryKey: ['branch_service_templates', branchId],
+        queryFn: async () => {
+            // Step 1: get branch→template assignments with price overrides
+            const { data: bsData, error: bsError } = await supabase
+                .from(DB_TABLES.BRANCH_SERVICES)
+                .select('template_id, price')
+                .eq(DB_COLUMNS.BRANCH_ID, branchId);
+            if (bsError) throw bsError;
+            if (!bsData || bsData.length === 0) return [];
+
+            const templateIds = bsData.map((r: any) => r.template_id);
+
+            // Step 2: fetch the canonical service definitions
+            const { data: tData, error: tError } = await supabase
+                .from(DB_TABLES.SERVICE_TEMPLATES)
+                .select('*')
+                .in('id', templateIds);
+            if (tError) throw tError;
+
+            const priceMap: Record<string, number | null> = {};
+            bsData.forEach((r: any) => { priceMap[r.template_id] = r.price; });
+
+            return (tData || []).map((t: any) => ({
+                id: t.id,
+                name: t.name,
+                price: priceMap[t.id] != null ? priceMap[t.id] : t.default_price,
+                duration: t.duration,
+                primaryRole: t.primary_role || undefined,
+                secondaryRole: t.secondary_role || undefined,
+                commissionType: t.commission_type,
+                commissionValue: t.commission_value,
+                isDualProvider: t.is_dual_provider,
+                secondaryCommissionType: t.secondary_commission_type || undefined,
+                secondaryCommissionValue: t.secondary_commission_value,
+                catalogId: t.catalog_name || 'uncategorized',
+                catalogName: t.catalog_name || undefined,
+                canBeLoyalty: t.can_be_loyalty,
+            }));
+        },
+        enabled: !!branchId,
+        staleTime: 5 * 60 * 1000,
+    });
+};
+
 export const useServiceCatalogs = () => {
     return useQuery({
         queryKey: ['service_catalogs'],

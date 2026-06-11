@@ -5,6 +5,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
 import { playSound } from '../../../lib/audio';
+import { useBranchServiceTemplates } from '../../../hooks/useNetworkData';
 
 // Modular Capabilities
 import { POSHeader } from './pos/POSHeader';
@@ -60,7 +61,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ branch, transactions, se
         .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   }, [transactions, branch.id, todayStr]);
 
-  const activeServices = useMemo(() => (branch.services || []), [branch.services]);
+  const { data: branchServiceTemplates } = useBranchServiceTemplates(branch.id);
+  const activeServices = useMemo(() => branchServiceTemplates || branch.services || [], [branchServiceTemplates, branch.services]);
 
   const activeStaff = useMemo(() => {
     return employees.filter(e => {

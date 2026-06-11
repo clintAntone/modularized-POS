@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Transaction } from '../../../../types';
-import { Trash2, FolderOpen, TrendingUp, Tag, Banknote } from 'lucide-react';
+import { Trash2, FolderOpen, TrendingUp, Tag, Banknote, Clock, Edit3 } from 'lucide-react';
 
 interface POSCorrectionsProps {
     transactions: Transaction[];
@@ -13,114 +13,140 @@ interface POSCorrectionsProps {
 
 export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, onEdit, onDelete, isProcessing, isClosedMode }) => {
     return (
-        <div className="space-y-4 flex flex-col">
-            <div className="flex justify-between items-end px-4 shrink-0">
-                <div className="space-y-1">
-                    <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-tighter">Recent Sessions</h3>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Select record for modification</p>
+        <div className="space-y-5 flex flex-col">
+
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between gap-3 px-1 shrink-0">
+                <div>
+                    <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">Recent Sessions</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select a record to modify</p>
                 </div>
-                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm uppercase tracking-widest">{transactions.length} Total Today</span>
+                <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-2xl shrink-0">
+                    <span className="text-[13px] font-black text-emerald-700 tabular-nums leading-none">{transactions.length}</span>
+                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest leading-none">Today</span>
+                </div>
             </div>
 
+            {/* ── List ── */}
             <div className="flex-1 min-h-0">
                 {transactions.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {transactions.map((t) => {
                             const deduction = t.discount + (t.voucherValue || 0);
                             const staffPay = (t.primaryCommission || 0) + (t.secondaryCommission || 0);
                             const branchRoi = t.total - staffPay;
+                            const time = new Intl.DateTimeFormat('en-GB', {
+                                timeZone: 'Asia/Manila',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            }).format(new Date(t.timestamp));
 
                             return (
-                                <div key={t.id} className="bg-white rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between h-full overflow-hidden">
+                                <div key={t.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
 
-                                    {/* ── Header ── */}
-                                    <div className="p-6 pb-4 space-y-3">
-                                        <div className="flex justify-between items-start gap-3">
+                                    {/* Top accent */}
+                                    <div className="h-0.5 bg-gradient-to-r from-slate-200 via-emerald-400 to-slate-200" />
+
+                                    {/* ── Main info ── */}
+                                    <div className="p-5 space-y-4">
+
+                                        {/* Time + payment badge row */}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-slate-400">
+                                                <Clock className="w-3 h-3" />
+                                                <span className="text-[9px] font-black uppercase tracking-widest">{time}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                {t.paymentStatus === 'PENDING' && (
+                                                    <span className="text-[8px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded-lg uppercase tracking-widest animate-pulse">Unpaid</span>
+                                                )}
+                                                <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${t.paymentMethod === 'CASH' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                                    {t.paymentMethod === 'CASH' ? 'Cash' : 'GCash'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Client + amount */}
+                                        <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-0.5">
-                                                    {new Intl.DateTimeFormat('en-GB', {
-                                                        timeZone: 'Asia/Manila',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                        hour12: true
-                                                    }).format(new Date(t.timestamp))}
-                                                </p>
-                                                <h4 className="font-black text-slate-900 uppercase text-base truncate leading-tight">{t.clientName}</h4>
-                                                <p className="text-[9px] font-semibold text-slate-400 uppercase truncate mt-0.5 leading-tight">{t.serviceName}</p>
+                                                <h4 className="font-black text-slate-900 text-[17px] uppercase tracking-tight leading-none truncate">{t.clientName}</h4>
+                                                <p className="text-[9px] font-semibold text-slate-400 uppercase truncate mt-1.5 leading-tight">{t.serviceName}</p>
                                             </div>
                                             <div className="text-right shrink-0">
-                                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Client Paid</p>
-                                                <p className="font-black text-slate-900 text-2xl tabular-nums tracking-tighter leading-none">₱{t.total.toLocaleString()}</p>
+                                                <p className="font-black text-slate-900 text-[22px] tabular-nums tracking-tighter leading-none">₱{t.total.toLocaleString()}</p>
                                                 {deduction > 0 && (
                                                     <p className="text-[9px] font-bold text-slate-300 line-through tabular-nums mt-0.5">₱{t.basePrice.toLocaleString()}</p>
                                                 )}
                                             </div>
                                         </div>
 
-                                        {/* ── Staff & Payment ── */}
-                                        <div className="flex items-center gap-3 pt-1 border-t border-slate-50">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Therapist</p>
-                                                <p className="text-[10px] font-bold text-slate-900 uppercase truncate">{t.therapistName || '—'}</p>
+                                        {/* Staff row */}
+                                        <div className="flex items-center gap-4 pt-3 border-t border-slate-50">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Therapist</p>
+                                                <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5">{t.therapistName || '—'}</p>
                                             </div>
                                             {t.bonesetterName && (
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Bonesetter</p>
-                                                    <p className="text-[10px] font-bold text-slate-900 uppercase truncate">{t.bonesetterName}</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Bonesetter</p>
+                                                    <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5">{t.bonesetterName}</p>
                                                 </div>
                                             )}
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${t.paymentMethod === 'CASH' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                    {t.paymentMethod === 'CASH' ? 'Cash' : 'GCash'}
-                                                </span>
-                                                {t.paymentStatus === 'PENDING' && (
-                                                    <span className="text-[8px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded-md uppercase tracking-widest animate-pulse">Unpaid</span>
-                                                )}
-                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* ── Financial Breakdown Strip ── */}
-                                    <div className="grid grid-cols-3 divide-x divide-slate-100 bg-slate-50 border-y border-slate-100">
-                                        <div className="p-3 text-center">
-                                            <div className="flex items-center justify-center gap-1 mb-1">
-                                                <Tag className="w-2.5 h-2.5 text-rose-400" />
+                                    {/* ── Financial strip ── */}
+                                    <div className="grid grid-cols-3 border-t border-slate-100">
+                                        <div className="py-3 px-2 text-center border-r border-slate-100">
+                                            <div className="flex items-center justify-center gap-1 mb-1.5">
+                                                <Tag className="w-2.5 h-2.5 text-slate-400" />
                                                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Deducted</p>
                                             </div>
-                                            <p className={`text-sm font-black tabular-nums ${deduction > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                            <p className={`text-[13px] font-black tabular-nums leading-none ${deduction > 0 ? 'text-rose-500' : 'text-slate-200'}`}>
                                                 {deduction > 0 ? `-₱${deduction.toLocaleString()}` : '—'}
                                             </p>
                                         </div>
-                                        <div className="p-3 text-center">
-                                            <div className="flex items-center justify-center gap-1 mb-1">
-                                                <Banknote className="w-2.5 h-2.5 text-indigo-400" />
+                                        <div className="py-3 px-2 text-center border-r border-slate-100">
+                                            <div className="flex items-center justify-center gap-1 mb-1.5">
+                                                <Banknote className="w-2.5 h-2.5 text-slate-400" />
                                                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Staff Pay</p>
                                             </div>
-                                            <p className={`text-sm font-black tabular-nums ${staffPay > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                            <p className={`text-[13px] font-black tabular-nums leading-none ${staffPay > 0 ? 'text-indigo-500' : 'text-slate-200'}`}>
                                                 {staffPay > 0 ? `-₱${staffPay.toLocaleString()}` : '—'}
                                             </p>
                                         </div>
-                                        <div className="p-3 text-center bg-emerald-50/60">
-                                            <div className="flex items-center justify-center gap-1 mb-1">
+                                        <div className="py-3 px-2 text-center bg-emerald-50/50">
+                                            <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <TrendingUp className="w-2.5 h-2.5 text-emerald-500" />
-                                                <p className="text-[7px] font-black text-emerald-600 uppercase tracking-widest">Branch ROI</p>
+                                                <p className="text-[7px] font-black text-emerald-600 uppercase tracking-widest">ROI</p>
                                             </div>
-                                            <p className="text-sm font-black text-emerald-700 tabular-nums">₱{branchRoi.toLocaleString()}</p>
+                                            <p className="text-[13px] font-black text-emerald-700 tabular-nums leading-none">₱{branchRoi.toLocaleString()}</p>
                                         </div>
                                     </div>
 
                                     {/* ── Note & Actions ── */}
-                                    <div className="p-6 pt-4 space-y-4">
+                                    <div className="p-4 space-y-3 mt-auto">
                                         {t.note && (
-                                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Note</p>
-                                                <p className="text-[10px] text-slate-600 italic line-clamp-2 leading-relaxed">"{t.note}"</p>
+                                            <div className="bg-slate-50 px-3 py-2.5 rounded-2xl border border-slate-100">
+                                                <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1">Note</p>
+                                                <p className="text-[10px] text-slate-500 italic line-clamp-2 leading-relaxed">"{t.note}"</p>
                                             </div>
                                         )}
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => onEdit(t)} className="flex-1 bg-slate-900 text-white font-bold py-3.5 rounded-xl text-[10px] uppercase tracking-widest shadow-md hover:bg-emerald-600 transition-all active:scale-95">Edit Record</button>
-                                            <button onClick={() => onDelete(t.id)} disabled={isProcessing || isClosedMode} className="p-3.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 disabled:opacity-30">
-                                                <Trash2 className="w-4 h-4" strokeWidth={2.5} />
+                                            <button
+                                                onClick={() => onEdit(t)}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-emerald-600 text-white font-black py-3 rounded-2xl text-[10px] uppercase tracking-widest transition-all active:scale-95"
+                                            >
+                                                <Edit3 className="w-3.5 h-3.5" />
+                                                Edit Record
+                                            </button>
+                                            <button
+                                                onClick={() => onDelete(t.id)}
+                                                disabled={isProcessing || isClosedMode}
+                                                className="p-3 bg-rose-50 text-rose-400 rounded-2xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 disabled:opacity-30 border border-rose-100 hover:border-rose-500"
+                                            >
+                                                <Trash2 className="w-4 h-4" strokeWidth={2} />
                                             </button>
                                         </div>
                                     </div>
@@ -129,9 +155,14 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                         })}
                     </div>
                 ) : (
-                    <div className="py-24 text-center bg-white rounded-[44px] border-2 border-dashed border-slate-100 opacity-30 flex flex-col items-center gap-4">
-                        <FolderOpen className="w-16 h-16 text-slate-300" strokeWidth={1} />
-                        <p className="text-[11px] font-bold uppercase tracking-widest">No Sessions Indexed Today</p>
+                    <div className="py-24 text-center bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center">
+                            <FolderOpen className="w-8 h-8 text-slate-300" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No Sessions Today</p>
+                            <p className="text-[9px] font-bold text-slate-200 uppercase tracking-widest mt-1">Records will appear here once sessions are logged</p>
+                        </div>
                     </div>
                 )}
             </div>

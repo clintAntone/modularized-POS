@@ -27,7 +27,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
             if (!groups[catId]) groups[catId] = { name: catName, services: [] };
             groups[catId].services.push(service);
         });
-        return Object.entries(groups); // [ [catId, {name, services}], ... ]
+        return Object.entries(groups).sort((a, b) => b[1].name.localeCompare(a[1].name));
     }, [services, isLoyaltyMode]);
 
     return (
