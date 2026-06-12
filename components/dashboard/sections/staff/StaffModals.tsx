@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Employee, Branch } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 import { getInitials } from '../../../../lib/payroll';
 import { RecoveryModal } from './RecoveryModal';
-import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin } from 'lucide-react';
+import { FaceEnrollment } from './FaceEnrollment';
+import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ScanFace } from 'lucide-react';
+import { supabase } from '../../../../lib/supabase';
+import { DB_TABLES } from '../../../../constants/db_schema';
 
 interface StaffModalsProps {
   isTimeModalOpen: boolean;
@@ -48,6 +51,8 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const [searchResults, setSearchResults] = React.useState<Employee[]>([]);
   const [searchError, setSearchError] = React.useState<string | null>(null);
   const [empIdCopied, setEmpIdCopied] = React.useState(false);
+  const [isSavingFace, setIsSavingFace] = React.useState(false);
+  const [showFaceEnrollModal, setShowFaceEnrollModal] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
   const [holdProgress, setHoldProgress] = React.useState(0);
@@ -684,6 +689,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
               </div>
 
+
               {(() => {
                 const branchCfg = props.editingEmployee.branchAllowances?.[props.branchId];
                 const branchRole = typeof branchCfg === 'object' && branchCfg !== null ? branchCfg.role || '' : props.editingEmployee.role || '';
@@ -716,10 +722,80 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     >
                       {props.isSyncing ? `Syncing ${props.uploadProgress}%...` : 'Save Employee Details'}
                     </button>
+
+                    {/* Face ID Enrollment button — home branch only */}
+                    {props.editingEmployee.id && props.editingEmployee.branchId === props.branchId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowFaceEnrollModal(true)}
+                        className="w-full flex items-center justify-center gap-2 py-4 rounded-[20px] sm:rounded-[28px] border-2 border-dashed border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all text-[10px] font-black uppercase tracking-widest"
+                      >
+                        <ScanFace className="w-4 h-4" />
+                        Face ID Enrollment
+                        {props.editingEmployee.faceDescriptors && props.editingEmployee.faceDescriptors.length > 0 && (
+                          <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                            {props.editingEmployee.faceDescriptors.length} enrolled
+                          </span>
+                        )}
+                      </button>
+                    )}
                   </div>
                 );
               })()}
            </div>
+        </div>
+      )}
+
+      {/* ── Face ID Enrollment Modal ── */}
+      {showFaceEnrollModal && props.editingEmployee && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-slate-950/80 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-[28px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-[13px] font-black text-slate-900 uppercase tracking-tight">Face ID Enrollment</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">{props.editingEmployee.name}</p>
+              </div>
+              <button onClick={() => setShowFaceEnrollModal(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <FaceEnrollment
+                currentDescriptors={props.editingEmployee.faceDescriptors}
+                onSave={async (descriptors, files) => {
+                  setIsSavingFace(true);
+                  try {
+                    // Upload photos to storage
+                    const empId = props.editingEmployee!.id;
+                    const uploadPromises = files.map((file, i) => {
+                      const ext = file.name.split('.').pop() || 'jpg';
+                      const path = `${props.branchId}/${empId}/${Date.now()}-${i}.${ext}`;
+                      return supabase.storage.from('face-photos').upload(path, file, { upsert: true });
+                    });
+                    await Promise.allSettled(uploadPromises);
+
+                    // Save descriptors to employees table
+                    const { error } = await supabase
+                      .from(DB_TABLES.EMPLOYEES)
+                      .update({ face_descriptors: descriptors })
+                      .eq('id', empId);
+                    if (error) {
+                      alert(`Failed to save face data: ${error.message}`);
+                    } else {
+                      props.setEditingEmployee({ ...props.editingEmployee!, faceDescriptors: descriptors });
+                      playSound('success');
+                      setShowFaceEnrollModal(false);
+                      props.onRefresh(true);
+                    }
+                  } catch (e) {
+                    alert('Unexpected error saving face data.');
+                  }
+                  setIsSavingFace(false);
+                }}
+                isSaving={isSavingFace}
+              />
+            </div>
+          </div>
         </div>
       )}
     </>

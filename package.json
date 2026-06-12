@@ -15,6 +15,7 @@
     "cap:assets": "npx @capacitor/assets generate --android --icon src/assets/icon.png --splash src/assets/splash.png"
   },
   "dependencies": {
+    "@capacitor-community/screen-brightness": "^8.0.0",
     "@capacitor/android": "^8.3.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.3.0",
@@ -25,6 +26,7 @@
     "axios": "^1.13.6",
     "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
+    "face-api.js": "^0.22.2",
     "html-to-image": "1.11.11",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",

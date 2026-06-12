@@ -101,6 +101,7 @@ export const DB_COLUMNS = {
   MIDDLE_NAME: 'middle_name',
   LAST_NAME: 'last_name',
   DETAILS: 'details',
+  FACE_DESCRIPTORS: 'face_descriptors',
 
   // Attendance & Shift
   STAFF_NAME: 'staff_name',

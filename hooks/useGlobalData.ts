@@ -26,7 +26,7 @@ const COLS = {
         DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
         DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
         DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
-        DB_COLUMNS.DETAILS,
+        DB_COLUMNS.DETAILS, DB_COLUMNS.FACE_DESCRIPTORS,
     ].join(','),
     transactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -260,6 +260,7 @@ export const useGlobalData = (auth: AuthState) => {
             profile: db[DB_COLUMNS.PROFILE],
             branchAllowances,
             details: db[DB_COLUMNS.DETAILS] || null,
+            faceDescriptors: db[DB_COLUMNS.FACE_DESCRIPTORS] || undefined,
             timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
         };
     };

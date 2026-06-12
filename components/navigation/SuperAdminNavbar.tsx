@@ -87,8 +87,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     { id: 'employees',    label: 'Employees',   icon: Icons.staff,     desc: 'Staff Master',         color: 'bg-indigo-50 text-indigo-600',  category: 'People',     adminOnly: false },
     { id: 'attendance',   label: 'Attendance',  icon: Icons.clock,     desc: 'Clock-in Logs',        color: 'bg-sky-50 text-sky-600',        category: 'Operations', adminOnly: false },
     { id: 'network',      label: 'Branches',    icon: Icons.nodes,     desc: 'Branch Control',       color: 'bg-slate-50 text-slate-600',    category: 'Branches',   adminOnly: false },
-    { id: 'catalogs',          label: 'Catalogs',    icon: Icons.catalogs,  desc: 'Service Groups',          color: 'bg-amber-50 text-amber-600',    category: 'Branches',   adminOnly: false },
-    { id: 'service_templates', label: 'Templates',   icon: Icons.catalogs,  desc: 'Normalized Service Registry', color: 'bg-amber-50 text-amber-700', category: 'Branches',   adminOnly: true  },
+    { id: 'service_templates', label: 'Catalogs',    icon: Icons.catalogs,  desc: 'Normalized Service Registry', color: 'bg-amber-50 text-amber-700', category: 'Branches',   adminOnly: true  },
     { id: 'backfill',     label: 'Backfill',    icon: Icons.backfill,  desc: 'Mass Data Entry',      color: 'bg-violet-50 text-violet-600',  category: 'Operations', adminOnly: false },
 
     // ── Finance ──
@@ -156,7 +155,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
   }, [mounted, windowWidth, adminTabRegistry, recalculate]);
 
   const { visibleTabs, overflowTabs, isMoreActive } = useMemo(() => {
-    const priorityIds = ['sales_hub', 'archive', 'employees', 'attendance', 'network', 'catalogs', 'backfill', 'remittances', 'requests', 'payroll'];
+    const priorityIds = ['sales_hub', 'archive', 'employees', 'attendance', 'network', 'service_templates', 'backfill', 'remittances', 'requests', 'payroll'];
 
     let visible: typeof adminTabRegistry;
     if (windowWidth < 640) {

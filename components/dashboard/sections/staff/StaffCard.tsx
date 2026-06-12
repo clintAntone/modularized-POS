@@ -4,12 +4,13 @@ import { Attendance, Employee } from '../../../../types';
 import { RoleBadge } from './RoleBadge';
 import { getEmployeeAllowance, getEmployeeRole, getInitials } from '../../../../lib/payroll';
 import { UI_THEME } from '../../../../constants/ui_designs';
-import { Fingerprint } from 'lucide-react';
+import { Fingerprint, ScanFace } from 'lucide-react';
 import { playSound } from '../../../../lib/audio';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 
 const LONG_PRESS_MS = 800;
 const LONG_PRESS_DELAY_MS = 300; // wait before showing the hold indicator
+
 
 interface StaffCardProps {
   emp: Employee;
@@ -26,6 +27,7 @@ interface StaffCardProps {
   onRequestDisable?: (emp: Employee) => void;
   onRemoveReliever?: (emp: Employee) => void;
   onViewID?: (emp: Employee) => void;
+  onFaceTimeIn?: () => void;
 }
 
 export const StaffCard: React.FC<StaffCardProps> = ({
@@ -43,6 +45,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onRequestDisable,
   onRemoveReliever,
   onViewID,
+  onFaceTimeIn,
 }) => {
   const isOngoing = shiftState === 'ONGOING';
   const isCompleted = shiftState === 'COMPLETED';
@@ -50,7 +53,9 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   const currentAllowance = getEmployeeAllowance(emp, branchId);
   const currentRole = getEmployeeRole(emp, branchId);
   const isReliever = isRelieverProp ?? (emp.branchId !== branchId);
+  const hasFace = !!(emp.faceDescriptors && emp.faceDescriptors.length > 0);
 
+  // Long press for reliever promote
   const [isLongPressing, setIsLongPressing] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const delayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,7 +68,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   const startLongPress = () => {
     if (!isReliever || !onPromote) return;
     didLongPress.current = false;
-    // Wait LONG_PRESS_DELAY_MS before showing the hold indicator and starting the action timer
     delayTimer.current = setTimeout(() => {
       setIsLongPressing(true);
       longPressTimer.current = setTimeout(() => {
@@ -76,14 +80,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   };
 
   const cancelLongPress = () => {
-    if (delayTimer.current) {
-      clearTimeout(delayTimer.current);
-      delayTimer.current = null;
-    }
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
+    if (delayTimer.current) { clearTimeout(delayTimer.current); delayTimer.current = null; }
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     setIsLongPressing(false);
   };
 
@@ -134,7 +132,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           </span>
         </div>
       )}
-
 
       {/* Corner ribbons */}
       {isReliever && (
@@ -250,15 +247,41 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Employee Allowance</p>
             <p className="text-sm font-black text-slate-900 tabular-nums">₱{currentAllowance.toLocaleString()}</p>
           </div>
-          <button
-            disabled={!isActive || isCompleted}
-            onMouseDown={e => e.stopPropagation()}
-            onTouchStart={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
-            className={`h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : isCompleted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
-          >
-            {isOngoing ? 'Time Out' : isCompleted ? 'Shift Done' : 'Time In'}
-          </button>
+
+          {/* Time actions */}
+          {isOngoing || isCompleted || !isActive ? (
+            // Time-out / completed / inactive — single button
+            <button
+              disabled={!isActive || isCompleted}
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
+              className={`h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+            >
+              {isOngoing ? 'Time Out' : 'Shift Done'}
+            </button>
+          ) : hasFace && onFaceTimeIn ? (
+            // Face enrolled — single "Time In" click → face scan
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onFaceTimeIn(); }}
+              className="h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-900 text-white hover:bg-emerald-600 flex items-center gap-2"
+            >
+              <ScanFace className="w-4 h-4" strokeWidth={2} />
+              Time In
+            </button>
+          ) : (
+            // No face enrolled — simple click to time in
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
+              className="h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-900 text-white hover:bg-emerald-600"
+            >
+              Time In
+            </button>
+          )}
         </div>
       </div>
     </div>

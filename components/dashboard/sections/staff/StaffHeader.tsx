@@ -82,7 +82,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
               className="flex items-center gap-2 h-9 px-4 bg-indigo-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-indigo-700 transition-all active:scale-95"
             >
               <ClipboardPlus className="w-3.5 h-3.5" strokeWidth={2.5} />
-              <span className="hidden sm:inline">New Staff</span>
+              <span className="hidden sm:inline">New Hire</span>
             </button>
           )}
           <button
@@ -90,7 +90,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             className="flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all active:scale-95"
           >
             <UserPlus className="w-3.5 h-3.5" strokeWidth={2.5} />
-            <span className="hidden sm:inline">Enroll</span>
+            <span className="hidden sm:inline">Add Staff</span>
           </button>
         </div>
       </div>
@@ -102,7 +102,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
           <input
             value={searchTerm}
             onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search roster..."
+            placeholder="SEARCH ROSTER..."
             className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-semibold text-[11px] text-slate-700 placeholder:text-slate-300 outline-none focus:border-emerald-400 focus:bg-white transition-all"
           />
         </div>

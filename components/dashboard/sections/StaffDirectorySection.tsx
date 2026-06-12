@@ -20,6 +20,7 @@ import { StaffCard } from './staff/StaffCard';
 import { StaffHeader } from './staff/StaffHeader';
 import { StaffModals } from './staff/StaffModals';
 import { EmployeeIDCardModal } from '../../superadmin/employee-manager/EmployeeIDCardModal';
+import { FaceTimeInModal } from './staff/FaceTimeInModal';
 
 interface StaffDirectorySectionProps {
   branch: Branch;
@@ -56,6 +57,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
   const [showBranchClosedModal, setShowBranchClosedModal] = useState(false);
   const [selectedEmpForTime, setSelectedEmpForTime] = useState<Employee | null>(null);
+  const [showFaceTimeIn, setShowFaceTimeIn] = useState(false);
+  const [faceTimeInTarget, setFaceTimeInTarget] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [recoveryEmployee, setRecoveryEmployee] = useState<Employee | null>(null);
   const [originalName, setOriginalName] = useState<string>('');
@@ -540,7 +543,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     try {
       if (state === 'NOT_STARTED' || state === 'COMPLETED') {
         // Block clock-in if the employee is already on duty at a different branch today.
-        // Managers are exempt since they may legitimately cover multiple branches.
+        // Managers (at any branch) are exempt — they may legitimately work across branches.
         const isManager = (selectedEmpForTime.role || '').toUpperCase().includes('MANAGER');
         if (!isManager) {
           const ongoingElsewhere = (attendance || []).find(a =>
@@ -660,6 +663,86 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         if (onRefresh) onRefresh();
       }
     } catch (err) {
+      showToast('Time Registry Fault', 'error');
+    } finally {
+      setIsSyncing(false);
+      if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleFaceTimeIn = async (emp: Employee) => {
+    if (!emp.isActive || isSyncing || isClosedMode) return;
+    const state = getShiftState(emp.id);
+    if (state !== 'NOT_STARTED' && state !== 'COMPLETED') return;
+
+    setIsSyncing(true);
+    if (onSyncStatusChange) onSyncStatusChange(true);
+    const timestamp = getTrueManilaISOString();
+
+    try {
+      const isManager = (emp.role || '').toUpperCase().includes('MANAGER');
+      if (!isManager) {
+        const ongoingElsewhere = (attendance || []).find(a =>
+          a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut && a.branchId !== branch.id
+        );
+        if (ongoingElsewhere) {
+          const otherBranch = branches.find(b => b.id === ongoingElsewhere.branchId);
+          const otherName = otherBranch?.name?.replace(/BRANCH\s*-\s*/i, '') ?? 'another branch';
+          showToast(`${emp.name} is currently on duty at ${otherName}. Clock them out there first.`);
+          return;
+        }
+      }
+
+      const todayRecords = (attendance || []).filter(a => a.employeeId === emp.id && a.date === todayStr);
+      const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+
+      if (latestRecord && latestRecord.isHalfDay) {
+        await updateAttendance.mutateAsync({
+          id: latestRecord.id,
+          [DB_COLUMNS.CLOCK_OUT]: null,
+          [DB_COLUMNS.IS_HALF_DAY]: false,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.EMPLOYEE_ID]: emp.id,
+          [DB_COLUMNS.DATE]: todayStr
+        });
+        showToast(`${emp.name} resumed duty from half-day.`);
+      } else {
+        const attendanceId = Math.random().toString(36).substr(2, 9);
+        await addAttendance.mutateAsync({
+          [DB_COLUMNS.ID]: attendanceId,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.EMPLOYEE_ID]: emp.id,
+          [DB_COLUMNS.STAFF_NAME]: emp.name,
+          [DB_COLUMNS.DATE]: todayStr,
+          [DB_COLUMNS.CLOCK_IN]: timestamp,
+          [DB_COLUMNS.STATUS]: 'REGULAR'
+        });
+        showToast(`${emp.name} is now ON DUTY`);
+      }
+
+      await addAuditLog.mutateAsync({
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
+        [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
+        [DB_COLUMNS.ENTITY_ID]: emp.id,
+        [DB_COLUMNS.DESCRIPTION]: `Face recognition clock-in for ${emp.name}`,
+        [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR'
+      });
+
+      playSound('success');
+
+      const clockCfg = emp.branchAllowances?.[branch.id];
+      const clockExcluded = typeof clockCfg === 'object' && clockCfg !== null ? (clockCfg.excludeFromReliever || false) : false;
+      const isReliever = emp.branchId !== branch.id && !clockExcluded;
+      if (isReliever) {
+        syncRelieverPayouts(branch, todayStr, employees)
+          .then(() => { if (onRefresh) onRefresh(); })
+          .catch(console.error);
+      } else {
+        if (onRefresh) onRefresh();
+      }
+    } catch {
       showToast('Time Registry Fault', 'error');
     } finally {
       setIsSyncing(false);
@@ -946,6 +1029,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                   : undefined
               }
               onViewID={() => { setIdCardEmployee(emp); playSound('click'); }}
+              onFaceTimeIn={!isClosedMode && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
             />
           );
         }) : (
@@ -1009,6 +1093,22 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         employee={idCardEmployee}
         branches={branches}
         onClose={() => setIdCardEmployee(null)}
+      />
+    )}
+
+    {/* FACE TIME-IN MODAL */}
+    {showFaceTimeIn && (
+      <FaceTimeInModal
+        employees={employees.filter(e => e.isActive)}
+        branchId={branch.id}
+        targetEmployee={faceTimeInTarget ?? undefined}
+        onMatch={(emp) => { handleFaceTimeIn(emp); }}
+        onClose={() => { setShowFaceTimeIn(false); setFaceTimeInTarget(null); }}
+        onManualOverride={faceTimeInTarget ? () => {
+          setShowFaceTimeIn(false);
+          handleOpenTimeModal(faceTimeInTarget);
+          setFaceTimeInTarget(null);
+        } : undefined}
       />
     )}
 

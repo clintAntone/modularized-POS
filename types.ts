@@ -188,6 +188,7 @@ export interface Employee {
   profile?: string;
   branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
   details?: EmployeeDetails;
+  faceDescriptors?: number[][];
 }
 
 export interface SalesReport {
