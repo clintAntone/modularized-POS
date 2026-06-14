@@ -93,7 +93,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2500);
                 return;
             }
-            const match = matchFace(descriptors[0], empDescriptors);
+            const match = await matchFace(descriptors[0], empDescriptors);
             if (!match) {
                 playSound('warning');
                 setFailedAttempts(prev => prev + 1);

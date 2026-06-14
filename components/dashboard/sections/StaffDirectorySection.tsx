@@ -71,6 +71,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [disableRequestEmployee, setDisableRequestEmployee] = useState<Employee | null>(null);
   const [disableReasonType, setDisableReasonType] = useState<'RESIGNED' | 'TERMINATED' | 'ON_HOLD' | ''>('');
   const [disableReasonNotes, setDisableReasonNotes] = useState('');
+  const [disableComplaintRef, setDisableComplaintRef] = useState('');
   const [isSubmittingDisable, setIsSubmittingDisable] = useState(false);
 
   // New employee creation request
@@ -299,6 +300,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
   const handleSubmitDisableRequest = async () => {
     if (!disableRequestEmployee || isSubmittingDisable || !disableReasonType) return;
+    if (disableReasonType === 'TERMINATED' && !disableComplaintRef.trim()) return;
     setIsSubmittingDisable(true);
     try {
       const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
@@ -312,6 +314,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           employeeName: disableRequestEmployee.name,
           reasonType: disableReasonType,
           reason: disableReasonNotes.trim(),
+          ...(disableReasonType === 'TERMINATED' && { complaintRef: disableComplaintRef.trim() }),
         },
         [DB_COLUMNS.REQUESTER_ID]: operatorName,
         [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
@@ -322,6 +325,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       setDisableRequestEmployee(null);
       setDisableReasonType('');
       setDisableReasonNotes('');
+      setDisableComplaintRef('');
       onRefresh?.();
     } catch (err) {
       playSound('warning');
@@ -1228,6 +1232,23 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             </div>
           </div>
 
+          {/* Complaint number — required when TERMINATED */}
+          {disableReasonType === 'TERMINATED' && (
+            <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              <label className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block flex items-center gap-1.5">
+                Complaint Number <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={disableComplaintRef}
+                onChange={e => setDisableComplaintRef(e.target.value.toUpperCase())}
+                placeholder="e.g. COMP-ABC123"
+                className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-[11px] font-black text-slate-900 uppercase tracking-widest outline-none transition-all focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400"
+              />
+              <p className="text-[8px] font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
+            </div>
+          )}
+
           <div className="mb-5">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Additional Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
             <textarea
@@ -1242,13 +1263,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           <div className="flex gap-3">
             <button
               disabled={isSubmittingDisable}
-              onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }}
+              onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); setDisableComplaintRef(''); }}
               className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              disabled={isSubmittingDisable || !disableReasonType}
+              disabled={isSubmittingDisable || !disableReasonType || (disableReasonType === 'TERMINATED' && !disableComplaintRef.trim())}
               onClick={handleSubmitDisableRequest}
               className="flex-1 h-10 rounded-xl bg-amber-500 text-[11px] font-black uppercase tracking-widest text-white hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >

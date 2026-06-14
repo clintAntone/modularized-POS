@@ -80,6 +80,15 @@ const ACTION_LABEL_MAP: Record<string, string> = {
   WARNING:         'Warning Issued',
 };
 
+/** Derive a short human-readable complaint number from the stored id.
+ *  ID format: "complaint_<timestamp>_<random>" → "COMP-<last 6 chars uppercase>"
+ *  Falls back to first 6 chars if format doesn't match. */
+function formatComplaintNo(id: string): string {
+  const parts = id.split('_');
+  const tail = parts[parts.length - 1]?.toUpperCase() ?? id.slice(0, 6).toUpperCase();
+  return `COMP-${tail.slice(0, 6)}`;
+}
+
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -471,7 +480,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                             )}
                           </div>
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">
-                            {getBranchName(c.branchId)} · {filedDate}
+                            <span className="text-slate-500 font-black">{formatComplaintNo(c.id)}</span> · {getBranchName(c.branchId)} · {filedDate}
                           </p>
                         </div>
 
@@ -529,7 +538,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
               <div className="bg-slate-900 px-6 pt-6 pb-5 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Employee Complaint</p>
+                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Employee Complaint · <span className="text-slate-400">{formatComplaintNo(c.id)}</span></p>
                     <h3 className="text-[17px] font-black text-white uppercase tracking-tight leading-none truncate">{c.employeeName}</h3>
                     {employeeActive === false && (
                       <span className="inline-block mt-1.5 text-[8px] font-black text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-md uppercase tracking-widest">Suspended</span>
