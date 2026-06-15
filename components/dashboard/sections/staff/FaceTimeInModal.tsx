@@ -172,10 +172,11 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     timeout,
                 ]);
                 if (!cancelled) await startCamera();
-            } catch {
+            } catch (err) {
                 if (!cancelled) {
+                    const msg = err instanceof Error ? err.message : String(err);
                     setStatus('load_error');
-                    setStatusMsg('Failed to load — tap Retry');
+                    setStatusMsg(`Error: ${msg}`);
                 }
             }
         })();

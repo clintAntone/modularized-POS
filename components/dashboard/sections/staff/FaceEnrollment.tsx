@@ -144,8 +144,9 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 })(),
                 timeout,
             ]);
-        } catch {
-            setCameraError('Failed to load face models. Please check your connection and try again.');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setCameraError(`Failed to load face models: ${msg}`);
             setLoading(false);
             return;
         }
