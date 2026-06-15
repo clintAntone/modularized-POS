@@ -1206,7 +1206,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     {/* Transactions in this date group */}
                     <div className="px-3 sm:px-5 pb-2 space-y-1.5">
                       {txs.map(tx => {
-                        const isAdmin = (tx.category ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
+                        const isAdmin = (tx.type ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
                         const isWithdrawal = tx.type === 'withdrawal';
                         return (
                           <button
