@@ -308,22 +308,22 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                             <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
                             <div className="text-center space-y-1">
                                 <p className="text-[11px] font-black text-white uppercase tracking-widest">
-                                    {dlProgress >= 100 ? 'Initializing...' : 'Downloading Face Models'}
+                                    {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
                                 <p className="text-[9px] font-bold text-slate-400">
-                                    {dlProgress >= 100 ? 'Almost ready...' : 'One-time download (~7MB)'}
+                                    {dlProgress >= 100 ? 'Preparing AI engine, please wait…' : 'One-time download (~7MB)'}
                                 </p>
                             </div>
                             {/* Progress bar */}
                             <div className="w-full max-w-[180px] space-y-1">
                                 <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                                        style={{ width: `${dlProgress}%` }}
+                                        className={`h-full rounded-full transition-all duration-300 ${dlProgress >= 100 ? 'bg-amber-400 animate-pulse w-full' : 'bg-amber-400'}`}
+                                        style={{ width: dlProgress >= 100 ? '100%' : `${dlProgress}%` }}
                                     />
                                 </div>
                                 <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
-                                    {dlProgress}%
+                                    {dlProgress >= 100 ? 'Almost ready…' : `${dlProgress}% downloaded`}
                                 </p>
                             </div>
                             <p className="text-[8px] text-slate-500 font-bold tracking-widest uppercase text-center">

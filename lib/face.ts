@@ -27,7 +27,7 @@ const TOTAL_BYTES = MODEL_FILES.reduce((s, f) => s + f.size, 0);
 
 /**
  * Pre-fetch model files into the browser cache while reporting per-file progress.
- * face-api.js then loads them instantly from cache.
+ * Also warms up the face-api.js dynamic import so it's ready before loadFaceModels().
  * onProgress receives (loadedBytes, totalBytes).
  */
 export async function preloadFaceModels(
@@ -35,14 +35,17 @@ export async function preloadFaceModels(
 ): Promise<void> {
     if (modelsLoaded) { onProgress(TOTAL_BYTES, TOTAL_BYTES); return; }
     let loadedBytes = 0;
+    // Kick off the face-api.js JS bundle import in parallel with model file downloads
+    const apiWarm = getFaceApi().catch(() => null);
     await Promise.all(MODEL_FILES.map(async ({ path, size }) => {
         try {
             const res = await fetch(path);
-            await res.arrayBuffer(); // wait for full file, fills browser cache
+            await res.arrayBuffer();
             loadedBytes += size;
             onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
         } catch { /* loadFaceModels will surface the error */ }
     }));
+    await apiWarm; // ensure JS bundle is parsed before loadFaceModels runs
 }
 
 export async function loadFaceModels(): Promise<void> {
@@ -61,13 +64,20 @@ export async function loadFaceModels(): Promise<void> {
     loading = true;
     loadError = null;
     modelsLoaded = false;
+    const TIMEOUT_MS = 30_000;
     try {
-        const api = await getFaceApi();
-        await Promise.all([
-            api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ]);
+        const load = (async () => {
+            const api = await getFaceApi();
+            await Promise.all([
+                api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+            ]);
+        })();
+        const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Model load timed out — please retry')), TIMEOUT_MS)
+        );
+        await Promise.race([load, timeout]);
         modelsLoaded = true;
     } catch (err) {
         loadError = err instanceof Error ? err : new Error('Failed to load face models');

@@ -277,7 +277,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 bg-slate-900/80">
                                 <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
                                 <p className="text-[11px] font-black text-white uppercase tracking-widest text-center">
-                                    {dlProgress >= 100 ? 'Initializing...' : 'Downloading Face Models'}
+                                    {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
                                 <div className="w-full space-y-1">
                                     <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
@@ -287,7 +287,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                                         />
                                     </div>
                                     <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
-                                        {dlProgress >= 100 ? 'Almost ready...' : `${dlProgress}% — one-time download`}
+                                        {dlProgress >= 100 ? 'Preparing AI engine…' : `${dlProgress}% — one-time download`}
                                     </p>
                                 </div>
                             </div>
