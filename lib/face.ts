@@ -26,7 +26,7 @@ const MODEL_FILES = [
 const TOTAL_BYTES = MODEL_FILES.reduce((s, f) => s + f.size, 0);
 
 /**
- * Pre-fetch model files into the browser cache while reporting byte-level progress.
+ * Pre-fetch model files into the browser cache while reporting per-file progress.
  * face-api.js then loads them instantly from cache.
  * onProgress receives (loadedBytes, totalBytes).
  */
@@ -35,18 +35,13 @@ export async function preloadFaceModels(
 ): Promise<void> {
     if (modelsLoaded) { onProgress(TOTAL_BYTES, TOTAL_BYTES); return; }
     let loadedBytes = 0;
-    await Promise.all(MODEL_FILES.map(async ({ path }) => {
+    await Promise.all(MODEL_FILES.map(async ({ path, size }) => {
         try {
             const res = await fetch(path);
-            const reader = res.body?.getReader();
-            if (!reader) return;
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                loadedBytes += value.length;
-                onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
-            }
-        } catch { /* network error — loadFaceModels will surface it */ }
+            await res.arrayBuffer(); // wait for full file, fills browser cache
+            loadedBytes += size;
+            onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
+        } catch { /* loadFaceModels will surface the error */ }
     }));
 }
 
