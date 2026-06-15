@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, CheckCircle, Loader, ScanFace, RotateCcw, AlertCircle } from 'lucide-react';
-import { extractDescriptorFromFile, loadFaceModels } from '../../../../lib/face';
+import { extractDescriptorFromFile, loadFaceModels, preloadFaceModels } from '../../../../lib/face';
 import { playSound } from '../../../../lib/audio';
 
 const STEPS = [
@@ -91,6 +91,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
     const [cameraReady, setCameraReady]   = useState(false);
     const [cameraError, setCameraError]   = useState('');
     const [loading, setLoading]           = useState(false);
+    const [dlProgress, setDlProgress]     = useState(0); // 0-100
 
     const videoRef      = useRef<HTMLVideoElement>(null);
     const streamRef     = useRef<MediaStream | null>(null);
@@ -129,6 +130,10 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
         setShots([]);
         setCameraError('');
         setLoading(true);
+        setDlProgress(0);
+        await preloadFaceModels((loaded, total) => {
+            setDlProgress(Math.round((loaded / total) * 100));
+        });
         await loadFaceModels();
         setLoading(false);
         await startCamera();
@@ -299,9 +304,31 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
 
                     {/* Loading models */}
                     {loading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/80">
-                            <Loader className="w-6 h-6 text-slate-400 animate-spin" />
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Loading models...</p>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 px-6">
+                            <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
+                            <div className="text-center space-y-1">
+                                <p className="text-[11px] font-black text-white uppercase tracking-widest">
+                                    {dlProgress >= 100 ? 'Initializing...' : 'Downloading Face Models'}
+                                </p>
+                                <p className="text-[9px] font-bold text-slate-400">
+                                    {dlProgress >= 100 ? 'Almost ready...' : 'One-time download (~7MB)'}
+                                </p>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-full max-w-[180px] space-y-1">
+                                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                                        style={{ width: `${dlProgress}%` }}
+                                    />
+                                </div>
+                                <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
+                                    {dlProgress}%
+                                </p>
+                            </div>
+                            <p className="text-[8px] text-slate-500 font-bold tracking-widest uppercase text-center">
+                                Next time will be instant
+                            </p>
                         </div>
                     )}
 

@@ -13,6 +13,43 @@ async function getFaceApi(): Promise<FaceApi> {
 
 const MODEL_URL = '/models';
 
+// All model files with known sizes (bytes) for progress tracking
+const MODEL_FILES = [
+    { path: '/models/tiny_face_detector_model-weights_manifest.json', size: 4000 },
+    { path: '/models/tiny_face_detector_model-shard1',                size: 196608 },
+    { path: '/models/face_landmark_68_model-weights_manifest.json',   size: 8192 },
+    { path: '/models/face_landmark_68_model-shard1',                  size: 360448 },
+    { path: '/models/face_recognition_model-weights_manifest.json',   size: 20480 },
+    { path: '/models/face_recognition_model-shard1',                  size: 4194304 },
+    { path: '/models/face_recognition_model-shard2',                  size: 2097152 },
+];
+const TOTAL_BYTES = MODEL_FILES.reduce((s, f) => s + f.size, 0);
+
+/**
+ * Pre-fetch model files into the browser cache while reporting byte-level progress.
+ * face-api.js then loads them instantly from cache.
+ * onProgress receives (loadedBytes, totalBytes).
+ */
+export async function preloadFaceModels(
+    onProgress: (loaded: number, total: number) => void
+): Promise<void> {
+    if (modelsLoaded) { onProgress(TOTAL_BYTES, TOTAL_BYTES); return; }
+    let loadedBytes = 0;
+    await Promise.all(MODEL_FILES.map(async ({ path }) => {
+        try {
+            const res = await fetch(path);
+            const reader = res.body?.getReader();
+            if (!reader) return;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                loadedBytes += value.length;
+                onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
+            }
+        } catch { /* network error — loadFaceModels will surface it */ }
+    }));
+}
+
 export async function loadFaceModels(): Promise<void> {
     if (modelsLoaded) return;
     // Previous load failed — reset so caller can retry

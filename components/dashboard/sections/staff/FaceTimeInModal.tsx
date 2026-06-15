@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Camera, CheckCircle, Loader, Lightbulb } from 'lucide-react';
 import { Employee } from '../../../../types';
-import { loadFaceModels, extractDescriptors, matchFace } from '../../../../lib/face';
+import { loadFaceModels, preloadFaceModels, extractDescriptors, matchFace } from '../../../../lib/face';
 import { playSound } from '../../../../lib/audio';
 import { ScreenBrightness } from '@capacitor-community/screen-brightness';
 import { Capacitor } from '@capacitor/core';
@@ -45,6 +45,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
     const [matchConfidence, setMatchConfidence] = useState(0);
     const [statusMsg, setStatusMsg] = useState('Loading face models...');
     const [failedAttempts, setFailedAttempts] = useState(0);
+    const [dlProgress, setDlProgress] = useState(0);
 
     const pool = targetEmployee ? [targetEmployee] : employees;
     const empDescriptors = pool
@@ -133,13 +134,14 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
 
     const loadModelsAndStart = useCallback(async () => {
         setStatus('loading');
-        setStatusMsg('Loading face models...');
+        setDlProgress(0);
         try {
+            await preloadFaceModels((loaded, total) => setDlProgress(Math.round((loaded / total) * 100)));
             await loadFaceModels();
             await startCamera();
         } catch {
-            setStatus('error');
-            setStatusMsg('Failed to load face models — tap to retry');
+            setStatus('load_error');
+            setStatusMsg('Failed to load face models');
         }
     }, [startCamera]);
 
@@ -147,8 +149,11 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         let cancelled = false;
         (async () => {
             setStatus('loading');
-            setStatusMsg('Loading face models...');
+            setDlProgress(0);
             try {
+                await preloadFaceModels((loaded, total) => {
+                    if (!cancelled) setDlProgress(Math.round((loaded / total) * 100));
+                });
                 await loadFaceModels();
                 if (!cancelled) await startCamera();
             } catch {
@@ -269,8 +274,22 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
 
                         {/* Loading overlay */}
                         {status === 'loading' && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Loader className="w-8 h-8 text-slate-500 animate-spin" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 bg-slate-900/80">
+                                <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
+                                <p className="text-[11px] font-black text-white uppercase tracking-widest text-center">
+                                    {dlProgress >= 100 ? 'Initializing...' : 'Downloading Face Models'}
+                                </p>
+                                <div className="w-full space-y-1">
+                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                                            style={{ width: `${dlProgress}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
+                                        {dlProgress >= 100 ? 'Almost ready...' : `${dlProgress}% — one-time download`}
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
