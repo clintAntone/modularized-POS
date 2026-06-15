@@ -33,7 +33,7 @@ interface FaceTimeInModalProps {
     onManualOverride?: () => void;
 }
 
-type Status = 'loading' | 'ready' | 'scanning' | 'matched' | 'no_face' | 'no_match' | 'error';
+type Status = 'loading' | 'ready' | 'scanning' | 'matched' | 'no_face' | 'no_match' | 'error' | 'load_error';
 
 export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, branchId, targetEmployee, onMatch, onClose, onManualOverride }) => {
     const videoRef         = useRef<HTMLVideoElement>(null);
@@ -131,33 +131,56 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         return () => { setBrightness(origBrightness.current); };
     }, []);
 
+    const loadModelsAndStart = useCallback(async () => {
+        setStatus('loading');
+        setStatusMsg('Loading face models...');
+        try {
+            await loadFaceModels();
+            await startCamera();
+        } catch {
+            setStatus('error');
+            setStatusMsg('Failed to load face models — tap to retry');
+        }
+    }, [startCamera]);
+
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            await loadFaceModels();
-            if (!cancelled) await startCamera();
+            setStatus('loading');
+            setStatusMsg('Loading face models...');
+            try {
+                await loadFaceModels();
+                if (!cancelled) await startCamera();
+            } catch {
+                if (!cancelled) {
+                    setStatus('load_error');
+                    setStatusMsg('Failed to load face models');
+                }
+            }
         })();
         return () => { cancelled = true; stopCamera(); };
     }, [startCamera, stopCamera]);
 
     const statusColor: Record<Status, string> = {
-        loading:  'text-slate-400',
-        ready:    'text-slate-400',
-        scanning: 'text-amber-400',
-        matched:  'text-emerald-400',
-        no_face:  'text-amber-400',
-        no_match: 'text-rose-400',
-        error:    'text-rose-400',
+        loading:    'text-slate-400',
+        ready:      'text-slate-400',
+        scanning:   'text-amber-400',
+        matched:    'text-emerald-400',
+        no_face:    'text-amber-400',
+        no_match:   'text-rose-400',
+        error:      'text-rose-400',
+        load_error: 'text-rose-400',
     };
 
     const ringColor: Record<Status, string> = {
-        loading:  'border-slate-700',
-        ready:    'border-white/20',
-        scanning: 'border-amber-400',
-        matched:  'border-emerald-400',
-        no_face:  'border-amber-400',
-        no_match: 'border-rose-400',
-        error:    'border-rose-400',
+        loading:    'border-slate-700',
+        ready:      'border-white/20',
+        scanning:   'border-amber-400',
+        matched:    'border-emerald-400',
+        no_face:    'border-amber-400',
+        no_match:   'border-rose-400',
+        error:      'border-rose-400',
+        load_error: 'border-rose-400',
     };
 
     const ovalStroke = status === 'scanning' ? '#fbbf24'
@@ -165,6 +188,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         : 'white';
 
     const canScan = status === 'ready' || status === 'no_face' || status === 'no_match' || status === 'error';
+    const canRetryLoad = status === 'load_error';
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/95 p-1 animate-in fade-in duration-200">
@@ -260,16 +284,26 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     )}
                 </div>
 
-                {/* Scan button */}
+                {/* Scan / Retry button */}
                 <div className="px-6 pb-3 shrink-0">
-                    <button
-                        onClick={scan}
-                        disabled={!canScan}
-                        className="w-full flex items-center justify-center gap-2 bg-white text-slate-900 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-emerald-500 hover:text-white"
-                    >
-                        <Camera className="w-4 h-4" />
-                        {status === 'scanning' ? 'Scanning...' : 'Scan Face'}
-                    </button>
+                    {canRetryLoad ? (
+                        <button
+                            onClick={loadModelsAndStart}
+                            className="w-full flex items-center justify-center gap-2 bg-rose-500 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 hover:bg-rose-600"
+                        >
+                            <Loader className="w-4 h-4" />
+                            Retry Loading
+                        </button>
+                    ) : (
+                        <button
+                            onClick={scan}
+                            disabled={!canScan}
+                            className="w-full flex items-center justify-center gap-2 bg-white text-slate-900 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-emerald-500 hover:text-white"
+                        >
+                            <Camera className="w-4 h-4" />
+                            {status === 'scanning' ? 'Scanning...' : 'Scan Face'}
+                        </button>
+                    )}
                 </div>
 
                 {/* Manual override fallback — only shown after 3 failed attempts */}

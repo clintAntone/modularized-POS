@@ -4,6 +4,7 @@ type FaceApi = typeof import('face-api.js');
 let faceapi: FaceApi | null = null;
 let modelsLoaded = false;
 let loading = false;
+let loadError: Error | null = null;
 
 async function getFaceApi(): Promise<FaceApi> {
     if (!faceapi) faceapi = await import('face-api.js');
@@ -14,30 +15,41 @@ const MODEL_URL = '/models';
 
 export async function loadFaceModels(): Promise<void> {
     if (modelsLoaded) return;
+    // Previous load failed — reset so caller can retry
+    if (loadError) { loadError = null; }
     if (loading) {
-        await new Promise<void>(resolve => {
+        await new Promise<void>((resolve, reject) => {
             const check = setInterval(() => {
                 if (modelsLoaded) { clearInterval(check); resolve(); }
+                else if (loadError) { clearInterval(check); reject(loadError); }
             }, 100);
         });
         return;
     }
     loading = true;
-    const api = await getFaceApi();
-    await Promise.all([
-        api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-        api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-    ]);
-    modelsLoaded = true;
-    loading = false;
+    loadError = null;
+    modelsLoaded = false;
+    try {
+        const api = await getFaceApi();
+        await Promise.all([
+            api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        modelsLoaded = true;
+    } catch (err) {
+        loadError = err instanceof Error ? err : new Error('Failed to load face models');
+        throw loadError;
+    } finally {
+        loading = false;
+    }
 }
 
 /** Extract face descriptors from a video/canvas element. Returns null if no face found. */
 export async function extractDescriptors(source: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<Float32Array[] | null> {
     const api = await getFaceApi();
     const detections = await api
-        .detectAllFaces(source, new api.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+        .detectAllFaces(source, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
     if (!detections || detections.length === 0) return null;
@@ -49,7 +61,7 @@ export async function extractDescriptorFromFile(file: File): Promise<Float32Arra
     const api = await getFaceApi();
     const img = await api.bufferToImage(file);
     const detection = await api
-        .detectSingleFace(img, new api.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+        .detectSingleFace(img, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
     return detection ? detection.descriptor : null;
