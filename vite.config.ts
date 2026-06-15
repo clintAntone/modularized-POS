@@ -50,6 +50,7 @@ export default defineConfig(({ mode }) => {
             'vendor-supabase': ['@supabase/supabase-js'],
             'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html-to-image'],
             'vendor-ui': ['react-datepicker', 'qrcode.react', 'lucide-react'],
+            'vendor-face': ['face-api.js'],
           }
         }
       }

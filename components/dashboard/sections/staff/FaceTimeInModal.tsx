@@ -135,13 +135,21 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
     const loadModelsAndStart = useCallback(async () => {
         setStatus('loading');
         setDlProgress(0);
+        const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 45_000)
+        );
         try {
-            await preloadFaceModels((loaded, total) => setDlProgress(Math.round((loaded / total) * 100)));
-            await loadFaceModels();
+            await Promise.race([
+                (async () => {
+                    await preloadFaceModels((loaded, total) => setDlProgress(Math.round((loaded / total) * 100)));
+                    await loadFaceModels();
+                })(),
+                timeout,
+            ]);
             await startCamera();
         } catch {
             setStatus('load_error');
-            setStatusMsg('Failed to load face models');
+            setStatusMsg('Failed to load — tap Retry');
         }
     }, [startCamera]);
 
@@ -150,16 +158,24 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         (async () => {
             setStatus('loading');
             setDlProgress(0);
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), 45_000)
+            );
             try {
-                await preloadFaceModels((loaded, total) => {
-                    if (!cancelled) setDlProgress(Math.round((loaded / total) * 100));
-                });
-                await loadFaceModels();
+                await Promise.race([
+                    (async () => {
+                        await preloadFaceModels((loaded, total) => {
+                            if (!cancelled) setDlProgress(Math.round((loaded / total) * 100));
+                        });
+                        await loadFaceModels();
+                    })(),
+                    timeout,
+                ]);
                 if (!cancelled) await startCamera();
             } catch {
                 if (!cancelled) {
                     setStatus('load_error');
-                    setStatusMsg('Failed to load face models');
+                    setStatusMsg('Failed to load — tap Retry');
                 }
             }
         })();

@@ -131,10 +131,24 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
         setCameraError('');
         setLoading(true);
         setDlProgress(0);
-        await preloadFaceModels((loaded, total) => {
-            setDlProgress(Math.round((loaded / total) * 100));
-        });
-        await loadFaceModels();
+        const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 45_000)
+        );
+        try {
+            await Promise.race([
+                (async () => {
+                    await preloadFaceModels((loaded, total) => {
+                        setDlProgress(Math.round((loaded / total) * 100));
+                    });
+                    await loadFaceModels();
+                })(),
+                timeout,
+            ]);
+        } catch {
+            setCameraError('Failed to load face models. Please check your connection and try again.');
+            setLoading(false);
+            return;
+        }
         setLoading(false);
         await startCamera();
     }, [startCamera]);

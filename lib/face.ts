@@ -35,8 +35,6 @@ export async function preloadFaceModels(
 ): Promise<void> {
     if (modelsLoaded) { onProgress(TOTAL_BYTES, TOTAL_BYTES); return; }
     let loadedBytes = 0;
-    // Kick off the face-api.js JS bundle import in parallel with model file downloads
-    const apiWarm = getFaceApi().catch(() => null);
     await Promise.all(MODEL_FILES.map(async ({ path, size }) => {
         try {
             const res = await fetch(path);
@@ -45,7 +43,6 @@ export async function preloadFaceModels(
             onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
         } catch { /* loadFaceModels will surface the error */ }
     }));
-    await apiWarm; // ensure JS bundle is parsed before loadFaceModels runs
 }
 
 export async function loadFaceModels(): Promise<void> {
