@@ -573,7 +573,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         ...g,
         reports: g.reports.filter((r: any) => {
           const rowAdj = adjustments.filter(a => a.branchId === r.branchId && a.periodLabel === g.label);
-          const totalGlobalAdj = rowAdj.filter(a => !a.targetOwner).reduce((s, a) => s + a.amount, 0);
+          const totalGlobalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
           return (r.netRoi + totalGlobalAdj) < 0;
         }),
       })).filter(g => g.reports.length > 0);
@@ -627,7 +627,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const sub = subLookup[`${report.branchId}::${group.label}`];
         if (sub?.status === 'approved' || sub?.status === 'rejected') return;
         const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
-        const totalGlobalAdj = rowAdj.filter(a => !a.targetOwner).reduce((s, a) => s + a.amount, 0);
+        const totalGlobalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
         items.push({ report, group, sub, adjustedRoi: report.netRoi + totalGlobalAdj });
       });
     });
@@ -691,7 +691,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const body = group.reports.map((report: any) => {
           const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
           const globalAdj = rowAdj.filter(a => !a.targetOwner).reduce((s, a) => s + a.amount, 0);
-          const ownerAdj = rowAdj.filter(a => !!a.targetOwner);
+          const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
           const adjustedRoi = report.netRoi + globalAdj;
           const levy = report.groupLevy as { name: string; percentage: number } | null;
           const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
@@ -1490,8 +1490,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {displayGroups.flatMap((group) => group.reports.map((report: any) => ({ report, group }))).map(({ report, group }) => {
                   const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
-                  const globalAdj = rowAdj.filter(a => !a.targetOwner);
-                  const ownerAdj = rowAdj.filter(a => !!a.targetOwner);
+                  const globalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
+                  const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
                   const adjustedRoi = report.netRoi + totalGlobalAdj;
                   const levy = report.groupLevy as { name: string; percentage: number } | null;
