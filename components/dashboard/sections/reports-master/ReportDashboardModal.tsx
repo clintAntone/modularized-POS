@@ -266,9 +266,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   // Recompute staff pay excluding relievers — fixes legacy reports where totalStaffPay
   // was stored including reliever allowances/commissions before the reliever-as-expense model.
+  // Only use the recomputed value when it is strictly lower than the stored total; if it is
+  // higher the staffBreakdown allowance fields are inflated (e.g. cash advances baked in),
+  // and the stored totalStaffPay is the authoritative correct figure.
   const displayStaffPay = useMemo(() => {
-    if (!report.staffBreakdown?.length) return Number(report.totalStaffPay || 0);
-    return (report.staffBreakdown as any[])
+    const stored = Number(report.totalStaffPay || 0);
+    if (!report.staffBreakdown?.length) return stored;
+    const recomputed = (report.staffBreakdown as any[])
       .filter((s: any) => !s.isReliever)
       .reduce((sum: number, s: any) => {
         const att = s.attendance;
@@ -278,6 +282,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           + (Number(att?.otPay || att?.ot_pay) || 0)
           - (Number(att?.lateDeduction || att?.late_deduction) || 0);
       }, 0);
+    return recomputed < stored ? recomputed : stored;
   }, [report.staffBreakdown, report.totalStaffPay]);
 
 

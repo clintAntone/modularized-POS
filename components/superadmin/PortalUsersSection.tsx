@@ -78,6 +78,8 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
   const [formError, setFormError]           = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [branchSearch, setBranchSearch] = useState('');
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({ Operations: false, Management: false, System: false });
+  const [formTab, setFormTab] = useState<'account' | 'permissions'>('account');
   const [userSearch, setUserSearch] = useState('');
   const [tabFilter, setTabFilter] = useState<string[]>([]);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -135,6 +137,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
     setEditingId(null);
     setForm(emptyForm());
     setFormError('');
+    setFormTab('account');
     setShowForm(true);
   };
 
@@ -155,6 +158,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
       readOnly:         perms.readOnly !== false, // default to true if not explicitly set to false
     });
     setFormError('');
+    setFormTab('account');
     setShowForm(true);
   };
 
@@ -447,12 +451,12 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
             </div>
           </div>
 
-          <div className="divide-y divide-slate-50">
-            {filteredUsers.length === 0 ? (
-              <div className="py-10 text-center">
-                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No users match your filter</p>
-              </div>
-            ) : null}
+          {filteredUsers.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No users match your filter</p>
+            </div>
+          ) : (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {filteredUsers.map(u => {
               const label   = branchLabel(u);
               const count   = grantedCount(u);
@@ -461,74 +465,81 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
               const isReadOnly = u.permissions?.readOnly !== false;
 
               return (
-                <div key={u.id} className={`flex items-center gap-3 px-4 py-4 ${!u.isActive ? 'opacity-50' : ''}`}>
-                  {/* Avatar */}
-                  <div className={`relative w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-[13px] italic select-none ${
-                    u.isSuperadmin ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {initials}
-                    {isMe && (
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate">{u.displayName}</p>
-                      {!u.isActive && (
-                        <span className="shrink-0 text-[7px] font-black bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-md uppercase tracking-widest">Inactive</span>
-                      )}
+                <div key={u.id} className={`bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col transition-all ${!u.isActive ? 'opacity-50' : ''}`}>
+                  {/* ── CLICKABLE BODY: opens edit modal ── */}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(u)}
+                    className="flex flex-col gap-0 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors rounded-t-2xl"
+                  >
+                    {/* TOP: avatar + name */}
+                    <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                      <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[12px] italic select-none ${
+                        u.isSuperadmin ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {initials}
+                        {isMe && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none truncate">{u.displayName}</p>
+                          {!u.isActive && <span className="shrink-0 text-[6px] font-black bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-widest">Off</span>}
+                        </div>
+                        <p className="text-[9px] font-bold text-slate-400 tracking-widest mt-0.5">@{u.username}</p>
+                      </div>
                     </div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest mt-0.5 truncate">
-                      <span className="text-slate-400">@{u.username}</span>
+
+                    {/* MIDDLE: access badges */}
+                    <div className="px-4 pb-4 flex flex-wrap gap-1.5">
                       {u.isSuperadmin ? (
-                        <span className="text-amber-500"> · Full Admin</span>
+                        <span className="text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-100">Full Admin</span>
                       ) : (
+                        <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${isReadOnly ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                          {isReadOnly ? 'Read Only' : 'Read+Write'}
+                        </span>
+                      )}
+                      {!u.isSuperadmin && (
                         <>
-                          <span className={isReadOnly ? 'text-amber-500' : 'text-emerald-600'}>{isReadOnly ? ' · Read Only' : ' · Read+Write'}</span>
-                          <span className="text-slate-300"> · {label ?? 'All branches'} · {count} tab{count !== 1 ? 's' : ''}</span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest px-2 py-1 rounded-lg bg-slate-50 border border-slate-100 truncate max-w-[110px]">
+                            {label ?? 'All branches'}
+                          </span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest px-2 py-1 rounded-lg bg-slate-50 border border-slate-100">
+                            {count} tab{count !== 1 ? 's' : ''}
+                          </span>
                         </>
                       )}
-                    </p>
-                  </div>
+                    </div>
+                  </button>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Quick active toggle switch */}
+                  {/* ── FOOTER: delete (left) | toggle (right) ── */}
+                  <div className="flex items-center justify-between px-3 py-2 border-t border-slate-50 bg-slate-50 rounded-b-2xl">
+                    {!isMe ? (
+                      <button
+                        onClick={() => setDeleteConfirmId(u.id)}
+                        title="Delete"
+                        className="h-7 w-7 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-100 rounded-lg transition-all active:scale-95"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    ) : <div />}
                     {!isMe && (
                       <button
                         onClick={() => handleToggleActive(u)}
                         disabled={togglingId === u.id}
                         title={u.isActive ? 'Disable account' : 'Enable account'}
-                        className={`relative w-11 h-6 rounded-full transition-all duration-300 disabled:opacity-50 shrink-0 ${u.isActive ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                        className={`relative w-10 h-5 rounded-full transition-all duration-300 disabled:opacity-50 shrink-0 ${u.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
                       >
-                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300 ${u.isActive ? 'left-[22px]' : 'left-0.5'}`}>
-                          {togglingId === u.id && (
-                            <div className="w-full h-full rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
-                          )}
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${u.isActive ? 'left-[22px]' : 'left-0.5'}`}>
+                          {togglingId === u.id && <div className="w-full h-full rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />}
                         </div>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => openEdit(u)}
-                      className="h-8 px-3 text-[9px] font-bold uppercase tracking-widest text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all active:scale-95"
-                    >
-                      Edit
-                    </button>
-                    {!isMe && (
-                      <button
-                        onClick={() => setDeleteConfirmId(u.id)}
-                        className="h-8 w-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                       </button>
                     )}
                   </div>
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -537,334 +548,402 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
         <div className={UI_THEME.layout.modalWrapper}>
           <form
             onSubmit={handleSave}
-            className="bg-white rounded-3xl w-full max-w-lg mx-auto shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col"
+            className="bg-white rounded-3xl w-full max-w-lg mx-auto shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col"
           >
-            {/* FORM HEADER */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-50 shrink-0">
-              <h3 className="text-xl font-black uppercase tracking-tighter text-slate-900">
-                {editingId ? 'Edit Portal User' : 'New Portal User'}
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                {editingId ? 'Update account details and permissions' : 'Create a limited-access account'}
-              </p>
+            {/* FORM HEADER — dark slate */}
+            <div className="bg-slate-900 px-6 pt-5 pb-4 rounded-t-3xl shrink-0">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black uppercase tracking-tight text-white leading-none">
+                    {editingId ? 'Edit Portal User' : 'New Portal User'}
+                  </h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    {editingId ? 'Update account details and permissions' : 'Create a limited-access account'}
+                  </p>
+                </div>
+              </div>
+              {/* Tab switcher */}
+              <div className="grid grid-cols-2 gap-1 bg-white/10 rounded-2xl p-1">
+                <button
+                  type="button"
+                  onClick={() => setFormTab('account')}
+                  className={`h-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formTab === 'account' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormTab('permissions')}
+                  className={`h-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formTab === 'permissions' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Permissions
+                </button>
+              </div>
             </div>
 
             {/* SCROLLABLE BODY */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div>
 
-              {/* Display Name */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Display Name</label>
-                <input
-                  type="text"
-                  value={form.displayName}
-                  onChange={e => setForm(p => ({ ...p, displayName: e.target.value }))}
-                  placeholder="e.g. OWNER"
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm uppercase text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all"
-                />
-              </div>
+                {/* ── ACCOUNT TAB ── */}
+                {formTab === 'account' && <div className="px-5 py-4 flex flex-col gap-3">
 
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Username</label>
-                <input
-                  type="text"
-                  value={form.username}
-                  onChange={e => setForm(p => ({ ...p, username: e.target.value.toLowerCase() }))}
-                  placeholder="e.g. owner"
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* PIN */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  {editingId ? 'New PIN (leave blank to keep current)' : 'PIN (exactly 6 digits)'}
-                </label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  value={form.pin}
-                  onChange={e => setForm(p => ({ ...p, pin: e.target.value.replace(/\D/g, '') }))}
-                  placeholder="••••••"
-                  maxLength={6}
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all tracking-[0.3em]"
-                />
-              </div>
-
-              {/* Confirm PIN */}
-              {(form.pin || !editingId) && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Confirm PIN</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    value={form.confirmPin}
-                    onChange={e => setForm(p => ({ ...p, confirmPin: e.target.value.replace(/\D/g, '') }))}
-                    placeholder="••••••"
-                    maxLength={6}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white transition-all tracking-[0.3em]"
-                  />
-                </div>
-              )}
-
-              {/* FULL ADMIN TOGGLE */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Full Admin Access</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Grants unrestricted access to all features.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, isSuperadmin: !p.isSuperadmin }))}
-                  className={`w-12 h-6 rounded-full transition-all ${form.isSuperadmin ? 'bg-slate-900' : 'bg-slate-200'} relative shrink-0`}
-                >
-                  <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.isSuperadmin ? 'right-0.5' : 'left-0.5'}`} />
-                </button>
-              </div>
-
-              {/* TAB PERMISSIONS */}
-              {!form.isSuperadmin && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tab Access</label>
-                    <p className="text-[9px] text-slate-400 mt-0.5">Select which sections this user can view.</p>
+                  {/* ── ACCOUNT GROUP ── */}
+                  <div className="space-y-1.5">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] px-1">Account</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-200">
+                      {/* Display Name */}
+                      <div className="flex items-center h-12 px-3.5 gap-3">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-24 shrink-0">Display Name</label>
+                        <input
+                          type="text"
+                          value={form.displayName}
+                          onChange={e => setForm(p => ({ ...p, displayName: e.target.value }))}
+                          placeholder="e.g. OWNER"
+                          className="flex-1 h-full bg-transparent font-bold text-sm uppercase text-slate-900 outline-none placeholder:text-slate-300 text-right"
+                        />
+                      </div>
+                      {/* Username */}
+                      <div className="flex items-center h-12 px-3.5 gap-3">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-24 shrink-0">Username</label>
+                        <input
+                          type="text"
+                          value={form.username}
+                          onChange={e => setForm(p => ({ ...p, username: e.target.value.toLowerCase() }))}
+                          placeholder="e.g. owner"
+                          className="flex-1 h-full bg-transparent font-bold text-sm text-slate-900 outline-none placeholder:text-slate-300 text-right"
+                        />
+                      </div>
+                      {/* PIN */}
+                      <div className="flex items-center h-12 px-3.5 gap-3">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-24 shrink-0">
+                          {editingId ? 'New PIN' : 'PIN'}
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          value={form.pin}
+                          onChange={e => setForm(p => ({ ...p, pin: e.target.value.replace(/\D/g, '') }))}
+                          placeholder="••••••"
+                          maxLength={6}
+                          className="flex-1 h-full bg-transparent font-bold text-sm text-slate-900 outline-none tracking-[0.3em] placeholder:text-slate-300 text-right"
+                        />
+                      </div>
+                      {/* Confirm PIN — only when typing a new PIN */}
+                      {(form.pin || !editingId) && (
+                        <div className="flex items-center h-12 px-3.5 gap-3">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-24 shrink-0">Confirm</label>
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            value={form.confirmPin}
+                            onChange={e => setForm(p => ({ ...p, confirmPin: e.target.value.replace(/\D/g, '') }))}
+                            placeholder="••••••"
+                            maxLength={6}
+                            className="flex-1 h-full bg-transparent font-bold text-sm text-slate-900 outline-none tracking-[0.3em] placeholder:text-slate-300 text-right"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {editingId && !form.pin && (
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">Blank PIN = keep current</p>
+                    )}
                   </div>
-                  {CATEGORIES.map(cat => (
-                    <div key={cat} className="space-y-1.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">{cat}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {TAB_DEFINITIONS.filter(t => t.category === cat).map(t => {
-                          const granted = !!form.permissions[t.id];
+
+                  {/* ── SETTINGS GROUP ── */}
+                  <div className="flex-1 space-y-1.5">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] px-1">Settings</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-200">
+                      {/* Full Admin */}
+                      <div className="flex items-center justify-between px-3.5 py-2.5">
+                        <div className="min-w-0 mr-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 leading-none">Full Admin</p>
+                          <p className="text-[8px] text-slate-400 mt-0.5 leading-none">Unrestricted access</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, isSuperadmin: !p.isSuperadmin }))}
+                          className={`w-10 h-5 rounded-full transition-all shrink-0 relative ${form.isSuperadmin ? 'bg-slate-900' : 'bg-slate-300'}`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.isSuperadmin ? 'right-0.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+                      {/* Account Active (edit only) */}
+                      {editingId && (
+                        <div className="flex items-center justify-between px-3.5 py-2.5">
+                          <div className="min-w-0 mr-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 leading-none">Account Active</p>
+                            <p className="text-[8px] text-slate-400 mt-0.5 leading-none">Can log in</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))}
+                            className={`w-10 h-5 rounded-full transition-all shrink-0 relative ${form.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          >
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.isActive ? 'right-0.5' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ACCESS LEVEL */}
+                    {!form.isSuperadmin && (
+                      <div className="space-y-1.5 pt-0.5">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] px-1">Access Level</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setForm(p => ({ ...p, readOnly: true }))}
+                            className={`h-9 rounded-xl border-2 flex items-center justify-center transition-all ${form.readOnly ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                          >
+                            <span className="text-[9px] font-black uppercase tracking-widest">Read Only</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm(p => ({ ...p, readOnly: false }))}
+                            className={`h-9 rounded-xl border-2 flex items-center justify-center transition-all ${!form.readOnly ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                          >
+                            <span className="text-[9px] font-black uppercase tracking-widest">Read+Write</span>
+                          </button>
+                        </div>
+                        {form.readOnly && (
+                          <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest leading-snug px-1">
+                            ⚠ Safe default — cannot modify data.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1" />
+                </div>}
+
+                {/* ── PERMISSIONS TAB ── */}
+                {formTab === 'permissions' && <div className="px-5 py-4 space-y-4">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">Permissions</p>
+
+                  {form.isSuperadmin ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3 opacity-30">
+                      <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+                      </svg>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Full Admin — all permissions granted</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+
+                      {/* TAB ACCESS — 2-col grid, full labels visible */}
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tab Access</p>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Select which sections this user can view.</p>
+                        </div>
+                        {CATEGORIES.map(cat => {
+                          const catTabs = TAB_DEFINITIONS.filter(t => t.category === cat);
+                          const grantedCount = catTabs.filter(t => !!form.permissions[t.id]).length;
+                          const isOpen = expandedCats[cat] ?? true;
                           return (
-                            <button
-                              type="button"
-                              key={t.id}
-                              onClick={() => toggleTab(t.id)}
-                              className={`h-10 px-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${granted ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-                            >
-                              <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${granted ? 'border-white bg-emerald-400' : 'border-slate-300'}`}>
-                                {granted && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            <div key={cat} className="rounded-xl border border-slate-100 overflow-hidden">
+                              {/* Dropdown header */}
+                              <div className="flex items-center bg-slate-50">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedCats(prev => ({ ...prev, [cat]: !isOpen }))}
+                                  className="flex-1 flex items-center gap-2 px-3.5 py-2.5 hover:bg-slate-100 transition-colors"
+                                >
+                                  <svg className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : 'rotate-0'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                                  </svg>
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{cat}</span>
+                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ml-1 ${grantedCount === catTabs.length ? 'bg-emerald-100 text-emerald-600' : grantedCount === 0 ? 'bg-slate-100 text-slate-400' : 'bg-amber-100 text-amber-600'}`}>
+                                    {grantedCount}/{catTabs.length}
+                                  </span>
+                                </button>
+                                <div className="flex items-center gap-0.5 pr-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setForm(p => ({ ...p, permissions: { ...p.permissions, ...Object.fromEntries(catTabs.map(t => [t.id, true])) } }))}
+                                    className="text-[8px] font-black text-emerald-500 uppercase tracking-widest hover:text-emerald-700 px-1.5 py-1 rounded hover:bg-emerald-50 transition-colors"
+                                  >All</button>
+                                  <span className="text-slate-200 text-xs">·</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setForm(p => ({ ...p, permissions: { ...p.permissions, ...Object.fromEntries(catTabs.map(t => [t.id, false])) } }))}
+                                    className="text-[8px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 px-1.5 py-1 rounded hover:bg-slate-100 transition-colors"
+                                  >None</button>
+                                </div>
                               </div>
-                              {t.label}
-                            </button>
+                              {/* Collapsible tab grid */}
+                              {isOpen && (
+                                <div className="grid grid-cols-2 gap-1.5 p-2.5 bg-white">
+                                  {catTabs.map(t => {
+                                    const granted = !!form.permissions[t.id];
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={t.id}
+                                        onClick={() => toggleTab(t.id)}
+                                        className={`h-9 px-3 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 text-left ${granted ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'}`}
+                                      >
+                                        <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0 ${granted ? 'border-white bg-emerald-400' : 'border-slate-300'}`}>
+                                          {granted && <div className="w-1 h-1 rounded-full bg-white" />}
+                                        </div>
+                                        {t.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
 
-              {/* ── ACCESS LEVEL ──────────────────────── */}
-              {!form.isSuperadmin && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Access Level</label>
-                  <p className="text-[9px] text-slate-400">Controls whether this user can only view data or also perform write actions (approve, save, edit, etc.).</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm(p => ({ ...p, readOnly: true }))}
-                      className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all ${form.readOnly ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
-                    >
-                      <span className="text-[11px] font-black uppercase tracking-widest">Read Only</span>
-                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">View & browse only</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm(p => ({ ...p, readOnly: false }))}
-                      className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all ${!form.readOnly ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
-                    >
-                      <span className="text-[11px] font-black uppercase tracking-widest">Read + Write</span>
-                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">Can perform actions</span>
-                    </button>
-                  </div>
-                  {form.readOnly && (
-                    <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest">
-                      ⚠ Read Only is the safe default — users cannot accidentally modify data.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* ── BRANCH RESTRICTION ──────────────────────── */}
-              {!form.isSuperadmin && (
-                <div className="space-y-3">
-                  {/* Toggle */}
-                  <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-widest text-indigo-800">Restrict to Specific Branches</p>
-                      <p className="text-[9px] text-indigo-500 mt-0.5">
-                        {form.restrictBranches ? 'User sees only selected branches.' : 'User can see all branches.'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setForm(p => ({ ...p, restrictBranches: !p.restrictBranches, branchIds: [] }))}
-                      className={`w-12 h-6 rounded-full transition-all ${form.restrictBranches ? 'bg-indigo-600' : 'bg-indigo-200'} relative shrink-0`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.restrictBranches ? 'right-0.5' : 'left-0.5'}`} />
-                    </button>
-                  </div>
-
-                  {/* Branch multi-select */}
-                  {form.restrictBranches && (
-                    <div className="space-y-2">
-
-                      {/* Selected chips — tap to remove */}
-                      {form.branchIds.length > 0 ? (
-                        <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-1.5">
-                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">
-                            {form.branchIds.length} of {activeBranches.length} selected — tap to remove
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {form.branchIds.map(id => {
-                              const b = activeBranches.find(br => br.id === id);
-                              if (!b) return null;
-                              const short = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
-                              return (
-                                <button
-                                  type="button"
-                                  key={id}
-                                  onClick={() => toggleBranch(id)}
-                                  className="flex items-center gap-1.5 bg-indigo-600 text-white pl-2.5 pr-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all"
-                                >
-                                  {short}
-                                  <svg className="w-2.5 h-2.5 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                  </svg>
-                                </button>
-                              );
-                            })}
+                      {/* BRANCH RESTRICTION */}
+                      <div className="space-y-3 pt-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">Branch Access</p>
+                        <div className="flex items-center justify-between px-3.5 py-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                          <div className="min-w-0 mr-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-800 leading-none">Restrict to Branches</p>
+                            <p className="text-[8px] text-indigo-500 mt-0.5 leading-snug">
+                              {form.restrictBranches ? 'Only selected branches visible.' : 'All branches visible.'}
+                            </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm(p => ({ ...p, restrictBranches: !p.restrictBranches, branchIds: [] }))}
+                            className={`w-11 h-6 rounded-full transition-all shrink-0 ${form.restrictBranches ? 'bg-indigo-600' : 'bg-indigo-200'} relative`}
+                          >
+                            <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.restrictBranches ? 'right-0.5' : 'left-0.5'}`} />
+                          </button>
                         </div>
-                      ) : (
-                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl">
-                          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">No branches selected — user won't be able to log in.</p>
-                        </div>
-                      )}
 
-                      {/* Search + All / None */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
-                          </svg>
-                          <input
-                            type="text"
-                            value={branchSearch}
-                            onChange={e => setBranchSearch(e.target.value)}
-                            placeholder="Search branches…"
-                            className="w-full h-8 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition-all"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setForm(p => ({ ...p, branchIds: activeBranches.map(b => b.id) }))}
-                          className="text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 px-1"
-                        >All</button>
-                        <span className="text-slate-200 text-xs">·</span>
-                        <button
-                          type="button"
-                          onClick={() => setForm(p => ({ ...p, branchIds: [] }))}
-                          className="text-[8px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 px-1"
-                        >None</button>
-                      </div>
-
-                      {/* Compact 2-col branch grid */}
-                      {activeBranches.length === 0 ? (
-                        <p className="text-[9px] text-slate-300 text-center py-4">No active branches found.</p>
-                      ) : (
-                        <div className="max-h-48 overflow-y-auto rounded-xl">
-                          {filteredBranches.length === 0 ? (
-                            <p className="text-[9px] text-slate-300 text-center py-4">No branches match "{branchSearch}"</p>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-1.5 pr-0.5">
-                              {filteredBranches.map(branch => {
-                                const selected = form.branchIds.includes(branch.id);
-                                const shortName = branch.name.replace(/BRANCH\s*-\s*/i, '').trim();
-                                return (
-                                  <button
-                                    type="button"
-                                    key={branch.id}
-                                    onClick={() => toggleBranch(branch.id)}
-                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all active:scale-95 ${
-                                      selected
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50'
-                                    }`}
-                                  >
-                                    <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${selected ? 'border-white/60 bg-white/20' : 'border-slate-300'}`}>
-                                      {selected && (
-                                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                        {form.restrictBranches && (
+                          <div className="space-y-2">
+                            {form.branchIds.length > 0 ? (
+                              <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-1.5">
+                                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">
+                                  {form.branchIds.length} of {activeBranches.length} selected — tap to remove
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {form.branchIds.map(id => {
+                                    const b = activeBranches.find(br => br.id === id);
+                                    if (!b) return null;
+                                    const short = b.name.replace(/BRANCH\s*-\s*/i, '').replace(/\s*BRANCH$/i, '').trim();
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={id}
+                                        onClick={() => toggleBranch(id)}
+                                        className="flex items-center gap-1.5 bg-indigo-600 text-white pl-2.5 pr-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                                      >
+                                        {short}
+                                        <svg className="w-2.5 h-2.5 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                         </svg>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className={`text-[9px] font-black uppercase tracking-widest truncate leading-snug ${selected ? 'text-white' : 'text-slate-700'}`}>
-                                        {shortName}
-                                      </p>
-                                      {branch.manager && (
-                                        <p className={`text-[7px] uppercase tracking-widest truncate leading-snug ${selected ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                          {branch.manager.split(' ')[0]}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </button>
-                                );
-                              })}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">No branches selected — user won't be able to log in.</p>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+                                </svg>
+                                <input
+                                  type="text"
+                                  value={branchSearch}
+                                  onChange={e => setBranchSearch(e.target.value)}
+                                  placeholder="Search branches…"
+                                  className="w-full h-8 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                                />
+                              </div>
+                              <button type="button" onClick={() => setForm(p => ({ ...p, branchIds: activeBranches.map(b => b.id) }))} className="text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 px-1">All</button>
+                              <span className="text-slate-200 text-xs">·</span>
+                              <button type="button" onClick={() => setForm(p => ({ ...p, branchIds: [] }))} className="text-[8px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 px-1">None</button>
                             </div>
-                          )}
-                        </div>
-                      )}
+
+                            {activeBranches.length === 0 ? (
+                              <p className="text-[9px] text-slate-300 text-center py-4">No active branches found.</p>
+                            ) : (
+                              <div className="max-h-52 overflow-y-auto rounded-xl">
+                                {filteredBranches.length === 0 ? (
+                                  <p className="text-[9px] text-slate-300 text-center py-4">No branches match "{branchSearch}"</p>
+                                ) : (
+                                  <div className="grid grid-cols-3 gap-1.5 pr-0.5">
+                                    {filteredBranches.map(branch => {
+                                      const selected = form.branchIds.includes(branch.id);
+                                      const shortName = branch.name.replace(/BRANCH\s*-\s*/i, '').replace(/\s*BRANCH$/i, '').trim();
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={branch.id}
+                                          onClick={() => toggleBranch(branch.id)}
+                                          className={`flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-all active:scale-95 ${
+                                            selected ? 'bg-indigo-600 text-white' : 'bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50'
+                                          }`}
+                                        >
+                                          <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${selected ? 'border-white/60 bg-white/20' : 'border-slate-300'}`}>
+                                            {selected && (
+                                              <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <p className={`text-[9px] font-black uppercase tracking-widest truncate leading-none ${selected ? 'text-white' : 'text-slate-700'}`}>{shortName}</p>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Active toggle (edit only) */}
-              {editingId && (
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Account Active</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">Disabled accounts cannot log in.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))}
-                    className={`w-12 h-6 rounded-full transition-all ${form.isActive ? 'bg-slate-900' : 'bg-slate-200'} relative shrink-0`}
-                  >
-                    <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 transition-all ${form.isActive ? 'right-0.5' : 'left-0.5'}`} />
-                  </button>
-                </div>
-              )}
-
-              {formError && (
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl">
-                  <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{formError}</p>
-                </div>
-              )}
+                </div>}
+              </div>
             </div>
 
             {/* FORM FOOTER */}
-            <div className="px-6 pb-6 pt-3 space-y-2 border-t border-slate-50 shrink-0">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full h-12 bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl hover:bg-slate-700 transition-all disabled:opacity-50 flex items-center justify-center"
-              >
-                {isSaving
-                  ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  : editingId ? 'Save Changes' : 'Create Account'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="w-full py-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest"
-              >
-                Cancel
-              </button>
+            <div className="px-5 pb-5 pt-3 space-y-2.5 border-t border-slate-100 shrink-0">
+              {formError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-100 rounded-xl">
+                  <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{formError}</p>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="h-11 px-5 text-slate-500 font-bold text-[10px] uppercase tracking-widest bg-slate-100 hover:bg-slate-200 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 h-11 bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl hover:bg-slate-700 transition-all disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isSaving
+                    ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    : editingId ? 'Save Changes' : 'Create Account'}
+                </button>
+              </div>
             </div>
           </form>
         </div>

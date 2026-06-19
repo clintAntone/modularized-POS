@@ -12,6 +12,7 @@ import { getManilaTodayStr } from '../../lib/time';
 import { invalidateBranchSessions } from '../../lib/audit';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { Pagination } from '../dashboard/sections/common/Pagination';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
@@ -607,6 +608,57 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     }
   };
 
+  const handleExportCSV = () => {
+    if (isExporting || filteredEmployees.length === 0) return;
+    setIsExporting(true);
+    playSound('click');
+    try {
+      const rows = filteredEmployees.map(emp => {
+        const empNameUpper = (emp.name || '').toUpperCase();
+        const homeBranch = branches.find(b => b.id === emp.branchId)?.name || '—';
+        const relieverBranches = branches
+          .filter(b => b.id !== emp.branchId && (
+            b.manager?.toUpperCase() === empNameUpper ||
+            b.tempManager?.toUpperCase() === empNameUpper ||
+            (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in emp.branchAllowances)
+          ))
+          .map(b => b.name)
+          .join(', ') || '—';
+        const specialization = getEmployeeRole(emp, emp.branchId)
+          .split(',')
+          .filter(r => !['MANAGER', 'RELIEVER'].includes(r.trim().toUpperCase()))
+          .join(', ') || '—';
+        const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
+        const empId = emp.timestamp
+          ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+          : emp.id;
+        return {
+          'FIRST NAME': (emp.firstName || '').toUpperCase(),
+          'MIDDLE NAME': (emp.middleName || '').toUpperCase(),
+          'LAST NAME': (emp.lastName || '').toUpperCase(),
+          'FULL NAME': empNameUpper,
+          'EMP ID': empId.toUpperCase(),
+          'HOME BRANCH': homeBranch.toUpperCase(),
+          'RELIEVER BRANCHES': relieverBranches.toUpperCase(),
+          'SPECIALIZATION': specialization.toUpperCase(),
+          'STATUS': emp.isActive ? 'ACTIVE' : 'INACTIVE',
+          'POSITION': isManager ? 'MANAGER' : 'REGULAR',
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff Directory');
+      XLSX.writeFile(wb, `STAFF_DIRECTORY_${getManilaTodayStr()}.xlsx`);
+      playSound('success');
+    } catch (error) {
+      console.error('CSV Export failed:', error);
+      alert('Failed to generate spreadsheet.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className={`animate-in fade-in duration-300 ${UI_THEME.layout.maxContent} pb-32`}>
 
@@ -810,6 +862,18 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             />
           </div>
 
+          <button
+            onClick={handleExportCSV}
+            disabled={isExporting || filteredEmployees.length === 0}
+            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-teal-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isExporting ? (
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            )}
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Excel'}</span>
+          </button>
           <button
             onClick={() => handleExportPDF()}
             disabled={isExporting || filteredEmployees.length === 0}

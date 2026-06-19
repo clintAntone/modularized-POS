@@ -13,6 +13,7 @@ import { getTrueDate, getTrueISOString, getTrueManilaISOString } from '../../../
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { AlertTriangle, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 
 // Modular Imports
@@ -485,6 +486,34 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       doc.save(`Staff_Directory_${branch.name.replace(/\s+/g, '_')}.pdf`);
       showToast('Personnel Directory Exported (PDF)');
+      playSound('success');
+    } catch (err) {
+      console.error('Export Failed:', err);
+      showToast('Export Fault', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (isExporting || branchStaff.length === 0) return;
+    setIsExporting(true);
+    playSound('click');
+    try {
+      const rows = branchStaff.map(emp => ({
+        'FIRST NAME': (emp.firstName || '').toUpperCase(),
+        'MIDDLE NAME': (emp.middleName || '').toUpperCase(),
+        'LAST NAME': (emp.lastName || '').toUpperCase(),
+        'FULL NAME': emp.name.toUpperCase(),
+        'DESIGNATION': getEmployeeRole(emp, branch.id).toUpperCase(),
+        'STATUS': emp.isActive ? 'ACTIVE' : 'SUSPENDED',
+        'DAILY ALLOWANCE': getEmployeeAllowance(emp, branch.id),
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff Directory');
+      XLSX.writeFile(wb, `Staff_Directory_${branch.name.replace(/\s+/g, '_')}.xlsx`);
+      showToast('Personnel Directory Exported (Excel)');
       playSound('success');
     } catch (err) {
       console.error('Export Failed:', err);
@@ -968,6 +997,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         filterActiveOnly={filterActiveOnly}
         onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); setCurrentPage(1); }}
         totalShowing={branchStaff.length}
+        onExportPDF={handleExportPDF}
+        onExportCSV={handleExportCSV}
+        isExporting={isExporting}
       />
 
       {isManagerView && !isDelegate && onNavigateToComplaints && (

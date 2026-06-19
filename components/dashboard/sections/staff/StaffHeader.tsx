@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { UI_THEME } from '../../../../constants/ui_designs';
-import { UserPlus, Store, Search, SlidersHorizontal, ClipboardPlus, Check } from 'lucide-react';
+import { UserPlus, Store, Search, SlidersHorizontal, ClipboardPlus, Check, FileSpreadsheet, Printer } from 'lucide-react';
 
 const ROLES = ['THERAPIST', 'BONESETTER', 'MANAGER'] as const;
 type Role = typeof ROLES[number];
@@ -16,6 +16,9 @@ interface StaffHeaderProps {
   filterActiveOnly: boolean;
   onFilterActiveOnlyChange: (val: boolean) => void;
   totalShowing: number;
+  onExportPDF?: () => void;
+  onExportCSV?: () => void;
+  isExporting?: boolean;
 }
 
 export const StaffHeader: React.FC<StaffHeaderProps> = ({
@@ -29,6 +32,9 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   filterActiveOnly,
   onFilterActiveOnlyChange,
   totalShowing,
+  onExportPDF,
+  onExportCSV,
+  isExporting = false,
 }) => {
   const [open, setOpen] = React.useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,6 +81,28 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onExportCSV && (
+            <button
+              onClick={onExportCSV}
+              disabled={isExporting}
+              title="Export Excel"
+              className={`flex items-center gap-2 h-9 px-3 bg-teal-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all active:scale-95 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isExporting ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" strokeWidth={2.5} />}
+              <span className="hidden sm:inline">Excel</span>
+            </button>
+          )}
+          {onExportPDF && (
+            <button
+              onClick={onExportPDF}
+              disabled={isExporting}
+              title="Export PDF"
+              className={`flex items-center gap-2 h-9 px-3 bg-emerald-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all active:scale-95 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isExporting ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Printer className="w-3.5 h-3.5" strokeWidth={2.5} />}
+              <span className="hidden sm:inline">PDF</span>
+            </button>
+          )}
           {onRequestNewEmployee && (
             <button
               onClick={onRequestNewEmployee}
