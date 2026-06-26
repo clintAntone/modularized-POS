@@ -108,6 +108,7 @@ interface ComplaintsHubProps {
   branches: Branch[];
   onRefresh?: () => void;
   isReadOnly?: boolean;
+  reviewerName?: string;
 }
 
 type FilterStatus = 'PENDING' | 'ACKNOWLEDGED' | 'DISMISSED' | 'ALL';
@@ -119,7 +120,7 @@ interface ReviewState {
 }
 
 export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
-  complaints, employees, branches, onRefresh, isReadOnly,
+  complaints, employees, branches, onRefresh, isReadOnly, reviewerName = 'SUPERADMIN',
 }) => {
   const [filter, setFilter] = useState<FilterStatus>('PENDING');
   const [reviewState, setReviewState] = useState<ReviewState | null>(null);
@@ -217,7 +218,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
       await supabase.from(DB_TABLES.EMPLOYEE_COMPLAINTS).update({
         [DB_COLUMNS.STATUS]: 'DISMISSED',
         [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
-        [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
+        [DB_COLUMNS.REVIEWED_BY]: reviewerName,
         [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
       }).eq(DB_COLUMNS.ID, complaintId);
       await logAudit({
@@ -225,7 +226,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         entityType: 'EMPLOYEE_REPORT',
         description: `Complaint for ${c.employeeName} — Dismissed`,
         branchId: c.branchId,
-        performerName: 'SUPERADMIN',
+        performerName: reviewerName,
       });
       playSound('success');
       onRefresh?.();
@@ -253,7 +254,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         entityType: 'EMPLOYEE_REPORT',
         description: `Complaint for ${c.employeeName} — Reopened`,
         branchId: c.branchId,
-        performerName: 'SUPERADMIN',
+        performerName: reviewerName,
       });
       playSound('success');
       onRefresh?.();
@@ -298,7 +299,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
           [DB_COLUMNS.ACTION_TAKEN]: reviewAction,
           [DB_COLUMNS.JUDGMENT]: judgment.trim() || null,
           [DB_COLUMNS.RESOLUTION]: resolution.trim() || null,
-          [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
+          [DB_COLUMNS.REVIEWED_BY]: reviewerName,
           [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
         })
         .eq(DB_COLUMNS.ID, complaint.id);
@@ -309,7 +310,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         entityType: 'EMPLOYEE_REPORT',
         description: `Complaint for ${complaint.employeeName} — ${newStatus === 'DISMISSED' ? 'Dismissed' : `Acknowledged (${reviewAction})`}`,
         branchId: complaint.branchId,
-        performerName: 'SUPERADMIN',
+        performerName: reviewerName,
       });
 
       playSound('success');

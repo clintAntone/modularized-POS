@@ -357,10 +357,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                    {props.editingEmployee.id ? 'Staff Profile' : props.isPullMode ? 'Branch Enrollment' : 'New Staff'}
+                    {props.editingEmployee.id ? 'Staff Profile' : props.isPullMode ? 'Add Reliever' : 'New Employee'}
                   </p>
                   <h3 className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate">
-                    {props.editingEmployee.id ? props.editingEmployee.name : props.isPullMode ? 'Enroll Reliever' : 'Add Staff'}
+                    {props.editingEmployee.id ? props.editingEmployee.name : props.isPullMode ? 'Enroll from Another Branch' : 'Register New Employee'}
                   </h3>
                 </div>
                 <button onClick={props.onCloseModals} className="w-8 h-8 bg-slate-100 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-90 flex items-center justify-center shrink-0">
@@ -369,6 +369,37 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
               </div>
 
               <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 px-5 py-4 pr-1">
+
+                {/* Context banner — New Employee */}
+                {isNewStaff && !props.isPullMode && (
+                  <div className="flex gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+                    <div className="w-5 h-5 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">New Employee — No Existing Record</p>
+                      <p className="text-[8px] font-medium text-indigo-500 mt-0.5 leading-relaxed">Use this form only for staff who are brand new to the network. If this person already works at another branch, use <span className="font-black">Add Reliever</span> instead.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Context banner — Reliever */}
+                {isNewStaff && props.isPullMode && (
+                  <div className="flex gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                    <div className="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Enrolling a Reliever</p>
+                      <p className="text-[8px] font-medium text-emerald-600 mt-0.5 leading-relaxed">Search for an employee already registered in another branch. They will be temporarily added to this branch's roster. Their home branch record stays unchanged.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* SEARCH EXISTING PERSONNEL (Only for Pull Mode) */}
                 {isNewStaff && props.isPullMode && (
                   <div className="space-y-3">

@@ -719,7 +719,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-      const displayDate = new Date(todayStr).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+      const displayDate = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(todayStr + 'T12:00:00')).toUpperCase();
 
       // 1. Header
       doc.setFontSize(18);
@@ -982,7 +982,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Daily Operational Ledger</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold uppercase tracking-tight text-slate-900">{new Date(todayStr).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-xl font-bold uppercase tracking-tight text-slate-900">{new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(todayStr + 'T12:00:00'))}</p>
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Generated: {new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(getTrueDate())}</p>
             </div>
           </div>

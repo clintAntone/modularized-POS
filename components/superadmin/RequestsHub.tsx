@@ -15,6 +15,7 @@ interface RequestsHubProps {
   salesReports: SalesReport[];
   onRefresh?: () => void;
   isReadOnly?: boolean;
+  reviewerName?: string;
 }
 
 const TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -91,7 +92,7 @@ const STATUS_STYLE = {
 
 const fmt = (n: number) => `₱${(n || 0).toLocaleString()}`;
 
-export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly }) => {
+export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
@@ -288,7 +289,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         }
         await supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'APPROVED',
-          [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
+          [DB_COLUMNS.REVIEWED_BY]: reviewerName,
           [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
@@ -302,7 +303,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         }
         await supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'REJECTED',
-          [DB_COLUMNS.REVIEWED_BY]: 'SUPERADMIN',
+          [DB_COLUMNS.REVIEWED_BY]: reviewerName,
           [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
         }).eq(DB_COLUMNS.ID, request.id);
