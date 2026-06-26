@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole, EmployeeComplaint } from '../types';
 import { APP_NAME } from '../constants';
@@ -99,6 +99,7 @@ export const useGlobalData = (auth: AuthState) => {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
     const [displayChanges, setDisplayChanges] = useState(false);
+    const [faceIdDisabledBranches, setFaceIdDisabledBranches] = useState<string[]>([]);
     // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
     // loading to avoid a network congestion spike on login.
     const [deferredEnabled, setDeferredEnabled] = useState(false);
@@ -604,6 +605,8 @@ export const useGlobalData = (auth: AuthState) => {
             const apkFilenameVal = configData.find(c => c[DB_COLUMNS.KEY] === 'apk_filename')?.value;
             const displayChangesVal = configData.find(c => c[DB_COLUMNS.KEY] === 'display_changes')?.value;
             setDisplayChanges(displayChangesVal === 'true');
+            const faceIdDisabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'face_id_disabled_branches')?.value;
+            try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
             if (nameVal) setDynamicAppName(nameVal);
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
@@ -746,8 +749,13 @@ export const useGlobalData = (auth: AuthState) => {
         }
     }, [loading, branchesLoading, employeesLoading, transactionsLoading, expensesLoading, salesReportsLoading, auditLogsLoading, attendanceLoading]);
 
+    const branchesWithFaceId = useMemo(() =>
+        branches.map(b => ({ ...b, faceIdEnabled: !faceIdDisabledBranches.includes(b.id) })),
+        [branches, faceIdDisabledBranches]
+    );
+
     return {
-        branches, transactions, expenses, attendance, employees,
+        branches: branchesWithFaceId, transactions, expenses, attendance, employees,
         salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,

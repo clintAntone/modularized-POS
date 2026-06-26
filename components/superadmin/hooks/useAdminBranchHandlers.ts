@@ -335,6 +335,27 @@ export function useAdminBranchHandlers({
     }
   };
 
+  const handleToggleFaceId = async (branchId: string, currentlyEnabled: boolean) => {
+    if (!supabase) return;
+    try {
+      const { data } = await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .select(DB_COLUMNS.VALUE)
+        .eq(DB_COLUMNS.KEY, 'face_id_disabled_branches')
+        .maybeSingle();
+      const current: string[] = data?.[DB_COLUMNS.VALUE] ? JSON.parse(data[DB_COLUMNS.VALUE]) : [];
+      const next = currentlyEnabled
+        ? [...current.filter((id: string) => id !== branchId), branchId]  // disable → add to list
+        : current.filter((id: string) => id !== branchId);                // enable → remove from list
+      await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .upsert({ [DB_COLUMNS.KEY]: 'face_id_disabled_branches', [DB_COLUMNS.VALUE]: JSON.stringify(next) }, { onConflict: DB_COLUMNS.KEY });
+      if (onRefresh) onRefresh(true);
+    } catch (e) {
+      console.error('Failed to toggle face ID:', e);
+    }
+  };
+
   return {
     isSaving,
     newBranchName,
@@ -347,6 +368,7 @@ export function useAdminBranchHandlers({
     setBulkInput,
     handleSaveBranch,
     handleToggleBranch,
+    handleToggleFaceId,
     handleResetPin,
     handleDeleteBranch,
     handleForceLogout,

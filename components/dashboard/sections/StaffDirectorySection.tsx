@@ -1065,7 +1065,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                   : undefined
               }
               onViewID={() => { setIdCardEmployee(emp); playSound('click'); }}
-              onFaceTimeIn={!isClosedMode && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+              onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
             />
           );
         }) : (

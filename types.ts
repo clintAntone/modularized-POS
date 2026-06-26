@@ -54,6 +54,8 @@ export interface Branch {
   cutoffHistory?: { cutoff: number; effectiveFrom: string }[];
   /** Ephemeral — only used during save to pass the effective date for a cutoff change */
   cutoffEffectiveDate?: string;
+  /** Derived from system_config — not a DB column. False = face ID forcibly disabled by superadmin. */
+  faceIdEnabled?: boolean;
 }
 
 /**

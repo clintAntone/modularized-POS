@@ -135,6 +135,38 @@ async function startServer() {
     }
   });
 
+  // Employees API — returns active employees (id, first_name, middle_name, last_name)
+  app.get("/api/employees", async (req, res) => {
+    const apiKey = process.env.EMPLOYEES_API_KEY;
+    if (!apiKey || req.headers['x-api-key'] !== apiKey) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ error: "Supabase not configured" });
+    }
+
+    try {
+      const response = await axios.get(
+        `${supabaseUrl}/rest/v1/employees?is_active=eq.true&select=id,first_name,middle_name,last_name`,
+        {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Accept': 'application/json',
+          }
+        }
+      );
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Employees API error:", error.response?.data || error.message);
+      res.status(500).json({ error: "Failed to fetch employees" });
+    }
+  });
+
   // Server Time Endpoint (Source of Truth)
   // Provides the server's current UTC timestamp
   app.get("/api/time", (req, res) => {

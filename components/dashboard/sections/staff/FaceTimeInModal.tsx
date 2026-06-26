@@ -69,9 +69,17 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
             }
             setStatus('ready');
             setStatusMsg('Position your face in the frame');
-        } catch {
+        } catch (err: any) {
             setStatus('error');
-            setStatusMsg('Camera access denied');
+            if (window.location.protocol !== 'https:') {
+                setStatusMsg('Camera requires HTTPS. Please access this app over a secure connection.');
+            } else if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+                setStatusMsg('Camera access denied. Go to your browser settings, reset camera permissions for this site, then refresh.');
+            } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+                setStatusMsg('No camera found on this device.');
+            } else {
+                setStatusMsg('Could not access camera. Please check your browser settings.');
+            }
         }
     }, []);
 

@@ -32,6 +32,8 @@ interface BranchEditorProps {
     attendance: Attendance[];
     onSave: (updated: Branch) => Promise<void>;
     onToggle: (id: string, currentlyEnabled: boolean) => void;
+    onToggleFaceId?: () => void;
+    isFaceIdDisabled?: boolean;
     onResetPin: (branch: Branch) => Promise<string>;
     onForceLogout: (id: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
@@ -47,7 +49,7 @@ interface Toast {
 }
 
 export const BranchEditor: React.FC<BranchEditorProps> = ({
-                                                              branch, employees, onSave, onToggle, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
+                                                              branch, employees, onSave, onToggle, onToggleFaceId, isFaceIdDisabled, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
@@ -282,6 +284,37 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <ServiceCatalogMatrix
                         services={localBranch.services || []}
                     />
+
+                    {onToggleFaceId && (
+                      <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Face ID Recognition</p>
+                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                            {isFaceIdDisabled ? 'Disabled — staff will use manual time-in' : 'Enabled — staff with enrolled faces use face scan'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            playSound('warning');
+                            setConfirmState({
+                              isOpen: true,
+                              title: isFaceIdDisabled ? 'Enable Face ID?' : 'Disable Face ID?',
+                              message: isFaceIdDisabled
+                                ? `Face ID recognition will be re-enabled for ${branch.name}. Staff with enrolled faces will use face scan for time-in.`
+                                : `Face ID recognition will be disabled for ${branch.name}. All staff will revert to manual time-in until re-enabled.`,
+                              variant: isFaceIdDisabled ? 'success' : 'warning',
+                              onConfirm: () => {
+                                onToggleFaceId();
+                                setConfirmState(p => ({ ...p, isOpen: false }));
+                              }
+                            });
+                          }}
+                          className={`relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200 ${isFaceIdDisabled ? 'bg-slate-200' : 'bg-emerald-500'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isFaceIdDisabled ? 'translate-x-0' : 'translate-x-6'}`} />
+                        </button>
+                      </div>
+                    )}
 
                     <ConnectivityControls
                         isEnabled={localBranch.isEnabled}

@@ -122,7 +122,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     showAddModal, setShowAddModal,
     showBulkAddModal, setShowBulkAddModal,
     bulkInput, setBulkInput,
-    handleSaveBranch, handleToggleBranch, handleResetPin,
+    handleSaveBranch, handleToggleBranch, handleToggleFaceId, handleResetPin,
     handleDeleteBranch, handleForceLogout, handleAddBranch, handleBulkRegister,
   } = useAdminBranchHandlers({ branches, employees, onRefresh, onSyncStatusChange, setConfirmState });
 
@@ -246,6 +246,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             attendance={attendance}
             onSave={handleSaveBranch}
             onToggle={handleToggleBranch}
+            onToggleFaceId={() => handleToggleFaceId(editingBranch.id, editingBranch.faceIdEnabled !== false)}
+            isFaceIdDisabled={editingBranch.faceIdEnabled === false}
             onResetPin={handleResetPin}
             onForceLogout={handleForceLogout}
             onDelete={handleDeleteBranch}
