@@ -260,8 +260,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             >
               {isOngoing ? 'Time Out' : 'Shift Done'}
             </button>
-          ) : hasFace && onFaceTimeIn ? (
-            // Face enrolled + face ID required — face scan button
+          ) : hasFace && onFaceTimeIn && !isReliever ? (
+            // Face enrolled + face ID required + regular staff — face scan button
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -271,8 +271,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
             </button>
-          ) : onFaceTimeIn && !hasFace ? (
-            // Face ID required but not enrolled — block time-in, prompt enrollment via edit modal
+          ) : onFaceTimeIn && !hasFace && !isReliever ? (
+            // Face ID required, not enrolled, regular staff — block and prompt enrollment
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -284,7 +284,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               Enroll Face
             </button>
           ) : (
-            // Face ID not required — plain time in
+            // Relievers always use plain time in (face ID enrollment is per home branch)
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}

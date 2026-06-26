@@ -70,11 +70,30 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
             setStatus('ready');
             setStatusMsg('Position your face in the frame');
         } catch (err: any) {
+            const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+            if (isDenied) {
+                // Browser may reject immediately before the user taps Allow — retry once after a short delay
+                // to give the OS/browser time to propagate the granted permission.
+                await new Promise(r => setTimeout(r, 1200));
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                    });
+                    streamRef.current = stream;
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        await videoRef.current.play();
+                    }
+                    setStatus('ready');
+                    setStatusMsg('Position your face in the frame');
+                    return;
+                } catch {}
+            }
             setStatus('error');
             if (window.location.protocol !== 'https:') {
                 setStatusMsg('Camera requires HTTPS. Please access this app over a secure connection.');
-            } else if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-                setStatusMsg('Camera access denied. Go to your browser settings, reset camera permissions for this site, then refresh.');
+            } else if (isDenied) {
+                setStatusMsg('Camera access denied. Go to browser settings, reset camera permissions for this site, then refresh.');
             } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
                 setStatusMsg('No camera found on this device.');
             } else {
@@ -217,7 +236,8 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         : status === 'no_match' ? '#f87171'
         : 'white';
 
-    const canScan = status === 'ready' || status === 'no_face' || status === 'no_match' || status === 'error';
+    const canScan = status === 'ready' || status === 'no_face' || status === 'no_match';
+    const canRetryCamera = status === 'error';
     const canRetryLoad = status === 'load_error';
 
     return createPortal(
@@ -337,6 +357,14 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                         >
                             <Loader className="w-4 h-4" />
                             Retry Loading
+                        </button>
+                    ) : canRetryCamera ? (
+                        <button
+                            onClick={startCamera}
+                            className="w-full flex items-center justify-center gap-2 bg-amber-500 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 hover:bg-amber-600"
+                        >
+                            <Camera className="w-4 h-4" />
+                            Retry Camera
                         </button>
                     ) : (
                         <button
