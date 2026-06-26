@@ -239,7 +239,7 @@ export const useGlobalData = (auth: AuthState) => {
                 : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {});
             if (typeof branchAllowances !== 'object' || branchAllowances === null) branchAllowances = {};
         } catch (e) {
-            console.error("Failed to parse branchAllowances for employee", db[DB_COLUMNS.ID], e);
+            console.warn("branchAllowances is null or invalid for employee", db[DB_COLUMNS.ID], "— defaulting to {}");
             branchAllowances = {};
         }
 
@@ -755,7 +755,7 @@ export const useGlobalData = (auth: AuthState) => {
     );
 
     return {
-        branches: branchesWithFaceId, transactions, expenses, attendance, employees,
+        branches: branchesWithFaceId, fetchSystemConfig, transactions, expenses, attendance, employees,
         salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,

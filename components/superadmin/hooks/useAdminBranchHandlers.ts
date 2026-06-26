@@ -14,6 +14,7 @@ interface UseAdminBranchHandlersParams {
   onRefresh?: (quiet?: boolean) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   setConfirmState: React.Dispatch<React.SetStateAction<ConfirmState>>;
+  fetchSystemConfig?: () => Promise<void>;
 }
 
 export function useAdminBranchHandlers({
@@ -22,6 +23,7 @@ export function useAdminBranchHandlers({
   onRefresh,
   onSyncStatusChange,
   setConfirmState,
+  fetchSystemConfig,
 }: UseAdminBranchHandlersParams) {
   const [isSaving, setIsSaving] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
@@ -350,7 +352,8 @@ export function useAdminBranchHandlers({
       await supabase
         .from(DB_TABLES.SYSTEM_CONFIG)
         .upsert({ [DB_COLUMNS.KEY]: 'face_id_disabled_branches', [DB_COLUMNS.VALUE]: JSON.stringify(next) }, { onConflict: DB_COLUMNS.KEY });
-      if (onRefresh) onRefresh(true);
+      if (fetchSystemConfig) await fetchSystemConfig();
+      else if (onRefresh) onRefresh(true);
     } catch (e) {
       console.error('Failed to toggle face ID:', e);
     }

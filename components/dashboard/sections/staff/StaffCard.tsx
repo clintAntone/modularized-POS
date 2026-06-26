@@ -261,7 +261,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               {isOngoing ? 'Time Out' : 'Shift Done'}
             </button>
           ) : hasFace && onFaceTimeIn ? (
-            // Face enrolled — single "Time In" click → face scan
+            // Face enrolled + face ID required — face scan button
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -271,8 +271,20 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
             </button>
+          ) : onFaceTimeIn && !hasFace ? (
+            // Face ID required but not enrolled — block time-in, prompt enrollment via edit modal
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onEdit?.(emp); }}
+              className="h-11 px-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest bg-amber-100 text-amber-700 flex items-center gap-2 active:scale-90 transition-all"
+              title="Face not enrolled. Tap to open employee profile and register face."
+            >
+              <ScanFace className="w-4 h-4" strokeWidth={2} />
+              Enroll Face
+            </button>
           ) : (
-            // No face enrolled — simple click to time in
+            // Face ID not required — plain time in
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}

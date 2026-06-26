@@ -100,7 +100,10 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     };
 
     const isDirty = useMemo(() => {
-        return JSON.stringify(localBranch) !== JSON.stringify(branch);
+        // faceIdEnabled is a derived/ephemeral field merged at runtime — exclude from dirty check
+        const { faceIdEnabled: _a, ...localCmp } = localBranch as any;
+        const { faceIdEnabled: _b, ...branchCmp } = branch as any;
+        return JSON.stringify(localCmp) !== JSON.stringify(branchCmp);
     }, [localBranch, branch]);
 
     const handleManualClose = () => {

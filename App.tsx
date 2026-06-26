@@ -62,7 +62,7 @@ const App: React.FC = () => {
   const {
     branches, transactions, expenses,
     attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
-    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase
+    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase, fetchSystemConfig
   } = useGlobalData(auth);
 
   const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
@@ -561,7 +561,7 @@ const App: React.FC = () => {
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>
             {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
-                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
+                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
             ) : (
                 auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
             )}

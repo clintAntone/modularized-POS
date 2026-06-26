@@ -63,6 +63,7 @@ interface SuperAdminDashboardProps {
   complaints?: EmployeeComplaint[];
   onRefresh?: (quiet?: boolean) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
+  fetchSystemConfig?: () => Promise<void>;
   permissions?: PortalPermissions; // undefined = superadmin (full access)
 }
 
@@ -86,7 +87,7 @@ const LiveClock = memo(() => {
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   user, branches, transactions, expenses, auditLogs, salesReports, salesReportsLoading = false, vaultTransactions = [],
-  employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, permissions,
+  employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, fetchSystemConfig, permissions,
 }) => {
   const queryClient = useQueryClient();
   const isPortalUser = !!permissions;
@@ -124,7 +125,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     bulkInput, setBulkInput,
     handleSaveBranch, handleToggleBranch, handleToggleFaceId, handleResetPin,
     handleDeleteBranch, handleForceLogout, handleAddBranch, handleBulkRegister,
-  } = useAdminBranchHandlers({ branches, employees, onRefresh, onSyncStatusChange, setConfirmState });
+  } = useAdminBranchHandlers({ branches, employees, onRefresh, onSyncStatusChange, setConfirmState, fetchSystemConfig });
 
   // ── My Account (portal users) ────────────────────────────────────────────
   const {
