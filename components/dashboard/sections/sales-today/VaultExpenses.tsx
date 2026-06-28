@@ -113,8 +113,8 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
     return (
         <div
             key={e.id}
-            className="relative"
-            onTouchStart={() => startLongPress(e.id, isRelieverPayout)}
+            className="relative select-none"
+            onTouchStart={evt => { evt.preventDefault(); startLongPress(e.id, isRelieverPayout); }}
             onTouchEnd={cancelLongPress}
             onMouseDown={() => startLongPress(e.id, isRelieverPayout)}
             onMouseUp={cancelLongPress}
@@ -355,8 +355,8 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
               return (
                 <div
                   key={e.id}
-                  className="relative group"
-                  onTouchStart={startLP}
+                  className="relative group select-none"
+                  onTouchStart={evt => { evt.preventDefault(); startLP(); }}
                   onTouchEnd={cancelLP}
                   onMouseDown={startLP}
                   onMouseUp={cancelLP}

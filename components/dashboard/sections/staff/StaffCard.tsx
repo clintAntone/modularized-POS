@@ -99,7 +99,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
       onMouseLeave={cancelLongPress}
-      onTouchStart={startLongPress}
+      onTouchStart={evt => { evt.preventDefault(); startLongPress(); }}
       onTouchEnd={cancelLongPress}
       onTouchCancel={cancelLongPress}
       onClick={() => { if (!didLongPress.current) onEdit(emp); }}

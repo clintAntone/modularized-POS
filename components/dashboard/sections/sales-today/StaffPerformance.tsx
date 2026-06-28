@@ -367,7 +367,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                 <div
                     key={data.employeeId || name}
                     className={`${data.isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${data.isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
-                    onTouchStart={() => startLongPress(name)}
+                    onTouchStart={evt => { evt.preventDefault(); startLongPress(name); }}
                     onTouchEnd={cancelLongPress}
                     onTouchMove={cancelLongPress}
                     onMouseDown={() => startLongPress(name)}
