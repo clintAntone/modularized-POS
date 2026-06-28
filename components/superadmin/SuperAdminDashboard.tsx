@@ -106,6 +106,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [mountedTabs, setMountedTabs] = useState<Set<AdminTab>>(new Set([initialTab]));
+  const [auditOpenAllDates, setAuditOpenAllDates] = useState(false);
 
   // ── Scoped data (portal user branch restrictions) ────────────────────────
   const {
@@ -301,7 +302,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('devices')      && <div className={activeTab !== 'devices'      ? 'hidden' : ''}><DevicesHub branches={branches} /></div>}
           {mountedTabs.has('attendance')   && <div className={activeTab !== 'attendance'   ? 'hidden' : ''}><AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('expenses')     && <div className={activeTab !== 'expenses'     ? 'hidden' : ''}><ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
-          {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} /></div>}
+          {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} openAllDates={auditOpenAllDates} /></div>}
           {mountedTabs.has('analytics')   && <div className={activeTab !== 'analytics'    ? 'hidden' : ''}><AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('archive')      && <div className={activeTab !== 'archive'      ? 'hidden' : ''}><ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} /></div>}
@@ -328,7 +329,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           flags={recentHighFlags}
           onDismiss={dismissFlag}
           onDismissAll={dismissAllFlags}
-          onViewAudit={() => { handleTabChange('audit'); dismissAllFlags(); }}
+          onViewAudit={() => { setAuditOpenAllDates(true); handleTabChange('audit'); dismissAllFlags(); }}
         />
       )}
     </div>

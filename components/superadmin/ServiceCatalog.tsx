@@ -6,7 +6,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { supabase } from '../../lib/supabase';
 import { UI_THEME } from '../../constants/ui_designs';
-import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List, GitBranch } from 'lucide-react';
 import { Pagination } from '../dashboard/sections/common/Pagination';
 
 export interface CatalogGroup {
@@ -77,6 +77,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
   const [editingCatalogName, setEditingCatalogName] = useState('');
+  const [branchAssignModal, setBranchAssignModal] = useState<{ id: string; name: string } | null>(null);
 
   const activeCatalog = useMemo(() =>
     localCatalogs.find(c => c.id === activeCatalogId) || null
@@ -629,7 +630,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">No services yet</p>
                       )}
 
-                      {/* Branch chips */}
+                      {/* Branch chips + quick assign */}
                       <div className="mt-auto pt-3 border-t border-slate-50 space-y-2">
                         {linkedBranches.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
@@ -653,8 +654,23 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                             {cat.can_be_loyalty && (
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[7px] font-black uppercase tracking-widest">Loyalty</span>
                             )}
-                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{linkedBranches.length} branches</span>
                           </div>
+                        </div>
+
+                        {/* Quick branch-assign shortcut */}
+                        <div onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setActiveCatalogId(cat.id); playSound('click'); }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border transition-all active:scale-95 ${linkedBranches.length === 0 ? 'bg-rose-50 border-rose-100 hover:bg-rose-100' : 'bg-slate-50 border-slate-100 hover:bg-emerald-50 hover:border-emerald-200'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <GitBranch className={`w-3 h-3 shrink-0 ${linkedBranches.length === 0 ? 'text-rose-400' : 'text-slate-400'}`} />
+                              <span className={`text-[8px] font-black uppercase tracking-widest ${linkedBranches.length === 0 ? 'text-rose-500' : 'text-slate-500'}`}>
+                                {linkedBranches.length === 0 ? 'No branches linked' : `${linkedBranches.length} branch${linkedBranches.length !== 1 ? 'es' : ''}`}
+                              </span>
+                            </div>
+                            <span className="text-[7px] font-black uppercase tracking-widest text-slate-300">Manage →</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -692,21 +708,23 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 {/* Table header */}
-                <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto_auto] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
                   <p className="hidden sm:block text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Catalogs</p>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Services</p>
+                  <p className="hidden sm:block text-[9px] font-black text-slate-400 uppercase tracking-widest"></p>
                 </div>
 
                 {branchCoverageData.map(({ branch: b, catalogs: assigned, totalServices }) => (
                   <div
                     key={b.id}
-                    className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto] gap-4 items-center px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                    onClick={() => { setBranchAssignModal({ id: b.id, name: b.name }); playSound('click'); }}
+                    className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto_auto] gap-4 items-center px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors cursor-pointer group"
                   >
                     {/* Branch name */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-black text-slate-600">{b.name.charAt(0)}</span>
+                      <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-emerald-50 transition-colors">
+                        <span className="text-[11px] font-black text-slate-600 group-hover:text-emerald-600 transition-colors">{b.name.charAt(0)}</span>
                       </div>
                       <div className="min-w-0">
                         <p className="font-black text-[12px] text-slate-900 uppercase tracking-tight truncate leading-none">{b.name}</p>
@@ -717,25 +735,21 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     {/* Catalog chips */}
                     <div className="hidden sm:flex flex-wrap gap-1.5">
                       {assigned.length === 0 ? (
-                        <button
-                          onClick={() => { setListView('catalogs'); playSound('click'); }}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-500 border border-rose-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
-                        >
+                        <span className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-500 border border-rose-100 rounded-lg text-[8px] font-black uppercase tracking-widest">
                           <AlertTriangle className="w-2.5 h-2.5" />
-                          Assign catalog
-                        </button>
+                          No catalog
+                        </span>
                       ) : (
                         assigned.map(c => {
                           const color = getCatalogColor(c.id);
                           return (
-                            <button
+                            <span
                               key={c.id}
-                              onClick={() => { setActiveCatalogId(c.id); playSound('click'); }}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 ${color.tag} rounded-lg text-[8px] font-black uppercase tracking-widest hover:opacity-80 transition-all`}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 ${color.tag} rounded-lg text-[8px] font-black uppercase tracking-widest`}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
                               {c.name}
-                            </button>
+                            </span>
                           );
                         })
                       )}
@@ -749,6 +763,14 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         <p className="text-[13px] font-black text-slate-200 tabular-nums leading-none">—</p>
                       )}
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">svcs</p>
+                    </div>
+
+                    {/* Manage button */}
+                    <div className="shrink-0 hidden sm:flex">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-widest group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-all">
+                        <Pencil className="w-2.5 h-2.5" />
+                        Manage
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -1059,6 +1081,93 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
           </div>
         </div>
       )}
+
+      {/* ── BRANCH ASSIGN MODAL ─────────────────────────────────────────── */}
+      {branchAssignModal && (() => {
+        const assignedIds = localCatalogs
+          .filter(c => (c.branchIds || []).includes(branchAssignModal.id))
+          .map(c => c.id);
+        return (
+          <div className="fixed inset-0 z-[1100] bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200">
+            <div className="bg-white w-full sm:max-w-lg rounded-t-[40px] sm:rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300 max-h-[90vh]">
+              {/* Header */}
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-900 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center">
+                    <GitBranch className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Assign Catalogs to</p>
+                    <h3 className="text-[14px] font-black text-white uppercase tracking-tight leading-none mt-0.5">{branchAssignModal.name}</h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBranchAssignModal(null)}
+                  className="p-2.5 bg-white/10 rounded-xl text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-90"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Subtitle */}
+              <div className="px-8 py-3 bg-slate-50 border-b border-slate-100 shrink-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {assignedIds.length} of {localCatalogs.length} catalog{localCatalogs.length !== 1 ? 's' : ''} assigned
+                </p>
+              </div>
+
+              {/* Catalog list */}
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                {localCatalogs.length === 0 ? (
+                  <div className="py-16 text-center opacity-40">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No catalogs yet</p>
+                  </div>
+                ) : localCatalogs.map(cat => {
+                  const color = getCatalogColor(cat.id);
+                  const isAssigned = assignedIds.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => toggleBranchLink(cat.id, branchAssignModal.id)}
+                      className={`w-full flex items-center gap-4 px-8 py-5 text-left transition-all active:scale-[0.99] ${isAssigned ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50'}`}
+                    >
+                      {/* Color dot + icon */}
+                      <div className={`w-10 h-10 ${color.light} ${color.icon} rounded-xl flex items-center justify-center shrink-0`}>
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-none truncate">{cat.name}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          {(cat.services || []).length} service{(cat.services || []).length !== 1 ? 's' : ''}
+                          {cat.can_be_loyalty && <span className="ml-2 text-amber-500">· Loyalty</span>}
+                        </p>
+                      </div>
+
+                      {/* Toggle indicator */}
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isAssigned ? 'bg-emerald-500 border-emerald-500' : 'border-slate-200'}`}>
+                        {isAssigned && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between gap-4 shrink-0 bg-white">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Changes save with the catalog</p>
+                <button
+                  onClick={() => setBranchAssignModal(null)}
+                  className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all shadow-sm"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── RENAME MODAL ────────────────────────────────────────────────── */}
       {editingCatalogId && (

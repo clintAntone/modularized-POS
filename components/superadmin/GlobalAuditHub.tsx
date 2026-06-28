@@ -12,6 +12,7 @@ import { toDateStr } from '@/src/utils/reportUtils';
 interface GlobalAuditHubProps {
   branches: Branch[];
   auditLogs: AuditLog[];
+  openAllDates?: boolean;
 }
 
 const ENTITY_TYPES = ['ALL', 'TRANSACTION', 'EXPENSE', 'ATTENDANCE', 'EMPLOYEE', 'SECURITY', 'USER'] as const;
@@ -55,10 +56,10 @@ type SecurityFlag = {
   latestTimestamp: string;
 };
 
-export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditLogs }) => {
+export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditLogs, openAllDates = false }) => {
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
-  const [allDates, setAllDates] = useState(false);
+  const [allDates, setAllDates] = useState(openAllDates);
   const [searchTerm, setSearchTerm] = useState('');
   const [entityFilter, setEntityFilter] = useState<EntityFilter>('ALL');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);

@@ -317,7 +317,15 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                     {/* Live accent strip */}
                     <td className="px-8 py-4 relative">
                       <div className="min-w-0">
-                        <p className="font-black text-slate-900 uppercase text-[13px] tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{branch.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-black text-slate-900 uppercase text-[13px] tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{branch.name}</p>
+                          {branch.faceIdEnabled === false && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-600 text-[8px] font-black uppercase tracking-widest shrink-0">
+                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                              No Face ID
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[9px] font-bold text-slate-300 font-mono tracking-widest mt-1">{branch.id.toUpperCase()}</p>
                       </div>
                     </td>
@@ -414,6 +422,12 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                       <span className={`w-1.5 h-1.5 rounded-full ${branch.isEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                       {branch.isEnabled ? 'Active' : 'Off'}
                     </span>
+                    {branch.faceIdEnabled === false && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-600 text-[7px] font-black uppercase tracking-widest">
+                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                        No Face ID
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -53,6 +53,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
+    const [localFaceIdDisabled, setLocalFaceIdDisabled] = useState(isFaceIdDisabled ?? false);
     const [toast, setToast] = useState<Toast | null>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -293,7 +294,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         <div>
                           <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Face ID Recognition</p>
                           <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                            {isFaceIdDisabled ? 'Disabled — staff will use manual time-in' : 'Enabled — staff with enrolled faces use face scan'}
+                            {localFaceIdDisabled ? 'Disabled — staff will use manual time-in' : 'Enabled — staff with enrolled faces use face scan'}
                           </p>
                         </div>
                         <button
@@ -301,20 +302,21 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                             playSound('warning');
                             setConfirmState({
                               isOpen: true,
-                              title: isFaceIdDisabled ? 'Enable Face ID?' : 'Disable Face ID?',
-                              message: isFaceIdDisabled
+                              title: localFaceIdDisabled ? 'Enable Face ID?' : 'Disable Face ID?',
+                              message: localFaceIdDisabled
                                 ? `Face ID recognition will be re-enabled for ${branch.name}. Staff with enrolled faces will use face scan for time-in.`
                                 : `Face ID recognition will be disabled for ${branch.name}. All staff will revert to manual time-in until re-enabled.`,
-                              variant: isFaceIdDisabled ? 'success' : 'warning',
+                              variant: localFaceIdDisabled ? 'success' : 'warning',
                               onConfirm: () => {
+                                setLocalFaceIdDisabled(d => !d); // optimistic flip
                                 onToggleFaceId();
                                 setConfirmState(p => ({ ...p, isOpen: false }));
                               }
                             });
                           }}
-                          className={`relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200 ${isFaceIdDisabled ? 'bg-slate-200' : 'bg-emerald-500'}`}
+                          className={`relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200 ${localFaceIdDisabled ? 'bg-slate-200' : 'bg-emerald-500'}`}
                         >
-                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isFaceIdDisabled ? 'translate-x-0' : 'translate-x-6'}`} />
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${localFaceIdDisabled ? 'translate-x-0' : 'translate-x-6'}`} />
                         </button>
                       </div>
                     )}

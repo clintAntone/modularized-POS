@@ -400,11 +400,6 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
               onChange={() => handleUpdate('paymongo_enabled', bool('paymongo_enabled') ? 'false' : 'true')}
               disabled={isSaving === 'paymongo_enabled'} />
           </Row>
-          <Row label="What's New Banner" desc="Show changelog to branch managers on next login">
-            <Toggle value={bool('display_changes')}
-              onChange={() => handleUpdate('display_changes', bool('display_changes') ? 'false' : 'true')}
-              disabled={isSaving === 'display_changes'} />
-          </Row>
         </Section>
 
       </div>

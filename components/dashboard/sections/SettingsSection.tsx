@@ -102,6 +102,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   const [dailyProvision, setDailyProvision] = useState(String(branch.dailyProvisionAmount ?? ''));
   const [showBranchSettingsConfirm, setShowBranchSettingsConfirm] = useState(false);
   const [isSavingOperational, setIsSavingOperational] = useState(false);
+  const [isSavingFaceId, setIsSavingFaceId] = useState(false);
+  const [localFaceIdEnabled, setLocalFaceIdEnabled] = useState(branch.faceIdEnabled !== false);
 
 
 
@@ -207,6 +209,29 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
     (e.name || '').toUpperCase() !== (branch.manager || '').toUpperCase() &&
     e.isActive
   ).sort((a, b) => (a.name || '').localeCompare(b.name || '')), [employees, branch.manager, branch.id]);
+
+  // ── Face ID toggle ──────────────────────────────────────────────────────
+  const handleToggleFaceId = async () => {
+    const nextEnabled = !localFaceIdEnabled;
+    setLocalFaceIdEnabled(nextEnabled); // optimistic — flip immediately
+    setIsSavingFaceId(true);
+    try {
+      const { data } = await supabase.from(DB_TABLES.SYSTEM_CONFIG)
+        .select(DB_COLUMNS.VALUE).eq(DB_COLUMNS.KEY, 'face_id_disabled_branches').maybeSingle();
+      const current: string[] = data?.[DB_COLUMNS.VALUE] ? JSON.parse(data[DB_COLUMNS.VALUE]) : [];
+      const next = nextEnabled
+        ? current.filter((id: string) => id !== branch.id)
+        : [...current.filter((id: string) => id !== branch.id), branch.id];
+      await supabase.from(DB_TABLES.SYSTEM_CONFIG)
+        .upsert({ [DB_COLUMNS.KEY]: 'face_id_disabled_branches', [DB_COLUMNS.VALUE]: JSON.stringify(next) }, { onConflict: DB_COLUMNS.KEY });
+      playSound('success');
+      onRefresh?.();
+    } catch {
+      setLocalFaceIdEnabled(!nextEnabled); // revert on failure
+      playSound('warning');
+    }
+    finally { setIsSavingFaceId(false); }
+  };
 
   // ── Operations save ─────────────────────────────────────────────────────
   const commitBranchSettings = async () => {
@@ -427,10 +452,6 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             {branch.name.replace('BRANCH - ', '')}
           </p>
         </div>
-        <div className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${branch.isOpen ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${branch.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-          {branch.isOpen ? 'Open' : 'Closed'}
-        </div>
       </div>
 
       {/* ── Tab Bar ── */}
@@ -482,13 +503,6 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <CardHeader
               icon={<Clock className="w-4 h-4" />}
               title="Operational Window"
-              badge={
-                !branchIsClosed
-                  ? <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-lg">Branch Open — Locked</span>
-                  : hasActivityToday
-                  ? <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-lg">Day Active</span>
-                  : null
-              }
             />
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -516,6 +530,34 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             </div>
           </Card>
 
+
+          {/* Face Recognition */}
+          <Card>
+            <CardHeader
+              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>}
+              title="Face Recognition"
+            />
+            <div className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[12px] font-bold text-slate-800">Clock-in via Face ID</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {localFaceIdEnabled
+                      ? 'Employees must scan their face to clock in'
+                      : 'Face recognition is disabled — manual clock-in only'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleFaceId}
+                  disabled={isSavingFaceId}
+                  className={`relative rounded-full transition-all duration-300 disabled:opacity-40 shrink-0 ${localFaceIdEnabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-200'}`}
+                  style={{ height: '24px', width: '44px' }}
+                >
+                  <span className={`absolute top-[3px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all duration-300 ${localFaceIdEnabled ? 'left-[23px]' : 'left-[3px]'}`} />
+                </button>
+              </div>
+            </div>
+          </Card>
 
           <button
             onClick={handleBranchSettingsSubmit}

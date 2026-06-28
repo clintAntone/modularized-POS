@@ -11,7 +11,6 @@ import { supabase } from './lib/supabase';
 import { NetworkDiagnostic } from './components/NetworkDiagnostic';
 import { syncWithServerTime } from './lib/time';
 import SplashScreen from './components/SplashScreen';
-import { WhatsNewModal, shouldShowWhatsNew, markWhatsNewSeen } from './components/branch-manager/modals/WhatsNewModal';
 import { GmailPromptModal } from './components/shared/GmailPromptModal';
 
 import { Power } from 'lucide-react';
@@ -62,11 +61,10 @@ const App: React.FC = () => {
   const {
     branches, transactions, expenses,
     attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
-    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase, fetchSystemConfig
+    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig
   } = useGlobalData(auth);
 
-  const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
-  const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
+const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
 
   // Derive identity from synchronized data
   const currentEmployee = useMemo(() =>
@@ -424,10 +422,6 @@ const App: React.FC = () => {
       <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-hidden">
         <GlobalLoadingOverlay isVisible={globalSync} />
 
-        {/* What's New Modal — managers only, gated by system_config display_changes */}
-        {showWhatsNew && displayChanges && auth.user && auth.user.role === UserRole.BRANCH_MANAGER && (
-          <WhatsNewModal onDismiss={() => { markWhatsNewSeen(); setShowWhatsNew(false); }} />
-        )}
 
         {/* Gmail Prompt — non-portal, non-superadmin users without a registered email */}
         {!gmailPromptDismissed && currentEmployee && !currentEmployee.details?.gmail &&

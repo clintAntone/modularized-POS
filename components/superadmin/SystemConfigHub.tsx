@@ -219,14 +219,6 @@ export const SystemConfigHub: React.FC<SystemConfigHubProps> = ({ onRefresh }) =
         </Row>
       </Section>
 
-      {/* Announcements */}
-      <Section title="Announcements" subtitle="Manager-facing notifications">
-        <Row label="Show What's New" desc="Display update changelog to branch managers on next login">
-          <Toggle value={bool('display_changes')}
-            onChange={() => handleUpdate('display_changes', bool('display_changes') ? 'false' : 'true')}
-            disabled={isSaving === 'display_changes'} />
-        </Row>
-      </Section>
 
     </div>
   );

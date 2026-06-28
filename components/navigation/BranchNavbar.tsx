@@ -66,7 +66,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     typeof window !== 'undefined' ? Math.min(window.innerWidth - 40, 1360) : 1200
   );
   const [showMoreModal, setShowMoreModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [starredIds, setStarredIds] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('more_starred_tabs') || '[]')); }
     catch { return new Set(); }
@@ -75,30 +75,33 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => {
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(() => setWindowWidth(window.innerWidth), 80);
+    };
     // orientationchange fires before the browser updates innerWidth on iOS — use a short delay
-    const handleOrientation = () => setTimeout(() => setWindowWidth(window.innerWidth), 150);
+    const handleOrientation = () => setTimeout(() => setWindowWidth(window.innerWidth), 200);
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleOrientation);
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientation);
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
     };
   }, []);
 
-  // Re-attach ResizeObserver every time windowWidth changes so it reconnects
-  // when the desktop nav element mounts after crossing the 640px threshold.
+  // Attach ResizeObserver once on mount. windowWidth state handles mobile/desktop
+  // breakpoint switching; the RO measures the actual container on desktop.
   useEffect(() => {
-    if (!containerRef.current) return;
-    // Read the current width immediately — don't wait for the next resize event
-    setContainerWidth(containerRef.current.getBoundingClientRect().width);
+    const el = containerRef.current;
+    if (!el) return;
+    setContainerWidth(el.getBoundingClientRect().width);
     const ro = new ResizeObserver(entries => {
       setContainerWidth(entries[0].contentRect.width);
     });
-    ro.observe(containerRef.current);
+    ro.observe(el);
     return () => ro.disconnect();
-  }, [windowWidth]);
+  }, []);
 
   const masterTabRegistry = useMemo(() => {
     const tabs = [
@@ -203,8 +206,6 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     setShowMoreModal(false);
   };
 
-  if (!mounted) return null;
-
   return (
     <>
       {windowWidth >= 640 ? (
@@ -256,7 +257,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
         </nav>
       ) : (
         /* MOBILE NAV */
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
           <div className="bg-slate-800/95 backdrop-blur-2xl px-3 py-2 rounded-[32px] flex items-center
             shadow-[0_20px_50px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.10),inset_0_1px_0_rgba(255,255,255,0.07)]">
             {visibleTabs.map(tab => {
@@ -304,9 +305,9 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
         </div>
       )}
 
-      {mounted && showMoreModal && createPortal(
+      {showMoreModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md no-print animate-in fade-in duration-300">
-          <div className={`bg-white ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-4xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative animate-in zoom-in-95 duration-200 max-h-[96vh] sm:max-h-full overflow-y-auto no-scrollbar border border-slate-200 flex flex-col`}>
+          <div className={`bg-white ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-2xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto no-scrollbar border border-slate-200 flex flex-col`}>
             
             <div className="sticky top-0 bg-white/95 backdrop-blur-md z-30 flex justify-between items-center py-4 px-5 sm:py-8 sm:px-12 border-b border-slate-100 shrink-0">
               <div className="space-y-0.5 sm:space-y-1">

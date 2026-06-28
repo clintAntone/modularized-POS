@@ -205,17 +205,19 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
         )}
 
         {/* Star toggle */}
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={e => { e.stopPropagation(); toggleStar(item.id); }}
-          className={`absolute top-2 right-2 p-1 rounded-lg transition-all z-10 ${
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); toggleStar(item.id); } }}
+          className={`absolute top-2 right-2 p-1 rounded-lg transition-all z-10 cursor-pointer ${
             isStarred
               ? 'text-amber-400 hover:text-amber-500'
               : 'text-slate-200 hover:text-amber-300 opacity-0 group-hover:opacity-100'
           }`}
         >
           {isStarred ? Icons.star : Icons.starOutline}
-        </button>
+        </div>
 
         {/* Icon */}
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.color} relative`}>
