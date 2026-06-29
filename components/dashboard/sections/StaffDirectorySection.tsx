@@ -4,6 +4,7 @@ import { Branch, Employee, Transaction, Attendance } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { playSound } from '../../../lib/audio';
 import { compressImage } from '../../../lib/image';
 import { deleteFileByUrl } from '../../../lib/storage';
@@ -328,31 +329,36 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     if (needsEnd && !leaveEndDate) return;
     setIsSubmittingLeave(true);
     try {
-      const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
-        [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
-        [DB_COLUMNS.TYPE]: 'LEAVE_REQUEST',
-        [DB_COLUMNS.STATUS]: 'PENDING',
-        [DB_COLUMNS.DATA]: {
+      const { error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .update({
+          [DB_COLUMNS.ON_LEAVE]: true,
+          [DB_COLUMNS.LEAVE_TYPE]: finalLeaveType,
+          [DB_COLUMNS.LEAVE_START_DATE]: leaveStartDate || null,
+          [DB_COLUMNS.LEAVE_END_DATE]: leaveEndDate || null,
+        })
+        .eq(DB_COLUMNS.ID, leaveEmployee.id);
+      if (error) throw error;
+      await logAudit({
+        action: 'EMPLOYEE_LEAVE_SET',
+        performedBy: operatorName || 'MANAGER',
+        branchId: branch.id,
+        details: {
           employeeId: leaveEmployee.id,
           employeeName: leaveEmployee.name,
           leaveType: finalLeaveType,
-          startDate: leaveStartDate,
+          startDate: leaveStartDate || null,
           endDate: leaveEndDate || null,
           notes: leaveNotes.trim() || null,
         },
-        [DB_COLUMNS.REQUESTER_ID]: operatorName,
-        [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
       });
-      if (error) throw error;
       playSound('success');
-      showToast(`Leave request submitted for ${leaveEmployee.name}`);
+      showToast(`${leaveEmployee.name} has been placed on leave`);
       closeLeaveModal();
       onRefresh?.();
     } catch (err) {
       playSound('warning');
-      showToast('Request failed. Try again.', 'error');
+      showToast('Failed to update leave status. Try again.', 'error');
     } finally {
       setIsSubmittingLeave(false);
     }
@@ -1350,7 +1356,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               onClick={handleSubmitLeaveRequest}
               className="flex-1 h-10 rounded-xl bg-purple-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
-              {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
+              {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Confirm Leave'}
             </button>
           </div>
         </div>
