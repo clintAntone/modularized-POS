@@ -872,27 +872,43 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           );
         })()}
 
-        {/* Deposit to Vault button */}
+        {/* Deposit + Withdraw buttons */}
         {!isClosedMode && branch.vaultEnabled && (
-          <button
-            onClick={() => {
-              const firstReport = currentWeekReports[0];
-              const firstDate = firstReport?.reportDate ?? null;
-              setDepositSelectedDate(firstDate);
-              if (firstDate) {
-                const existing = transactions.find(
-                  t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate,
-                );
-                setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
-              }
-              setShowDepositModal(true);
-              playSound('click');
-            }}
-            className="w-full mt-1 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-          >
-            <ArrowDownCircle className="w-4 h-4" />
-            Deposit to Vault
-          </button>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => {
+                setWithdrawLabel('');
+                setWithdrawAmount('');
+                setWithdrawFile(null);
+                setShowWithdrawModal(true);
+                playSound('click');
+              }}
+              disabled={!branchVault || branchVault.balance <= 0}
+              className="flex-1 py-3 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <ArrowDownCircle className="w-4 h-4" />
+              Withdraw
+            </button>
+            <button
+              onClick={() => {
+                const firstReport = currentWeekReports[0];
+                const firstDate = firstReport?.reportDate ?? null;
+                setDepositSelectedDate(firstDate);
+                if (firstDate) {
+                  const existing = transactions.find(
+                    t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate,
+                  );
+                  setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
+                }
+                setShowDepositModal(true);
+                playSound('click');
+              }}
+              className="flex-1 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <ArrowUpCircle className="w-4 h-4" />
+              Deposit
+            </button>
+          </div>
         )}
 
       </div>
@@ -928,37 +944,15 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           <div className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden`}>
             {/* Header */}
             <div className="px-6 sm:px-8 pt-6 pb-4">
-              <div className="flex items-center justify-between gap-3">
-                {/* Left: icon + title block */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                    <Banknote className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-black text-slate-800 leading-none tracking-tight">Bills Paid</h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
-                      Vault Outflows{totalVaultUsed > 0 && <span className="text-amber-500 ml-1.5 tabular-nums">· ₱{totalVaultUsed.toLocaleString()}</span>}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                  <Banknote className="w-5 h-5 text-amber-500" />
                 </div>
-                {/* Right: Pay Bill button */}
-                <div className="flex items-center gap-2.5 shrink-0">
-                  {!isClosedMode && branch.vaultEnabled && (
-                    <button
-                      onClick={() => {
-                        setWithdrawLabel('');
-                        setWithdrawAmount('');
-                        setWithdrawFile(null);
-                        setShowWithdrawModal(true);
-                        playSound('click');
-                      }}
-                      disabled={!branchVault || branchVault.balance <= 0}
-                      className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
-                      title="Pay Bill"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  )}
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-black text-slate-800 leading-none tracking-tight">Bills Paid</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                    Vault Outflows{totalVaultUsed > 0 && <span className="text-amber-500 ml-1.5 tabular-nums">· ₱{totalVaultUsed.toLocaleString()}</span>}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1298,13 +1292,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           onClick={() => setSelectedTx(null)}
         >
           <div
-            className="w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+            className="w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 max-h-[90dvh] sm:max-h-[85dvh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* Drag handle (mobile only) */}
-            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-4 sm:hidden" />
+            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-4 sm:hidden shrink-0" />
 
-            <div className="p-6 sm:p-8 space-y-5">
+            <div className="p-6 sm:p-8 space-y-5 overflow-y-auto">
               {/* Header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">

@@ -48,8 +48,8 @@ export const UI_THEME = {
   radius: {
     pill: 'rounded-full',
     input: 'rounded-xl sm:rounded-2xl',
-    card: 'rounded-[32px] sm:rounded-[44px]',
-    modal: 'rounded-[32px] sm:rounded-[48px]',
+    card: 'rounded-2xl sm:rounded-3xl',
+    modal: 'rounded-2xl sm:rounded-3xl',
   },
 
   // Global Shadows

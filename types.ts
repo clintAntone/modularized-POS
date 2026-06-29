@@ -170,6 +170,8 @@ export interface EmployeeDetails {
   emergencyContactAddress?: string;
 }
 
+export type LeaveType = 'VACATION' | 'SICK' | 'MATERNITY' | 'PATERNITY' | 'EMERGENCY' | 'SUSPENDED';
+
 export interface Employee {
   id: string;
   branchId: string;
@@ -191,6 +193,10 @@ export interface Employee {
   branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
   details?: EmployeeDetails;
   faceDescriptors?: number[][];
+  onLeave?: boolean;
+  leaveType?: LeaveType;
+  leaveStartDate?: string;
+  leaveEndDate?: string;
 }
 
 export interface SalesReport {
@@ -231,7 +237,7 @@ export interface Request {
   id: string;
   branchId: string;
   timestamp: string;
-  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE' | 'EMPLOYEE_REPORT';
+  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE' | 'EMPLOYEE_REPORT' | 'LEAVE_REQUEST';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   data: any;
   requesterId: string;

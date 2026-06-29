@@ -61,7 +61,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
 
     return (
         <div className="space-y-3 sm:space-y-4">
-        <div className={`grid gap-3 sm:gap-4 ${isLegacy ? 'grid-cols-2 md:grid-cols-4' : vaultDeposit > 0 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'}`}>
+        <div className={`grid gap-3 sm:gap-4 ${vaultDeposit > 0 || isLegacy ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'}`}>
             {/* Gross Sales */}
             <div className={`col-span-1 md:col-span-2 bg-[#E6F9F1] p-4 sm:p-8 rounded-[32px] border border-emerald-100/50 flex flex-col justify-center gap-1 min-h-[80px] sm:min-h-[120px] relative overflow-hidden group transition-all hover:shadow-lg print:bg-white print:border-slate-200`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-emerald-300/30 transition-colors"></div>
@@ -134,8 +134,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                 </div>
             </div>
 
-            {/* Vault Deposit KPI — non-legacy, only when a deposit was made today */}
-            {!isLegacy && vaultDeposit > 0 && (
+            {/* Vault Deposit KPI — shown whenever a deposit exists */}
+            {vaultDeposit > 0 && (
               <div className="col-span-1 md:col-span-2 bg-[#EEF2FF] p-3 sm:p-6 rounded-[28px] border border-indigo-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">

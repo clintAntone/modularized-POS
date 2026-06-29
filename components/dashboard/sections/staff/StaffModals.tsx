@@ -6,9 +6,10 @@ import { playSound } from '../../../../lib/audio';
 import { getInitials } from '../../../../lib/payroll';
 import { RecoveryModal } from './RecoveryModal';
 import { FaceEnrollment } from './FaceEnrollment';
-import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ScanFace } from 'lucide-react';
+import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ScanFace, IdCard } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { DB_TABLES } from '../../../../constants/db_schema';
+import { EmployeeIDCardModal } from '../../../superadmin/employee-manager/EmployeeIDCardModal';
 
 interface StaffModalsProps {
   isTimeModalOpen: boolean;
@@ -53,6 +54,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const [empIdCopied, setEmpIdCopied] = React.useState(false);
   const [isSavingFace, setIsSavingFace] = React.useState(false);
   const [showFaceEnrollModal, setShowFaceEnrollModal] = React.useState(false);
+  const [showIdCard, setShowIdCard] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
   const [holdProgress, setHoldProgress] = React.useState(0);
@@ -363,9 +365,34 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     {props.editingEmployee.id ? props.editingEmployee.name : props.isPullMode ? 'from Another Branch' : 'Register New Employee'}
                   </h3>
                 </div>
-                <button onClick={props.onCloseModals} className="w-8 h-8 bg-slate-100 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-90 flex items-center justify-center shrink-0">
-                  <X className="w-4 h-4" strokeWidth={2.5} />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {props.editingEmployee?.id && props.editingEmployee?.branchId === props.branchId && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFaceEnrollModal(true)}
+                      className="h-8 px-2 sm:px-3 bg-slate-100 rounded-xl text-slate-400 hover:bg-emerald-100 hover:text-emerald-600 transition-all active:scale-90 flex items-center gap-1.5"
+                      title="Face ID Enrollment"
+                    >
+                      <ScanFace className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                      <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest">Face ID</span>
+                    </button>
+                  )}
+                  {props.editingEmployee?.id && (
+                    <button
+                      type="button"
+                      onClick={() => setShowIdCard(true)}
+                      className="h-8 px-2 sm:px-3 bg-slate-100 rounded-xl text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 transition-all active:scale-90 flex items-center gap-1.5"
+                      title="View Company ID"
+                    >
+                      <IdCard className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                      <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest">ID Card</span>
+                    </button>
+                  )}
+                  <div className="w-px h-5 bg-slate-200 mx-1" />
+                  <button onClick={props.onCloseModals} className="w-8 h-8 bg-rose-50 rounded-xl text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-all active:scale-90 flex items-center justify-center">
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 px-5 py-4">
@@ -558,10 +585,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   <input ref={props.fileInputRef} type="file" className="hidden" accept="image/*" onChange={e => props.setProfileFile(e.target.files?.[0] || null)} />
                 </div>)}
 
-                {!props.isPullMode && (<div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2.5">
+                {!props.isPullMode && (
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">First</label>
                       <input
                         required
                         disabled={isNameLocked}
@@ -572,11 +599,25 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                           props.setEditingEmployee({...props.editingEmployee, firstName: val, name: fullName});
                         }}
                         className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-[11px] uppercase outline-none focus:border-emerald-400 focus:bg-white transition-all ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        placeholder="FIRST NAME"
+                        placeholder="FIRST"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Middle <span className="normal-case font-bold opacity-50">(opt.)</span></label>
+                      <input
+                        disabled={isNameLocked}
+                        value={props.editingEmployee.middleName || ''}
+                        onChange={e => {
+                          const val = e.target.value.toUpperCase();
+                          const fullName = `${props.editingEmployee.firstName || ''} ${val ? val.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
+                          props.setEditingEmployee({...props.editingEmployee, middleName: val, name: fullName});
+                        }}
+                        className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-[11px] uppercase outline-none focus:border-emerald-400 focus:bg-white transition-all ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder="MIDDLE"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Last</label>
                       <input
                         required
                         disabled={isNameLocked}
@@ -587,25 +628,11 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                           props.setEditingEmployee({...props.editingEmployee, lastName: val, name: fullName});
                         }}
                         className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-[11px] uppercase outline-none focus:border-emerald-400 focus:bg-white transition-all ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        placeholder="LAST NAME"
+                        placeholder="LAST"
                       />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Middle Name <span className="normal-case font-bold opacity-50">(optional)</span></label>
-                    <input
-                      disabled={isNameLocked}
-                      value={props.editingEmployee.middleName || ''}
-                      onChange={e => {
-                        const val = e.target.value.toUpperCase();
-                        const fullName = `${props.editingEmployee.firstName || ''} ${val ? val.trim() + ' ' : ''}${props.editingEmployee.lastName || ''}`.trim();
-                        props.setEditingEmployee({...props.editingEmployee, middleName: val, name: fullName});
-                      }}
-                      className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-[11px] uppercase outline-none focus:border-emerald-400 focus:bg-white transition-all ${isNameLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      placeholder="MIDDLE NAME"
-                    />
-                  </div>
-                </div>)}
+                )}
 
                 {!props.isPullMode && isExistingReliever && (
                     <div className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
@@ -765,7 +792,6 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   branchRole.includes('MANAGER');
                 const roleOk = hasRole || isManager;
                 const allowanceOk = (branchAllowance ?? 0) > 0;
-
                 return (
                   <div className="px-5 pt-3 pb-5 shrink-0 space-y-2 border-t border-slate-100">
                     {!roleOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
@@ -785,28 +811,20 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     >
                       {props.isSyncing ? `Syncing ${props.uploadProgress}%...` : 'Save Employee Details'}
                     </button>
-
-                    {/* Face ID Enrollment — home branch only */}
-                    {props.editingEmployee.id && props.editingEmployee.branchId === props.branchId && (
-                      <button
-                        type="button"
-                        onClick={() => setShowFaceEnrollModal(true)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all text-[10px] font-black uppercase tracking-widest"
-                      >
-                        <ScanFace className="w-3.5 h-3.5" />
-                        Face ID Enrollment
-                        {props.editingEmployee.faceDescriptors && props.editingEmployee.faceDescriptors.length > 0 && (
-                          <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
-                            {props.editingEmployee.faceDescriptors.length} shots
-                          </span>
-                        )}
-                      </button>
-                    )}
                   </div>
                 );
               })()}
            </div>
         </div>
+      )}
+
+      {/* ── Employee ID Card Modal ── */}
+      {showIdCard && props.editingEmployee && (
+        <EmployeeIDCardModal
+          employee={props.editingEmployee}
+          branches={props.branches}
+          onClose={() => setShowIdCard(false)}
+        />
       )}
 
       {/* ── Face ID Enrollment Modal ── */}

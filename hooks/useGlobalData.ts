@@ -27,6 +27,7 @@ const COLS = {
         DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
         DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
         DB_COLUMNS.DETAILS, DB_COLUMNS.FACE_DESCRIPTORS,
+        DB_COLUMNS.ON_LEAVE, DB_COLUMNS.LEAVE_TYPE, DB_COLUMNS.LEAVE_START_DATE, DB_COLUMNS.LEAVE_END_DATE,
     ].join(','),
     transactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -262,7 +263,20 @@ export const useGlobalData = (auth: AuthState) => {
             branchAllowances,
             details: db[DB_COLUMNS.DETAILS] || null,
             faceDescriptors: db[DB_COLUMNS.FACE_DESCRIPTORS] || undefined,
-            timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
+            timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
+            ...(() => {
+                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
+                const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
+                const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
+                // Auto-return: if leave_end_date is set and has passed, treat as no longer on leave
+                const onLeave = dbOnLeave && (!endDate || endDate >= today);
+                return {
+                    onLeave,
+                    leaveType: db[DB_COLUMNS.LEAVE_TYPE] ?? undefined,
+                    leaveStartDate: db[DB_COLUMNS.LEAVE_START_DATE] ?? undefined,
+                    leaveEndDate: endDate ?? undefined,
+                };
+            })(),
         };
     };
 

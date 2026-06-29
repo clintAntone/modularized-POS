@@ -147,7 +147,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             
             const isAuthorized = isHomeBranch || isDesignatedManager || isTempManager || isAuthorizedByAllowance;
 
-            if (!isAuthorized || e.isActive !== true) return false;
+            if (!isAuthorized || e.isActive !== true || e.onLeave) return false;
 
             const targetDate = todayStr;
             const attendanceRecord = attendance.find(a => a.employeeId === e.id && a.date === targetDate);

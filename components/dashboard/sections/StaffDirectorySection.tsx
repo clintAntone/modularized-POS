@@ -14,13 +14,12 @@ import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { AlertTriangle, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { AlertTriangle, Users } from 'lucide-react';
 
 // Modular Imports
 import { StaffCard } from './staff/StaffCard';
 import { StaffHeader } from './staff/StaffHeader';
 import { StaffModals } from './staff/StaffModals';
-import { EmployeeIDCardModal } from '../../superadmin/employee-manager/EmployeeIDCardModal';
 import { FaceTimeInModal } from './staff/FaceTimeInModal';
 
 interface StaffDirectorySectionProps {
@@ -47,8 +46,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -69,11 +66,39 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [promoteConfirmInput, setPromoteConfirmInput] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
 
-  const [disableRequestEmployee, setDisableRequestEmployee] = useState<Employee | null>(null);
-  const [disableReasonType, setDisableReasonType] = useState<'RESIGNED' | 'TERMINATED' | 'ON_HOLD' | ''>('');
-  const [disableReasonNotes, setDisableReasonNotes] = useState('');
-  const [disableComplaintRef, setDisableComplaintRef] = useState('');
+  // Leave / On-Hold modal
+  const [leaveEmployee, setLeaveEmployee] = useState<Employee | null>(null);
+  const [leaveSubtype, setLeaveSubtype] = useState<'LEAVE' | 'SUSPENDED' | ''>('');
+  const [leaveType, setLeaveType] = useState('');
+  const [leaveStartDate, setLeaveStartDate] = useState('');
+  const [leaveEndDate, setLeaveEndDate] = useState('');
+  const [leaveNotes, setLeaveNotes] = useState('');
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
+
+  const openLeaveModal = (emp: Employee) => {
+    setLeaveEmployee(emp);
+    setLeaveSubtype('');
+    setLeaveType('');
+    setLeaveStartDate('');
+    setLeaveEndDate('');
+    setLeaveNotes('');
+  };
+  const closeLeaveModal = () => setLeaveEmployee(null);
+
+  // Disable modal
+  const [disableEmployee, setDisableEmployee] = useState<Employee | null>(null);
+  const [disableReason, setDisableReason] = useState<'RESIGNED' | 'TERMINATED' | ''>('');
+  const [complaintRef, setComplaintRef] = useState('');
+  const [disableNotes, setDisableNotes] = useState('');
   const [isSubmittingDisable, setIsSubmittingDisable] = useState(false);
+
+  const openDisableModal = (emp: Employee) => {
+    setDisableEmployee(emp);
+    setDisableReason('');
+    setComplaintRef('');
+    setDisableNotes('');
+  };
+  const closeDisableModal = () => setDisableEmployee(null);
 
   // New employee creation request
   const [showNewEmpRequest, setShowNewEmpRequest] = useState(false);
@@ -87,7 +112,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isSubmittingNewEmp, setIsSubmittingNewEmp] = useState(false);
 
   const [removeRelieversEmployee, setRemoveRelieversEmployee] = useState<Employee | null>(null);
-  const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
   const [isRemovingReliever, setIsRemovingReliever] = useState(false);
 
   const addEmployee = useAddEmployee();
@@ -208,11 +232,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     });
   }, [employees, branch.id, branch.manager, branch.tempManager, searchTerm, filterRoles, filterActiveOnly]);
 
-  const totalPages = Math.ceil(branchStaff.length / itemsPerPage);
-  const paginatedStaff = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return branchStaff.slice(start, start + itemsPerPage);
-  }, [branchStaff, currentPage]);
 
   const handleOpenEdit = (emp?: Employee) => {
     playSound('click');
@@ -299,9 +318,49 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const handleSubmitLeaveRequest = async () => {
+    if (!leaveEmployee || isSubmittingLeave || !leaveSubtype) return;
+    const finalLeaveType = leaveSubtype === 'SUSPENDED' ? 'SUSPENDED' : leaveType;
+    if (leaveSubtype === 'LEAVE' && !finalLeaveType) return;
+    const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(finalLeaveType);
+    if (!noDates && !leaveStartDate) return;
+    const needsEnd = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(finalLeaveType);
+    if (needsEnd && !leaveEndDate) return;
+    setIsSubmittingLeave(true);
+    try {
+      const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
+        [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
+        [DB_COLUMNS.TYPE]: 'LEAVE_REQUEST',
+        [DB_COLUMNS.STATUS]: 'PENDING',
+        [DB_COLUMNS.DATA]: {
+          employeeId: leaveEmployee.id,
+          employeeName: leaveEmployee.name,
+          leaveType: finalLeaveType,
+          startDate: leaveStartDate,
+          endDate: leaveEndDate || null,
+          notes: leaveNotes.trim() || null,
+        },
+        [DB_COLUMNS.REQUESTER_ID]: operatorName,
+        [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
+      });
+      if (error) throw error;
+      playSound('success');
+      showToast(`Leave request submitted for ${leaveEmployee.name}`);
+      closeLeaveModal();
+      onRefresh?.();
+    } catch (err) {
+      playSound('warning');
+      showToast('Request failed. Try again.', 'error');
+    } finally {
+      setIsSubmittingLeave(false);
+    }
+  };
+
   const handleSubmitDisableRequest = async () => {
-    if (!disableRequestEmployee || isSubmittingDisable || !disableReasonType) return;
-    if (disableReasonType === 'TERMINATED' && !disableComplaintRef.trim()) return;
+    if (!disableEmployee || isSubmittingDisable || !disableReason) return;
+    if (disableReason === 'TERMINATED' && !complaintRef.trim()) return;
     setIsSubmittingDisable(true);
     try {
       const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
@@ -311,22 +370,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.TYPE]: 'DISABLE_EMPLOYEE',
         [DB_COLUMNS.STATUS]: 'PENDING',
         [DB_COLUMNS.DATA]: {
-          employeeId: disableRequestEmployee.id,
-          employeeName: disableRequestEmployee.name,
-          reasonType: disableReasonType,
-          reason: disableReasonNotes.trim(),
-          ...(disableReasonType === 'TERMINATED' && { complaintRef: disableComplaintRef.trim() }),
+          employeeId: disableEmployee.id,
+          employeeName: disableEmployee.name,
+          reasonType: disableReason,
+          reason: disableNotes.trim(),
+          ...(disableReason === 'TERMINATED' && { complaintRef: complaintRef.trim() }),
         },
         [DB_COLUMNS.REQUESTER_ID]: operatorName,
         [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
       });
       if (error) throw error;
       playSound('success');
-      showToast(`Disable request submitted for ${disableRequestEmployee.name}`);
-      setDisableRequestEmployee(null);
-      setDisableReasonType('');
-      setDisableReasonNotes('');
-      setDisableComplaintRef('');
+      showToast(`Disable request submitted for ${disableEmployee.name}`);
+      closeDisableModal();
       onRefresh?.();
     } catch (err) {
       playSound('warning');
@@ -542,6 +598,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         showToast('Staff membership is suspended.', 'error');
         return;
     }
+    if (emp.onLeave) {
+        playSound('warning');
+        showToast(`${emp.name} is currently on leave and cannot time in.`, 'error');
+        return;
+    }
     if (isClosedMode) {
       playSound('warning');
       setShowBranchClosedModal(true);
@@ -704,7 +765,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   };
 
   const handleFaceTimeIn = async (emp: Employee) => {
-    if (!emp.isActive || isSyncing || isClosedMode) return;
+    if (!emp.isActive || emp.onLeave || isSyncing || isClosedMode) return;
     const state = getShiftState(emp.id);
     if (state !== 'NOT_STARTED' && state !== 'COMPLETED') return;
 
@@ -989,38 +1050,18 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       <StaffHeader
         branchName={branch.name.replace(/BRANCH - /g, '')}
         searchTerm={searchTerm}
-        onSearchChange={val => { setSearchTerm(val); setCurrentPage(1); }}
+        onSearchChange={val => { setSearchTerm(val); }}
         onPullReliever={handleOpenPull}
         onRequestNewEmployee={isDelegate ? undefined : () => { setShowNewEmpRequest(true); playSound('click'); }}
         filterRoles={filterRoles as any}
-        onFilterRolesChange={roles => { setFilterRoles(roles as any); setCurrentPage(1); }}
+        onFilterRolesChange={roles => { setFilterRoles(roles as any); }}
         filterActiveOnly={filterActiveOnly}
-        onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); setCurrentPage(1); }}
+        onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); }}
         totalShowing={branchStaff.length}
         onExportPDF={handleExportPDF}
         onExportCSV={handleExportCSV}
         isExporting={isExporting}
       />
-
-      {isManagerView && !isDelegate && onNavigateToComplaints && (
-        <button
-          onClick={() => { playSound('click'); onNavigateToComplaints(); }}
-          className="w-full flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:border-rose-300 hover:bg-rose-50/40 transition-all group"
-        >
-          <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
-            <svg className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-            </svg>
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-[11px] font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
-          </div>
-          <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      )}
 
       {isSetupRequired && (
         <div className={`bg-amber-50 border border-amber-100 p-6 ${UI_THEME.radius.card} flex items-center gap-6 animate-in slide-in-from-top-4`}>
@@ -1034,8 +1075,20 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         </div>
       )}
 
+      {/* Reliever hint — shown when there are guest/reliever staff visible */}
+      {branchStaff.some(e => e.branchId !== branch.id) && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700">
+          <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-[10px] font-semibold leading-relaxed">
+            <span className="font-black uppercase tracking-widest">Reliever Staff:</span> Staff cards marked <span className="font-black">RELIEVER</span> are from another branch. If they have been transferred permanently, use the <span className="font-black">✕ remove button</span> on their card — do not request to disable them.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-1">
-        {paginatedStaff.length > 0 ? paginatedStaff.map(emp => {
+        {branchStaff.length > 0 ? branchStaff.map(emp => {
           const currentRole = getEmployeeRole(emp, branch.id);
           const branchCfg = emp.branchAllowances?.[branch.id];
           const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
@@ -1058,13 +1111,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               onTimeAction={handleOpenTimeModal}
               onReset={isDelegate ? undefined : handleOpenReset}
               onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
-              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager ? () => { setDisableRequestEmployee(emp); setDisableReasonType(''); setDisableReasonNotes(''); } : undefined}
+              onRequestLeave={!isDelegate && emp.isActive && !isReliever && !emp.onLeave ? () => openLeaveModal(emp) : undefined}
+              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager && !isReliever && !emp.onLeave ? () => openDisableModal(emp) : undefined}
               onRemoveReliever={
                 !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
                   ? () => setRemoveRelieversEmployee(emp)
                   : undefined
               }
-              onViewID={() => { setIdCardEmployee(emp); playSound('click'); }}
               onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
             />
           );
@@ -1076,63 +1129,28 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         )}
       </div>
 
-      {/* PAGINATION */}
-      {totalPages > 0 && (
-        <div className="flex flex-col items-center gap-3 mt-4">
-          <select
-            value={itemsPerPage}
-            onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); playSound('click'); }}
-            className="h-8 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black text-slate-600 uppercase tracking-wider cursor-pointer hover:border-slate-400 focus:outline-none transition-colors"
-          >
-            {[10, 25, 50, 100].map(n => (
-              <option key={n} value={n}>{n} per page</option>
-            ))}
-          </select>
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); playSound('click'); }}
-                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
-              >
-                <ChevronLeft className="w-5 h-5" strokeWidth={3} />
-              </button>
-
-              <div className="flex items-center gap-2">
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setCurrentPage(i + 1); playSound('click'); }}
-                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); playSound('click'); }}
-                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
-              >
-                <ChevronRight className="w-5 h-5" strokeWidth={3} />
-              </button>
-            </div>
-          )}
-        </div>
+      {isManagerView && !isDelegate && onNavigateToComplaints && (
+        <button
+          onClick={() => { playSound('click'); onNavigateToComplaints(); }}
+          className="w-full flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:border-rose-300 hover:bg-rose-50/40 transition-all group"
+        >
+          <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
+            <svg className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <p className="text-[11px] font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
+          </div>
+          <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       )}
     </div>
 
-    {/* EMPLOYEE ID CARD MODAL */}
-    {idCardEmployee && (
-      <EmployeeIDCardModal
-        employee={idCardEmployee}
-        branches={branches}
-        onClose={() => setIdCardEmployee(null)}
-      />
-    )}
-
-    {/* FACE TIME-IN MODAL */}
+{/* FACE TIME-IN MODAL */}
     {showFaceTimeIn && (
       <FaceTimeInModal
         employees={employees.filter(e => e.isActive)}
@@ -1205,19 +1223,20 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       </div>
     )}
 
-    {/* DISABLE EMPLOYEE REQUEST MODAL */}
-    {disableRequestEmployee && (
+    {/* LEAVE / ON-HOLD REQUEST MODAL */}
+    {leaveEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeLeaveModal} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
           <div className="flex items-start gap-4 mb-5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            <div className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request to Disable</p>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Leave / On-Hold Request</p>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
             </div>
           </div>
@@ -1225,7 +1244,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{disableRequestEmployee.name}</span>
+              <span className="text-[11px] font-black text-slate-900 uppercase">{leaveEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
@@ -1233,82 +1252,185 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             </div>
           </div>
 
+          {/* Subtype: Leave or Suspended */}
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Disabling <span className="text-rose-500">*</span></label>
-            <div className="space-y-2">
-              {(['RESIGNED', 'TERMINATED', 'ON_HOLD'] as const).map(opt => {
-                const labels: Record<string, { label: string; desc: string; color: string }> = {
-                  RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         color: 'border-slate-400 bg-slate-900' },
-                  TERMINATED: { label: 'Terminated', desc: 'Dismissed due to misconduct/cause', color: 'border-rose-500 bg-rose-600' },
-                  ON_HOLD:    { label: 'On Hold',    desc: 'Temporarily inactive',              color: 'border-amber-400 bg-amber-500' },
-                };
-                const m = labels[opt];
-                const isSelected = disableReasonType === opt;
-                return (
-                  <label
-                    key={opt}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-slate-900 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`}
-                    onClick={() => setDisableReasonType(opt)}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-slate-900' : 'border-slate-300'}`}>
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold">{m.desc}</p>
-                    </div>
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.color.split(' ')[1]}`} />
-                  </label>
-                );
-              })}
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setLeaveSubtype('LEAVE'); setLeaveType(''); setLeaveStartDate(''); setLeaveEndDate(''); }}
+                className={`flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${leaveSubtype === 'LEAVE' ? 'border-purple-400 bg-purple-50' : 'border-slate-100 hover:border-slate-200'}`}
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">On Leave</p>
+                <p className="text-[9px] text-slate-400 font-semibold leading-tight">Vacation, Sick, Maternity, etc.</p>
+              </button>
+              <button
+                onClick={() => { setLeaveSubtype('SUSPENDED'); setLeaveType(''); setLeaveStartDate(''); setLeaveEndDate(''); }}
+                className={`flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${leaveSubtype === 'SUSPENDED' ? 'border-amber-400 bg-amber-50' : 'border-slate-100 hover:border-slate-200'}`}
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Suspended</p>
+                <p className="text-[9px] text-slate-400 font-semibold leading-tight">Disciplinary hold, pending review</p>
+              </button>
             </div>
           </div>
 
-          {/* Complaint number — required when TERMINATED */}
-          {disableReasonType === 'TERMINATED' && (
+          {/* Leave type picker */}
+          {leaveSubtype === 'LEAVE' && (
             <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-              <label className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block flex items-center gap-1.5">
-                Complaint Number <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={disableComplaintRef}
-                onChange={e => setDisableComplaintRef(e.target.value.toUpperCase())}
-                placeholder="e.g. COMP-ABC123"
-                className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-[11px] font-black text-slate-900 uppercase tracking-widest outline-none transition-all focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400"
-              />
-              <p className="text-[8px] font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['VACATION', 'SICK', 'MATERNITY', 'PATERNITY', 'EMERGENCY'] as const).map(type => {
+                  const lMeta: Record<string, { label: string; dot: string }> = {
+                    VACATION:  { label: 'Vacation',  dot: 'bg-blue-500' },
+                    SICK:      { label: 'Sick',      dot: 'bg-rose-500' },
+                    MATERNITY: { label: 'Maternity', dot: 'bg-pink-500' },
+                    PATERNITY: { label: 'Paternity', dot: 'bg-indigo-500' },
+                    EMERGENCY: { label: 'Emergency', dot: 'bg-amber-500' },
+                  };
+                  const m = lMeta[type];
+                  const isSelected = leaveType === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => { setLeaveType(type); setLeaveStartDate(''); setLeaveEndDate(''); }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-purple-400 bg-purple-50' : 'border-slate-100 hover:border-slate-200'}`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSelected ? m.dot : 'bg-slate-200'}`} />
+                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
+          {/* Dates */}
+          {leaveSubtype && (() => {
+            const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(leaveType);
+            if (noDates) return null;
+            if (leaveSubtype === 'LEAVE' && !leaveType) return null;
+            const endRequired = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+            return (
+              <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
+                  <input type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                    End Date {endRequired ? <span className="text-rose-500">*</span> : <span className="font-bold normal-case opacity-60">(optional)</span>}
+                  </label>
+                  <input type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} min={leaveStartDate} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Notes */}
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Additional Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
-            <textarea
-              value={disableReasonNotes}
-              onChange={e => setDisableReasonNotes(e.target.value)}
-              rows={2}
-              placeholder="Additional context for the superadmin..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-amber-400 resize-none bg-slate-50"
-            />
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={leaveNotes} onChange={e => setLeaveNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
+            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
-              disabled={isSubmittingDisable}
-              onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); setDisableComplaintRef(''); }}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isSubmittingDisable || !disableReasonType || (disableReasonType === 'TERMINATED' && !disableComplaintRef.trim())}
-              onClick={handleSubmitDisableRequest}
-              className="flex-1 h-10 rounded-xl bg-amber-500 text-[11px] font-black uppercase tracking-widest text-white hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-            >
-              {isSubmittingDisable
-                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                : 'Submit Request'
+              disabled={
+                isSubmittingLeave || !leaveSubtype ||
+                (leaveSubtype === 'LEAVE' && !leaveType) ||
+                (() => {
+                  const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(leaveType);
+                  if (noDates) return false;
+                  if (!leaveStartDate) return true;
+                  const needsEnd = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+                  return needsEnd && !leaveEndDate;
+                })()
               }
+              onClick={handleSubmitLeaveRequest}
+              className="flex-1 h-10 rounded-xl bg-purple-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* DISABLE EMPLOYEE REQUEST MODAL */}
+    {disableEmployee && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeDisableModal} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Disable Employee</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Permanent — Superadmin approval required</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-[11px] font-black text-slate-900 uppercase">{disableEmployee.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+            </div>
+          </div>
+
+          <div className="mb-4 space-y-3">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Reason <span className="text-rose-500">*</span></label>
+            {(['RESIGNED', 'TERMINATED'] as const).map(opt => {
+              const dMeta = {
+                RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         dot: 'bg-slate-700' },
+                TERMINATED: { label: 'Terminated', desc: 'Dismissed due to misconduct/cause', dot: 'bg-rose-600' },
+              };
+              const m = dMeta[opt];
+              const isSelected = disableReason === opt;
+              return (
+                <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-slate-800 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`} onClick={() => setDisableReason(opt)}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-slate-900' : 'border-slate-300'}`}>
+                    {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
+                    <p className="text-[9px] text-slate-400 font-semibold">{m.desc}</p>
+                  </div>
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
+                </label>
+              );
+            })}
+
+            {disableReason === 'TERMINATED' && (
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                <label className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block">Complaint Number <span className="text-rose-500">*</span></label>
+                <input type="text" value={complaintRef} onChange={e => setComplaintRef(e.target.value.toUpperCase())} placeholder="e.g. COMP-ABC123" className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-[11px] font-black text-slate-900 uppercase tracking-widest outline-none focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400" />
+                <p className="text-[8px] font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-5">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={disableNotes} onChange={e => setDisableNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
+          </div>
+
+          <div className="flex gap-3">
+            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button
+              disabled={isSubmittingDisable || !disableReason || (disableReason === 'TERMINATED' && !complaintRef.trim())}
+              onClick={handleSubmitDisableRequest}
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingDisable ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
             </button>
           </div>
         </div>

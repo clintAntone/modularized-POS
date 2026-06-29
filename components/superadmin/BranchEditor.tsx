@@ -77,18 +77,15 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     }, [branch.id, transactions, attendance, salesReports, todayStr]);
 
     const potentialManagers = useMemo(() => {
-        const branchSpecific = employees.filter(e => e.branchId === branch.id && e.isActive !== false);
-        const networkManagers = employees.filter(e => e.role.split(',').includes('MANAGER') && e.isActive !== false);
-
-        const combined = [...branchSpecific, ...networkManagers];
+        const allActive = employees.filter(e => e.isActive !== false);
         const uniqueMap = new Map();
-        combined.forEach(emp => {
+        allActive.forEach(emp => {
             if (!uniqueMap.has(emp.name)) {
                 uniqueMap.set(emp.name, emp);
             }
         });
         return Array.from(uniqueMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [employees, branch.id]);
+    }, [employees]);
 
     // FIX: Only re-sync local state if the user has switched to a DIFFERENT branch.
     // This prevents background global refreshes (which return the current DB state)

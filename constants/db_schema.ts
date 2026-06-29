@@ -103,6 +103,12 @@ export const DB_COLUMNS = {
   DETAILS: 'details',
   FACE_DESCRIPTORS: 'face_descriptors',
 
+  // Employee Leave
+  ON_LEAVE: 'on_leave',
+  LEAVE_TYPE: 'leave_type',
+  LEAVE_START_DATE: 'leave_start_date',
+  LEAVE_END_DATE: 'leave_end_date',
+
   // Attendance & Shift
   STAFF_NAME: 'staff_name',
   EMPLOYEE_ID: 'employee_id',

@@ -24,9 +24,9 @@ interface StaffCardProps {
   onTimeAction: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onPromote?: (emp: Employee) => void;
+  onRequestLeave?: (emp: Employee) => void;
   onRequestDisable?: (emp: Employee) => void;
   onRemoveReliever?: (emp: Employee) => void;
-  onViewID?: (emp: Employee) => void;
   onFaceTimeIn?: () => void;
 }
 
@@ -42,14 +42,15 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onTimeAction,
   onReset,
   onPromote,
+  onRequestLeave,
   onRequestDisable,
   onRemoveReliever,
-  onViewID,
   onFaceTimeIn,
 }) => {
   const isOngoing = shiftState === 'ONGOING';
   const isCompleted = shiftState === 'COMPLETED';
   const isActive = emp.isActive;
+  const isOnLeave = emp.onLeave === true;
   const currentAllowance = getEmployeeAllowance(emp, branchId);
   const currentRole = getEmployeeRole(emp, branchId);
   const isReliever = isRelieverProp ?? (emp.branchId !== branchId);
@@ -87,8 +88,10 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
   return (
     <div
-      className={`${isOngoing ? 'bg-emerald-50' : 'bg-white'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none cursor-pointer ${
-        !isActive
+      className={`${isOngoing ? 'bg-emerald-50' : isOnLeave ? 'bg-purple-50' : 'bg-white'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none cursor-pointer ${
+        isOnLeave
+          ? 'grayscale opacity-70 border-purple-200'
+          : !isActive
           ? 'grayscale opacity-60 border-slate-200'
           : isLongPressing
           ? 'border-indigo-400 ring-4 ring-indigo-400/20 scale-[0.98]'
@@ -99,7 +102,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
       onMouseLeave={cancelLongPress}
-      onTouchStart={evt => { evt.preventDefault(); startLongPress(); }}
+      onTouchStart={startLongPress}
       onTouchEnd={cancelLongPress}
       onTouchCancel={cancelLongPress}
       onClick={() => { if (!didLongPress.current) onEdit(emp); }}
@@ -156,31 +159,24 @@ export const StaffCard: React.FC<StaffCardProps> = ({
         </div>
       )}
 
-      {!isActive && (
-        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-slate-400">
-          Suspended
+      {isOnLeave && emp.leaveType === 'SUSPENDED' && (
+        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-amber-500">
+          On Hold
+        </div>
+      )}
+      {isOnLeave && emp.leaveType !== 'SUSPENDED' && (
+        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-purple-500">
+          On Leave
+        </div>
+      )}
+      {!isActive && !isOnLeave && (
+        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-slate-500">
+          Disabled
         </div>
       )}
 
-      <div className="p-5 sm:p-8 flex-1 flex flex-col">
-        <div className="flex justify-between items-start mb-4 sm:mb-8">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-[32px] overflow-hidden bg-slate-50 border-4 border-white shadow-xl transition-transform group-hover:scale-110 duration-500">
-            <ProfileAvatar name={emp.name} src={emp.profile} initialsClassName="text-3xl" />
-          </div>
-          <div className="flex gap-2">
-            {onViewID && (
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onTouchStart={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onViewID(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-indigo-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
-                title="View Company ID"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
-                </svg>
-              </button>
-            )}
+      {/* Action buttons — absolute top-right, above avatar level */}
+      <div className="absolute top-3 right-3 flex gap-1.5 z-20">
             {onReset && (isMainManager || isTempManager) && (
               <button
                 onMouseDown={e => e.stopPropagation()}
@@ -205,19 +201,38 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 </svg>
               </button>
             )}
-            {onRequestDisable && isActive && !isMainManager && !isTempManager && !isReliever && (
+            {onRequestLeave && isActive && !isReliever && !isOnLeave && (
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onRequestLeave(emp); }}
+                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-purple-500 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                title="Request Leave / On-Hold"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
+            {onRequestDisable && isActive && !isMainManager && !isTempManager && !isReliever && !isOnLeave && (
               <button
                 onMouseDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onRequestDisable(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-amber-500 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
-                title="Request to Disable"
+                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                title="Request Disable (Resigned / Terminated)"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
               </button>
             )}
+      </div>
+
+      <div className="p-5 sm:p-8 flex-1 flex flex-col">
+        <div className="mb-4 sm:mb-8">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-50 border-4 border-white shadow-xl transition-transform group-hover:scale-110 duration-500">
+            <ProfileAvatar name={emp.name} src={emp.profile} initialsClassName="text-3xl" />
           </div>
         </div>
 
@@ -249,7 +264,17 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           </div>
 
           {/* Time actions */}
-          {isOngoing || isCompleted || !isActive ? (
+          {isOnLeave ? (
+            <button
+              disabled
+              className={`h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest cursor-not-allowed flex items-center gap-2 ${emp.leaveType === 'SUSPENDED' ? 'bg-amber-100 text-amber-500' : 'bg-purple-100 text-purple-400'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {emp.leaveType === 'SUSPENDED' ? 'On Hold' : 'On Leave'}
+            </button>
+          ) : isOngoing || isCompleted || !isActive ? (
             // Time-out / completed / inactive — single button
             <button
               disabled={!isActive || isCompleted}

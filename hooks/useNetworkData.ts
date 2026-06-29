@@ -48,7 +48,14 @@ const mapDbEmployee = (db: any): Employee => ({
     isActive: db[DB_COLUMNS.IS_ACTIVE] !== false,
     profile: db[DB_COLUMNS.PROFILE],
     branchAllowances: typeof db[DB_COLUMNS.BRANCH_ALLOWANCES] === 'string' ? JSON.parse(db[DB_COLUMNS.BRANCH_ALLOWANCES]) : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {}),
-    timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
+    timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
+    ...(() => {
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
+        const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
+        const onLeave = dbOnLeave && (!endDate || endDate >= today);
+        return { onLeave, leaveType: db[DB_COLUMNS.LEAVE_TYPE] ?? undefined, leaveStartDate: db[DB_COLUMNS.LEAVE_START_DATE] ?? undefined, leaveEndDate: endDate ?? undefined };
+    })(),
 });
 
 // Queries

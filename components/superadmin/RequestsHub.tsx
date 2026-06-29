@@ -82,6 +82,15 @@ const TYPE_META: Record<string, { label: string; color: string; icon: React.Reac
       </svg>
     ),
   },
+  LEAVE_REQUEST: {
+    label: 'Leave Request',
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 };
 
 const STATUS_STYLE = {
@@ -250,6 +259,16 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         } else if (request.type === 'DISABLE_EMPLOYEE') {
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
             .update({ [DB_COLUMNS.IS_ACTIVE]: false })
+            .eq(DB_COLUMNS.ID, request.data.employeeId);
+          if (error) throw error;
+        } else if (request.type === 'LEAVE_REQUEST') {
+          const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
+            .update({
+              [DB_COLUMNS.ON_LEAVE]: true,
+              [DB_COLUMNS.LEAVE_TYPE]: request.data.leaveType,
+              [DB_COLUMNS.LEAVE_START_DATE]: request.data.startDate,
+              [DB_COLUMNS.LEAVE_END_DATE]: request.data.endDate || null,
+            })
             .eq(DB_COLUMNS.ID, request.data.employeeId);
           if (error) throw error;
         } else if (request.type === 'EMPLOYEE_REPORT') {
@@ -804,7 +823,6 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         const reasonMeta: Record<string, { label: string; cls: string }> = {
                           RESIGNED:   { label: 'Resigned',   cls: 'bg-slate-200 text-slate-700' },
                           TERMINATED: { label: 'Terminated', cls: 'bg-rose-100 text-rose-700' },
-                          ON_HOLD:    { label: 'On Hold',    cls: 'bg-amber-100 text-amber-700' },
                         };
                         const m = reasonMeta[request.data.reasonType];
                         return m ? (
@@ -941,6 +959,46 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                           <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
                           <p className="text-sm text-slate-700 font-medium italic">"{request.data.notes}"</p>
                         </div>
+                      )}
+                    </div>
+                  ) : request.type === 'LEAVE_REQUEST' ? (
+                    <div className={`${request.data.leaveType === 'SUSPENDED' ? 'bg-amber-50 border-amber-100' : 'bg-purple-50 border-purple-100'} border rounded-2xl p-4 space-y-3`}>
+                      <p className={`text-xs font-black uppercase tracking-widest ${request.data.leaveType === 'SUSPENDED' ? 'text-amber-600' : 'text-purple-500'}`}>
+                        {request.data.leaveType === 'SUSPENDED' ? 'On-Hold Request — Suspension' : 'On-Hold Request — Leave'}
+                      </p>
+                      {request.data.employeeName && (
+                        <p className="text-sm font-semibold text-slate-700">Employee: <span className="font-black text-slate-900">{request.data.employeeName}</span></p>
+                      )}
+                      {request.data.leaveType && (() => {
+                        const leaveMeta: Record<string, { label: string; cls: string }> = {
+                          VACATION:  { label: 'Vacation Leave',  cls: 'bg-blue-100 text-blue-700' },
+                          SICK:      { label: 'Sick Leave',      cls: 'bg-rose-100 text-rose-700' },
+                          MATERNITY: { label: 'Maternity Leave', cls: 'bg-pink-100 text-pink-700' },
+                          PATERNITY: { label: 'Paternity Leave', cls: 'bg-indigo-100 text-indigo-700' },
+                          EMERGENCY: { label: 'Emergency Leave', cls: 'bg-amber-100 text-amber-700' },
+                          SUSPENDED: { label: 'Suspended',       cls: 'bg-amber-100 text-amber-700' },
+                        };
+                        const m = leaveMeta[request.data.leaveType];
+                        return m ? (
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
+                        ) : null;
+                      })()}
+                      <div className="grid grid-cols-2 gap-2">
+                        {request.data.startDate && (
+                          <div className="bg-white rounded-xl p-3 border border-purple-100">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Start Date</p>
+                            <p className="text-sm font-black text-slate-900">{request.data.startDate}</p>
+                          </div>
+                        )}
+                        {request.data.endDate && (
+                          <div className="bg-white rounded-xl p-3 border border-purple-100">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">End Date</p>
+                            <p className="text-sm font-black text-slate-900">{request.data.endDate}</p>
+                          </div>
+                        )}
+                      </div>
+                      {request.data.notes && (
+                        <p className="text-sm text-slate-600 italic">"{request.data.notes}"</p>
                       )}
                     </div>
                   ) : (

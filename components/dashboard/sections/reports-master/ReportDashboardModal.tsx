@@ -782,6 +782,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
               // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
               const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
+              // For aggregate reports, sum vault deposits from non-legacy constituents separately
+              const aggregateVaultDeposit = isAggregate
+                ? constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0)
+                : (kpiIsLegacy ? 0 : Number(report.totalVaultProvision || 0));
               return (
                 <SalesKPIStrip
                     gross={Number(report.grossSales || 0)}
@@ -789,7 +793,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     gcashTotal={financialBreakdown.gcashTotal}
                     operationalExp={displayOperationalExp}
                     rentAndBillsTotal={rentAndBillsTotal}
-                    vaultDeposit={kpiIsLegacy ? 0 : Number(report.totalVaultProvision || 0)}
+                    vaultDeposit={aggregateVaultDeposit}
                     vaultWithdrawal={vaultWithdrawalTotal}
                     vaultCoveredExp={vaultCoveredExpTotal}
                     finalStaffPayTotal={displayStaffPay}
