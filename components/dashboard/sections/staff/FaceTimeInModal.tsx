@@ -6,6 +6,7 @@ import { loadFaceModels, preloadFaceModels, extractDescriptors, matchFace } from
 import { playSound } from '../../../../lib/audio';
 import { ScreenBrightness } from '@capacitor-community/screen-brightness';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '../../../../lib/supabase';
 
 const MIN_BRIGHTNESS = 0.8;
 const isNative = Capacitor.isNativePlatform();
@@ -47,15 +48,53 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [dlProgress, setDlProgress] = useState(0);
 
+    // Seed from props, then immediately hydrate with a fresh DB fetch so that
+    // descriptors enrolled seconds ago are available without requiring a full page refresh.
     const pool = targetEmployee ? [targetEmployee] : employees;
-    const empDescriptors = pool
-        .filter(e => e.faceDescriptors && e.faceDescriptors.length > 0)
-        .map(e => ({ id: e.id, name: e.name, descriptors: e.faceDescriptors! }));
+    const [empDescriptors, setEmpDescriptors] = useState(() =>
+        pool
+            .filter(e => e.faceDescriptors && e.faceDescriptors.length > 0)
+            .map(e => ({ id: e.id, name: e.name, descriptors: e.faceDescriptors! }))
+    );
+
+    useEffect(() => {
+        let cancelled = false;
+        const ids = pool.map(e => e.id);
+        if (ids.length === 0) return;
+        (async () => {
+            try {
+                const { data } = await supabase
+                    .from('employees')
+                    .select('id, name, face_descriptors')
+                    .in('id', ids);
+                if (cancelled || !data) return;
+                const fresh = data
+                    .filter((r: any) => r.face_descriptors && r.face_descriptors.length > 0)
+                    .map((r: any) => ({ id: r.id, name: r.name, descriptors: r.face_descriptors as number[][] }));
+                if (fresh.length > 0) setEmpDescriptors(fresh);
+            } catch { /* silently fall back to prop-seeded descriptors */ }
+        })();
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const stopCamera = useCallback(() => {
         streamRef.current?.getTracks().forEach(t => t.stop());
         streamRef.current = null;
     }, []);
+
+    // Wait until the video element has received at least one real frame from the camera.
+    // play() resolves as soon as playback starts, but the first pixel data may not have
+    // arrived yet — scanning on a black frame always returns "no face detected".
+    const waitForFirstFrame = (video: HTMLVideoElement): Promise<void> =>
+        new Promise(resolve => {
+            if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+            const onFrame = () => {
+                if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); }
+                else { requestAnimationFrame(onFrame); }
+            };
+            requestAnimationFrame(onFrame);
+        });
 
     const startCamera = useCallback(async () => {
         try {
@@ -66,6 +105,12 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
+                // Wait for the camera to deliver its first real frame before declaring ready.
+                // Without this, an immediate scan attempt hits a blank frame and reports "No face detected".
+                await Promise.race([
+                    waitForFirstFrame(videoRef.current),
+                    new Promise<void>(r => setTimeout(r, 2000)), // safety cap
+                ]);
             }
             setStatus('ready');
             setStatusMsg('Position your face in the frame');
@@ -83,6 +128,10 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
                         await videoRef.current.play();
+                        await Promise.race([
+                            waitForFirstFrame(videoRef.current),
+                            new Promise<void>(r => setTimeout(r, 2000)),
+                        ]);
                     }
                     setStatus('ready');
                     setStatusMsg('Position your face in the frame');
@@ -104,6 +153,11 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
 
     const scan = useCallback(async () => {
         if (!videoRef.current || status === 'scanning' || status === 'matched') return;
+        // Second-line guard: if the video element still has no pixel data, don't scan yet
+        if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+            setStatusMsg('Camera warming up — please wait');
+            return;
+        }
         setStatus('scanning');
         setStatusMsg('Scanning...');
 

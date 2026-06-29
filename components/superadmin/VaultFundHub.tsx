@@ -187,6 +187,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const [txHistoryTab, setTxHistoryTab] = useState<'deposits' | 'withdrawals'>('deposits');
   const [visibleDeposits, setVisibleDeposits] = useState(20);
   const [visibleWithdrawals, setVisibleWithdrawals] = useState(20);
+  const [receiptModal, setReceiptModal] = useState<{ url: string; label: string } | null>(null);
+  const [kpiExpanded, setKpiExpanded] = useState(false);
   const [roiDropdownOpen, setRoiDropdownOpen] = useState(false);
   const [confirmToggleBranch, setConfirmToggleBranch] = useState<Branch | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -1543,7 +1545,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, category: t.type, name: t.name ?? null, performedBy: t.performedBy }));
         const branchWithdrawals = detailTxns
           .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
-          .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, name: t.name ?? '', performedBy: t.performedBy }));
+          .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, name: t.name ?? '', performedBy: t.performedBy, receiptImage: t.receiptImage ?? null }));
         const totalDeposited = branchHistory.reduce((s, e) => s + e.amount, 0);
         const totalWithdrawals = branchWithdrawals.reduce((s, e) => s + e.amount, 0);
 
@@ -1635,8 +1637,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                         </p>
                       )}
                     </div>
-                    {/* Secondary stats — equal-width tiles */}
-                    <div className={`grid gap-2 ${initialBalance > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    {/* Secondary stats — tap to expand on mobile, always shown on desktop */}
+                    <button
+                      className="w-full text-left sm:hidden flex items-center justify-between mt-1"
+                      onClick={() => setKpiExpanded(v => !v)}
+                    >
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Overview</span>
+                      <svg className={`w-3 h-3 text-slate-500 transition-transform duration-200 ${kpiExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    <div className={`grid gap-2 ${initialBalance > 0 ? 'grid-cols-3' : 'grid-cols-2'} ${kpiExpanded ? '' : 'hidden'} sm:grid`}>
                       <div className="bg-white/5 rounded-2xl px-3 py-2.5">
                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Deposited</p>
                         <p className="text-[13px] font-black text-emerald-400 tabular-nums leading-none">+₱{totalDeposited.toLocaleString()}</p>
@@ -1989,7 +1998,11 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   const dateObj = new Date(y, m - 1, d);
                                   const timePart = entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : null;
                                   return (
-                                    <div key={i} className="px-4 py-3 hover:bg-slate-50/70 transition-colors">
+                                    <div
+                                      key={i}
+                                      className={`px-4 py-3 transition-colors ${entry.receiptImage ? 'cursor-pointer hover:bg-indigo-50/40' : 'hover:bg-slate-50/70'}`}
+                                      onClick={() => entry.receiptImage && setReceiptModal({ url: entry.receiptImage, label: entry.name || 'Receipt' })}
+                                    >
                                       {/* Mobile layout */}
                                       <div className="flex items-center justify-between gap-3 sm:hidden">
                                         <div className="min-w-0">
@@ -1997,22 +2010,30 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
                                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-rose-100 text-rose-700">Withdrawal</span>
-                                            {(entry.performedBy || entry.name) && <span className="text-[10px] font-medium text-slate-400 truncate">{entry.performedBy || entry.name}</span>}
+                                            {entry.name
+                                              ? <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide">{entry.name}</span>
+                                              : <span className="text-[10px] font-medium text-slate-400 italic">No description</span>
+                                            }
+                                            {entry.performedBy && entry.performedBy !== entry.name && <span className="text-[10px] font-medium text-slate-400 truncate">by {entry.performedBy}</span>}
                                             {timePart && <span className="text-[10px] font-medium text-slate-400 tabular-nums">{timePart}</span>}
                                           </div>
                                         </div>
                                         <span className="text-[13px] font-black text-rose-600 tabular-nums shrink-0">−₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                       {/* Desktop layout */}
-                                      <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] items-center">
+                                      <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
                                         <div>
                                           <p className="text-[11px] font-bold text-slate-800">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                           {timePart && <p className="text-[10px] font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
-                                        <div>
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-rose-100 text-rose-700">Withdrawal</span>
-                                          {(entry.performedBy || entry.name) && <p className="text-[10px] font-medium text-slate-500 mt-1 truncate max-w-[130px]">{entry.performedBy || entry.name}</p>}
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            {entry.name
+                                              ? <p className="text-[11px] font-black text-slate-800 truncate uppercase tracking-wide">{entry.name}</p>
+                                              : <p className="text-[10px] font-medium text-slate-400 italic">No description</p>
+                                            }
+                                          </div>
+                                          {entry.performedBy && entry.performedBy !== entry.name && <p className="text-[9px] font-medium text-slate-400 mt-0.5 truncate">by {entry.performedBy}</p>}
                                         </div>
                                         <p className="text-[10px] font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
                                         <span className="text-[12px] font-black text-rose-600 tabular-nums">−₱{entry.amount.toLocaleString()}</span>
@@ -2041,6 +2062,36 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           </>
         );
       })()}
+
+      {/* Receipt image modal */}
+      {receiptModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setReceiptModal(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-w-lg w-full max-h-[90vh] animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest truncate">{receiptModal.label}</p>
+              <button
+                onClick={() => setReceiptModal(null)}
+                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0 ml-3"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 flex items-center justify-center p-2 bg-slate-50">
+              <img
+                src={receiptModal.url}
+                alt="Receipt"
+                className="max-w-full max-h-[75vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toggle confirmation modal */}
       {confirmToggleBranch && (() => {

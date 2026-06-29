@@ -132,6 +132,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [isLoading, setIsLoading] = useState(true);
   const [isReviewing, setIsReviewing] = useState(false);
   const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string } | null>(null);
+  const [unmarkConfirm, setUnmarkConfirm] = useState<{ submissionId: string; branchName: string; periodLabel: string; hasVaultAdj: boolean } | null>(null);
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
   const [openGrossBreakdown, setOpenGrossBreakdown] = useState<string | null>(null);
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
@@ -274,6 +275,25 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       playSound('warning');
     } finally {
       setIsReviewing(false);
+    }
+  };
+
+  const handleUnmarkRemitted = async (submissionId: string) => {
+    setIsReviewing(true);
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+        .update({ status: 'submitted', reviewed_at: null })
+        .eq(DB_COLUMNS.ID, submissionId);
+      if (error) throw error;
+      setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, status: 'submitted', reviewNote: null } : s));
+      playSound('success');
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsReviewing(false);
+      setUnmarkConfirm(null);
     }
   };
 
@@ -839,6 +859,45 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" /> Confirm Remitted
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Unmark Remitted Confirmation Modal ── */}
+      {unmarkConfirm && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setUnmarkConfirm(null)}>
+          <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-7 pt-7 pb-5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
+                <XCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <h3 className="text-base font-black text-slate-900 uppercase tracking-tight leading-tight mb-1">Unmark Remitted</h3>
+              <p className="text-sm text-slate-600 mb-2">
+                Remove the remitted status for <span className="font-black text-slate-900">{unmarkConfirm.branchName.replace('BRANCH - ', '')}</span> — period <span className="font-black text-slate-900">{unmarkConfirm.periodLabel}</span>?
+              </p>
+              {unmarkConfirm.hasVaultAdj && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
+                  <span className="font-black block mb-0.5">⚠ Vault Deposit Attached</span>
+                  This period has a vault deposit adjustment. Unmarking will NOT reverse the vault transaction — you must handle that manually if needed.
+                </div>
+              )}
+              {!unmarkConfirm.hasVaultAdj && (
+                <p className="text-xs text-slate-400">The status will revert to submitted. Adjustments will be preserved.</p>
+              )}
+            </div>
+            <div className="px-7 pb-7 flex gap-3 justify-end">
+              <button onClick={() => setUnmarkConfirm(null)} className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={() => handleUnmarkRemitted(unmarkConfirm.submissionId)}
+                disabled={isReviewing}
+                className="px-7 py-3 bg-amber-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4" /> Unmark Remitted
               </button>
             </div>
           </div>
@@ -1555,13 +1614,22 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             </div>
                           )}
                           {!isReadOnly && sub?.status === 'approved' && (
-                            <input
-                              type="checkbox"
-                              checked
-                              readOnly
-                              className="w-5 h-5 accent-emerald-600 cursor-default"
-                              title="Remitted"
-                            />
+                            <div className="relative group">
+                              <input
+                                type="checkbox"
+                                checked
+                                disabled={isReviewing}
+                                onChange={() => {
+                                  const hasVaultAdj = rowAdj.some(a => a.description === 'VAULT DEPOSIT');
+                                  setUnmarkConfirm({ submissionId: sub.id, branchName: report.branchName, periodLabel: group.label, hasVaultAdj });
+                                }}
+                                className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
+                                title="Click to unmark remitted"
+                              />
+                              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                Unmark Remitted
+                              </span>
+                            </div>
                           )}
                           {!isReadOnly && sub?.status !== 'approved' && (
                             <div className="relative group">
@@ -1738,7 +1806,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 <span className={`text-[11px] font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
                                   {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
                                 </span>
-                                {!isReadOnly && (
+                                {!isReadOnly && sub?.status !== 'approved' && (
                                   <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1751,7 +1819,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <p className="text-[10px] text-slate-400 italic">No adjustments</p>
                           )}
 
-                          {!isReadOnly && adjFormKey !== rKey && (
+                          {!isReadOnly && sub?.status !== 'approved' && adjFormKey !== rKey && (
                             <div className="flex justify-end gap-2 mt-2">
                               <button
                                 onClick={() => { setAdjFormMode('add'); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); setIsVaultDeposit(false); setAdjFormKey(rKey); }}

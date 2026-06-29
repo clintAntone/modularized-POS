@@ -242,7 +242,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           <BranchEditor
             branch={editingBranch}
             employees={employees}
-            masterServices={masterCatalogs.flatMap(c => c.services)}
+            masterServices={masterCatalogs.filter(c => (c.branchIds || []).includes(editingBranch.id)).flatMap(c => c.services)}
             transactions={transactions}
             salesReports={salesReports}
             attendance={attendance}

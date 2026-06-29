@@ -3,6 +3,7 @@ import { toManilaDateStr } from '../../lib/time';
 import { Branch, Service, Employee, Transaction, SalesReport, Attendance } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
+import { useBranchServiceTemplates } from '../../hooks/useNetworkData';
 
 // Modular Imports
 import { OperationsRegistry } from './branch-editor/OperationsRegistry';
@@ -49,13 +50,20 @@ interface Toast {
 }
 
 export const BranchEditor: React.FC<BranchEditorProps> = ({
-                                                              branch, employees, onSave, onToggle, onToggleFaceId, isFaceIdDisabled, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
+                                                              branch, employees, masterServices, onSave, onToggle, onToggleFaceId, isFaceIdDisabled, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
     const [localFaceIdDisabled, setLocalFaceIdDisabled] = useState(isFaceIdDisabled ?? false);
     const [toast, setToast] = useState<Toast | null>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
+
+    const { data: branchTemplates } = useBranchServiceTemplates(branch.id);
+    const catalogServices = useMemo<Service[]>(() => {
+        if (branchTemplates && branchTemplates.length > 0) return branchTemplates as Service[];
+        if (masterServices.length > 0) return masterServices;
+        return localBranch.services || [];
+    }, [branchTemplates, masterServices, localBranch.services]);
 
     const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -286,7 +294,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     />
 
                     <ServiceCatalogMatrix
-                        services={localBranch.services || []}
+                        services={catalogServices}
                     />
 
                     {onToggleFaceId && (
