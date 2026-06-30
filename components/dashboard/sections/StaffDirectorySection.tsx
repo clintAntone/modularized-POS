@@ -67,9 +67,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [promoteConfirmInput, setPromoteConfirmInput] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
 
-  // Leave / On-Hold modal
+  // Return from leave confirmation
+  const [returnEmployee, setReturnEmployee] = useState<Employee | null>(null);
+
+  // Leave modal
   const [leaveEmployee, setLeaveEmployee] = useState<Employee | null>(null);
-  const [leaveSubtype, setLeaveSubtype] = useState<'LEAVE' | 'SUSPENDED' | ''>('');
+  const [leaveSubtype, setLeaveSubtype] = useState<'LEAVE'>('LEAVE' as 'LEAVE');
   const [leaveType, setLeaveType] = useState('');
   const [leaveStartDate, setLeaveStartDate] = useState('');
   const [leaveEndDate, setLeaveEndDate] = useState('');
@@ -217,6 +220,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         const isAManagerRole = aRole.includes('MANAGER');
         const isBManagerRole = bRole.includes('MANAGER');
 
+        const isAReliever = a.branchId !== branch.id;
+        const isBReliever = b.branchId !== branch.id;
+
         // Priority 1: Main Manager
         if (isAMain && !isBMain) return -1;
         if (!isAMain && isBMain) return 1;
@@ -228,6 +234,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         // Priority 3: Any Manager Role
         if (isAManagerRole && !isBManagerRole) return -1;
         if (!isAManagerRole && isBManagerRole) return 1;
+
+        // Priority 4: Regular (home branch) before relievers
+        if (!isAReliever && isBReliever) return -1;
+        if (isAReliever && !isBReliever) return 1;
+
+        // Priority 5: On leave at the bottom
+        if (a.onLeave && !b.onLeave) return 1;
+        if (!a.onLeave && b.onLeave) return -1;
 
         return (a.name || '').localeCompare(b.name || '');
     });
@@ -319,13 +333,47 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const handleReturnFromLeave = (emp: Employee) => {
+    setReturnEmployee(emp);
+  };
+
+  const confirmReturnFromLeave = async () => {
+    if (!returnEmployee) return;
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .update({
+          [DB_COLUMNS.ON_LEAVE]: false,
+          [DB_COLUMNS.LEAVE_TYPE]: null,
+          [DB_COLUMNS.LEAVE_START_DATE]: null,
+          [DB_COLUMNS.LEAVE_END_DATE]: null,
+        })
+        .eq(DB_COLUMNS.ID, returnEmployee.id);
+      if (error) throw error;
+      await logAudit({
+        branchId: branch.id,
+        activityType: 'EMPLOYEE_LEAVE_RETURNED',
+        entityType: 'EMPLOYEE',
+        entityId: returnEmployee.id,
+        description: `${returnEmployee.name} returned from leave`,
+        performerName: operatorName || 'MANAGER',
+      });
+      playSound('success');
+      setReturnEmployee(null);
+      showToast(`${returnEmployee.name} has returned from leave`);
+      onRefresh?.();
+    } catch {
+      playSound('warning');
+      showToast('Failed to update. Try again.', 'error');
+    }
+  };
+
   const handleSubmitLeaveRequest = async () => {
-    if (!leaveEmployee || isSubmittingLeave || !leaveSubtype) return;
-    const finalLeaveType = leaveSubtype === 'SUSPENDED' ? 'SUSPENDED' : leaveType;
-    if (leaveSubtype === 'LEAVE' && !finalLeaveType) return;
-    const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(finalLeaveType);
+    if (!leaveEmployee || isSubmittingLeave || !leaveType) return;
+    const finalLeaveType = leaveType;
+    const noDates = ['SICK', 'EMERGENCY'].includes(finalLeaveType);
     if (!noDates && !leaveStartDate) return;
-    const needsEnd = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(finalLeaveType);
+    const needsEnd = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(finalLeaveType);
     if (needsEnd && !leaveEndDate) return;
     setIsSubmittingLeave(true);
     try {
@@ -340,17 +388,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         .eq(DB_COLUMNS.ID, leaveEmployee.id);
       if (error) throw error;
       await logAudit({
-        action: 'EMPLOYEE_LEAVE_SET',
-        performedBy: operatorName || 'MANAGER',
         branchId: branch.id,
-        details: {
-          employeeId: leaveEmployee.id,
-          employeeName: leaveEmployee.name,
-          leaveType: finalLeaveType,
-          startDate: leaveStartDate || null,
-          endDate: leaveEndDate || null,
-          notes: leaveNotes.trim() || null,
-        },
+        activityType: 'EMPLOYEE_LEAVE_SET',
+        entityType: 'EMPLOYEE',
+        entityId: leaveEmployee.id,
+        description: `${leaveEmployee.name} placed on ${finalLeaveType} leave${leaveNotes.trim() ? ` — ${leaveNotes.trim()}` : ''}`,
+        performerName: operatorName || 'MANAGER',
       });
       playSound('success');
       showToast(`${leaveEmployee.name} has been placed on leave`);
@@ -1014,14 +1057,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
   return (
     <>
-    <div className="space-y-4 sm:space-y-6">
       {toast && createPortal(
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+        <div className="fixed bottom-6 right-6 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
           {toast.message}
         </div>,
         document.body
       )}
+    <div className="space-y-4 sm:space-y-6">
 
       <StaffModals 
         isTimeModalOpen={isTimeModalOpen}
@@ -1117,6 +1160,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               onTimeAction={handleOpenTimeModal}
               onReset={isDelegate ? undefined : handleOpenReset}
               onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
+              onReturnFromLeave={!isDelegate && emp.isActive && emp.branchId === branch.id && emp.onLeave ? () => handleReturnFromLeave(emp) : undefined}
               onRequestLeave={!isDelegate && emp.isActive && !isReliever && !emp.onLeave ? () => openLeaveModal(emp) : undefined}
               onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager && !isReliever && !emp.onLeave ? () => openDisableModal(emp) : undefined}
               onRemoveReliever={
@@ -1242,8 +1286,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Leave / On-Hold Request</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Place on Leave</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{leaveEmployee?.name}</p>
             </div>
           </div>
 
@@ -1261,28 +1305,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           {/* Subtype: Leave or Suspended */}
           <div className="mb-4">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => { setLeaveSubtype('LEAVE'); setLeaveType(''); setLeaveStartDate(''); setLeaveEndDate(''); }}
-                className={`flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${leaveSubtype === 'LEAVE' ? 'border-purple-400 bg-purple-50' : 'border-slate-100 hover:border-slate-200'}`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">On Leave</p>
-                <p className="text-[9px] text-slate-400 font-semibold leading-tight">Vacation, Sick, Maternity, etc.</p>
-              </button>
-              <button
-                onClick={() => { setLeaveSubtype('SUSPENDED'); setLeaveType(''); setLeaveStartDate(''); setLeaveEndDate(''); }}
-                className={`flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${leaveSubtype === 'SUSPENDED' ? 'border-amber-400 bg-amber-50' : 'border-slate-100 hover:border-slate-200'}`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Suspended</p>
-                <p className="text-[9px] text-slate-400 font-semibold leading-tight">Disciplinary hold, pending review</p>
-              </button>
-            </div>
           </div>
 
           {/* Leave type picker */}
-          {leaveSubtype === 'LEAVE' && (
+          {(
             <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
               <div className="grid grid-cols-2 gap-2">
@@ -1312,11 +1338,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           )}
 
           {/* Dates */}
-          {leaveSubtype && (() => {
-            const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(leaveType);
+          {leaveType && (() => {
+            const noDates = ['SICK', 'EMERGENCY'].includes(leaveType);
             if (noDates) return null;
-            if (leaveSubtype === 'LEAVE' && !leaveType) return null;
-            const endRequired = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+            const endRequired = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
             return (
               <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
                 <div>
@@ -1343,13 +1368,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
               disabled={
-                isSubmittingLeave || !leaveSubtype ||
-                (leaveSubtype === 'LEAVE' && !leaveType) ||
+                isSubmittingLeave || !leaveType ||
                 (() => {
-                  const noDates = leaveSubtype === 'LEAVE' && ['SICK', 'EMERGENCY'].includes(leaveType);
+                  const noDates = ['SICK', 'EMERGENCY'].includes(leaveType);
                   if (noDates) return false;
                   if (!leaveStartDate) return true;
-                  const needsEnd = leaveSubtype === 'LEAVE' && ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+                  const needsEnd = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
                   return needsEnd && !leaveEndDate;
                 })()
               }
@@ -1438,6 +1462,33 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             >
               {isSubmittingDisable ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* RETURN FROM LEAVE CONFIRMATION */}
+    {returnEmployee && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setReturnEmployee(null)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-sm p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Return from Leave</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{returnEmployee.name}</p>
+            </div>
+          </div>
+          <p className="text-[12px] text-slate-600 mb-6 leading-relaxed">
+            Confirm that <span className="font-black text-slate-900">{returnEmployee.name}</span> is back and ready to resume work. This will clear their leave status immediately.
+          </p>
+          <div className="flex gap-3">
+            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[11px] font-black uppercase tracking-widest text-white active:scale-95 transition-all">Confirm Return</button>
           </div>
         </div>
       </div>

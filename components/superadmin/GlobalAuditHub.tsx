@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Branch, AuditLog, Transaction } from '../../types';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -56,10 +56,59 @@ type SecurityFlag = {
   latestTimestamp: string;
 };
 
-export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditLogs, openAllDates = false }) => {
+export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditLogs: seedLogs, openAllDates = false }) => {
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(seedLogs);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const AUDIT_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+    DB_COLUMNS.ACTIVITY_TYPE, DB_COLUMNS.ENTITY_TYPE, DB_COLUMNS.ENTITY_ID,
+    DB_COLUMNS.DESCRIPTION, DB_COLUMNS.AMOUNT, DB_COLUMNS.PERFORMER_NAME,
+  ].join(',');
+
+  const mapLog = (au: any): AuditLog => ({
+    id: String(au[DB_COLUMNS.ID]), branchId: au[DB_COLUMNS.BRANCH_ID], timestamp: au[DB_COLUMNS.TIMESTAMP],
+    activityType: au[DB_COLUMNS.ACTIVITY_TYPE], entityType: au[DB_COLUMNS.ENTITY_TYPE], entityId: au[DB_COLUMNS.ENTITY_ID],
+    description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME],
+  });
+
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
   const [allDates, setAllDates] = useState(openAllDates);
+
+  // Fetch logs for the selected date (or last 7 days when "All Dates" is on)
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLogs = async () => {
+      setLogsLoading(true);
+      try {
+        let query = supabase
+          .from(DB_TABLES.AUDIT_LOGS)
+          .select(AUDIT_COLS)
+          .order(DB_COLUMNS.TIMESTAMP, { ascending: false });
+
+        if (allDates) {
+          // All dates: last 90 days, capped at 2000 so it's not insane
+          const from = new Date();
+          from.setDate(from.getDate() - 90);
+          query = query.gte(DB_COLUMNS.TIMESTAMP, from.toISOString()).limit(2000);
+        } else {
+          // Single day: start/end of that day in Manila time (just use date prefix)
+          query = query
+            .gte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T00:00:00`)
+            .lte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T23:59:59`)
+            .limit(1000);
+        }
+
+        const { data, error } = await query;
+        if (!cancelled && !error && data) setAuditLogs(data.map(mapLog));
+      } finally {
+        if (!cancelled) setLogsLoading(false);
+      }
+    };
+    fetchLogs();
+    return () => { cancelled = true; };
+  }, [selectedDate, allDates]);
   const [searchTerm, setSearchTerm] = useState('');
   const [entityFilter, setEntityFilter] = useState<EntityFilter>('ALL');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -441,7 +490,12 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
             <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xl shadow-inner border border-white/10">🛡️</div>
             <div>
               <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none">Audit Registry</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Global Activity & Security Log</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-2">
+                {logsLoading
+                  ? <><span className="w-2.5 h-2.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin inline-block" /> Loading…</>
+                  : <>Global Activity & Security Log · {auditLogs.length.toLocaleString()} entries</>
+                }
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

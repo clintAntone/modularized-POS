@@ -455,7 +455,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.AUDIT_LOGS).select(COLS.auditLogs).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(5000);
+            let query = supabase.from(DB_TABLES.AUDIT_LOGS).select(COLS.auditLogs).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }

@@ -25,6 +25,7 @@ interface StaffCardProps {
   onReset?: (emp: Employee) => void;
   onPromote?: (emp: Employee) => void;
   onRequestLeave?: (emp: Employee) => void;
+  onReturnFromLeave?: (emp: Employee) => void;
   onRequestDisable?: (emp: Employee) => void;
   onRemoveReliever?: (emp: Employee) => void;
   onFaceTimeIn?: () => void;
@@ -43,6 +44,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onReset,
   onPromote,
   onRequestLeave,
+  onReturnFromLeave,
   onRequestDisable,
   onRemoveReliever,
   onFaceTimeIn,
@@ -67,7 +69,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
     .join(',');
 
   const startLongPress = () => {
-    if (!isReliever || !onPromote) return;
+    if (!isReliever || !onPromote || isOnLeave) return;
     didLongPress.current = false;
     delayTimer.current = setTimeout(() => {
       setIsLongPressing(true);
@@ -90,7 +92,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
     <div
       className={`${isOngoing ? 'bg-emerald-50' : isOnLeave ? 'bg-purple-50' : 'bg-white'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none cursor-pointer ${
         isOnLeave
-          ? 'grayscale opacity-70 border-purple-200'
+          ? 'opacity-80 border-purple-200'
           : !isActive
           ? 'grayscale opacity-60 border-slate-200'
           : isLongPressing
@@ -105,8 +107,40 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       onTouchStart={startLongPress}
       onTouchEnd={cancelLongPress}
       onTouchCancel={cancelLongPress}
-      onClick={() => { if (!didLongPress.current) onEdit(emp); }}
+      onClick={() => {
+        if (didLongPress.current) return;
+        if (isOnLeave && onReturnFromLeave) { onReturnFromLeave(emp); return; }
+        if (!isOnLeave) onEdit(emp);
+      }}
     >
+      {/* On Leave overlay — only shown on home branch (where Return action is available) */}
+      {isOnLeave && onReturnFromLeave && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[inherit] backdrop-blur-[1px] bg-slate-900/10 pointer-events-none opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+          {onReturnFromLeave ? (
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onReturnFromLeave(emp); }}
+              className="pointer-events-auto flex flex-col items-center justify-center gap-2 bg-slate-800/60 hover:bg-slate-800/80 active:scale-95 backdrop-blur-sm border border-white/10 text-white rounded-2xl px-6 py-4 shadow-2xl transition-all mx-4"
+              title="Return from Leave"
+            >
+              <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Return from Leave</span>
+              <span className="text-[14px] font-black uppercase tracking-tight">{emp.firstName || emp.name.split(' ')[0]}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm border border-white/10 text-white rounded-full px-4 py-2 shadow-lg">
+              <svg className="w-3.5 h-3.5 text-purple-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-[9px] font-black uppercase tracking-widest text-purple-200">On Leave</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Long-press progress ring for relievers */}
       {isReliever && onPromote && isLongPressing && (
         <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
@@ -128,7 +162,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       )}
 
       {/* Reliever hint (idle) */}
-      {isReliever && onPromote && !isLongPressing && (
+      {isReliever && onPromote && !isLongPressing && !isOnLeave && (
         <div className="absolute bottom-0 inset-x-0 z-10 flex justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
             Hold to Promote
@@ -136,47 +170,66 @@ export const StaffCard: React.FC<StaffCardProps> = ({
         </div>
       )}
 
-      {/* Corner ribbons */}
-      {isReliever && (
-        <div className="absolute top-0 left-0 z-20 overflow-hidden w-20 h-20 pointer-events-none">
-          <div className="absolute top-0 left-0 bg-indigo-600 text-white text-[7px] font-black uppercase tracking-widest py-1 w-[140%] -rotate-45 -translate-x-[30%] translate-y-[20%] text-center shadow-lg border-y border-indigo-400/30">
-            RELIEVER
-          </div>
-        </div>
-      )}
-      {isMainManager && (
-        <div className="absolute top-0 left-0 z-20 overflow-hidden w-24 h-24 pointer-events-none">
-          <div className="absolute top-0 left-0 bg-emerald-600 text-white text-[7px] font-black uppercase tracking-widest py-1 w-[140%] -rotate-45 -translate-x-[30%] translate-y-[25%] text-center shadow-lg border-y border-emerald-400/30">
-            MANAGER
-          </div>
-        </div>
-      )}
-      {isTempManager && !isMainManager && (
-        <div className="absolute top-0 left-0 z-20 overflow-hidden w-24 h-24 pointer-events-none">
-          <div className="absolute top-0 left-0 bg-amber-500 text-white text-[7px] font-black uppercase tracking-widest py-1 w-[140%] -rotate-45 -translate-x-[30%] translate-y-[25%] text-center shadow-lg border-y border-amber-400/30">
-            DELEGATE
-          </div>
-        </div>
-      )}
+      {/* Role / status badges — top right */}
 
-      {isOnLeave && emp.leaveType === 'SUSPENDED' && (
-        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-amber-500">
-          On Hold
-        </div>
-      )}
-      {isOnLeave && emp.leaveType !== 'SUSPENDED' && (
-        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-purple-500">
-          On Leave
-        </div>
-      )}
-      {!isActive && !isOnLeave && (
-        <div className="absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[7px] font-black uppercase tracking-widest z-10 text-white shadow-lg bg-slate-500">
-          Disabled
+      {/* Bookmark tags — hanging from top */}
+      <div className="absolute top-0 left-6 flex gap-2 z-10 pointer-events-none">
+        {isMainManager && (
+          <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
+            <span className="bg-emerald-100 text-emerald-700 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+              Manager
+            </span>
+          </div>
+        )}
+        {isTempManager && !isMainManager && (
+          <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
+            <span className="bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+              Delegate
+            </span>
+          </div>
+        )}
+        {isReliever && (
+          <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
+            <span className="bg-indigo-100 text-indigo-600 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+              Reliever
+            </span>
+          </div>
+        )}
+        {!isActive && !isOnLeave && (
+          <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
+            <span className="bg-slate-100 text-slate-500 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+              Disabled
+            </span>
+          </div>
+        )}
+        {isOnLeave && (
+          <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
+            <span className="bg-purple-100 text-purple-600 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+              On Leave
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Remove reliever — always visible */}
+      {onRemoveReliever && isReliever && (
+        <div className="absolute top-3 right-3 z-20">
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onRemoveReliever(emp); }}
+            className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+            title="Remove from Branch Staff List"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+            </svg>
+          </button>
         </div>
       )}
 
       {/* Action buttons — absolute top-right, above avatar level */}
-      <div className="absolute top-3 right-3 flex gap-1.5 z-20">
+      <div className="absolute top-3 right-3 flex gap-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             {onReset && (isMainManager || isTempManager) && (
               <button
                 onMouseDown={e => e.stopPropagation()}
@@ -186,19 +239,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 title="Reset Credentials"
               >
                 <Fingerprint className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-            )}
-            {onRemoveReliever && isReliever && (
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onTouchStart={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onRemoveReliever(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
-                title="Remove from Branch Staff List"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
-                </svg>
               </button>
             )}
             {onRequestLeave && isActive && !isReliever && !isOnLeave && (
@@ -265,15 +305,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
           {/* Time actions */}
           {isOnLeave ? (
-            <button
-              disabled
-              className={`h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest cursor-not-allowed flex items-center gap-2 ${emp.leaveType === 'SUSPENDED' ? 'bg-amber-100 text-amber-500' : 'bg-purple-100 text-purple-400'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {emp.leaveType === 'SUSPENDED' ? 'On Hold' : 'On Leave'}
-            </button>
+            <div />
           ) : isOngoing || isCompleted || !isActive ? (
             // Time-out / completed / inactive — single button
             <button
@@ -291,7 +323,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onFaceTimeIn(); }}
-              className="h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-900 text-white hover:bg-emerald-600 flex items-center gap-2"
+              className="h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600 flex items-center gap-2"
             >
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
@@ -314,7 +346,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
-              className="h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-900 text-white hover:bg-emerald-600"
+              className="h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600"
             >
               Time In
             </button>
