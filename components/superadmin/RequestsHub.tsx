@@ -222,33 +222,57 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
           });
           if (error) throw error;
-          // Insert vault deposits into vault_transactions (new single source of truth)
-          if (vaultDeposits?.length > 0) {
-            const txRows = vaultDeposits.map((d: any) => ({
-              [DB_COLUMNS.ID]: d.id,
-              [DB_COLUMNS.BRANCH_ID]: request.branchId,
-              [DB_COLUMNS.REPORT_ID]: reportId,
-              [DB_COLUMNS.TYPE]: 'DEPOSIT',
-              [DB_COLUMNS.AMOUNT]: d.amount,
-              [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
-              [DB_COLUMNS.TIMESTAMP]: d.timestamp,
-              [DB_COLUMNS.PERFORMED_BY]: null,
-            }));
-            const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).upsert(txRows, { onConflict: 'id' });
-            if (txErr) throw txErr;
+          // Sync vault deposits into vault_transactions — replace previous entries for this report
+          {
+            // Fetch whatever was previously deposited for this report
+            const { data: existingTx } = await supabase
+              .from(DB_TABLES.VAULT_TRANSACTIONS)
+              .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT}`)
+              .eq(DB_COLUMNS.REPORT_ID, reportId)
+              .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
 
-            // Increment vault balance explicitly — trigger may not fire on upsert
-            const totalDeposited = vaultDeposits.reduce((s: number, d: any) => s + (Number(d.amount) || 0), 0);
-            const { data: vaultRow } = await supabase
-              .from(DB_TABLES.BRANCH_VAULTS)
-              .select(DB_COLUMNS.VAULT_BALANCE)
-              .eq(DB_COLUMNS.BRANCH_ID, request.branchId)
-              .single();
-            if (vaultRow) {
+            const previousTotal = (existingTx || []).reduce((s: number, t: any) => s + (Number(t[DB_COLUMNS.AMOUNT]) || 0), 0);
+            const newTotal = (vaultDeposits || []).reduce((s: number, d: any) => s + (Number(d.amount) || 0), 0);
+
+            // Delete all prior deposit rows for this report (handles removed or re-keyed entries)
+            if ((existingTx || []).length > 0) {
               await supabase
+                .from(DB_TABLES.VAULT_TRANSACTIONS)
+                .delete()
+                .eq(DB_COLUMNS.REPORT_ID, reportId)
+                .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+            }
+
+            // Insert the new set
+            if ((vaultDeposits || []).length > 0) {
+              const txRows = vaultDeposits.map((d: any) => ({
+                [DB_COLUMNS.ID]: d.id,
+                [DB_COLUMNS.BRANCH_ID]: request.branchId,
+                [DB_COLUMNS.REPORT_ID]: reportId,
+                [DB_COLUMNS.TYPE]: 'DEPOSIT',
+                [DB_COLUMNS.AMOUNT]: d.amount,
+                [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+                [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+                [DB_COLUMNS.PERFORMED_BY]: null,
+              }));
+              const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert(txRows);
+              if (txErr) throw txErr;
+            }
+
+            // Apply only the delta to avoid double-counting on re-approvals
+            const delta = newTotal - previousTotal;
+            if (delta !== 0) {
+              const { data: vaultRow } = await supabase
                 .from(DB_TABLES.BRANCH_VAULTS)
-                .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + totalDeposited })
-                .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
+                .select(DB_COLUMNS.VAULT_BALANCE)
+                .eq(DB_COLUMNS.BRANCH_ID, request.branchId)
+                .single();
+              if (vaultRow) {
+                await supabase
+                  .from(DB_TABLES.BRANCH_VAULTS)
+                  .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + delta })
+                  .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
+              }
             }
           }
         } else if (request.type === 'PASSWORD_RESET') {
