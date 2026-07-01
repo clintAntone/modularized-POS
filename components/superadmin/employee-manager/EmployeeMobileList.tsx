@@ -11,11 +11,11 @@ interface EmployeeMobileListProps {
   onEdit?: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onDelete?: (emp: Employee) => void;
-  onViewID?: (emp: Employee) => void;
+  onEndLeave?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
-export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onViewID, currentBranchId }) => {
+export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onEndLeave, currentBranchId }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
       {employees.map(emp => {
@@ -69,27 +69,21 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {empId && (
-                      <p className="text-[9px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
+                      <p className="text-[8px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
                     )}
-                    <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
+                      {emp.onLeave && (
+                        <span className="text-[7px] font-black uppercase tracking-widest text-purple-500 leading-none">● On Leave</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       {emp.requestReset && <div className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />}
                     </div>
                   </div>
                   {/* Action buttons */}
-                  {(onReset || onDelete || onViewID) && (
+                  {(onReset || onDelete || onEndLeave) && (
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {onViewID && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onViewID(emp); }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center border bg-white border-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all"
-                          title="View Company ID"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
-                          </svg>
-                        </button>
-                      )}
                       {onReset && emp.isActive !== false && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onReset(emp); }}
@@ -97,6 +91,17 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </button>
+                      )}
+                      {onEndLeave && emp.onLeave && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEndLeave(emp); }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center border bg-purple-50 border-purple-100 text-purple-400 hover:bg-purple-600 hover:text-white transition-all"
+                          title="End Leave (Admin Override)"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </button>
                       )}

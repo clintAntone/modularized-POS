@@ -11,24 +11,24 @@ interface EmployeeTableProps {
   onEdit?: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onDelete?: (emp: Employee) => void;
-  onViewID?: (emp: Employee) => void;
+  onEndLeave?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
-export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branches, onEdit, onReset, onDelete, onViewID, currentBranchId }) => {
+export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branches, onEdit, onReset, onDelete, onEndLeave, currentBranchId }) => {
   return (
     <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm overflow-hidden`}>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className={`px-8 py-5 w-[22%] ${UI_THEME.text.metadata}`}>Name</th>
+              <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Name</th>
               <th className={`px-4 py-5 w-[14%] ${UI_THEME.text.metadata}`}>Home</th>
               <th className={`px-4 py-5 w-[18%] ${UI_THEME.text.metadata}`}>R-Branch</th>
               <th className={`px-4 py-5 w-[14%] text-center ${UI_THEME.text.metadata}`}>Specialization</th>
               <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Status</th>
               <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Position</th>
-              <th className={`px-8 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Control</th>
+              <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Control</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -95,8 +95,17 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center justify-center gap-2.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-300'}`}></div>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
+                      {emp.onLeave ? (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-500">On Leave</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-300'}`} />
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
@@ -107,17 +116,6 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2.5">
-                        {onViewID && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onViewID(emp); }}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-slate-100 active:scale-90"
-                            title="View Company ID"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
-                            </svg>
-                          </button>
-                        )}
                         {onReset && emp.isActive !== false && (
                           <button
                               onClick={(e) => { e.stopPropagation(); onReset(emp); }}
@@ -127,6 +125,17 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                               </svg>
+                          </button>
+                        )}
+                        {onEndLeave && emp.onLeave && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEndLeave(emp); }}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-purple-50 text-purple-400 hover:bg-purple-600 hover:text-white transition-all shadow-sm border border-purple-100 active:scale-90"
+                            title="End Leave (Admin Override)"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                           </button>
                         )}
                         {onDelete && !emp.isActive && (

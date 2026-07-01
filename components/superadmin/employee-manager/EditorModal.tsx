@@ -26,6 +26,7 @@ interface EditorModalProps {
   onWipe: (employee: Partial<Employee>) => void;
   onReset?: (employee: Employee) => void;
   onDelete?: (employee: Employee) => void;
+  onViewID?: (employee: Employee) => void;
 }
 
 const PillDropdown = ({ value, onChange, options, placeholder, className }: {
@@ -84,7 +85,7 @@ const PillDropdown = ({ value, onChange, options, placeholder, className }: {
 };
 
 export const EditorModal: React.FC<EditorModalProps> = ({
-  employee, branches, isSaving, error, onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete
+  employee, branches, isSaving, error, onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete, onViewID
 }) => {
   const isExisting = !!employee.id;
   const [activeTab, setActiveTab] = useState<'assignment' | 'personal'>('assignment');
@@ -275,15 +276,29 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               </h3>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 sm:w-9 sm:h-9 bg-rose-500 hover:bg-rose-600 rounded-lg sm:rounded-xl text-white transition-all active:scale-90 shrink-0 flex items-center justify-center ml-3 shadow-md shadow-rose-200"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeWidth="3" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2 ml-3 shrink-0">
+            {onViewID && isExisting && (
+              <button
+                type="button"
+                onClick={() => onViewID(employee as Employee)}
+                className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg sm:rounded-xl text-slate-400 transition-all active:scale-90 flex items-center justify-center shadow-sm"
+                title="View Company ID"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 sm:w-9 sm:h-9 bg-rose-500 hover:bg-rose-600 rounded-lg sm:rounded-xl text-white transition-all active:scale-90 flex items-center justify-center shadow-md shadow-rose-200"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12" strokeWidth="3" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Tabs — only for existing employees */}

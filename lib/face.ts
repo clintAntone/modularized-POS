@@ -88,7 +88,7 @@ export async function loadFaceModels(): Promise<void> {
 export async function extractDescriptors(source: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<Float32Array[] | null> {
     const api = await getFaceApi();
     const detections = await api
-        .detectAllFaces(source, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+        .detectAllFaces(source, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
     if (!detections || detections.length === 0) return null;

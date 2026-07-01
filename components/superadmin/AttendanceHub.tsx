@@ -48,10 +48,6 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
     setIsFetching(true);
     (async () => {
       try {
-        // Date range: convert local YYYY-MM-DD to full-day ISO range in Manila time
-        const fromIso = dateFrom ? `${dateFrom}T00:00:00+08:00` : undefined;
-        const toIso   = dateTo   ? `${dateTo}T23:59:59+08:00`   : undefined;
-
         let query = supabase
           .from(DB_TABLES.ATTENDANCE)
           .select([
@@ -60,11 +56,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
             DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
             DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
           ].join(','))
+          .order(DB_COLUMNS.DATE, { ascending: false })
           .order(DB_COLUMNS.CLOCK_IN, { ascending: false });
 
-        if (fromIso) query = query.gte(DB_COLUMNS.CLOCK_IN, fromIso);
-        if (toIso)   query = query.lte(DB_COLUMNS.CLOCK_IN, toIso);
+        if (dateFrom) query = query.gte(DB_COLUMNS.DATE, dateFrom);
+        if (dateTo)   query = query.lte(DB_COLUMNS.DATE, dateTo);
         if (selectedBranchIds.length > 0) query = query.in(DB_COLUMNS.BRANCH_ID, selectedBranchIds);
+        if (searchTerm.trim()) query = query.ilike(DB_COLUMNS.STAFF_NAME, `%${searchTerm.trim()}%`);
+        query = query.limit(2000);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -84,26 +83,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
         if (token === fetchRef.current) setIsFetching(false);
       }
     })();
-  }, [dateFrom, dateTo, selectedBranchIds, refreshTick]);
+  }, [dateFrom, dateTo, selectedBranchIds, searchTerm, refreshTick]);
 
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'
     : selectedBranchIds.length === 1 ? (branches.find(b => b.id === selectedBranchIds[0])?.name ?? 'Branch')
     : `${selectedBranchIds.length} Branches`;
 
-  const filteredAttendance = useMemo(() => {
-    let res = [...serverAttendance];
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.trim();
-      res = res.filter(a =>
-        a.staffName.toUpperCase().includes(term) ||
-        (branches.find(b => b.id === a.branchId)?.name || '').toUpperCase().includes(term)
-      );
-    }
-
-    return res;
-  }, [serverAttendance, searchTerm, branches]);
+  const filteredAttendance = useMemo(() => serverAttendance, [serverAttendance]);
 
   const paginatedAttendance = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -273,19 +260,6 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               </span>
             )}
           </div>
-          {/* Export button — desktop only; mobile version lives beside pagination */}
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting || filteredAttendance.length === 0}
-            className={`hidden sm:flex items-center gap-2 h-9 px-4 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
-          >
-            {isExporting ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            )}
-            <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
-          </button>
         </div>
 
         {/* Filter controls — stacked: search → branch → date */}
@@ -368,7 +342,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
       </div>
 
       <div className="px-1 space-y-4 no-print">
-        <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
+        <div className="flex items-center gap-3 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
             <Pagination
               currentPage={currentPage}
@@ -379,16 +353,17 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
-          {/* Mobile-only export button beside pagination */}
           <button
             onClick={handleExportPDF}
             disabled={isExporting || filteredAttendance.length === 0}
-            className="sm:hidden h-14 w-14 flex items-center justify-center rounded-2xl bg-emerald-600 text-white shrink-0 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-14 px-5 flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isExporting
-              ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            }
+            {isExporting ? (
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            )}
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
           </button>
         </div>
 

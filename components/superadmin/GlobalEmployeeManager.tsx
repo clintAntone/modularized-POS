@@ -44,7 +44,10 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
   const [showAdminWipeConfirm, setShowAdminWipeConfirm] = useState<Employee | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
+  const [showEndLeaveConfirm, setShowEndLeaveConfirm] = useState<Employee | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
   const [showPrintConfirm, setShowPrintConfirm] = useState(false);
   
   const [resettingEmployee, setResettingEmployee] = useState<Employee | null>(null);
@@ -74,6 +77,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) setIsRoleDropdownOpen(false);
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) setIsStatusDropdownOpen(false);
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) setIsSortDropdownOpen(false);
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) setExportDropdownOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -196,6 +200,36 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       if (onRefresh) onRefresh();
     } catch (err: any) {
       setError(err.message || 'Failed to delete employee');
+      playSound('warning');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEndLeave = async () => {
+    if (!showEndLeaveConfirm || isSaving) return;
+    const target = showEndLeaveConfirm;
+    setIsSaving(true);
+    try {
+      await updateEmployee.mutateAsync({
+        id: target.id,
+        [DB_COLUMNS.ON_LEAVE]: false,
+        [DB_COLUMNS.LEAVE_TYPE]: null,
+        [DB_COLUMNS.LEAVE_START_DATE]: null,
+        [DB_COLUMNS.LEAVE_END_DATE]: null,
+      });
+      await addAuditLog.mutateAsync({
+        activity_type: 'UPDATE',
+        entity_type: 'EMPLOYEE',
+        entity_id: target.id,
+        description: `Admin override: returned ${target.name} from leave`,
+        performer_name: 'SUPERADMIN',
+      });
+      playSound('success');
+      setShowEndLeaveConfirm(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to end leave');
       playSound('warning');
     } finally {
       setIsSaving(false);
@@ -850,42 +884,49 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       </div>
 
       <div className="px-1 space-y-4 no-print">
-        <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
+        <div className="flex items-center gap-3 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
             <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredEmployees.length}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredEmployees.length}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
             />
           </div>
 
-          <button
-            onClick={handleExportCSV}
-            disabled={isExporting || filteredEmployees.length === 0}
-            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-teal-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <div ref={exportDropdownRef} className="relative shrink-0">
+            <button
+              onClick={() => { if (!isExporting && filteredEmployees.length > 0) setExportDropdownOpen(o => !o); playSound('click'); }}
+              disabled={isExporting || filteredEmployees.length === 0}
+              className={`h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center gap-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {isExporting ? (
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              )}
+              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+              {!isExporting && <svg className="w-3 h-3 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>}
+            </button>
+            {exportDropdownOpen && (
+              <div className="absolute bottom-[calc(100%+8px)] right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-150 z-[300]">
+                <div className="p-1.5 space-y-0.5">
+                  <button onClick={() => { setExportDropdownOpen(false); handleExportCSV(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-teal-50 hover:text-teal-700 transition-colors">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Export Excel
+                  </button>
+                  <button onClick={() => { setExportDropdownOpen(false); handleExportPDF(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    Export PDF
+                  </button>
+                </div>
+              </div>
             )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Excel'}</span>
-          </button>
-          <button
-            onClick={() => handleExportPDF()}
-            disabled={isExporting || filteredEmployees.length === 0}
-            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
-          </button>
+          </div>
         </div>
 
         {showPrintConfirm && (
@@ -922,7 +963,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
-          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
+          onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
         <EmployeeMobileList
@@ -931,7 +972,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
-          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
+          onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
       </div>
@@ -971,7 +1012,32 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             onWipe={(target) => { setShowAdminWipeConfirm(target as Employee); }}
             onReset={handleOpenResetModal}
             onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+            onViewID={(emp) => { setEditingEmployee(null); setIdCardEmployee(emp); playSound('click'); }}
           />
+        </div>
+      )}
+
+      {showEndLeaveConfirm && (
+        <div className={UI_THEME.layout.modalWrapper}>
+          <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
+            <div className="w-16 h-16 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner text-3xl">🏥</div>
+            <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">End Leave?</h4>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              Return <span className="text-purple-600">{showEndLeaveConfirm.name}</span> from leave and restore their active status.
+            </p>
+            <div className="flex flex-col gap-4 mt-10">
+              <button
+                onClick={handleEndLeave}
+                disabled={isSaving}
+                className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : 'Confirm Return from Leave'}
+              </button>
+              <button onClick={() => setShowEndLeaveConfirm(null)} className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

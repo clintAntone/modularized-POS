@@ -175,7 +175,14 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2500);
                 return;
             }
-            const match = await matchFace(descriptors[0], empDescriptors);
+            // Try all detected face descriptors and take the best match
+            let match = null;
+            for (const descriptor of descriptors) {
+                const candidate = await matchFace(descriptor, empDescriptors);
+                if (candidate && (!match || candidate.distance < match.distance)) {
+                    match = candidate;
+                }
+            }
             if (!match) {
                 playSound('warning');
                 setFailedAttempts(prev => prev + 1);
