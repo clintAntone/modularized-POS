@@ -8,9 +8,10 @@ interface POSServiceSelectionProps {
     selectedIds: string[];
     onToggle: (id: string) => void;
     isLoyaltyMode?: boolean;
+    isLoading?: boolean;
 }
 
-export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ services, selectedIds, onToggle, isLoyaltyMode = false }) => {
+export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ services, selectedIds, onToggle, isLoyaltyMode = false, isLoading = false }) => {
 
     // Group services by catalogId
     const groupedServices = useMemo(() => {
@@ -29,6 +30,33 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
         });
         return Object.entries(groups).sort((a, b) => b[1].name.localeCompare(a[1].name));
     }, [services, isLoyaltyMode]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-8 animate-pulse">
+                {[1, 2].map(g => (
+                    <div key={g} className="space-y-3">
+                        <div className="flex items-center gap-3 px-2">
+                            <div className="h-px flex-1 bg-slate-100" />
+                            <div className="h-3 w-24 bg-slate-100 rounded-full" />
+                            <div className="h-px flex-1 bg-slate-100" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="p-5 rounded-[28px] border-2 border-slate-100 bg-slate-50 space-y-3">
+                                    <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
+                                    <div className="flex items-center justify-between mt-4">
+                                        <div className="h-2.5 bg-slate-100 rounded-full w-16" />
+                                        <div className="h-4 bg-slate-100 rounded-lg w-14" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

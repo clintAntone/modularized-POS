@@ -125,27 +125,32 @@ export const useBranchServiceTemplates = (branchId: string) => {
     return useQuery({
         queryKey: ['branch_service_templates', branchId],
         queryFn: async () => {
-            // Step 1: get branch→template assignments with price overrides
-            const { data: bsData, error: bsError } = await supabase
-                .from(DB_TABLES.BRANCH_SERVICES)
-                .select('template_id, price')
-                .eq(DB_COLUMNS.BRANCH_ID, branchId);
+            // Fetch branch assignments, template definitions, and PRIO config in parallel
+            const [{ data: bsData, error: bsError }, { data: tAllData, error: tAllError }, { data: cfgData }] = await Promise.all([
+                supabase.from(DB_TABLES.BRANCH_SERVICES).select('template_id, price').eq(DB_COLUMNS.BRANCH_ID, branchId),
+                supabase.from(DB_TABLES.SERVICE_TEMPLATES).select('*'),
+                supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq('key', 'prio_service_catalogs').maybeSingle(),
+            ]);
             if (bsError) throw bsError;
+            if (tAllError) throw tAllError;
             if (!bsData || bsData.length === 0) return [];
 
-            const templateIds = bsData.map((r: any) => r.template_id);
-
-            // Step 2: fetch the canonical service definitions
-            const { data: tData, error: tError } = await supabase
-                .from(DB_TABLES.SERVICE_TEMPLATES)
-                .select('*')
-                .in('id', templateIds);
-            if (tError) throw tError;
-
+            const assignedIds = new Set(bsData.map((r: any) => r.template_id));
             const priceMap: Record<string, number | null> = {};
             bsData.forEach((r: any) => { priceMap[r.template_id] = r.price; });
 
-            return (tData || []).map((t: any) => ({
+            let prioCatalogs: string[] = [];
+            try { prioCatalogs = cfgData?.value ? JSON.parse(cfgData.value) : []; } catch { /* ignore */ }
+
+            const allAssigned = (tAllData || []).filter((t: any) => assignedIds.has(t.id));
+
+            // If any assigned service belongs to a PRIO catalog, show only PRIO catalog services
+            const hasPrioAssigned = prioCatalogs.length > 0 && allAssigned.some((t: any) => t.catalog_name && prioCatalogs.includes(t.catalog_name));
+            const visible = hasPrioAssigned
+                ? allAssigned.filter((t: any) => t.catalog_name && prioCatalogs.includes(t.catalog_name))
+                : allAssigned;
+
+            return visible.map((t: any) => ({
                 id: t.id,
                 name: t.name,
                 price: priceMap[t.id] != null ? priceMap[t.id] : t.default_price,

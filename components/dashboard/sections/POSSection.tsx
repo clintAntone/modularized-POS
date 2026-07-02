@@ -120,7 +120,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
     }, [transactions, branch.id, todayStr]);
 
-    const { data: branchServiceTemplates } = useBranchServiceTemplates(branch.id);
+    const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
     const activeServices = useMemo(() => branchServiceTemplates || branch.services || [], [branchServiceTemplates, branch.services]);
 
     // Unique client names from all branch history, sorted by most recent first
@@ -727,6 +727,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     formData={formData}
                     setFormData={setFormData}
                     activeServices={activeServices}
+                    isServicesLoading={isServicesLoading}
                     availableTherapists={availableTherapists}
                     availableBonesetters={availableBonesetters}
                     isProcessing={isProcessing}

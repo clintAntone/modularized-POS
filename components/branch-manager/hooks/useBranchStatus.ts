@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Branch, SalesReport } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { DB_TABLES } from '../../../constants/db_schema';
+import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, getTrueManilaISOString } from '../../../lib/time';
 
 interface UseBranchStatusParams {
   branch: Branch;
@@ -110,6 +110,19 @@ export function useBranchStatus({
       };
       const { error } = await supabase.from(DB_TABLES.BRANCHES).update(updateData).eq('id', branch.id);
       if (error) throw error;
+
+      // When opening for a new day, close out any orphaned sessions from a previous day
+      if (nextStatus && branch.isOpenDate && branch.isOpenDate < manilaToday) {
+        await supabase
+          .from(DB_TABLES.ATTENDANCE)
+          .update({
+            [DB_COLUMNS.CLOCK_OUT]: getTrueManilaISOString(),
+            [DB_COLUMNS.STATUS]: 'AUTO-LOGOUT',
+          })
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .is(DB_COLUMNS.CLOCK_OUT, null)
+          .lt(DB_COLUMNS.DATE, manilaToday);
+      }
 
       playSound('success');
       setShowToggleConfirm(false);

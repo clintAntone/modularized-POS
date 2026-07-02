@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES } from '../../constants/db_schema';
@@ -67,6 +68,7 @@ const BLANK: Omit<ServiceTemplate, 'id'> = {
 };
 
 export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branches, isReadOnly = false, onRefresh }) => {
+  const queryClient = useQueryClient();
   const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
   const [branchServices, setBranchServices] = useState<BranchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +88,22 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   const [bulkAssign, setBulkAssign] = useState<{ catalogName: string; templateIds: string[] } | null>(null);
   const [bulkSelectedBranches, setBulkSelectedBranches] = useState<string[]>([]);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'assign' | 'unassign'>('assign');
+  // Import Services state
+  const [importTo, setImportTo] = useState<string | null>(null);
+  const [importSelected, setImportSelected] = useState<string[]>([]);
+  const [importPrices, setImportPrices] = useState<Record<string, string>>({});
+  const [importStep, setImportStep] = useState<1 | 2>(1);
+  const [isImportSaving, setIsImportSaving] = useState(false);
+  // PRIO catalogs — stored in system_config under key 'prio_service_catalogs'
+  const [prioCatalogs, setPrioCatalogs] = useState<string[]>([]);
+  // Per-catalog overflow menu
+  const [openCatalogMenu, setOpenCatalogMenu] = useState<string | null>(null);
+  const catalogMenuRef = useRef<HTMLDivElement | null>(null);
+  // New catalog creation
+  const [showNewCatalogModal, setShowNewCatalogModal] = useState(false);
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [localCatalogNames, setLocalCatalogNames] = useState<string[]>([]); // empty catalogs (not yet in DB)
   // Branch-centric assign: pick services for a branch
   const [branchManage, setBranchManage] = useState<Branch | null>(null);
   // Long-press to delete
@@ -95,16 +113,28 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
   const load = useCallback(async () => {
     setIsLoading(true);
-    const [{ data: tData }, { data: bsData }] = await Promise.all([
+    const [{ data: tData }, { data: bsData }, { data: cfgData }] = await Promise.all([
       supabase.from(DB_TABLES.SERVICE_TEMPLATES).select('*').order('catalog_name').order('name'),
       supabase.from(DB_TABLES.BRANCH_SERVICES).select('*'),
+      supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq('key', 'prio_service_catalogs').maybeSingle(),
     ]);
     setTemplates(tData || []);
     setBranchServices(bsData || []);
+    try { setPrioCatalogs(cfgData?.value ? JSON.parse(cfgData.value) : []); } catch { setPrioCatalogs([]); }
     setIsLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!openCatalogMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (catalogMenuRef.current && !catalogMenuRef.current.contains(e.target as Node)) {
+        setOpenCatalogMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openCatalogMenu]);
 
   const catalogGroups = useMemo(() => {
     const groups: Record<string, ServiceTemplate[]> = {};
@@ -116,10 +146,15 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     return groups;
   }, [templates]);
 
-  const catalogNames = useMemo(() => ['ALL', ...Object.keys(catalogGroups)], [catalogGroups]);
+  const catalogNames = useMemo(() => {
+    const fromTemplates = Object.keys(catalogGroups);
+    const extras = localCatalogNames.filter(n => !fromTemplates.includes(n));
+    return ['ALL', ...fromTemplates, ...extras];
+  }, [catalogGroups, localCatalogNames]);
 
   const filteredGroups = useMemo(() => {
     const result: Record<string, ServiceTemplate[]> = {};
+    // Real groups from templates
     (Object.entries(catalogGroups) as [string, ServiceTemplate[]][]).forEach(([group, items]) => {
       if (filterCatalog !== 'ALL' && filterCatalog !== group) return;
       const filtered = items.filter(t =>
@@ -129,8 +164,14 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       );
       if (filtered.length > 0) result[group] = filtered;
     });
+    // Empty local catalogs (no services yet)
+    localCatalogNames
+      .filter(n => !catalogGroups[n])
+      .forEach(n => {
+        if (filterCatalog === 'ALL' || filterCatalog === n) result[n] = [];
+      });
     return result;
-  }, [catalogGroups, filterCatalog, search]);
+  }, [catalogGroups, localCatalogNames, filterCatalog, search]);
 
   const branchCount = (templateId: string) =>
     branchServices.filter(bs => bs.template_id === templateId).length;
@@ -199,35 +240,96 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     ));
   };
 
+  const togglePrioCatalog = async (catalogName: string) => {
+    const next = prioCatalogs.includes(catalogName)
+      ? prioCatalogs.filter(n => n !== catalogName)
+      : [...prioCatalogs, catalogName];
+    setPrioCatalogs(next);
+    await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert(
+      { key: 'prio_service_catalogs', value: JSON.stringify(next) },
+      { onConflict: 'key' }
+    );
+    // Bust all branch service template caches so POS picks up the PRIO change immediately
+    queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
+    playSound('click');
+  };
+
   // Bulk-assign all templates in a catalog group to the selected branches
   const handleBulkAssign = async () => {
     if (!bulkAssign || bulkSelectedBranches.length === 0) return;
     setIsBulkSaving(true);
     try {
-      const toInsert: { branch_id: string; template_id: string; price: null }[] = [];
-      for (const branchId of bulkSelectedBranches) {
-        for (const templateId of bulkAssign.templateIds) {
-          const alreadyAssigned = branchServices.some(
-            bs => bs.branch_id === branchId && bs.template_id === templateId
-          );
-          if (!alreadyAssigned) {
-            toInsert.push({ branch_id: branchId, template_id: templateId, price: null });
+      if (bulkMode === 'assign') {
+        // Always additive — PRIO only affects POS display filtering, not assignment storage
+        const rows: { branch_id: string; template_id: string; price: number | null }[] = [];
+        for (const branchId of bulkSelectedBranches) {
+          for (const templateId of bulkAssign.templateIds) {
+            rows.push({ branch_id: branchId, template_id: templateId, price: null });
           }
         }
-      }
-      if (toInsert.length > 0) {
-        await supabase.from(DB_TABLES.BRANCH_SERVICES)
-          .upsert(toInsert, { onConflict: 'branch_id,template_id', ignoreDuplicates: true });
+        if (rows.length > 0) {
+          await supabase.from(DB_TABLES.BRANCH_SERVICES)
+            .upsert(rows, { onConflict: 'branch_id,template_id', ignoreDuplicates: true });
+        }
+      } else if (bulkMode === 'unassign') {
+        for (const branchId of bulkSelectedBranches) {
+          await supabase.from(DB_TABLES.BRANCH_SERVICES)
+            .delete()
+            .eq('branch_id', branchId)
+            .in('template_id', bulkAssign.templateIds);
+        }
       }
       playSound('success');
-      setBulkAssign(null);
-      setBulkSelectedBranches([]);
+      setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign');
       await load();
     } catch (err) {
       console.error(err);
       playSound('warning');
     } finally {
       setIsBulkSaving(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importTo || importSelected.length === 0) return;
+    setIsImportSaving(true);
+    try {
+      const toInsert = importSelected.map(tid => {
+        const tmpl = templates.find(t => t.id === tid)!;
+        const priceStr = importPrices[tid];
+        const price = priceStr !== undefined && priceStr !== '' ? parseFloat(priceStr) : tmpl.default_price;
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          name: tmpl.name,
+          catalog_name: importTo,
+          default_price: price,
+          duration: tmpl.duration,
+          primary_role: tmpl.primary_role,
+          secondary_role: tmpl.secondary_role,
+          commission_type: tmpl.commission_type,
+          commission_value: tmpl.commission_value,
+          is_dual_provider: tmpl.is_dual_provider,
+          secondary_commission_type: tmpl.secondary_commission_type,
+          secondary_commission_value: tmpl.secondary_commission_value,
+          can_be_loyalty: tmpl.can_be_loyalty,
+        };
+      });
+      const { error } = await supabase.from(DB_TABLES.SERVICE_TEMPLATES).insert(toInsert);
+      if (error) throw error;
+      playSound('success');
+      // Catalog now has real services — remove from local-only list
+      setLocalCatalogNames(prev => prev.filter(n => n !== importTo));
+      setFilterCatalog(importTo); // navigate to the newly populated catalog
+      setImportTo(null);
+      setImportSelected([]);
+      setImportPrices({});
+      setImportStep(1);
+      await load();
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsImportSaving(false);
     }
   };
 
@@ -241,11 +343,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
           <h3 className="text-[18px] font-black text-slate-900 leading-none tracking-tight">Service Templates</h3>
           {!isReadOnly && (
             <button
-              onClick={() => { setEditingTemplate({ id: '', ...BLANK }); setIsNew(true); playSound('click'); }}
+              onClick={() => { setNewCatalogName(''); setShowNewCatalogModal(true); playSound('click'); }}
               className="h-8 px-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-600 transition-all active:scale-95 shrink-0"
             >
               <Plus className="w-3 h-3" strokeWidth={3} />
-              <span>New Service</span>
+              <span>New Catalog</span>
             </button>
           )}
         </div>
@@ -361,6 +463,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                               onClick={() => {
                                 setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
                                 setBulkSelectedBranches([branch.id]);
+                                setBulkMode('assign');
                                 playSound('click');
                               }}
                               className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-600 transition-colors"
@@ -391,25 +494,92 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         (Object.entries(filteredGroups) as [string, ServiceTemplate[]][]).map(([group, items]) => (
           <div key={group} className="space-y-3">
             {/* Group header */}
-            <div className="flex items-center gap-3 px-1">
+            <div className="flex items-center gap-2 px-1">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap shrink-0">{group}</p>
+              {prioCatalogs.includes(group) && (
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 text-[7px] font-black uppercase tracking-widest shrink-0">PRIO</span>
+              )}
               <div className="flex-1 h-px bg-slate-200 min-w-0" />
               <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest whitespace-nowrap shrink-0">{items.length} service{items.length !== 1 ? 's' : ''}</span>
               {!isReadOnly && (
-                <button
-                  onClick={() => {
-                    setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
-                    setBulkSelectedBranches([]);
-                    playSound('click');
-                  }}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 shrink-0"
-                >
-                  <Zap className="w-2.5 h-2.5 shrink-0" />
-                  <span className="hidden sm:inline">Bulk Assign</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* ⋯ overflow menu */}
+                  <div className="relative" ref={openCatalogMenu === group ? catalogMenuRef : null}>
+                    <button
+                      onClick={() => { setOpenCatalogMenu(openCatalogMenu === group ? null : group); playSound('click'); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-[13px] font-bold"
+                    >
+                      ···
+                    </button>
+                    {openCatalogMenu === group && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] z-50 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setEditingTemplate({ id: '', ...BLANK, catalog_name: group });
+                            setIsNew(true);
+                            setOpenCatalogMenu(null);
+                            playSound('click');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Plus className="w-3 h-3 text-slate-400" strokeWidth={3} />
+                          Add Service
+                        </button>
+                        <button
+                          onClick={() => {
+                            setImportTo(group);
+                            setImportSelected([]);
+                            setImportPrices({});
+                            setImportStep(1);
+                            setOpenCatalogMenu(null);
+                            playSound('click');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <BookOpen className="w-3 h-3 text-slate-400" />
+                          Import Services
+                        </button>
+                        <div className="my-1 border-t border-slate-100" />
+                        <button
+                          onClick={() => { togglePrioCatalog(group); setOpenCatalogMenu(null); }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-[10px] font-bold transition-colors ${prioCatalogs.includes(group) ? 'text-amber-600 hover:bg-amber-50' : 'text-slate-700 hover:bg-slate-50'}`}
+                        >
+                          <span className="text-[11px]">★</span>
+                          {prioCatalogs.includes(group) ? 'Remove PRIO' : 'Mark as PRIO'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Assign — primary action stays visible */}
+                  {items.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
+                        setBulkSelectedBranches([]);
+                        setBulkMode('assign');
+                        playSound('click');
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95"
+                    >
+                      <Zap className="w-2.5 h-2.5 shrink-0" />
+                      <span className="hidden sm:inline">Assign</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+            {/* Empty catalog placeholder */}
+            {items.length === 0 && (
+              <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+                <BookOpen className="w-7 h-7 text-slate-200" />
+                <div>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Empty Catalog</p>
+                  <p className="text-[10px] text-slate-300 mt-1">Use <span className="font-bold text-indigo-400">Import</span> to pull services from other catalogs, or <span className="font-bold text-slate-500">Add</span> to create a new service.</p>
+                </div>
+              </div>
+            )}
             {/* Service rows */}
+            {items.length > 0 && (
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
               {items.map((t, idx) => {
                 const bc = branchCount(t.id);
@@ -504,6 +674,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 );
               })}
             </div>
+            )}
           </div>
         ))
       ) : null}
@@ -846,33 +1017,298 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         document.body
       )}
 
+      {/* ── New Catalog Modal ── */}
+      {showNewCatalogModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-emerald-400" />
+                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">New Catalog</h3>
+                </div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Give your catalog a name</p>
+              </div>
+              <button onClick={() => setShowNewCatalogModal(false)} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <input
+                autoFocus
+                value={newCatalogName}
+                onChange={e => setNewCatalogName(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newCatalogName.trim() && !catalogNames.includes(newCatalogName.trim())) {
+                    const name = newCatalogName.trim();
+                    setLocalCatalogNames(prev => [...prev, name]);
+                    setShowNewCatalogModal(false);
+                    setImportTo(name);
+                    setImportSelected([]);
+                    setImportPrices({});
+                    setImportStep(1);
+                    playSound('success');
+                  }
+                }}
+                placeholder="E.G. BER SEASON RATES"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase tracking-wide"
+              />
+              {newCatalogName.trim() && catalogNames.includes(newCatalogName.trim()) && (
+                <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">A catalog with this name already exists.</p>
+              )}
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => {
+                  const name = newCatalogName.trim();
+                  if (!name || catalogNames.includes(name)) return;
+                  setLocalCatalogNames(prev => [...prev, name]);
+                  setShowNewCatalogModal(false);
+                  setImportTo(name);
+                  setImportSelected([]);
+                  setImportPrices({});
+                  setImportStep(1);
+                  playSound('success');
+                }}
+                disabled={!newCatalogName.trim() || catalogNames.includes(newCatalogName.trim())}
+                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                Create Catalog &amp; Import Services
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Import Services Modal ── */}
+      {importTo !== null && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+
+            {/* Header */}
+            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+              <div className="min-w-0 pr-4">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">
+                    {importStep === 1 ? 'Import Services' : 'Set Prices'}
+                  </h3>
+                </div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                  Into: {importTo}{importStep === 2 ? ` · ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => { setImportTo(null); setImportSelected([]); setImportPrices({}); setImportStep(1); setFilterCatalog('ALL'); }}
+                className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Step 1 — Pick services */}
+            {importStep === 1 && (() => {
+              const otherGroups = Object.entries(
+                templates
+                  .filter(t => t.catalog_name !== importTo)
+                  .reduce<Record<string, ServiceTemplate[]>>((acc, t) => {
+                    const key = t.catalog_name || 'Uncategorized';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(t);
+                    return acc;
+                  }, {})
+              ) as [string, ServiceTemplate[]][];
+
+              return (
+                <>
+                  <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 shrink-0">
+                    <p className="text-[9px] font-bold text-indigo-700 uppercase tracking-widest">
+                      Select services to copy into <span className="text-indigo-900">{importTo}</span>. You'll set prices in the next step.
+                    </p>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {otherGroups.map(([catalogName, catalogItems]) => {
+                      const allSelected = catalogItems.every(t => importSelected.includes(t.id));
+                      const someSelected = catalogItems.some(t => importSelected.includes(t.id));
+                      return (
+                        <div key={catalogName}>
+                          {/* Catalog sub-header with select-all */}
+                          <button
+                            onClick={() => {
+                              if (allSelected) {
+                                setImportSelected(prev => prev.filter(id => !catalogItems.map(t => t.id).includes(id)));
+                              } else {
+                                setImportSelected(prev => [...new Set([...prev, ...catalogItems.map(t => t.id)])]);
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-5 py-2.5 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors text-left"
+                          >
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${allSelected ? 'bg-indigo-600 border-indigo-600' : someSelected ? 'bg-indigo-200 border-indigo-400' : 'border-slate-300'}`}>
+                              {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                              {!allSelected && someSelected && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm" />}
+                            </div>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{catalogName}</p>
+                            <span className="ml-auto text-[8px] font-bold text-slate-400">{catalogItems.length} services</span>
+                          </button>
+                          {/* Service rows */}
+                          {catalogItems.map(t => {
+                            const isSelected = importSelected.includes(t.id);
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setImportSelected(prev =>
+                                  prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                                )}
+                                className={`w-full flex items-center gap-3 px-5 py-3 border-b border-slate-50 transition-colors text-left ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                                  {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <p className="flex-1 text-[11px] font-bold text-slate-700 min-w-0 truncate">{t.name}</p>
+                                <span className="text-[9px] font-bold text-slate-400 shrink-0">₱{t.default_price.toLocaleString()}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-100 shrink-0">
+                    <button
+                      onClick={() => setImportStep(2)}
+                      disabled={importSelected.length === 0}
+                      className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                    >
+                      {importSelected.length === 0 ? 'Select services above' : `Next: Set Prices → (${importSelected.length} selected)`}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* Step 2 — Set prices */}
+            {importStep === 2 && (
+              <>
+                <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 shrink-0">
+                  <p className="text-[9px] font-bold text-indigo-700 uppercase tracking-widest">
+                    Set a custom price for each service in <span className="text-indigo-900">{importTo}</span>. Leave blank to keep the original price.
+                  </p>
+                </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                  {importSelected.map(tid => {
+                    const tmpl = templates.find(t => t.id === tid);
+                    if (!tmpl) return null;
+                    return (
+                      <div key={tid} className="flex items-center gap-4 px-5 py-3.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{tmpl.name}</p>
+                          <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Original: ₱{tmpl.default_price.toLocaleString()}</p>
+                        </div>
+                        <div className="shrink-0 relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">₱</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={String(tmpl.default_price)}
+                            value={importPrices[tid] ?? ''}
+                            onChange={e => setImportPrices(prev => ({ ...prev, [tid]: e.target.value }))}
+                            className="w-28 pl-7 pr-3 py-2 rounded-xl border border-slate-200 text-[11px] font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
+                  <button
+                    onClick={() => setImportStep(1)}
+                    className="px-5 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all shrink-0"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={isImportSaving}
+                    className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {isImportSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                    {isImportSaving ? 'Importing...' : `Import ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''} into ${importTo}`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* ── Bulk Assign Modal ── */}
       {bulkAssign && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+
+            {/* Header */}
             <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">Bulk Assign</h3>
+                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">
+                    Bulk Assign
+                  </h3>
                 </div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                   {bulkAssign.catalogName} · {bulkAssign.templateIds.length} service{bulkAssign.templateIds.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <button onClick={() => { setBulkAssign(null); setBulkSelectedBranches([]); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+              <button onClick={() => { setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign'); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 shrink-0">
-              <p className="text-[9px] font-bold text-amber-700 uppercase tracking-widest">
-                Select branches to assign all {bulkAssign.templateIds.length} services to. Already-assigned services are skipped.
+            {/* Mode toggle */}
+            <div className="px-6 py-3 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2">
+              <button
+                onClick={() => { setBulkMode('assign'); setBulkSelectedBranches([]); }}
+                className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${bulkMode === 'assign' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+              >
+                Assign
+              </button>
+              <button
+                onClick={() => { setBulkMode('unassign'); setBulkSelectedBranches([]); }}
+                className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${bulkMode === 'unassign' ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+              >
+                Unassign
+              </button>
+            </div>
+
+            {/* PRIO warning banner */}
+            {bulkMode === 'assign' && prioCatalogs.includes(bulkAssign.catalogName) && (
+              <div className="px-6 py-3 bg-amber-400 shrink-0 flex items-start gap-2">
+                <span className="text-white text-[12px] leading-none shrink-0 mt-0.5">★</span>
+                <p className="text-[9px] font-black text-white uppercase tracking-widest leading-relaxed">
+                  PRIO catalog — assigning will replace ALL existing services on selected branches with only this catalog's services.
+                </p>
+              </div>
+            )}
+
+            {/* Info banner */}
+            <div className={`px-6 py-3 border-b shrink-0 ${
+              bulkMode === 'assign' ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'
+            }`}>
+              <p className={`text-[9px] font-bold uppercase tracking-widest ${
+                bulkMode === 'assign' ? 'text-amber-700' : 'text-rose-700'
+              }`}>
+                {bulkMode === 'assign'
+                  ? `Select branches to assign all ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} in this catalog.`
+                  : `Select branches to remove all ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} from.`
+                }
               </p>
             </div>
 
+            {/* Branch picker */}
             <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
-              {/* Select all */}
               <button
                 onClick={() => {
                   if (bulkSelectedBranches.length === branches.length) {
@@ -896,10 +1332,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               {branches.map(b => {
                 const isSelected = bulkSelectedBranches.includes(b.id);
-                const alreadyCount = bulkAssign.templateIds.filter(tid =>
+                const assignedCount = bulkAssign.templateIds.filter(tid =>
                   branchServices.some(bs => bs.branch_id === b.id && bs.template_id === tid)
                 ).length;
-                const allDone = alreadyCount === bulkAssign.templateIds.length;
+                const allAssigned = assignedCount === bulkAssign.templateIds.length;
+                const noneAssigned = assignedCount === 0;
                 return (
                   <button
                     key={b.id}
@@ -908,34 +1345,55 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
                       );
                     }}
-                    className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${isSelected ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
+                      isSelected
+                        ? bulkMode === 'assign' ? 'bg-emerald-50' : 'bg-rose-50'
+                        : 'hover:bg-slate-50'
+                    }`}
                   >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400'}`}>
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                      isSelected
+                        ? bulkMode === 'assign' ? 'bg-emerald-500 border-emerald-500' : 'bg-rose-500 border-rose-500'
+                        : 'border-slate-300'
+                    }`}>
                       {isSelected && <Check className="w-3 h-3 text-white" />}
                     </div>
                     <p className="flex-1 text-[11px] font-bold text-slate-700 min-w-0 truncate">{b.name}</p>
-                    {allDone ? (
-                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest shrink-0">All assigned</span>
-                    ) : alreadyCount > 0 ? (
-                      <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest shrink-0">{alreadyCount} already assigned</span>
-                    ) : null}
+                    {bulkMode === 'assign' ? (
+                      allAssigned ? (
+                        <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest shrink-0">All assigned</span>
+                      ) : assignedCount > 0 ? (
+                        <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest shrink-0">{assignedCount} assigned</span>
+                      ) : null
+                    ) : (
+                      noneAssigned ? (
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">None assigned</span>
+                      ) : (
+                        <span className="text-[8px] font-black text-rose-400 uppercase tracking-widest shrink-0">{assignedCount} will remove</span>
+                      )
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 shrink-0 space-y-2">
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
               <button
                 onClick={handleBulkAssign}
                 disabled={bulkSelectedBranches.length === 0 || isBulkSaving}
-                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                className={`flex-1 py-3.5 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 flex items-center justify-center gap-2 ${
+                  bulkMode === 'assign' ? 'bg-slate-900 hover:bg-emerald-600' : 'bg-rose-600 hover:bg-rose-700'
+                }`}
               >
                 {isBulkSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                 {isBulkSaving
-                  ? 'Assigning...'
+                  ? bulkMode === 'assign' ? 'Assigning...' : 'Removing...'
                   : bulkSelectedBranches.length === 0
                     ? 'Select branches above'
-                    : `Assign to ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+                    : bulkMode === 'assign'
+                      ? `Assign to ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+                      : `Remove from ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
                 }
               </button>
             </div>
@@ -981,6 +1439,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         onClick={() => {
                           setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
                           setBulkSelectedBranches([branchManage.id]);
+                          setBulkMode('assign');
                           setBranchManage(null);
                           playSound('click');
                         }}

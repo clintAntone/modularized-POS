@@ -1010,7 +1010,36 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         <h4 className={`text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.2em] leading-none ${color.icon}`}>Branch Assignment</h4>
                         <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1.5 sm:mt-2">Toggle to link / unlink</p>
                       </div>
-                      <span className="bg-white/10 px-3 sm:px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold border border-white/5 shadow-inner shrink-0">{(activeCatalog.branchIds || []).length} linked</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="bg-white/10 px-3 sm:px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold border border-white/5 shadow-inner">{(activeCatalog.branchIds || []).length} linked</span>
+                        {(activeCatalog.branchIds || []).length < branches.length ? (
+                          <button
+                            onClick={() => {
+                              setLocalCatalogs(prev => prev.map(c =>
+                                c.id === activeCatalog.id ? { ...c, branchIds: branches.map(b => b.id) } : c
+                              ));
+                              setHasUnsavedChanges(true);
+                              playSound('click');
+                            }}
+                            className="h-7 px-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                          >
+                            All
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setLocalCatalogs(prev => prev.map(c =>
+                                c.id === activeCatalog.id ? { ...c, branchIds: [] } : c
+                              ));
+                              setHasUnsavedChanges(true);
+                              playSound('click');
+                            }}
+                            className="h-7 px-3 rounded-full bg-rose-500 hover:bg-rose-400 text-white text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                          >
+                            None
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="relative group">

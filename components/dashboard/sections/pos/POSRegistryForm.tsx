@@ -14,6 +14,7 @@ interface POSRegistryFormProps {
     formData: any;
     setFormData: any;
     activeServices: Service[];
+    isServicesLoading?: boolean;
     availableTherapists: Employee[];
     availableBonesetters: Employee[];
     isProcessing: boolean;
@@ -188,6 +189,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                 services={activeTab === 'STANDARD' ? standardServices : loyaltyServices}
                                 selectedIds={activeTab === 'STANDARD' ? props.formData.selected_service_ids : props.formData.loyalty_service_ids}
                                 isLoyaltyMode={activeTab === 'LOYALTY'}
+                                isLoading={props.isServicesLoading}
                                 onToggle={(id: string) => {
                                     const field = activeTab === 'STANDARD' ? 'selected_service_ids' : 'loyalty_service_ids';
                                     const isSelected = props.formData[field].includes(id);
