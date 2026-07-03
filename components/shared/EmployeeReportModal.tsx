@@ -220,6 +220,22 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
         [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
       });
       if (dbErr) throw dbErr;
+
+      // Fire HR notification — non-blocking, failure doesn't affect complaint save
+      supabase.functions.invoke('notify-hr-complaint', {
+        body: {
+          employeeName: employee.name,
+          branchName: branch.name,
+          reportType,
+          incidentDate,
+          incidentTime: incidentTime || null,
+          witnesses: showWitnesses && witnesses.trim() ? witnesses.trim() : null,
+          description: description.trim(),
+          filedByName,
+          filedAt: new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila' }),
+        },
+      }).catch(() => { /* silently ignore — complaint is already saved */ });
+
       playSound('success');
       onSubmitted();
     } catch {

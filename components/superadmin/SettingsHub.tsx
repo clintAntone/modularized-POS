@@ -10,12 +10,14 @@ import { invalidateGlobalSessions, logAudit } from '../../lib/audit';
 // Shared primitives
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Section: React.FC<{ title: string; subtitle?: string; accent?: string; children: React.ReactNode }> = ({ title, subtitle, accent = 'text-slate-400', children }) => (
+const Section: React.FC<{ title?: string; subtitle?: string; accent?: string; children: React.ReactNode }> = ({ title, subtitle, accent = 'text-slate-400', children }) => (
   <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
-    <div className="px-5 pt-5 pb-3 border-b border-slate-50">
-      <p className={`text-[8px] font-black uppercase tracking-[0.15em] ${accent}`}>{title}</p>
-      {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
-    </div>
+    {title && (
+      <div className="px-5 pt-5 pb-3 border-b border-slate-50">
+        <p className={`text-[8px] font-black uppercase tracking-[0.15em] ${accent}`}>{title}</p>
+        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+      </div>
+    )}
     <div className="divide-y divide-slate-50">
       {children}
     </div>
@@ -110,7 +112,7 @@ const PinInput: React.FC<PinInputProps> = ({ label, hint, hintColor, value, onCh
               onChange={e => handleChange(i, e)}
               onKeyDown={e => handleKeyDown(i, e)}
               onFocus={e => e.target.select()}
-              className={`w-10 h-11 rounded-xl border-2 text-center text-lg font-black outline-none transition-all focus:scale-105
+              className={`flex-1 min-w-0 h-11 rounded-xl border-2 text-center text-lg font-black outline-none transition-all focus:scale-105
                 ${filled
                   ? state === 'match'    ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
                   : state === 'mismatch' ? 'bg-rose-50 border-rose-400 text-rose-600'
@@ -152,6 +154,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
   const [localAuditTime, setLocalAuditTime] = useState('');
   const [localMaintenanceEnd, setLocalMaintenanceEnd] = useState('');
   const [brandingSaved, setBrandingSaved] = useState(false);
+  const [localHrEmail, setLocalHrEmail] = useState('');
 
   // ── Security state ───────────────────────────────────────────────────
   const [newPin, setNewPin] = useState('');
@@ -176,6 +179,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
       setLocalAuditTime(map.find(c => c.key === 'auto_refresh_daily_audit')?.value || '00:00');
       const rawEnd = map.find(c => c.key === 'maintenance_end_date')?.value || '';
       setLocalMaintenanceEnd(rawEnd ? rawEnd.replace(' ', 'T') : '');
+      setLocalHrEmail(map.find(c => c.key === 'hr_email')?.value || '');
     }
     setIsLoading(false);
   };
@@ -263,12 +267,12 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
   return (
     <div className="space-y-4">
 
-      {/* ── Row 1: Security + Branding ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      {/* ── Row 1: Security | Maintenance | Integrations ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
-        {/* Master PIN */}
-        <Section title="Security" subtitle="Update the superadmin authentication passcode">
-          <div className="px-5 py-5 space-y-5">
+        {/* Security */}
+        <Section title="Security" subtitle="Superadmin passcode">
+          <div className="px-5 py-4 space-y-3">
             <PinInput label="New PIN" value={newPin} onChange={v => { setNewPin(v); setPinStatus('idle'); }} autoFocus />
             <PinInput
               label="Confirm PIN"
@@ -278,7 +282,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
               hint={pinMatch ? '✓ Match' : pinMismatch ? 'Does not match' : undefined}
               hintColor={pinMatch ? 'text-emerald-500' : 'text-rose-500'}
             />
-            <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex items-center justify-between gap-3">
               <div className="text-[11px]">
                 {pinStatus === 'success' && <span className="text-emerald-600 font-bold">✓ PIN updated.</span>}
                 {pinStatus === 'error'   && <span className="text-rose-500">Ensure both PINs are 6 digits and match.</span>}
@@ -295,50 +299,6 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
             </div>
           </div>
         </Section>
-
-        {/* Branding */}
-        <Section title="Branding" subtitle="Network identity across all branch interfaces">
-          <Row label="App Name" desc="Displayed in the header and login screen">
-            <input value={localAppName} onChange={e => setLocalAppName(e.target.value)}
-              className="w-36 sm:w-44 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
-          </Row>
-          <Row label="Build Version" desc="Version string shown in the app footer">
-            <input value={localVersion} onChange={e => setLocalVersion(e.target.value)}
-              className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
-          </Row>
-          <div className="px-5 py-3 flex items-center justify-between border-t border-slate-50">
-            <p className="text-[10px] text-slate-400 italic">
-              {brandingSaved ? <span className="text-emerald-500 font-bold not-italic">✓ Saved.</span> : 'Applies instantly across connected branches.'}
-            </p>
-            <button onClick={handleSaveBranding}
-              disabled={isSaving === 'app_name' || isSaving === 'version'}
-              className="h-9 px-5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
-              Save
-            </button>
-          </div>
-          <div className="px-5 pb-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-slate-700">Font Family</p>
-              <p className="text-[10px] text-slate-400">Active: <span className="font-bold text-slate-600">{get('font_family', 'Outfit')}</span></p>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {FONT_OPTIONS.map(font => {
-                const active = get('font_family', 'Outfit') === font.value;
-                return (
-                  <button key={font.value} onClick={() => handleUpdate('font_family', font.value)}
-                    className={`py-2 px-3 rounded-xl border-2 text-left transition-all ${active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200 hover:bg-white'}`}>
-                    <span className="text-[10px] font-bold block truncate" style={{ fontFamily: font.value }}>{font.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </Section>
-
-      </div>
-
-      {/* ── Row 2: Maintenance + Features ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
 
         {/* Maintenance */}
         <Section title="Maintenance" subtitle="Scheduled system operations">
@@ -366,7 +326,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           <div className="px-5 py-4 border-t border-slate-50 space-y-2">
             <div>
               <p className="text-[12px] font-bold text-slate-800 leading-none">End Date / Countdown</p>
-              <p className="text-[10px] text-slate-400 mt-1">Optional — shown as countdown on the maintenance page (Manila time)</p>
+              <p className="text-[10px] text-slate-400 mt-1">Optional — countdown on the maintenance page</p>
             </div>
             <div className="flex items-center gap-2 pt-1">
               <input
@@ -393,16 +353,91 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           </div>
         </Section>
 
-        {/* Features */}
-        <Section title="Features" subtitle="Toggle integrations and announcements">
+        {/* Integrations */}
+        <Section title="Integrations" subtitle="Third-party connections">
           <Row label="PayMongo" desc="GCash, Maya, and card payments in POS">
             <Toggle value={bool('paymongo_enabled')}
               onChange={() => handleUpdate('paymongo_enabled', bool('paymongo_enabled') ? 'false' : 'true')}
               disabled={isSaving === 'paymongo_enabled'} />
           </Row>
+          <div className="px-5 py-4 border-t border-slate-50 space-y-2">
+            <div>
+              <p className="text-[12px] font-bold text-slate-800 leading-none">HR Email</p>
+              <p className="text-[10px] text-slate-400 mt-1">Notified every time a complaint is filed</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="email"
+                value={localHrEmail}
+                onChange={e => setLocalHrEmail(e.target.value)}
+                placeholder="hr@example.com"
+                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
+              />
+              <button
+                onClick={() => handleUpdate('hr_email', localHrEmail.trim())}
+                disabled={isSaving === 'hr_email'}
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0"
+              >
+                {isSaving === 'hr_email' ? '…' : 'Save'}
+              </button>
+            </div>
+          </div>
         </Section>
 
       </div>
+
+      {/* ── Row 2: Branding (full width) ── */}
+      <Section title="Branding" subtitle="Network identity across all branch interfaces">
+        <div className="px-5 py-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: App Name + Version + Save */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold text-slate-800 leading-none">App Name</p>
+                <p className="text-[10px] text-slate-400 mt-1">Displayed in the header and login screen</p>
+              </div>
+              <input value={localAppName} onChange={e => setLocalAppName(e.target.value)}
+                className="w-40 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold text-slate-800 leading-none">Build Version</p>
+                <p className="text-[10px] text-slate-400 mt-1">Version string shown in the app footer</p>
+              </div>
+              <input value={localVersion} onChange={e => setLocalVersion(e.target.value)}
+                className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-[10px] text-slate-400 italic">
+                {brandingSaved ? <span className="text-emerald-500 font-bold not-italic">✓ Saved.</span> : 'Applies instantly across connected branches.'}
+              </p>
+              <button onClick={handleSaveBranding}
+                disabled={isSaving === 'app_name' || isSaving === 'version'}
+                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                Save
+              </button>
+            </div>
+          </div>
+          {/* Right: Font picker */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-bold text-slate-800">Font Family</p>
+              <p className="text-[10px] text-slate-400">Active: <span className="font-bold text-slate-600">{get('font_family', 'Outfit')}</span></p>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {FONT_OPTIONS.map(font => {
+                const active = get('font_family', 'Outfit') === font.value;
+                return (
+                  <button key={font.value} onClick={() => handleUpdate('font_family', font.value)}
+                    className={`py-2 px-2 rounded-xl border-2 text-center transition-all ${active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200 hover:bg-white'}`}>
+                    <span className="text-[9px] font-bold block truncate" style={{ fontFamily: font.value }}>{font.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Section>
 
       {/* ── Row 3: Danger Zone (full width) ── */}
       <Section title="Danger Zone" subtitle="Destructive network-wide actions" accent="text-rose-400">
