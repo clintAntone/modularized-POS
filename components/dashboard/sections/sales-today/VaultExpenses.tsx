@@ -165,11 +165,16 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                 <p className={`text-[12px] font-bold uppercase truncate leading-none mb-1.5 transition-colors ${isRevealed ? 'text-rose-600' : isVaultWithdrawal ? 'text-amber-800' : 'text-slate-900'}`}>{e.name}</p>
                 {/* Vault coverage breakdown — shown for OPERATIONAL expenses that used vault funds */}
                 {!isVaultDeposit && !isVaultWithdrawal && !isProvision && (vaultCoverageMap[e.name] ?? 0) > 0 && (
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="text-[7px] font-black text-slate-500 tabular-nums">₱{(e.amount - vaultCoverageMap[e.name]).toLocaleString()} ROI</span>
-                    <span className="text-[7px] text-slate-300">·</span>
-                    <span className="text-[7px] font-black text-amber-500 tabular-nums">₱{vaultCoverageMap[e.name].toLocaleString()} Vault</span>
-                  </div>
+                  vaultCoverageMap[e.name] > e.amount ? (
+                    <div className="flex flex-col gap-0.5 mb-1">
+                      <span className="text-[7px] font-black text-amber-500 tabular-nums">₱{e.amount.toLocaleString()}</span>
+                      <span className="text-[7px] font-black text-slate-400 tabular-nums">+₱{(vaultCoverageMap[e.name] - e.amount).toLocaleString()} prior deficit</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[7px] font-black text-amber-500 tabular-nums">₱{vaultCoverageMap[e.name].toLocaleString()} Vault</span>
+                    </div>
+                  )
                 )}
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest leading-none tabular-nums">
@@ -187,7 +192,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
 
             <div className="flex items-center gap-2 shrink-0 ml-3">
               <p className={`text-sm font-bold tabular-nums transition-colors ${isRevealed ? 'text-rose-600' : isVaultWithdrawal ? 'text-amber-700' : 'text-slate-900'}`}>
-                −₱{e.amount.toLocaleString()}
+                −₱{(!isVaultDeposit && !isVaultWithdrawal && !isProvision && (vaultCoverageMap[e.name] ?? 0) > e.amount ? vaultCoverageMap[e.name] : e.amount).toLocaleString()}
               </p>
 
               {/* TABLET/DESKTOP HOVER DELETE BUTTON (md+) */}

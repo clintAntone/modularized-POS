@@ -66,7 +66,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(o => !o)}
-        className={`h-10 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all outline-none ${
+        className={`h-11 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all outline-none ${
           isOpen
             ? 'bg-white border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900'
             : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'
@@ -89,7 +89,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       )}
 
       {isOpen && (
-        <div className="absolute z-[200] top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+        <div className="absolute z-50 top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
           {/* Search */}
           <div className="p-2 border-b border-slate-100">
             <div className="relative">
@@ -101,7 +101,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search branches..."
-                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold uppercase tracking-wider text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-emerald-400 transition-all"
+                className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold uppercase tracking-wider text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-emerald-400 transition-all"
               />
             </div>
           </div>
@@ -110,7 +110,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
           <div className="max-h-56 overflow-y-auto overscroll-contain">
             {/* All Branches option */}
             {!search && (
-              <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 border-b border-slate-100 group">
+              <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 group">
                 <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                   allSelected ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'
                 }`}>
@@ -133,7 +133,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
               return (
                 <label
                   key={branch.id}
-                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 group ${inactive ? 'opacity-60' : ''}`}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 group ${inactive ? 'opacity-60' : ''}`}
                 >
                   <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                     checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Calendar } from 'lucide-react';
 import { Attendance, Branch, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -90,7 +91,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
     : selectedBranchIds.length === 1 ? (branches.find(b => b.id === selectedBranchIds[0])?.name ?? 'Branch')
     : `${selectedBranchIds.length} Branches`;
 
-  const filteredAttendance = useMemo(() => serverAttendance, [serverAttendance]);
+  const [clockOutFilter, setClockOutFilter] = useState<'ALL' | 'IN_PROGRESS' | 'CLOCKED_OUT'>('ALL');
+
+  const filteredAttendance = useMemo(() => {
+    if (clockOutFilter === 'IN_PROGRESS') return serverAttendance.filter(a => !a.clockOut);
+    if (clockOutFilter === 'CLOCKED_OUT') return serverAttendance.filter(a => !!a.clockOut);
+    return serverAttendance;
+  }, [serverAttendance, clockOutFilter]);
 
   const paginatedAttendance = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -251,7 +258,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               </svg>
             </div>
             <div className="min-w-0">
-              <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">Attendance Logs</h3>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Attendance Logs</h3>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Global Staff Clock-in Registry</p>
             </div>
             {filteredAttendance.length > 0 && (
@@ -274,7 +281,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value.toUpperCase())}
               placeholder="Search staff or branch..."
-              className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[12px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all"
+              className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all"
             />
           </div>
 
@@ -337,6 +344,37 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               </div>
             )}
           </div>
+
+          {/* Clock-out status filter */}
+          <div className="flex gap-2">
+            {(['ALL', 'IN_PROGRESS', 'CLOCKED_OUT'] as const).map(opt => {
+              const labels: Record<typeof opt, string> = { ALL: 'All', IN_PROGRESS: 'In Progress', CLOCKED_OUT: 'Clocked Out' };
+              const icons: Record<typeof opt, React.ReactNode> = {
+                ALL: <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>,
+                IN_PROGRESS: <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2"/></svg>,
+                CLOCKED_OUT: <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>,
+              };
+              const active = clockOutFilter === opt;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => { setClockOutFilter(opt); setCurrentPage(1); playSound('click'); }}
+                  className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                    active
+                      ? opt === 'IN_PROGRESS'
+                        ? 'bg-amber-500 border-amber-500 text-white shadow'
+                        : opt === 'CLOCKED_OUT'
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow'
+                          : 'bg-slate-800 border-slate-800 text-white shadow'
+                      : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                  }`}
+                >
+                  {icons[opt]}
+                  <span className="hidden sm:inline">{labels[opt]}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
       </div>
@@ -375,7 +413,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   {/* accent col — no header */}
-                  <th className="w-1 p-0" />
+                  <th className="w-1.5 p-0" />
                   <th className="pl-5 pr-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Staff</th>
                   <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</th>
                   <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
@@ -416,13 +454,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/60 transition-colors group">
                         {/* Status accent strip */}
-                        <td className="p-0 w-1">
-                          <div className={`w-1 h-full min-h-[60px] ${accentColor} ${isActive ? 'animate-pulse' : ''}`} />
+                        <td className="p-0 w-1.5">
+                          <div className={`w-1.5 h-full min-h-[60px] ${accentColor} ${isActive ? 'animate-pulse' : ''}`} />
                         </td>
 
                         {/* Staff */}
                         <td className="pl-5 pr-4 py-4">
-                          <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">{log.staffName}</p>
+                          <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-tight truncate" title={log.staffName}>{log.staffName}</p>
                           {isRelief && (
                             <span className="inline-block mt-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-[7px] font-black text-amber-700 uppercase tracking-widest">
                               Relief
@@ -432,7 +470,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
 
                         {/* Branch */}
                         <td className="px-4 py-4">
-                          <p className="text-[11px] font-bold text-slate-700 uppercase tracking-tight leading-tight">
+                          <p className="text-[11px] font-bold text-slate-700 uppercase tracking-tight leading-tight truncate" title={branch?.name || 'Unknown'}>
                             {(branch?.name || 'Unknown').replace('BRANCH - ', '')}
                           </p>
                         </td>
@@ -446,7 +484,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
 
                         {/* Clock In */}
                         <td className="px-4 py-4">
-                          <p className="text-[13px] font-black text-emerald-600 tabular-nums tracking-tight">
+                          <p className="text-sm font-black text-emerald-600 tabular-nums tracking-tight">
                             {new Date(log.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </td>
@@ -454,7 +492,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         {/* Clock Out */}
                         <td className="px-4 py-4">
                           {log.clockOut ? (
-                            <p className="text-[13px] font-black text-rose-500 tabular-nums tracking-tight">
+                            <p className="text-sm font-black text-rose-500 tabular-nums tracking-tight">
                               {new Date(log.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           ) : isActive ? (
@@ -524,7 +562,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         </div>
                       ) : (
                         <>
-                          <div className="text-4xl mb-4 opacity-20">📂</div>
+                          <Calendar className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
                           <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No attendance records found</div>
                         </>
                       )}
@@ -568,11 +606,11 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                     {/* ── Header: name + status ── */}
                     <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate">
+                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-tight truncate" title={log.staffName}>
                           {log.staffName}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title={branch?.name || 'Unknown'}>
                             {branch?.name?.replace('BRANCH - ', '') || 'Unknown'}
                           </p>
                           <span className="text-slate-200">·</span>
@@ -615,7 +653,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                               {new Date(log.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
                           ) : isActive ? (
-                            <p className="text-[13px] font-black text-slate-300 leading-none tracking-tight italic">
+                            <p className="text-sm font-black text-slate-300 leading-none tracking-tight italic">
                               In Progress…
                             </p>
                           ) : (
@@ -681,7 +719,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                   </>
                 ) : (
                   <>
-                    <div className="text-4xl opacity-30">📂</div>
+                    <Calendar className="w-10 h-10 text-slate-300" />
                     <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No records found</div>
                   </>
                 )}
@@ -705,7 +743,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
                   This will clear the clock-out time for
                 </p>
-                <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight">
+                <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {resetConfirmLog.staffName}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -749,7 +787,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
                   This will permanently remove the clock-in record for
                 </p>
-                <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight">
+                <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {deleteConfirmLog.staffName}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

@@ -39,7 +39,7 @@ export const ClosingWarningModal: React.FC<ClosingWarningModalProps> = ({
             </p>
           </div>
           {!todayReportExists && (
-            <button onClick={onGoToSales} className="px-3 py-2 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0">Go</button>
+            <button onClick={onGoToSales} className="px-4 py-2.5 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0">Go</button>
           )}
         </div>
 
@@ -67,7 +67,7 @@ export const ClosingWarningModal: React.FC<ClosingWarningModalProps> = ({
                 </p>
               </div>
               {!done && (
-                <button onClick={onGoToSales} className="px-3 py-2 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0">Go</button>
+                <button onClick={onGoToSales} className="px-4 py-2.5 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shrink-0">Go</button>
               )}
             </div>
           );

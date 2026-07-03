@@ -167,19 +167,19 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                             <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto">
                                 <button
                                     onClick={() => { setActiveTab('STANDARD'); playSound('click'); }}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <Zap className={`w-3 h-3 ${activeTab === 'STANDARD' ? 'fill-emerald-600' : ''}`} />
                                     Standard
-                                    {hasSelectedStandard && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />}
+                                    {hasSelectedStandard && <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse ring-2 ring-emerald-300 ring-offset-1 ring-offset-white" />}
                                 </button>
                                 <button
                                     onClick={() => { setActiveTab('LOYALTY'); playSound('click'); }}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'LOYALTY' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'LOYALTY' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <Gift className={`w-3 h-3 ${activeTab === 'LOYALTY' ? 'fill-white' : ''}`} />
                                     Loyalty
-                                    {hasSelectedLoyalty && <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+                                    {hasSelectedLoyalty && <div className="w-2 h-2 bg-white rounded-full animate-pulse ring-2 ring-white/40 ring-offset-1 ring-offset-emerald-600" />}
                                 </button>
                             </div>
                         </div>

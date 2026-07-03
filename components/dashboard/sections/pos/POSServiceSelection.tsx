@@ -87,12 +87,12 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                                             className={`p-5 rounded-[28px] border-2 text-left transition-all duration-300 relative group overflow-hidden ${
                                                 isSelected
                                                     ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-100 scale-[1.02]'
-                                                    : 'bg-white border-slate-100 hover:border-emerald-200'
+                                                    : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-slate-50'
                                             }`}
                                         >
                                             <div className="flex flex-col h-full justify-between gap-1 relative z-10">
                                                 <div className="flex justify-between items-start gap-2">
-                                                    <p className={`font-black text-[13px] sm:text-[15px] uppercase leading-tight tracking-tight underline underline-offset-2 decoration-1 ${
+                                                    <p className={`font-black text-sm sm:text-sm uppercase leading-tight tracking-tight underline underline-offset-2 decoration-1 ${
                                                         isSelected ? 'text-white decoration-white/30' : 'text-slate-900 decoration-slate-300 group-hover:text-emerald-700 group-hover:decoration-emerald-300'
                                                     }`}>{s.name}</p>
                                                     {isLoyaltyMode && !isSelected && (
@@ -124,7 +124,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package className="w-8 h-8 text-slate-300" />
                     </div>
-                    <p className="text-[12px] font-bold text-slate-900 uppercase tracking-widest leading-none mb-3">
+                    <p className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none mb-3">
                         No Services Found
                     </p>
                     <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest max-w-[280px] mx-auto leading-relaxed">

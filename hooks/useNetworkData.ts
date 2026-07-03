@@ -354,8 +354,10 @@ export const useUpdateAttendance = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['attendance', data.branch_id] });
+        onSuccess: () => {
+            // Invalidate all attendance queries (branch-scoped and global) so both
+            // manager and superadmin dashboards reflect the change immediately.
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
         }
     });
 };
@@ -508,8 +510,8 @@ export const useAddAttendance = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['attendance', data.branch_id] });
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
         }
     });
 };

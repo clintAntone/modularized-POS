@@ -70,8 +70,8 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         {/* Client + amount */}
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <h4 className="font-black text-slate-900 text-[17px] uppercase tracking-tight leading-none truncate">{t.clientName}</h4>
-                                                <p className="text-[9px] font-semibold text-slate-400 uppercase truncate mt-1.5 leading-tight">{t.serviceName}</p>
+                                                <h4 className="font-black text-slate-900 text-[17px] uppercase tracking-tight leading-none truncate" title={t.clientName}>{t.clientName}</h4>
+                                                <p className="text-[9px] font-semibold text-slate-400 uppercase truncate mt-1.5 leading-tight" title={t.serviceName}>{t.serviceName}</p>
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <p className="font-black text-slate-900 text-[22px] tabular-nums tracking-tighter leading-none">₱{t.total.toLocaleString()}</p>
@@ -85,12 +85,12 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         <div className="flex items-center gap-4 pt-3 border-t border-slate-50">
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Therapist</p>
-                                                <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5">{t.therapistName || '—'}</p>
+                                                <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5" title={t.therapistName || undefined}>{t.therapistName || '—'}</p>
                                             </div>
                                             {t.bonesetterName && (
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Bonesetter</p>
-                                                    <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5">{t.bonesetterName}</p>
+                                                    <p className="text-[10px] font-black text-slate-700 uppercase truncate mt-0.5" title={t.bonesetterName}>{t.bonesetterName}</p>
                                                 </div>
                                             )}
                                         </div>

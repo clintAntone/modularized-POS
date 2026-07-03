@@ -85,7 +85,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
   const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile));
 
-  // Cover from vault
+  // Cover from vault — vault covers the expense AND any existing ROI deficit (e.g. payroll shortfall).
+  // roiShortfall = how much the vault needs to withdraw so that net ROI hits 0 after this expense.
   const roiShortfall = hasVault && expenseAmount > 0 ? Math.max(0, expenseAmount - netRoi) : 0;
   const vaultCoverAmount = Math.min(roiShortfall, vaultBal);
   const canCoverFromVault = hasVault && roiShortfall > 0 && vaultBal > 0;
@@ -420,27 +421,23 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Large expense warning — exceeds both ROI and vault */}
-                  {expenseAmount > 0 && roiShortfall > vaultBal && (
+                  {/* Large expense warning — vault can't fully cover this expense */}
+                  {expenseAmount > 0 && expenseAmount > vaultBal && vaultBal > 0 && (
                     <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-100/60 border-b border-rose-200">
                         <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                         </svg>
-                        <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Large Expense Warning</p>
+                        <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Partial Vault Coverage</p>
                       </div>
                       <div className="px-4 py-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Today's ROI</span>
-                          <span className="text-[11px] font-black text-slate-600 tabular-nums">₱{Math.max(0, netRoi).toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault Fund</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault Can Cover</span>
                           <span className="text-[11px] font-black text-amber-500 tabular-nums">₱{vaultBal.toLocaleString()}</span>
                         </div>
                         <div className="flex items-center justify-between border-t border-rose-200 pt-2">
-                          <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Still Uncovered</span>
-                          <span className="text-[12px] font-black text-rose-600 tabular-nums">₱{(roiShortfall - vaultBal).toLocaleString()}</span>
+                          <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Remaining from ROI</span>
+                          <span className="text-[12px] font-black text-rose-600 tabular-nums">₱{(expenseAmount - vaultBal).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -471,7 +468,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                           Cover ₱{vaultCoverAmount.toLocaleString()} from vault
                         </p>
                         <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 tabular-nums ${withdrawFromVault ? 'text-amber-500' : 'text-slate-400'}`}>
-                          Shortfall ₱{roiShortfall.toLocaleString()} · vault ₱{vaultBal.toLocaleString()}
+                          Expense ₱{expenseAmount.toLocaleString()}{roiShortfall > expenseAmount ? ` + ₱${(roiShortfall - expenseAmount).toLocaleString()} prior deficit` : ''} · vault ₱{vaultBal.toLocaleString()}
                         </p>
                       </div>
                     </button>

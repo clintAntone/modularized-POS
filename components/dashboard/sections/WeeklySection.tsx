@@ -210,7 +210,10 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tighter">Week {selectedCycle.id} (Finalized)</h3>
                 <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">{selectedCycle.start} - {selectedCycle.end}</p>
               </div>
-              <button onClick={() => exportCSV(selectedCycle)} className="no-print w-full sm:w-auto bg-slate-900 text-white p-4 rounded-2xl active:scale-95 flex items-center justify-center gap-2 px-8 text-[10px] font-black uppercase tracking-widest shadow-xl">CSV Export</button>
+              <button onClick={() => exportCSV(selectedCycle)} className="no-print w-full sm:w-auto bg-emerald-600 text-white h-12 rounded-2xl active:scale-95 flex items-center justify-center gap-2 px-5 text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-10">

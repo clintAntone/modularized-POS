@@ -77,7 +77,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                                             {(StaffIcons as any)[role] || StaffIcons.THERAPIST}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]">{empName}</span>
+                                            <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
                                         </div>
                                     </div>
                                     {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
@@ -128,7 +128,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                                                 {(StaffIcons as any)[role] || StaffIcons.BONESETTER}
                                             </div>
                                             <div className="flex flex-col overflow-hidden">
-                                                <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]">{empName}</span>
+                                                <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
                                             </div>
                                         </div>
                                         {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={4} />}

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Shield } from 'lucide-react';
 import { Branch, Employee } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -700,13 +701,15 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       {showAdminWipeConfirm && (
         <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
            <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
-              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner text-4xl">🛡️</div>
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+                <Shield className="w-8 h-8 text-rose-500" />
+              </div>
               <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Authorize Data Wipe?</h4>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
-                Wiping credentials for <span className="text-slate-900">{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
+                Wiping credentials for <span className="text-slate-900 truncate" title={showAdminWipeConfirm.name || 'UNNAMED'}>{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
               </p>
               <div className="flex flex-col gap-3">
-                 <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[12px] shadow-lg active:scale-95 transition-all">
+                 <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">
                     {isSaving ? 'Establishing Link...' : 'Confirm Identity Wipe'}
                  </button>
                  <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest">Abort</button>
@@ -725,7 +728,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
               </svg>
             </div>
             <div>
-              <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Identity Management</p>
             </div>
           </div>
@@ -752,7 +755,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             <input 
               type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
               placeholder="SEARCH NAME OR EMPLOYEE ID..."
-              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-[13px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
+              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-sm uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
             />
           </div>
 
@@ -909,7 +912,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
               )}
-              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+              <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
               {!isExporting && <svg className="w-3 h-3 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>}
             </button>
             {exportDropdownOpen && (
@@ -942,13 +945,13 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
               <div className="flex flex-col gap-4 mt-10">
                 <button
                   onClick={() => handleExportPDF(true)}
-                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
                   Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}
-                  className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                  className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                 >
                   Cancel
                 </button>
@@ -1023,17 +1026,17 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             <div className="w-16 h-16 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner text-3xl">🏥</div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">End Leave?</h4>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
-              Return <span className="text-purple-600">{showEndLeaveConfirm.name}</span> from leave and restore their active status.
+              Return <span className="text-purple-600 truncate" title={showEndLeaveConfirm.name}>{showEndLeaveConfirm.name}</span> from leave and restore their active status.
             </p>
             <div className="flex flex-col gap-4 mt-10">
               <button
                 onClick={handleEndLeave}
                 disabled={isSaving}
-                className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : 'Confirm Return from Leave'}
               </button>
-              <button onClick={() => setShowEndLeaveConfirm(null)} className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest">
+              <button onClick={() => setShowEndLeaveConfirm(null)} className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest">
                 Cancel
               </button>
             </div>
@@ -1051,19 +1054,19 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Delete Personnel?</h4>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
-              Are you sure you want to permanently delete <span className="text-rose-600">{showDeleteConfirm.name}</span>? This action cannot be undone.
+              Are you sure you want to permanently delete <span className="text-rose-600 truncate" title={showDeleteConfirm.name}>{showDeleteConfirm.name}</span>? This action cannot be undone.
             </p>
             <div className="flex flex-col gap-4 mt-10">
               <button
                 onClick={handleDeleteEmployee}
                 disabled={isSaving}
-                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Confirm Deletion'}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
               >
                 Cancel
               </button>

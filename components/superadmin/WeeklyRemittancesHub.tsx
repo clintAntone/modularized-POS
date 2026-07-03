@@ -1479,11 +1479,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           </div>
           <button
             onClick={handleExportPDF}
-            className="flex items-center justify-center gap-2 h-8 w-8 sm:w-auto sm:px-4 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 shrink-0"
-            title="Export"
+            className="flex items-center justify-center gap-2 h-9 px-3 sm:px-4 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
+            title="Export PDF"
           >
-            <FileDown className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">Export</span>
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
         </div>
 
@@ -1501,7 +1501,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <button
                 onClick={() => setMarkAllConfirm(true)}
                 disabled={isReviewing}
-                className="flex items-center gap-1.5 h-7 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
               >
                 <CheckCircle className="w-3 h-3" /> Mark All Remitted
               </button>
@@ -1526,7 +1526,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <button
                     onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })}
                     disabled={isReviewing}
-                    className="flex items-center gap-1.5 h-7 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
+                    className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
                   >
                     <CheckCircle className="w-3 h-3" /> Remitted
                   </button>
@@ -1654,8 +1654,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {/* ── For Verification ribbon (legacy status) ── */}
                       {sub?.status === 'for_verification' && !isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5 px-6 py-2 bg-amber-50 border-b border-amber-200">
-                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-7 px-3 bg-white border border-rose-200 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
-                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-7 px-3 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
+                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
                         </div>
                       )}
 

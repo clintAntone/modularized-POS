@@ -218,7 +218,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             onMouseDown={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onRemoveReliever(emp); }}
-            className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+            className="p-3 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
             title="Remove from Branch Staff List"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
@@ -235,7 +235,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 onMouseDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onReset(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                className="p-3 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
                 title="Reset Credentials"
               >
                 <Fingerprint className="w-4 h-4" strokeWidth={2.5} />
@@ -246,7 +246,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 onMouseDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onRequestLeave(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-purple-500 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                className="p-3 rounded-xl bg-slate-50 text-slate-300 hover:bg-purple-500 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
                 title="Request Leave / On-Hold"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
@@ -259,7 +259,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 onMouseDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onRequestDisable(emp); }}
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
+                className="p-3 rounded-xl bg-slate-50 text-slate-300 hover:bg-rose-600 hover:text-white transition-all border border-transparent hover:border-white shadow-inner"
                 title="Request Disable (Resigned / Terminated)"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>

@@ -495,7 +495,10 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         },
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        // Attendance is clock-in/out sensitive — poll every 30s as a safety net behind
+        // the realtime subscription (missed WebSocket events won't leave the UI stale).
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
     });
 
     const { data: requests = [], isLoading: requestsLoading, error: requestsError } = useQuery({

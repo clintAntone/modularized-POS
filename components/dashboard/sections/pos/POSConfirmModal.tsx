@@ -85,7 +85,7 @@ export const POSConfirmModal: React.FC<POSConfirmModalProps> = (props) => {
                         <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 blur-2xl rounded-full"></div>
                         <div className="relative z-10">
                             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client Identity</p>
-                            <h4 className="text-lg font-bold uppercase tracking-tight truncate">{props.formData.client_name}</h4>
+                            <h4 className="text-lg font-bold uppercase tracking-tight truncate" title={props.formData.client_name}>{props.formData.client_name}</h4>
                         </div>
                     </div>
 
@@ -99,7 +99,7 @@ export const POSConfirmModal: React.FC<POSConfirmModalProps> = (props) => {
                                     <div key={`${s.id}-${idx}`} className="flex justify-between items-center p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm">
                                         <div className="min-w-0 pr-4">
                                             <div className="flex items-center gap-2">
-                                                <p className="font-bold text-slate-900 uppercase text-[10px] truncate">{s.name}</p>
+                                                <p className="font-bold text-slate-900 uppercase text-[10px] truncate" title={s.name}>{s.name}</p>
                                                 {isLoyalty && <span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded text-[6px] font-black uppercase tracking-widest">Loyalty</span>}
                                             </div>
                                             <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest">{s.duration} MINS</p>
@@ -148,13 +148,13 @@ export const POSConfirmModal: React.FC<POSConfirmModalProps> = (props) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-[24px] space-y-0.5">
                                 <p className="text-[7px] font-bold text-emerald-600 uppercase tracking-widest">Lead Provider ({leadRoleLabel})</p>
-                                <p className="font-bold text-slate-900 uppercase text-[11px] truncate">{leadName}</p>
+                                <p className="font-bold text-slate-900 uppercase text-[11px] truncate" title={leadName}>{leadName}</p>
                                 <p className="text-base font-bold text-emerald-700 tracking-tighter leading-none mt-1.5">₱{leadComm.toLocaleString()}</p>
                             </div>
                             {isDualProviderRequired && (
                                 <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-[24px] space-y-0.5">
                                     <p className="text-[7px] font-bold text-indigo-600 uppercase tracking-widest">Specialist Support ({supportRoleLabel})</p>
-                                    <p className="font-bold text-slate-900 uppercase text-[11px] truncate">{supportName}</p>
+                                    <p className="font-bold text-slate-900 uppercase text-[11px] truncate" title={supportName}>{supportName}</p>
                                     <p className="text-base font-bold text-indigo-700 tracking-tighter leading-none mt-1.5">₱{supportComm.toLocaleString()}</p>
                                 </div>
                             )}

@@ -1267,17 +1267,17 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                 <div className="overflow-hidden">
                                   <div className="flex items-center gap-1.5 mb-1">
                                     <p className="text-[11px] font-bold text-slate-900 uppercase truncate leading-none">{e.name}</p>
-                                    {vaultCovered > 0 && <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">₱{vaultCovered.toLocaleString()} Vault</span>}
+                                    {vaultCovered > 0 && vaultCovered <= Number(e.amount || 0) && <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">₱{vaultCovered.toLocaleString()} Vault</span>}
+                                    {vaultCovered > Number(e.amount || 0) && <span className="text-[7px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap tabular-nums">₱{Number(e.amount || 0).toLocaleString()}</span>}
+                                    {vaultCovered > Number(e.amount || 0) && <span className="text-[7px] font-black text-slate-400 tabular-nums shrink-0">+₱{(vaultCovered - Number(e.amount || 0)).toLocaleString()} prior deficit</span>}
                                   </div>
                                   <div className="flex items-center gap-1.5">
-                                    {vaultCovered > 0 && <span className="text-[7px] font-black text-slate-400 tabular-nums">₱{roiAmount.toLocaleString()} ROI</span>}
-                                    {vaultCovered > 0 && <span className="text-[7px] text-slate-200">·</span>}
                                     <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest tabular-nums">{timeLabel}</p>
                                     {!e.receiptImage && <span className="text-[7px] font-bold text-slate-200 uppercase tracking-widest">· No Receipt</span>}
                                   </div>
                                 </div>
                               </div>
-                              <p className={`text-sm font-bold tabular-nums ${vaultCovered > 0 ? 'text-amber-600' : 'text-rose-600'}`}>−₱{Number(e.amount || 0).toLocaleString()}</p>
+                              <p className={`text-sm font-bold tabular-nums ${vaultCovered > 0 ? 'text-amber-600' : 'text-rose-600'}`}>−₱{(vaultCovered > Number(e.amount || 0) ? vaultCovered : Number(e.amount || 0)).toLocaleString()}</p>
                             </div>
                           );
                         }) : (

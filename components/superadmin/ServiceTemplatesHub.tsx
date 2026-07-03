@@ -340,7 +340,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 space-y-3">
         {/* Title row */}
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[18px] font-black text-slate-900 leading-none tracking-tight">Service Templates</h3>
+          <h3 className="text-lg font-black text-slate-900 leading-none tracking-tight">Service Templates</h3>
           {!isReadOnly && (
             <button
               onClick={() => { setNewCatalogName(''); setShowNewCatalogModal(true); playSound('click'); }}
@@ -423,10 +423,10 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
-                      <span className="text-[12px] font-black text-slate-600">{branch.name.charAt(0)}</span>
+                      <span className="text-xs font-black text-slate-600">{branch.name.charAt(0)}</span>
                     </div>
                     <div>
-                      <p className="text-[12px] font-black uppercase tracking-tight text-slate-900 leading-none">{branch.name}</p>
+                      <p className="text-xs font-black uppercase tracking-tight text-slate-900 leading-none">{branch.name}</p>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{totalAssigned} of {templates.length} services assigned</p>
                     </div>
                   </div>
@@ -507,7 +507,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <div className="relative" ref={openCatalogMenu === group ? catalogMenuRef : null}>
                     <button
                       onClick={() => { setOpenCatalogMenu(openCatalogMenu === group ? null : group); playSound('click'); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-[13px] font-bold"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm font-bold"
                     >
                       ···
                     </button>
@@ -642,7 +642,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
                       {/* Name + meta stacked */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] font-black uppercase tracking-tight truncate leading-none transition-colors ${isLongPressing ? 'text-rose-600' : 'text-slate-900'}`}>
+                        <p className={`text-xs font-black uppercase tracking-tight truncate leading-none transition-colors ${isLongPressing ? 'text-rose-600' : 'text-slate-900'}`} title={t.name}>
                           {t.name}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-1 leading-none">
@@ -685,7 +685,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
           <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
             <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-[13px] font-black text-white uppercase tracking-tight">{isNew ? 'New Service' : 'Edit Service'}</h3>
+                <h3 className="text-sm font-black text-white uppercase tracking-tight">{isNew ? 'New Service' : 'Edit Service'}</h3>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Template Definition</p>
               </div>
               <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">
@@ -700,7 +700,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   value={editingTemplate.name}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, name: e.target.value.toUpperCase() }))}
                   maxLength={80}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
                   placeholder="SERVICE NAME"
                 />
               </div>
@@ -711,7 +711,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   value={editingTemplate.catalog_name || ''}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, catalog_name: e.target.value.toUpperCase() }))}
                   list="catalog-suggestions"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
                   placeholder="E.G. HILOT SERVICES"
                 />
                 <datalist id="catalog-suggestions">
@@ -743,7 +743,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <input type="number" min="0"
                     value={editingTemplate.default_price}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, default_price: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -751,7 +751,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <input type="number" min="0"
                     value={editingTemplate.duration}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, duration: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
               </div>
@@ -798,7 +798,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <input type="number" min="0"
                     value={editingTemplate.commission_value}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, commission_value: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
                 {editingTemplate.is_dual_provider && (
@@ -807,7 +807,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     <input type="number" min="0"
                       value={editingTemplate.secondary_commission_value ?? 0}
                       onChange={e => setEditingTemplate(t => t && ({ ...t, secondary_commission_value: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                     />
                   </div>
                 )}
@@ -873,12 +873,12 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className="px-6 pt-6 pb-4 shrink-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-black text-slate-900 leading-tight truncate">{managingTemplate.name}</h3>
+                  <h3 className="text-sm font-black text-slate-900 leading-tight truncate">{managingTemplate.name}</h3>
                   <p className="text-[10px] text-slate-400 mt-0.5">Default price: <span className="font-bold text-slate-600">₱{managingTemplate.default_price.toLocaleString()}</span></p>
                 </div>
                 <button
                   onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); }}
-                  className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors shrink-0 mt-0.5"
+                  className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -929,7 +929,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                           </svg>
                         )}
                       </div>
-                      <span className={`flex-1 text-[12px] font-bold truncate ${inDraft ? 'text-slate-900' : 'text-slate-500'}`}>
+                      <span className={`flex-1 text-xs font-bold truncate ${inDraft ? 'text-slate-900' : 'text-slate-500'}`}>
                         {b.name}
                       </span>
                       {assignment?.price != null && (
@@ -1025,7 +1025,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <LayoutGrid className="w-3.5 h-3.5 text-emerald-400" />
-                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">New Catalog</h3>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">New Catalog</h3>
                 </div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Give your catalog a name</p>
               </div>
@@ -1051,7 +1051,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   }
                 }}
                 placeholder="E.G. BER SEASON RATES"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase tracking-wide"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase tracking-wide"
               />
               {newCatalogName.trim() && catalogNames.includes(newCatalogName.trim()) && (
                 <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">A catalog with this name already exists.</p>
@@ -1092,7 +1092,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">
                     {importStep === 1 ? 'Import Services' : 'Set Prices'}
                   </h3>
                 </div>
@@ -1254,7 +1254,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight">
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">
                     Bulk Assign
                   </h3>
                 </div>
@@ -1286,7 +1286,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             {/* PRIO warning banner */}
             {bulkMode === 'assign' && prioCatalogs.includes(bulkAssign.catalogName) && (
               <div className="px-6 py-3 bg-amber-400 shrink-0 flex items-start gap-2">
-                <span className="text-white text-[12px] leading-none shrink-0 mt-0.5">★</span>
+                <span className="text-white text-xs leading-none shrink-0 mt-0.5">★</span>
                 <p className="text-[9px] font-black text-white uppercase tracking-widest leading-relaxed">
                   PRIO catalog — assigning will replace ALL existing services on selected branches with only this catalog's services.
                 </p>
@@ -1410,7 +1410,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
-                  <h3 className="text-[13px] font-black text-white uppercase tracking-tight truncate">{branchManage.name}</h3>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight truncate">{branchManage.name}</h3>
                 </div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service Assignments</p>
               </div>
@@ -1465,7 +1465,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                               </svg>
                             )}
                           </button>
-                          <p className="flex-1 text-[11px] font-bold text-slate-700 min-w-0 truncate uppercase">{t.name}</p>
+                          <p className="flex-1 text-[11px] font-bold text-slate-700 min-w-0 truncate uppercase" title={t.name}>{t.name}</p>
                           <span className="text-[9px] font-bold text-slate-400 shrink-0">₱{t.default_price.toLocaleString()}</span>
                           {assigned && assignment.price !== null && (
                             <span className="text-[7px] font-black text-amber-500 uppercase tracking-widest shrink-0">Override</span>
@@ -1495,7 +1495,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <Trash2 className="w-6 h-6 text-rose-500" />
             </div>
-            <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight">Delete Service?</h3>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Delete Service?</h3>
             <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-2 mb-6 leading-relaxed">
               This removes <span className="text-slate-700 font-black">{deleteConfirm.name}</span> and all {branchCount(deleteConfirm.id)} branch assignments permanently.
             </p>

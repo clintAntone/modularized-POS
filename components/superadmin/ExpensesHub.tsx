@@ -144,10 +144,10 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
             <button
               onClick={handlePrint}
               disabled={isExporting}
-              className="h-9 rounded-2xl bg-white border border-slate-200 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="h-9 rounded-2xl bg-emerald-600 text-white px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
             >
               {isExporting
-                ? <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                 : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2-2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               }
               <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>

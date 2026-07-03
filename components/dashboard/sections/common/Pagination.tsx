@@ -107,7 +107,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+            className={`p-1.5 sm:p-2.5 rounded-lg border transition-all shrink-0 ${
               currentPage === 1
                 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
@@ -135,7 +135,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                 <button
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black transition-all shrink-0 ${
+                  className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg text-[9px] sm:text-[10px] font-black transition-all shrink-0 ${
                     currentPage === pageNum
                       ? 'bg-slate-900 text-white shadow-lg'
                       : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50 hover:text-slate-900'
@@ -150,7 +150,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+            className={`p-1.5 sm:p-2.5 rounded-lg border transition-all shrink-0 ${
               currentPage === totalPages
                 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
