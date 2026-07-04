@@ -4,6 +4,7 @@ import { Branch, SalesReport, BranchBill } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { supabase } from '../../lib/supabase';
 import { playSound, resumeAudioContext } from '../../lib/audio';
+import { getTrueDate, getManilaYear, getManilaMonth } from '../../lib/time';
 
 // ─── Types ────────────────────────────────────────────────
 type Metric = 'gross' | 'roi' | 'expenses' | 'salary' | 'bills';
@@ -122,11 +123,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
   // Bar chart
   const [metric, setMetric]       = useState<Metric>('gross');
-  const [weekAnchor, setWeekAnchor] = useState(new Date());
+  const [weekAnchor, setWeekAnchor] = useState(getTrueDate());
 
   // Top 10
-  const [top10Month, setTop10Month] = useState(new Date().getMonth());
-  const [top10Year,  setTop10Year]  = useState(new Date().getFullYear());
+  const [top10Month, setTop10Month] = useState(getManilaMonth());
+  const [top10Year,  setTop10Year]  = useState(getManilaYear());
   const [showOtherBranches, setShowOtherBranches] = useState(false);
   const [top10PickerOpen, setTop10PickerOpen] = useState(false);
   const top10PickerRef = React.useRef<HTMLDivElement>(null);
@@ -142,8 +143,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   }, [top10PickerOpen]);
 
   // Heatmap
-  const [heatMonth, setHeatMonth]   = useState(new Date().getMonth());
-  const [heatYear,  setHeatYear]    = useState(new Date().getFullYear());
+  const [heatMonth, setHeatMonth]   = useState(getManilaMonth());
+  const [heatYear,  setHeatYear]    = useState(getManilaYear());
   const [heatBranch, setHeatBranch] = useState('all');
   const [activeDay,  setActiveDay]  = useState<string | null>(null);
   const [scopeOpen,  setScopeOpen]  = useState(false);
@@ -329,7 +330,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   }, [activeBranches, top10Reports]);
 
   const availableYears = useMemo(() => {
-    const s = new Set<number>([new Date().getFullYear()]);
+    const s = new Set<number>([getManilaYear()]);
     salesReports.forEach(r => s.add(new Date(r.reportDate).getFullYear()));
     return Array.from(s).sort((a, b) => b - a);
   }, [salesReports]);

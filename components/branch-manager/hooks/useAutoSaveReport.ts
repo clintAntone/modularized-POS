@@ -3,6 +3,7 @@ import { Branch, Transaction, Expense, Attendance, Employee, BranchVault, VaultT
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
+import { getTrueISOString } from '../../../lib/time';
 
 interface UseAutoSaveReportParams {
   branch: Branch;
@@ -103,8 +104,8 @@ export function useAutoSaveReport({
               .select(DB_COLUMNS.AMOUNT)
               .eq(DB_COLUMNS.BRANCH_ID, branch.id)
               .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-              .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00`)
-              .lt(DB_COLUMNS.TIMESTAMP, `${todayStr}T23:59:59.999`),
+              .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00+08:00`)
+              .lt(DB_COLUMNS.TIMESTAMP, `${todayStr}T23:59:59.999+08:00`),
             supabase
               .from(DB_TABLES.BRANCH_VAULTS)
               .select(DB_COLUMNS.VAULT_BALANCE)
@@ -125,7 +126,7 @@ export function useAutoSaveReport({
           [DB_COLUMNS.ID]: reportId,
           [DB_COLUMNS.BRANCH_ID]: branch.id,
           [DB_COLUMNS.REPORT_DATE]: todayStr,
-          [DB_COLUMNS.SUBMITTED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.SUBMITTED_AT]: getTrueISOString(),
           [DB_COLUMNS.GROSS_SALES]: totals.gross,
           [DB_COLUMNS.TOTAL_STAFF_PAY]: totals.totalStaffLiability,
           [DB_COLUMNS.TOTAL_EXPENSES]: Math.max(0, totals.operationalExp - vaultCoveredExp),

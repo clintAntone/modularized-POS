@@ -3,7 +3,7 @@ import { Branch, SalesReport } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { toDateStr, parseDate, getISOWeek, getWeekRange } from '@/src/utils/reportUtils';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -13,7 +13,7 @@ interface WeeklyNetworkHubProps {
 }
 
 export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, salesReports }) => {
-  const [selectedDate, setSelectedDate] = useState<string>(toDateStr(getTrueDate()));
+  const [selectedDate, setSelectedDate] = useState<string>(getManilaTodayStr());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Calculate the standard week range for the selected date (Monday to Sunday)

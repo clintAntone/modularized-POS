@@ -7,6 +7,7 @@ import { playSound } from '../../../lib/audio';
 import { compressImage } from '../../../lib/image';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { logAudit } from '../../../lib/audit';
+import { getManilaYear, getManilaMonth } from '../../../lib/time';
 
 // Modular Vault Components
 import { VaultBalanceHero } from './vault/VaultBalanceHero';
@@ -36,13 +37,13 @@ export const MonthlyExpenseSection: React.FC<MonthlyExpenseSectionProps> = ({ us
   const [toast, setToast] = useState<Toast | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [movementToDelete, setMovementToDelete] = useState<Expense | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [selectedYear, setSelectedYear] = useState<string>(getManilaYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>((getManilaMonth() + 1).toString().padStart(2, '0'));
   const [searchTerm, setSearchTerm] = useState('');
   
   const availableYears = useMemo(() => {
     const years = new Set<number>();
-    const now = new Date().getFullYear();
+    const now = getManilaYear();
     years.add(now);
     (salesReports || []).forEach(r => {
       const d = new Date(r.reportDate);

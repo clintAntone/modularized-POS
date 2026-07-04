@@ -7,7 +7,7 @@ import { toDateStr } from '@/src/utils/reportUtils';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 
 import { getInitials, getEmployeeAllowance } from '../../lib/payroll';
-import { getTrueDate, getTrueManilaISOString } from '../../lib/time';
+import { getTrueDate, getTrueManilaISOString, getManilaTodayStr } from '../../lib/time';
 
 interface MassBackfillHubProps {
     branches: Branch[];
@@ -19,7 +19,7 @@ interface MassBackfillHubProps {
 
 export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, employees, salesReports, onRefresh, isReadOnly }) => {
     const [selectedBranchId, setSelectedBranchId] = useState('');
-    const [selectedDate, setSelectedDate] = useState(toDateStr(getTrueDate()));
+    const [selectedDate, setSelectedDate] = useState(getManilaTodayStr());
     const [grossSales, setGrossSales] = useState<number>(0);
     const [totalExpenses, setTotalExpenses] = useState<number>(0);
     const [totalSalary, setTotalSalary] = useState<number>(0);
@@ -423,7 +423,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         .select(`${DB_COLUMNS.AMOUNT}, ${DB_COLUMNS.TYPE}`)
                         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
                         .in(DB_COLUMNS.TYPE, ['WITHDRAWAL', 'VAULT_WITHDRAWAL', 'ADMIN_DEPOSIT'])
-                        .gte(DB_COLUMNS.TIMESTAMP, `${vaultStartDate}T00:00:00`),
+                        .gte(DB_COLUMNS.TIMESTAMP, `${vaultStartDate}T00:00:00+08:00`),
                 ]);
 
                 if (vaultRowRes.data && !allReportsRes.error && !vaultTxRes.error) {

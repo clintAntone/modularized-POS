@@ -636,8 +636,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         .select(DB_COLUMNS.AMOUNT)
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
         .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-        .gte(DB_COLUMNS.TIMESTAMP, `${depositDate}T00:00:00`)
-        .lt(DB_COLUMNS.TIMESTAMP, `${depositDate}T23:59:59.999`);
+        .gte(DB_COLUMNS.TIMESTAMP, `${depositDate}T00:00:00+08:00`)
+        .lt(DB_COLUMNS.TIMESTAMP, `${depositDate}T23:59:59.999+08:00`);
       const totalProvision = (allDeposits || []).reduce((s, t) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0);
 
       const { data: existingReport } = await supabase

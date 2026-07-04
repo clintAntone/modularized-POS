@@ -3,7 +3,7 @@ import { Employee, Branch, EmployeeComplaint } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getTrueISOString } from '../../lib/time';
 
 function todayStr(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
@@ -215,7 +215,7 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
         [DB_COLUMNS.DESCRIPTION]: description.trim(),
         [DB_COLUMNS.FILED_BY_ID]: filedById,
         [DB_COLUMNS.FILED_BY_NAME]: filedByName,
-        [DB_COLUMNS.FILED_AT]: new Date().toISOString(),
+        [DB_COLUMNS.FILED_AT]: getTrueISOString(),
         [DB_COLUMNS.STATUS]: 'PENDING',
         [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
       });

@@ -5,6 +5,7 @@ import { hashPin, generateSalt } from '../../lib/crypto';
 import { invalidateBranchSessions, invalidateGlobalSessions } from '../../lib/audit';
 import { Branch, PortalUser, PortalPermissions } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
+import { getTrueISOString } from '../../lib/time';
 
 type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'bills' | 'insights' | 'complaints';
 
@@ -204,7 +205,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
           [DB_COLUMNS.PERMISSIONS]:  perms,
           [DB_COLUMNS.IS_SUPERADMIN]: form.isSuperadmin,
           [DB_COLUMNS.IS_ACTIVE]:    form.isActive,
-          [DB_COLUMNS.UPDATED_AT]:   new Date().toISOString(),
+          [DB_COLUMNS.UPDATED_AT]:   getTrueISOString(),
         };
         const pinChanged = !!form.pin;
         if (pinChanged) {
@@ -235,7 +236,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
           [DB_COLUMNS.PERMISSIONS]:  perms,
           [DB_COLUMNS.IS_SUPERADMIN]: form.isSuperadmin,
           [DB_COLUMNS.IS_ACTIVE]:    form.isActive,
-          [DB_COLUMNS.CREATED_AT]:   new Date().toISOString(),
+          [DB_COLUMNS.CREATED_AT]:   getTrueISOString(),
         });
         if (error) throw error;
       }
@@ -295,7 +296,7 @@ export const PortalUsersSection: React.FC<PortalUsersSectionProps> = ({ currentU
     try {
       const { error } = await supabase
         .from(DB_TABLES.PORTAL_USERS)
-        .update({ [DB_COLUMNS.IS_ACTIVE]: !u.isActive, [DB_COLUMNS.UPDATED_AT]: new Date().toISOString() })
+        .update({ [DB_COLUMNS.IS_ACTIVE]: !u.isActive, [DB_COLUMNS.UPDATED_AT]: getTrueISOString() })
         .eq(DB_COLUMNS.ID, u.id);
       if (error) throw error;
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isActive: !u.isActive } : x));

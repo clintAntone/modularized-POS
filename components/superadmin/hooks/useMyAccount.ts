@@ -5,6 +5,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { hashPin, generateSalt } from '../../../lib/crypto';
 import { playSound } from '../../../lib/audio';
 import { invalidateBranchSessions } from '../../../lib/audit';
+import { getTrueISOString } from '../../../lib/time';
 
 type User = Exclude<AuthState['user'], null>;
 
@@ -54,7 +55,7 @@ export function useMyAccount(user: User, isPortalUser: boolean) {
       if (myAccountForm.pin !== myAccountForm.confirmPin) { setMyAccountError('PINs do not match.'); return; }
     }
 
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+    const updates: Record<string, any> = { updated_at: getTrueISOString() };
 
     const { data: conflict } = await supabase
       .from(DB_TABLES.PORTAL_USERS)

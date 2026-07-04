@@ -9,6 +9,7 @@ import { getInitials } from '../../../lib/payroll';
 import { useUpdateBranch, useAddAuditLog, useUpdateEmployee } from '../../../hooks/useNetworkData';
 import { invalidateBranchSessions } from '../../../lib/audit';
 import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { getTrueISOString } from '../../../lib/time';
 
 interface SettingsSectionProps {
   user: Exclude<AuthState['user'], null>;
@@ -367,7 +368,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       if (error) throw error;
       await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
         [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
         [DB_COLUMNS.DESCRIPTION]: name ? `Relief access granted to: ${name}` : `Relief access revoked.`,
@@ -407,7 +408,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       }
       await addAuditLog.mutateAsync({
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
         [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
         [DB_COLUMNS.ENTITY_ID]: branch.id,

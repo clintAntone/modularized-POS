@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { UI_THEME } from '../../constants/ui_designs';
 import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List, GitBranch } from 'lucide-react';
 import { Pagination } from '../dashboard/sections/common/Pagination';
+import { getTrueISOString } from '../../lib/time';
 
 export interface CatalogGroup {
   id: string;
@@ -315,7 +316,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
           [DB_COLUMNS.SERVICES]: cat.services,
           [DB_COLUMNS.BRANCH_IDS]: cat.branchIds,
           [DB_COLUMNS.CAN_BE_LOYALTY]: cat.can_be_loyalty || false,
-          [DB_COLUMNS.UPDATED_AT]: new Date().toISOString()
+          [DB_COLUMNS.UPDATED_AT]: getTrueISOString()
         });
       }
 

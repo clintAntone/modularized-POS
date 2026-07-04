@@ -7,6 +7,7 @@ import { playSound } from '../../../lib/audio';
 import { generateSalt, hashPin } from '../../../lib/crypto';
 import { useUpdateEmployee, useUpdateBranch, useAddAuditLog } from '../../../hooks/useNetworkData';
 import { invalidateBranchSessions } from '../../../lib/audit';
+import { getTrueISOString } from '../../../lib/time';
 
 interface RecoveryModalProps {
   employee: Employee;
@@ -91,7 +92,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
 
         await addAuditLog.mutateAsync({
             [DB_COLUMNS.BRANCH_ID]: null,
-            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
             [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
             [DB_COLUMNS.ENTITY_ID]: employee.id,

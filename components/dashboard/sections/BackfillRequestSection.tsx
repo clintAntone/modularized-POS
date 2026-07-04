@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
 import { getEmployeeAllowance } from '../../../lib/payroll';
-import { toManilaDateStr, getTrueDate } from '../../../lib/time';
+import { toManilaDateStr, getTrueDate, getTrueISOString } from '../../../lib/time';
 
 interface BackfillRequestSectionProps {
   branch: Branch;
@@ -221,7 +221,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
     const id = Math.random().toString(36).substr(2, 9);
     setExpenseItems(prev => [...prev, {
       id, branchId: branch.id, name: newExpenseName.trim().toUpperCase(),
-      amount: Number(newExpenseAmount), category: 'OPERATIONAL', timestamp: new Date().toISOString()
+      amount: Number(newExpenseAmount), category: 'OPERATIONAL', timestamp: getTrueISOString()
     } as Expense]);
     setNewExpenseName('');
     setNewExpenseAmount('');
@@ -234,7 +234,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
     const id = Math.random().toString(36).substr(2, 9);
     setProvisionItems(prev => [...prev, {
       id, branchId: branch.id, name: 'DAILY R&B PROVISION',
-      amount: depositAmount, category: 'PROVISION', timestamp: new Date().toISOString()
+      amount: depositAmount, category: 'PROVISION', timestamp: getTrueISOString()
     } as Expense]);
     playSound('click');
   };
@@ -285,7 +285,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       const requestPayload = {
         [DB_COLUMNS.ID]: requestId,
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.TYPE]: 'BACKFILL_REPORT',
         [DB_COLUMNS.STATUS]: 'PENDING',
         [DB_COLUMNS.DATA]: {
@@ -298,7 +298,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             ...extraStaff.map(emp => {
               const p = staffPayroll[emp.id];
               const pay = p ? Math.max(0, (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0)) : 0;
-              return { id: `reliever_${emp.id}`, branchId: branch.id, name: `RELIEVER PAYOUT: ${emp.name.toUpperCase()}`, amount: pay, category: 'OPERATIONAL', timestamp: new Date().toISOString() };
+              return { id: `reliever_${emp.id}`, branchId: branch.id, name: `RELIEVER PAYOUT: ${emp.name.toUpperCase()}`, amount: pay, category: 'OPERATIONAL', timestamp: getTrueISOString() };
             }),
             ...expenseItems,
           ],

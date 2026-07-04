@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
 import { logAudit } from '../../lib/audit';
+import { getTrueISOString } from '../../lib/time';
 
 const REPORT_LABEL: Record<string, string> = {
   TARDINESS:        'Tardiness',
@@ -219,7 +220,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         [DB_COLUMNS.STATUS]: 'DISMISSED',
         [DB_COLUMNS.ACTION_TAKEN]: 'NONE',
         [DB_COLUMNS.REVIEWED_BY]: reviewerName,
-        [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
+        [DB_COLUMNS.REVIEWED_AT]: getTrueISOString(),
       }).eq(DB_COLUMNS.ID, complaintId);
       await logAudit({
         activityType: 'COMPLAINT_DISMISSED',
@@ -300,7 +301,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
           [DB_COLUMNS.JUDGMENT]: judgment.trim() || null,
           [DB_COLUMNS.RESOLUTION]: resolution.trim() || null,
           [DB_COLUMNS.REVIEWED_BY]: reviewerName,
-          [DB_COLUMNS.REVIEWED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.REVIEWED_AT]: getTrueISOString(),
         })
         .eq(DB_COLUMNS.ID, complaint.id);
       if (error) throw error;

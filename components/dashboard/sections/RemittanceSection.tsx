@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Branch, SalesReport, VaultTransaction } from '../../../types';
 import { playSound } from '../../../lib/audio';
 import { getWeekRange, parseDate } from '../../../src/utils/reportUtils';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, formatPeso } from '../../../lib/time';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark } from 'lucide-react';
@@ -37,8 +37,7 @@ interface RemittanceSectionProps {
   onRefresh?: () => void;
 }
 
-const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const fmt = formatPeso;
 
 export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, salesReports, vaultTransactions = [], performedBy, canDepositToVault = false, isDelegate = false, onRefresh }) => {
   const queryClient = useQueryClient();

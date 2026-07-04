@@ -4,6 +4,7 @@ import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
+import { getTrueISOString } from '../../lib/time';
 
 interface ReportEditorModalProps {
     report: SalesReport;
@@ -210,7 +211,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
             total: 0,
             primaryCommission: 0,
             secondaryCommission: 0,
-            timestamp: new Date().toISOString()
+            timestamp: getTrueISOString()
         };
         setEditedReport(prev => ({
             ...prev,
@@ -238,7 +239,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
             name: 'MANUAL EXPENSE',
             amount: 0,
             category: 'OPERATIONAL',
-            timestamp: new Date().toISOString()
+            timestamp: getTrueISOString()
         };
         setEditedReport(prev => ({
             ...prev,
@@ -265,7 +266,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
             id: Math.random().toString(36).substr(2, 9),
             name: 'VAULT PROVISION',
             amount: 0,
-            timestamp: new Date().toISOString()
+            timestamp: getTrueISOString()
         };
         setEditedReport(prev => ({
             ...prev,

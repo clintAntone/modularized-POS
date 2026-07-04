@@ -95,8 +95,8 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
         } else {
           // Single day: start/end of that day in Manila time (just use date prefix)
           query = query
-            .gte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T00:00:00`)
-            .lte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T23:59:59`)
+            .gte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T00:00:00+08:00`)
+            .lte(DB_COLUMNS.TIMESTAMP, `${selectedDate}T23:59:59.999+08:00`)
             .limit(1000);
         }
 

@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
 import { toDateStr } from '@/src/utils/reportUtils';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../../lib/time';
 import { useUpdateBranch, useDeleteBranch, useAddBranch, useUpdateEmployee } from '../../../hooks/useNetworkData';
 import type { ConfirmState } from '../modals/ConfirmModal';
 
@@ -280,7 +280,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
         [DB_COLUMNS.IS_PIN_CHANGED]: false,
         [DB_COLUMNS.IS_ENABLED]: true,
-        [DB_COLUMNS.CYCLE_START_DATE]: toDateStr(getTrueDate()),
+        [DB_COLUMNS.CYCLE_START_DATE]: getManilaTodayStr(),
         [DB_COLUMNS.WEEKLY_CUTOFF]: '0',
       });
       setNewBranchName('');
@@ -318,7 +318,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
         [DB_COLUMNS.IS_PIN_CHANGED]: false,
         [DB_COLUMNS.IS_ENABLED]: true,
-        [DB_COLUMNS.CYCLE_START_DATE]: toDateStr(getTrueDate()),
+        [DB_COLUMNS.CYCLE_START_DATE]: getManilaTodayStr(),
         [DB_COLUMNS.WEEKLY_CUTOFF]: '0',
       }));
       const { error } = await supabase.from(DB_TABLES.BRANCHES).insert(newBranches);

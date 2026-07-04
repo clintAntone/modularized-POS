@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { playSound, resumeAudioContext } from '../../lib/audio';
-import { getManilaTodayStr } from '../../lib/time';
+import { getManilaTodayStr, getTrueISOString } from '../../lib/time';
 
 interface ExportOptions {
   schema: boolean;
@@ -103,7 +103,7 @@ export const DataExportHub: React.FC = () => {
   const compileSqlContent = async (): Promise<string> => {
     setProgress('Initializing Archive...');
     let sqlContent = `-- HILOT CENTER CORE - FULL SYSTEM SNAPSHOT\n`;
-    sqlContent += `-- Generated: ${new Date().toISOString()}\n\n`;
+    sqlContent += `-- Generated: ${getTrueISOString()}\n\n`;
     sqlContent += `SET statement_timeout = 0;\nSET client_encoding = 'UTF8';\nSET standard_conforming_strings = on;\n\n`;
 
     if (options.storage) {

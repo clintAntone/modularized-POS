@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES } from '../../../constants/db_schema';
+import { getTrueISOString, getSyncMetadata } from '../../../lib/time';
 
 export function useDeviceLogging(branchId: string) {
+  const didLogSync = React.useRef(false);
   useEffect(() => {
     const ua = navigator.userAgent;
 
@@ -50,7 +52,7 @@ export function useDeviceLogging(branchId: string) {
     }
 
     const deviceId = `${branchId}_${browser}_${os}_${screen}`.replace(/\s+/g, '_');
-    const now = new Date().toISOString();
+    const now = getTrueISOString();
 
     const doUpsert = (location: string | null) => {
       supabase.from(DB_TABLES.DEVICE_LOGS)
@@ -77,6 +79,20 @@ export function useDeviceLogging(branchId: string) {
           supabase.from(DB_TABLES.DEVICE_LOGS).upsert(payload, { onConflict: 'device_id' }).then(() => {});
         });
     };
+
+    // Log time sync result once per session (ref guard prevents StrictMode double-fire)
+    const syncMeta = getSyncMetadata();
+    if (syncMeta && !didLogSync.current) {
+      didLogSync.current = true;
+      supabase.from(DB_TABLES.TIME_SYNC_LOGS).insert({
+        branch_id: branchId,
+        sync_source: syncMeta.source,
+        manila_time: new Date(syncMeta.serverTime).toISOString(),
+        device_time: new Date(syncMeta.deviceTime).toISOString(),
+        drift_seconds: syncMeta.driftSeconds,
+        user_agent: ua,
+      }).then(() => {});
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(

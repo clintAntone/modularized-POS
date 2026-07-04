@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Branch, SalesReport } from '../../types';
 import { playSound } from '../../lib/audio';
 import { getWeekRange, parseDate, normalizeDateStr } from '../../src/utils/reportUtils';
-import { getTrueDate, getManilaTodayStr } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr, formatPeso, getTrueISOString } from '../../lib/time';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { jsPDF } from 'jspdf';
@@ -41,7 +41,7 @@ interface RemittanceSubmission {
   submittedAt: string;
 }
 
-const fmt = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const fmt = formatPeso;
 
 export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ branches, salesReports: _salesReportsProp, onRefresh, isReadOnly, addedBy }) => {
   // Fetch ALL reports with scalar fields only (no JSON blobs) — paginated to bypass PostgREST row cap
@@ -251,7 +251,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const handleReview = async (submissionId: string | null, branchId: string, periodLabel: string, status: 'approved' | 'rejected' | 'for_verification', note?: string) => {
     setIsReviewing(true);
     try {
-      const now = new Date().toISOString();
+      const now = getTrueISOString();
       if (submissionId) {
         const { error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
@@ -312,7 +312,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     setMarkAllConfirm(false);
     setIsReviewing(true);
     try {
-      const now = new Date().toISOString();
+      const now = getTrueISOString();
       for (const { report, group, sub } of quickProcessItems) {
         if (sub?.id) {
           await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)

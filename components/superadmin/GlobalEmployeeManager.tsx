@@ -9,7 +9,7 @@ import { deleteFileByUrl } from '../../lib/storage';
 import { supabase } from '../../lib/supabase';
 import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
 import { getEmployeeRole } from '../../lib/payroll';
-import { getManilaTodayStr } from '../../lib/time';
+import { getManilaTodayStr, getTrueISOString } from '../../lib/time';
 import { invalidateBranchSessions } from '../../lib/audit';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -267,7 +267,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
         await addAuditLog.mutateAsync({
             [DB_COLUMNS.BRANCH_ID]: null,
-            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
             [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
             [DB_COLUMNS.ENTITY_ID]: target.id,
@@ -460,7 +460,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
       await addAuditLog.mutateAsync({
         [DB_COLUMNS.BRANCH_ID]: null,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee?.id ? 'UPDATE' : 'CREATE',
         [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
         [DB_COLUMNS.ENTITY_ID]: id,

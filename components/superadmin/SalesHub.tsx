@@ -6,7 +6,7 @@ import { playSound, resumeAudioContext } from '../../lib/audio';
 import { ReportDashboardModal } from '../dashboard/sections/reports-master/ReportDashboardModal';
 import { Pagination } from '../dashboard/sections/common/Pagination';
 import { parseDate, toDateStr } from '@/src/utils/reportUtils';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -21,7 +21,7 @@ interface SalesHubProps {
 type SortKey = 'gross' | 'net' | 'sessions' | 'name';
 
 export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, salesReportsLoading = false, employees, onRefresh }) => {
-  const [selectedDate, setSelectedDate] = useState<string>(toDateStr(getTrueDate()));
+  const [selectedDate, setSelectedDate] = useState<string>(getManilaTodayStr());
   const [searchTerm, setSearchTerm] = useState<string>(() => {
     const saved = localStorage.getItem('live_filter_search') || '';
     // If the saved search would hide every available branch, discard it.
@@ -84,7 +84,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
   // Compute consecutive days without a report (going back from Manila today) per branch
   const missedDaysMap = useMemo(() => {
-    const manilaToday = toDateStr(getTrueDate());
+    const manilaToday = getManilaTodayStr();
     const map: Record<string, number> = {};
     branches.forEach(branch => {
       let count = 0;
@@ -196,7 +196,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   }, [branchStats]);
 
   const lateToOpenBranches = useMemo(() => {
-    const manilaToday = toDateStr(getTrueDate());
+    const manilaToday = getManilaTodayStr();
     if (selectedDate !== manilaToday) return [];
     const manilaTime = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Manila',
@@ -217,7 +217,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   }, [branches, salesReports, selectedDate, lastSync]);
 
 
-  const isToday = selectedDate === toDateStr(getTrueDate());
+  const isToday = selectedDate === getManilaTodayStr();
 
   // Branches with no report filed for the selected date (enabled, non-test)
   const missingReportBranches = useMemo(() => {

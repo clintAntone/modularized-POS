@@ -8,6 +8,7 @@ import { playSound } from '../../../lib/audio';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2, Banknote } from 'lucide-react';
 import { compressImage } from '../../../lib/image';
+import { getTrueISOString } from '../../../lib/time';
 
 interface BranchVaultSectionProps {
   branch: Branch;
@@ -346,7 +347,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           [DB_COLUMNS.BILL_ID]: bill.id,
           [DB_COLUMNS.PERIOD_COVERED]: period,
           [DB_COLUMNS.AMOUNT_PAID]: billAmount,
-          [DB_COLUMNS.PAID_AT]: new Date().toISOString(),
+          [DB_COLUMNS.PAID_AT]: getTrueISOString(),
         });
 
         // Deduct from vault balance when marking a bill as paid
@@ -617,7 +618,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         .single();
       const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
 
-      const manilaDate = toManilaDate(new Date().toISOString());
+      const manilaDate = toManilaDate(getTrueISOString());
       const timePart = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
       }).format(new Date());

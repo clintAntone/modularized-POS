@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Service } from '../../../../types';
 import { playSound } from '../../../../lib/audio';
 import { Package } from 'lucide-react';
+import { formatPeso } from '../../../../lib/time';
 
 interface POSServiceSelectionProps {
     services: Service[];
@@ -108,7 +109,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                                                     <span className={`text-sm font-bold tabular-nums ${
                                                         isSelected ? 'text-white' : isLoyaltyMode ? 'text-emerald-600' : 'text-slate-600'
                                                     }`}>
-                                                        {isLoyaltyMode ? 'FREE' : `₱${s.price}`}
+                                                        {isLoyaltyMode ? 'FREE' : formatPeso(s.price)}
                                                     </span>
                                                 </div>
                                             </div>

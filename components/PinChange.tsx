@@ -5,6 +5,7 @@ import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { generateSalt, hashPin } from '../lib/crypto';
+import { getTrueISOString } from '../lib/time';
 
 const ROLE_ORDER = ['MANAGER', 'THERAPIST', 'BONESETTER', 'TRAINEE'];
 
@@ -189,7 +190,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
       // RECORD AUDIT
       await supabase.from(DB_TABLES.AUDIT_LOGS).insert({
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
         [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
         [DB_COLUMNS.DESCRIPTION]: `Secure identity update complete for ${isRelief ? 'Relief' : 'Node'} Manager ${identifiedManager.name} (user: ${username})`,

@@ -71,8 +71,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             .select('id, amount, name, timestamp, performed_by')
             .eq(DB_COLUMNS.BRANCH_ID, reportProp.branchId)
             .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-            .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00`)
-            .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999`),
+            .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00+08:00`)
+            .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999+08:00`),
         ]);
         if (error || !data) return;
 

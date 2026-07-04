@@ -5,7 +5,7 @@ import { Request, Employee, Branch, Transaction, Attendance, SalesReport } from 
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
-import { formatManilaDate, formatManilaTime } from '../../lib/time';
+import { formatManilaDate, formatManilaTime, formatPeso, getTrueISOString } from '../../lib/time';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface RequestsHubProps {
@@ -99,7 +99,7 @@ const STATUS_STYLE = {
   REJECTED: 'bg-rose-100 text-rose-800 border border-rose-200',
 };
 
-const fmt = (n: number) => `₱${(n || 0).toLocaleString()}`;
+const fmt = (n: number) => formatPeso(n || 0);
 
 export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.ID]: reportId,
             [DB_COLUMNS.BRANCH_ID]: request.branchId,
             [DB_COLUMNS.REPORT_DATE]: reportDate,
-            [DB_COLUMNS.SUBMITTED_AT]: new Date().toISOString(),
+            [DB_COLUMNS.SUBMITTED_AT]: getTrueISOString(),
             [DB_COLUMNS.GROSS_SALES]: grossSales,
             [DB_COLUMNS.TOTAL_STAFF_PAY]: totalStaffPay,
             [DB_COLUMNS.TOTAL_EXPENSES]: totalExpenses,
@@ -302,7 +302,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES).insert({
             [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
             [DB_COLUMNS.BRANCH_ID]: d.branchId || request.branchId,
-            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.NAME]: d.name,
             [DB_COLUMNS.FIRST_NAME]: d.firstName,
             [DB_COLUMNS.MIDDLE_NAME]: d.middleName || null,
@@ -333,7 +333,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         await supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'APPROVED',
           [DB_COLUMNS.REVIEWED_BY]: reviewerName,
-          [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.UPDATED_AT]: getTrueISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
         }).eq(DB_COLUMNS.ID, request.id);
@@ -347,7 +347,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         await supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'REJECTED',
           [DB_COLUMNS.REVIEWED_BY]: reviewerName,
-          [DB_COLUMNS.UPDATED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.UPDATED_AT]: getTrueISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
         }).eq(DB_COLUMNS.ID, request.id);
         playSound('warning');

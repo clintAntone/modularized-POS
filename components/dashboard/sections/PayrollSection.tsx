@@ -6,6 +6,7 @@ import { getInitials, resolveEmployeeName } from '../../../lib/payroll';
 import { PayslipModal } from './payroll/PayslipModal';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
+import { getTrueISOString, getManilaYear, getTrueDate } from '../../../lib/time';
 
 interface PayrollSectionProps {
   branch: Branch;
@@ -32,7 +33,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
   const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [selectedStaffPayslip, setSelectedStaffPayslip] = useState<any | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(getManilaYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -127,7 +128,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       start_date: cycle.start,
       end_date: cycle.end,
       branch_name: branch.name,
-      settled_at: new Date().toISOString()
+      settled_at: getTrueISOString()
     };
 
     try {

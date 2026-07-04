@@ -5,6 +5,7 @@ import { UI_THEME } from '../../constants/ui_designs';
 import { ReportEditorModal } from './ReportEditorModal';
 import { toDateStr, getWeekRange } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
+import { getManilaYear } from '../../lib/time';
 
 interface CycleStats {
   id: string;
@@ -127,7 +128,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
         if (reports.length === 0) return [];
 
         const targetBranch = isConsolidated ? null : branches.find(b => b.id === reports[0].branchId);
-        const anchorStr = targetBranch?.cycleStartDate || `${new Date().getFullYear()}-01-01`;
+        const anchorStr = targetBranch?.cycleStartDate || `${getManilaYear()}-01-01`;
         const [ay, am, ad] = anchorStr.split('-').map(Number);
         let iter = new Date(ay, am - 1, ad, 0, 0, 0, 0);
 

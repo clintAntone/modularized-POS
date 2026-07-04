@@ -26,6 +26,7 @@ export const DB_TABLES = {
   EMPLOYEE_COMPLAINTS: 'employee_complaints',
   SERVICE_TEMPLATES: 'service_templates',
   BRANCH_SERVICES: 'branch_services',
+  TIME_SYNC_LOGS: 'time_sync_logs',
 };
 
 export const DB_COLUMNS = {
