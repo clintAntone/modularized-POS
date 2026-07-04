@@ -744,6 +744,7 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEE_COMPLAINTS }, () => refreshDatabase('employeeComplaints'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.VAULT_TRANSACTIONS }, () => refreshDatabase('vaultTransactions'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DB_TABLES.BRANCH_VAULTS }, () => refreshDatabase('branchVault'))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.AUDIT_LOGS }, () => refreshDatabase('auditLogs'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SYSTEM_CONFIG }, () => fetchSystemConfig())
             .subscribe((status) => {

@@ -179,8 +179,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         });
         if (vtErr) throw vtErr;
 
+        // Re-fetch live balance to avoid stale prop writing a wrong value
+        const { data: liveVaultData } = await supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .select(DB_COLUMNS.VAULT_BALANCE)
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .single();
+        const liveVaultBalance = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
         const { error: vaultErr } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, branchVault.balance - vaultCoverAmount) })
+          .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveVaultBalance - vaultCoverAmount) })
           .eq(DB_COLUMNS.BRANCH_ID, branch.id);
         if (vaultErr) throw vaultErr;
       }
