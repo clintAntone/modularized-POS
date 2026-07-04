@@ -1,4 +1,4 @@
-// 1783155678703 is replaced by the Vite `sw-version-stamp` plugin at build time.
+// 1783173748421 is replaced by the Vite `sw-version-stamp` plugin at build time.
 // Every `npm run build` produces a unique cache name, which forces the browser to
 // install the new SW and run the activate handler that deletes all old caches.
 const CACHE_NAME = 'hilot-cache-__BUILD_TS__';
