@@ -1457,9 +1457,9 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 <td className="border border-slate-200 px-4 py-2 font-bold uppercase text-amber-600">Staff Payroll</td>
                 <td className="border border-slate-200 px-4 py-2 text-right font-bold tabular-nums text-amber-600">₱{metrics.totalStaffLiability.toLocaleString()}</td>
               </tr>
-              <tr className="bg-slate-900 text-white">
-                <td className="border border-slate-900 px-4 py-2 font-semibold uppercase tracking-wide">Net ROI</td>
-                <td className="border border-slate-900 px-4 py-2 text-right font-black tabular-nums">₱{metrics.net.toLocaleString()}</td>
+              <tr className="bg-slate-800 text-white">
+                <td className="border border-slate-700 px-4 py-2 font-semibold uppercase tracking-wide">Net ROI</td>
+                <td className="border border-slate-700 px-4 py-2 text-right font-black tabular-nums">₱{metrics.net.toLocaleString()}</td>
               </tr>
               {branchVault && branchVault.target > 0 && (
               <tr>
