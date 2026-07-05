@@ -391,8 +391,8 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className={`${UI_THEME.layout.mainPadding} ${UI_THEME.layout.maxContent} py-4 md:py-8`}>
-        <div className="space-y-6">
+      <div className={`${UI_THEME.layout.mainPadding} ${UI_THEME.layout.maxContent} py-4 md:py-6 pb-28`}>
+        <div className="space-y-4">
           <RemittanceBanners
             branchId={props.branch.id}
             showCloseReminder={showRemittanceCloseReminder}
