@@ -13,7 +13,8 @@ import { syncWithServerTime } from './lib/time';
 import SplashScreen from './components/SplashScreen';
 import { GmailPromptModal } from './components/shared/GmailPromptModal';
 
-import { Power } from 'lucide-react';
+import { Power, Sun, Moon } from 'lucide-react';
+import { useTheme } from './hooks/useTheme';
 
 // Dynamic Imports
 const SuperAdminDashboard = lazy(() => import('./components/superadmin/SuperAdminDashboard'));
@@ -21,6 +22,7 @@ const BranchManagerDashboard = lazy(() => import('./components/BranchManagerDash
 
 
 const App: React.FC = () => {
+  const { isDark, toggleTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [isTimeSynced, setIsTimeSynced] = useState(false);
@@ -534,14 +536,23 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
               </div>
             </div>
 
-            {/* Right: logout */}
-            <button
-              onClick={triggerLogoutConfirm}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 active:scale-95 transition-all shrink-0"
-              title="Logout"
-            >
-              <Power className="w-4 h-4" />
-            </button>
+            {/* Right: theme toggle + logout */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={toggleTheme}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95 transition-all"
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={triggerLogoutConfirm}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 active:scale-95 transition-all"
+                title="Logout"
+              >
+                <Power className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </header>
 

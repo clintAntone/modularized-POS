@@ -8,7 +8,8 @@ import { generateSalt, hashPin } from '../../../lib/crypto';
 import { getInitials } from '../../../lib/payroll';
 import { useUpdateBranch, useAddAuditLog, useUpdateEmployee } from '../../../hooks/useNetworkData';
 import { invalidateBranchSessions } from '../../../lib/audit';
-import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../../hooks/useTheme';
 import { getTrueISOString } from '../../../lib/time';
 
 interface SettingsSectionProps {
@@ -95,6 +96,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ title, description, confirm
 export const SettingsSection: React.FC<SettingsSectionProps> = ({
   user, branch, branches, todayTxs, todayAtt, todayReportExists, employees, branchVault, isRelief, onRefresh
 }) => {
+  const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab>(isRelief ? 'access' : 'operations');
 
   // Operations state
@@ -488,6 +490,32 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'operations' && (
         <div className="space-y-4 animate-in fade-in duration-300">
+
+          {/* ── Appearance ─────────────────────────────────────────────────── */}
+          <Card>
+            <div className="flex items-center justify-between p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                  {isDark ? <Moon className="w-4 h-4 text-slate-500" /> : <Sun className="w-4 h-4 text-slate-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 leading-none">Appearance</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{isDark ? 'Dark mode' : 'Light mode'}</p>
+                </div>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full shadow-sm transition-all duration-300 flex items-center justify-center ${isDark ? 'translate-x-6 bg-slate-200' : 'translate-x-0.5 bg-white'}`}>
+                  {isDark
+                    ? <Moon className="w-2.5 h-2.5 text-slate-700" />
+                    : <Sun className="w-2.5 h-2.5 text-amber-500" />
+                  }
+                </span>
+              </button>
+            </div>
+          </Card>
 
           {/* Branch must be closed notice */}
           {!branchIsClosed && (
