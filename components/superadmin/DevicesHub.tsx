@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES } from '../../constants/db_schema';
@@ -97,6 +98,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
   const [devices, setDevices] = useState<DeviceLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
@@ -165,7 +167,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
   }, [devices, datePreset]);
 
   const visibleBranches = useMemo(() => {
-    const term = searchTerm.toUpperCase();
+    const term = debouncedSearch.toUpperCase();
     return Object.entries(branchSummary)
       .filter(([, s]) => s.periodDevices.length > 0)
       .filter(([branchId]) => {
@@ -184,7 +186,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
         ),
       }))
       .sort((a, b) => b.todayCount - a.todayCount || b.periodCount - a.periodCount);
-  }, [branchSummary, branchMap, searchTerm]);
+  }, [branchSummary, branchMap, debouncedSearch]);
 
 
   if (loading) {

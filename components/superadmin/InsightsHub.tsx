@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
 
 interface InsightsHubProps {
@@ -379,6 +380,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   const [sortBy, setSortBy]     = useState<'severity' | 'drop' | 'name'>('severity');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch]     = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
@@ -422,7 +424,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   const warningCount  = insights.filter(i => i.level === 'warning').length;
 
   const displayInsights = useMemo(() => {
-    const term = search.trim().toUpperCase();
+    const term = debouncedSearch.trim().toUpperCase();
     let list = insights.filter(i => !term || i.branch.name.toUpperCase().includes(term));
     if (filter === 'anomalies') list = list.filter(i => i.level !== 'normal');
     return list.sort((a, b) => {
@@ -434,7 +436,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
       if (sortBy === 'drop') return b.dropPct - a.dropPct;
       return a.branch.name.localeCompare(b.branch.name);
     });
-  }, [insights, filter, sortBy, search]);
+  }, [insights, filter, sortBy, debouncedSearch]);
 
   return (
     <div className="space-y-6 pb-32">

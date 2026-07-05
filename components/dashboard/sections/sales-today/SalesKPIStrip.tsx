@@ -147,7 +147,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
       )}
 
       {/* ── Net ROI (full width, dark card) ── */}
-      <div className={`rounded-2xl p-5 flex items-center justify-between relative overflow-hidden print:bg-white print:border print:border-slate-200 print:shadow-none ${isNegative ? 'bg-rose-950' : 'bg-slate-900'}`}>
+      <div className={`rounded-2xl p-5 flex items-center justify-between relative overflow-hidden print:bg-white print:border print:border-slate-200 print:shadow-none ${isNegative ? 'bg-rose-950 border border-rose-900' : 'bg-slate-900 border border-slate-700'}`}>
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-xs font-semibold text-slate-400">Net ROI</p>

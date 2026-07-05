@@ -99,7 +99,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           ? 'border-indigo-400 ring-4 ring-indigo-400/20 scale-[0.98]'
           : isOngoing
           ? 'border-emerald-400 shadow-xl ring-4 ring-emerald-500/10'
-          : 'border-slate-200 hover:border-emerald-400 hover:shadow-lg'
+          : 'border-slate-300 hover:border-emerald-400 hover:shadow-lg'
       }`}
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
@@ -269,6 +269,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             )}
       </div>
 
+      {/* ── Mobile: vertical layout / Desktop: horizontal row ── */}
       <div className="p-5 sm:p-8 flex-1 flex flex-col">
         <div className="mb-4 sm:mb-8">
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-50 border-4 border-white shadow-xl transition-transform group-hover:scale-110 duration-500">
@@ -309,7 +310,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           {isOnLeave ? (
             <div />
           ) : isOngoing || isCompleted || !isActive ? (
-            // Time-out / completed / inactive — single button
             <button
               disabled={!isActive || isCompleted}
               onMouseDown={e => e.stopPropagation()}
@@ -320,7 +320,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               {isOngoing ? 'Time Out' : 'Shift Done'}
             </button>
           ) : hasFace && onFaceTimeIn && !isReliever ? (
-            // Face enrolled + face ID required + regular staff — face scan button
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -331,7 +330,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               Time In
             </button>
           ) : onFaceTimeIn && !hasFace && !isReliever ? (
-            // Face ID required, not enrolled, regular staff — block and prompt enrollment
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -343,7 +341,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               Enroll Face
             </button>
           ) : (
-            // Relievers always use plain time in (face ID enrollment is per home branch)
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}

@@ -263,15 +263,15 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                 <button
                   key={tab.id}
                   onClick={() => !isSoon && handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : !isActive ? 'opacity-40 active:opacity-70' : ''}`}
+                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : ''}`}
                 >
                   {/* Icon with active pill background */}
                   <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isActive ? 'bg-emerald-50' : ''}`}>
-                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-900 dark:text-white'}`}>
+                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-400 dark:text-slate-400'}`}>
                       {tab.icon}
                     </div>
                   </div>
-                  <span className={`text-xs uppercase tracking-tight transition-all ${isActive ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-900 dark:text-white'}`}>
+                  <span className={`text-[10px] uppercase tracking-tight transition-all leading-none ${isActive ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-semibold text-slate-400 dark:text-slate-400'}`}>
                     {tab.label}
                   </span>
                   {isSoon && <span className="text-[6px] font-bold uppercase bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">New</span>}

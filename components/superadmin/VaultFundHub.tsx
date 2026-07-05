@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport, VaultTransaction } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -174,6 +175,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const [savingDepositId, setSavingDepositId] = useState<string | null>(null);
   const [localEnabled, setLocalEnabled] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [vaultFilter, setVaultFilter] = useState<'all' | 'enabled' | 'disabled' | 'full'>('all');
   const [sortMode, setSortMode] = useState<SortMode>('name');
@@ -724,8 +726,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     }
 
     // Search: name, balance, target, deposited amount
-    if (searchTerm.trim()) {
-      const term = searchTerm.trim();
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.trim();
       result = result.filter(b => {
         if (b.name.toUpperCase().includes(term)) return true;
         const row = vaultRows[b.id];
@@ -761,7 +763,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     });
 
     return result;
-  }, [branches, selectedBranchIds, searchTerm, vaultFilter, localEnabled, vaultRows, sortMode, vaultTotals]);
+  }, [branches, selectedBranchIds, debouncedSearch, vaultFilter, localEnabled, vaultRows, sortMode, vaultTotals]);
 
   return (
     <div className="space-y-5">

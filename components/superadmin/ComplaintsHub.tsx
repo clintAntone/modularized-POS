@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Flag } from 'lucide-react';
 import { EmployeeComplaint, Employee, Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -137,6 +138,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // kept for future use
   const [visibleGroupCount, setVisibleGroupCount] = useState(15);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() =>
@@ -149,15 +151,15 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
 
   const filtered = useMemo(() => {
     let list = filter === 'ALL' ? sorted : sorted.filter(c => c.status === filter);
-    if (searchTerm.trim()) {
-      const term = searchTerm.trim().toUpperCase();
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.trim().toUpperCase();
       list = list.filter(c =>
         c.employeeName?.toUpperCase().includes(term) ||
         c.employeeId?.toUpperCase().includes(term)
       );
     }
     return list;
-  }, [sorted, filter, searchTerm]);
+  }, [sorted, filter, debouncedSearch]);
 
   // Group filtered complaints by employee
   const groupedByEmployee = useMemo(() => {
@@ -171,7 +173,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   }, [filtered]);
 
   // Reset visible count when filter or search changes
-  useEffect(() => { setVisibleGroupCount(15); }, [filter, searchTerm]);
+  useEffect(() => { setVisibleGroupCount(15); }, [filter, debouncedSearch]);
 
   // Infinite scroll — load more groups when sentinel enters viewport
   useEffect(() => {

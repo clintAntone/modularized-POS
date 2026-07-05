@@ -6,7 +6,7 @@ import { getWeekRange, parseDate } from '../../../src/utils/reportUtils';
 import { getTrueDate, formatPeso } from '../../../lib/time';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
-import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark, ArrowLeftRight } from 'lucide-react';
 
 type SubmissionStatus = 'submitted' | 'validated' | 'approved' | 'rejected' | null;
 
@@ -44,9 +44,11 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [loadingAdj, setLoadingAdj] = useState(true);
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
-  const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct'>('add');
+  const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
   const [adjTargetOwner, setAdjTargetOwner] = useState('');
+  const [adjTransferFrom, setAdjTransferFrom] = useState('');
+  const [adjTransferTo, setAdjTransferTo] = useState('');
   const [isSavingAdj, setIsSavingAdj] = useState(false);
   const [adjError, setAdjError] = useState<string | null>(null);
   const [submission, setSubmission] = useState<RemittanceSubmission | null>(null);
@@ -184,6 +186,48 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       setSubmission({ id: data.id, status: data.status, reviewNote: data.review_note, submittedAt: data.submitted_at });
     } else {
       setSubmission(null);
+    }
+  };
+
+  const handleTransferAdjustment = async (periodLabel: string) => {
+    const raw = parseFloat(adjForm.amount);
+    if (!adjTransferFrom || !adjTransferTo || adjTransferFrom === adjTransferTo) {
+      setAdjError('Select two different owners for the transfer.');
+      return;
+    }
+    if (!adjForm.description.trim() || isNaN(raw) || raw <= 0) {
+      setAdjError('Enter a valid amount and reason.');
+      return;
+    }
+    setIsSavingAdj(true);
+    setAdjError(null);
+    try {
+      const reason = adjForm.description.trim().toUpperCase();
+      const [{ data: debitData, error: e1 }, { data: creditData, error: e2 }] = await Promise.all([
+        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .insert({ branch_id: branch.id, period_label: periodLabel, description: `${reason} → ${adjTransferTo}`, amount: -raw, target_owner: adjTransferFrom })
+          .select().single(),
+        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .insert({ branch_id: branch.id, period_label: periodLabel, description: `${reason} ← ${adjTransferFrom}`, amount: raw, target_owner: adjTransferTo })
+          .select().single(),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      setAdjustments(prev => [
+        ...prev,
+        { id: debitData.id, branchId: debitData.branch_id, periodLabel: debitData.period_label, description: debitData.description, amount: Number(debitData.amount), targetOwner: adjTransferFrom, createdAt: debitData.created_at },
+        { id: creditData.id, branchId: creditData.branch_id, periodLabel: creditData.period_label, description: creditData.description, amount: Number(creditData.amount), targetOwner: adjTransferTo, createdAt: creditData.created_at },
+      ]);
+      setAdjForm({ description: '', amount: '' });
+      setAdjTransferFrom('');
+      setAdjTransferTo('');
+      setAdjFormKey(null);
+      playSound('success');
+    } catch (err: any) {
+      setAdjError(err?.message || 'Failed to save transfer.');
+      playSound('warning');
+    } finally {
+      setIsSavingAdj(false);
     }
   };
 
@@ -519,7 +563,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   })();
 
   return (
-    <div className="space-y-4 pb-20 max-w-4xl mx-auto">
+    <div className="space-y-4 pb-20">
 
       {/* ── Overdue remittance reminder popup ── */}
       {!loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
@@ -654,6 +698,22 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         </div>
       )}
 
+      {/* ── KPI Strip ── */}
+      <div className="hidden md:grid grid-cols-4 gap-3">
+        {[
+          { label: 'Gross Sales', value: fmt(agg.grossSales), color: 'text-slate-900', sub: `${agg.reportCount} day${agg.reportCount !== 1 ? 's' : ''}` },
+          { label: 'Staff Payroll', value: fmt(agg.totalStaffPay), color: 'text-rose-600', sub: 'commissions + allowance' },
+          { label: 'Expenses', value: fmt(agg.totalExpenses + agg.totalVaultProvision), color: 'text-rose-600', sub: 'operational + vault/bills' },
+          { label: hasAdj ? 'Adjusted ROI' : 'Net ROI', value: fmt(adjustedRoi), color: adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-600', sub: hasAdj ? `base ${fmt(agg.netRoi)}` : 'for this period' },
+        ].map(k => (
+          <div key={k.label} className="bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+            <p className={`text-xl font-black tabular-nums tracking-tighter ${k.color}`}>{k.value}</p>
+            <p className="text-xs font-medium text-slate-300 uppercase tracking-wide mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Main card */}
       <div className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
         submission?.status === 'approved' ? 'border-emerald-300' : 'border-slate-100'
@@ -710,7 +770,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         </div>
 
         {/* Two-col on desktop: receipt left, adjustments right */}
-        <div className="md:grid md:grid-cols-[1fr_420px] md:divide-x md:divide-slate-100">
+        <div className="md:grid md:grid-cols-[1fr_400px] md:divide-x md:divide-slate-100">
 
           {/* LEFT — Receipt */}
           <div className="px-6 py-5 space-y-0 font-mono text-xs">
@@ -817,51 +877,11 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </div>
 
           {/* RIGHT — Adjustments */}
-          <div className="px-5 py-5 space-y-1.5 flex flex-col">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
+          <div className="px-5 py-5 flex flex-col gap-4">
 
-            {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
-              <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
-                <Landmark className="w-4 h-4 text-teal-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-teal-800 uppercase tracking-widest">Vault Deposit</p>
-                </div>
-                <span className="text-sm font-black text-teal-700 tabular-nums shrink-0">{fmt(Math.abs(a.amount))}</span>
-              </div>
-            ))}
-
-            {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').map(adj => (
-              <div key={adj.id} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold text-slate-800 uppercase tracking-tight truncate block">{adj.description}</span>
-                    {adj.targetOwner && adj.description !== 'VAULT DEPOSIT' && (
-                      <span className="text-xs font-semibold text-rose-500 uppercase tracking-widest">→ {adj.targetOwner}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
-                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                  </span>
-                  {submission?.status !== 'validated' && submission?.status !== 'approved' && (
-                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length === 0 && adjFormKey !== formKey && (
-              <p className="text-xs text-slate-400 italic">No adjustments</p>
-            )}
-
-            <div className="flex-1" />
-
+            {/* Action buttons — always at top when no form open */}
             {adjFormKey !== formKey && submission?.status !== 'approved' && (
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex flex-col gap-2">
                 {adjNotYet ? (
                   <div className="flex items-center gap-1.5">
                     <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
@@ -873,28 +893,165 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                     <span className="text-xs font-black text-amber-500 uppercase tracking-widest">Adjustment window closed</span>
                   </div>
                 ) : (
-                  <>
+                  <div className={`grid gap-2 ${owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                    {/* ADD */}
                     <button
-                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); }}
-                      className="flex items-center justify-center w-9 h-9 bg-slate-900 text-white rounded-xl active:scale-95 transition-all hover:bg-slate-700"
-                      title="Add Extra"
+                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
                     >
-                      <Plus className="w-4 h-4" />
+                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none">Add</p>
+                        <p className="text-xs font-medium text-white/50 mt-0.5 leading-none">to ROI</p>
+                      </div>
                     </button>
+
+                    {/* DEDUCT */}
                     <button
-                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); }}
-                      className="flex items-center justify-center w-9 h-9 bg-white border border-slate-200 text-slate-600 rounded-xl active:scale-95 transition-all hover:border-slate-400"
-                      title="Deduct"
+                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-white border border-slate-200 text-slate-700 rounded-2xl active:scale-95 transition-all hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <Minus className="w-4 h-4" />
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                        <Minus className="w-3.5 h-3.5 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none text-slate-800">Deduct</p>
+                        <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
+                      </div>
                     </button>
-                  </>
+
+                    {/* VAULT DEPOSIT — full width, only when vault eligible */}
+                    {canDepositToVault && branch.vaultEnabled && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjFormKey(formKey); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                          <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-emerald-800">Deposit to Vault</p>
+                          <p className="text-xs font-medium text-emerald-400 mt-0.5 leading-none">Deduct from ROI → vault balance</p>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* TRANSFER — full width when owners >= 2 */}
+                    {owners.length >= 2 && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('transfer'); setAdjFormKey(formKey); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-indigo-800">Owner Reimbursement</p>
+                          <p className="text-xs font-medium text-indigo-400 mt-0.5 leading-none">Debit one, credit another</p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
             {adjFormKey === formKey && (() => {
-              const vaultEligible = adjFormMode === 'deduct' && canDepositToVault && !!branch.vaultEnabled;
+              // ── TRANSFER FORM ──────────────────────────────────────────────
+              if (adjFormMode === 'transfer') return (
+                <div className="border border-indigo-200 bg-indigo-50 rounded-2xl p-4 space-y-2.5 mt-2">
+                  <div className="flex items-center gap-2">
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Owner Transfer</span>
+                  </div>
+                  <p className="text-xs text-indigo-500">Debit one owner and credit another. Net ROI is unchanged.</p>
+
+                  {/* From / To selectors */}
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">From (pays)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {owners.map((o: any) => (
+                          <button
+                            key={o.name}
+                            type="button"
+                            onClick={() => { setAdjTransferFrom(o.name); if (o.name === adjTransferTo) setAdjTransferTo(''); }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${
+                              adjTransferFrom === o.name
+                                ? 'bg-rose-500 text-white shadow-sm'
+                                : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'
+                            }`}
+                          >{o.name}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">To (receives)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {owners.filter((o: any) => o.name !== adjTransferFrom).map((o: any) => (
+                          <button
+                            key={o.name}
+                            type="button"
+                            onClick={() => setAdjTransferTo(o.name)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${
+                              adjTransferTo === o.name
+                                ? 'bg-emerald-500 text-white shadow-sm'
+                                : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'
+                            }`}
+                          >{o.name}</button>
+                        ))}
+                        {!adjTransferFrom && (
+                          <span className="text-xs font-medium text-indigo-300 italic px-1 py-1.5">Select "From" first</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={adjForm.description}
+                    onChange={e => setAdjForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Reason (e.g. Reimbursement)"
+                    className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none focus:border-indigo-400 transition-colors"
+                  />
+
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">₱</span>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={adjForm.amount}
+                      onChange={e => setAdjForm(f => ({ ...f, amount: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-indigo-200 pl-8 pr-4 py-2.5 rounded-xl text-sm font-black outline-none focus:border-indigo-400 transition-colors tabular-nums"
+                    />
+                  </div>
+
+                  {adjTransferFrom && adjTransferTo && adjForm.amount && (
+                    <div className="bg-white border border-indigo-100 rounded-xl px-3 py-2 text-xs text-indigo-700 space-y-0.5">
+                      <div className="flex justify-between"><span>{adjTransferFrom}</span><span className="font-black text-rose-500">-{fmt(parseFloat(adjForm.amount) || 0)}</span></div>
+                      <div className="flex justify-between"><span>{adjTransferTo}</span><span className="font-black text-emerald-600">+{fmt(parseFloat(adjForm.amount) || 0)}</span></div>
+                    </div>
+                  )}
+
+                  {adjError && <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{adjError}</p>}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setAdjFormKey(null); setAdjError(null); setAdjForm({ description: '', amount: '' }); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all"
+                    >Cancel</button>
+                    <button
+                      onClick={() => handleTransferAdjustment(currentGroup.label)}
+                      disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount}
+                      className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40"
+                    >{isSavingAdj ? '…' : 'Transfer'}</button>
+                  </div>
+                </div>
+              );
+
+              // ── ADD / DEDUCT FORM ──────────────────────────────────────────
               return (
               <div className={`border rounded-2xl p-4 space-y-2.5 mt-2 ${isVaultDeposit ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="flex items-center gap-2">
@@ -903,25 +1060,6 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                     {adjFormMode === 'add' ? 'Add to ROI' : isVaultDeposit ? 'Deposit to Vault' : 'Deduct from ROI'}
                   </span>
                 </div>
-                {vaultEligible && (
-                  <label className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${isVaultDeposit ? 'bg-emerald-100 border border-emerald-300' : 'bg-white border border-slate-200 hover:border-emerald-300'}`}>
-                    <input
-                      type="checkbox"
-                      checked={isVaultDeposit}
-                      onChange={e => {
-                        const checked = e.target.checked;
-                        setIsVaultDeposit(checked);
-                        setAdjTargetOwner('');
-                        if (checked) { setAdjForm(f => ({ ...f, description: 'VAULT DEPOSIT', amount: '' })); }
-                        else { setAdjForm(f => ({ ...f, description: '', amount: '' })); }
-                      }}
-                      className="w-3.5 h-3.5 accent-emerald-600 shrink-0"
-                    />
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
-                      Deposit to Vault
-                    </span>
-                  </label>
-                )}
                 <input
                   type="text"
                   value={adjForm.description}
@@ -931,14 +1069,15 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   autoFocus={!isVaultDeposit}
                   className={`w-full border px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none transition-colors ${isVaultDeposit ? 'bg-emerald-100 border-emerald-200 text-emerald-800 cursor-default' : 'bg-white border-slate-200 focus:border-slate-400'}`}
                 />
-                {adjFormMode === 'deduct' && owners.length > 0 && !isVaultDeposit && (
+                {/* Owner targeting — available for both add and deduct */}
+                {owners.length > 0 && !isVaultDeposit && (
                   <select
                     value={adjTargetOwner}
                     onChange={e => setAdjTargetOwner(e.target.value)}
                     className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none focus:border-slate-400 transition-colors appearance-none"
                   >
-                    <option value="">All Owners (Global)</option>
-                    {owners.map((o: any) => <option key={o.name} value={o.name}>{o.name}</option>)}
+                    <option value="">All Owners (Global ROI)</option>
+                    {owners.map((o: any) => <option key={o.name} value={o.name}>{o.name} only</option>)}
                   </select>
                 )}
                 <div className="relative">
@@ -984,6 +1123,58 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               </div>
               );
             })()}
+
+            {/* Adjustments list — below buttons/form */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
+
+              {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
+                <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
+                  <Landmark className="w-4 h-4 text-teal-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-teal-800 uppercase tracking-widest">Vault Deposit</p>
+                  </div>
+                  <span className="text-sm font-black text-teal-700 tabular-nums shrink-0">{fmt(Math.abs(a.amount))}</span>
+                </div>
+              ))}
+
+              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').map(adj => {
+                const isTransfer = adj.description.includes(' → ') || adj.description.includes(' ← ');
+                return (
+                <div key={adj.id} className={`flex items-center justify-between rounded-xl px-4 py-3 gap-4 border ${isTransfer ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {isTransfer
+                      ? <ArrowLeftRight className={`w-3 h-3 shrink-0 ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-500'}`} />
+                      : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                    }
+                    <div className="min-w-0">
+                      <span className={`text-xs font-semibold uppercase tracking-tight truncate block ${isTransfer ? 'text-indigo-800' : 'text-slate-800'}`}>{adj.description}</span>
+                      {adj.targetOwner && !isTransfer && (
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">→ {adj.targetOwner}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : isTransfer ? 'text-emerald-600' : 'text-slate-800'}`}>
+                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                    </span>
+                    {submission?.status !== 'validated' && submission?.status !== 'approved' && (
+                      <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                );
+              })}
+
+              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length === 0 && (
+                <div className="flex flex-col items-center justify-center py-6 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">No adjustments</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Use the buttons above to add one</p>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>{/* close two-col grid */}

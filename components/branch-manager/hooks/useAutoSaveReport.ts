@@ -98,6 +98,10 @@ export function useAutoSaveReport({
         let savedVaultProvision = 0;
         let liveVaultBalance = branchVault?.balance ?? 0;
         if (isVaultBranch) {
+          // Use next-day boundary (exclusive) so no deposit near midnight is ever missed.
+          const nextDayDate = new Date(`${todayStr}T00:00:00+08:00`);
+          nextDayDate.setDate(nextDayDate.getDate() + 1);
+          const nextDayStr = nextDayDate.toISOString().slice(0, 10);
           const [{ data: freshDeposits }, { data: freshVault }] = await Promise.all([
             supabase
               .from(DB_TABLES.VAULT_TRANSACTIONS)
@@ -105,7 +109,7 @@ export function useAutoSaveReport({
               .eq(DB_COLUMNS.BRANCH_ID, branch.id)
               .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
               .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00+08:00`)
-              .lt(DB_COLUMNS.TIMESTAMP, `${todayStr}T23:59:59.999+08:00`),
+              .lt(DB_COLUMNS.TIMESTAMP, `${nextDayStr}T00:00:00+08:00`),
             supabase
               .from(DB_TABLES.BRANCH_VAULTS)
               .select(DB_COLUMNS.VAULT_BALANCE)

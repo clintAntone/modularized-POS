@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport, VaultTransaction } from '../../types';
 
 interface ReportAuditHubProps {
@@ -144,6 +145,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [sortCol, setSortCol] = useState<'roiDiscrepancy' | 'reportDate' | 'grossSales'>('roiDiscrepancy');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -261,8 +263,8 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
     else if (diagFilter) r = r.filter(x => x.diagnosis === diagFilter);
     if (dateFrom) r = r.filter(x => x.reportDate >= dateFrom);
     if (dateTo) r = r.filter(x => x.reportDate <= dateTo);
-    if (search) {
-      const q = search.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       r = r.filter(x => x.branchName.toLowerCase().includes(q) || x.reportDate.includes(q) || x.id.includes(q));
     }
     r = [...r].sort((a, b) => {
@@ -273,7 +275,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       return sortDir === 'desc' ? -diff : diff;
     });
     return r;
-  }, [rows, branchFilter, diagFilter, dateFrom, dateTo, search, sortCol, sortDir]);
+  }, [rows, branchFilter, diagFilter, dateFrom, dateTo, debouncedSearch, sortCol, sortDir]);
 
   const issueCount = useMemo(() => rows.filter(r => r.diagnosis !== 'OK' && r.diagnosis !== 'BACKFILL').length, [rows]);
 

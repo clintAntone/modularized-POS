@@ -684,7 +684,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   return createPortal(
       <div className="fixed inset-0 z-[5000] backdrop-blur-sm flex items-end md:items-center justify-center px-3 pb-3 pt-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
-        <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:bg-white print:overflow-visible print:block`}>
+        <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} border border-slate-200 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:bg-white print:overflow-visible print:block`}>
 
           {viewingExpense && (
               <ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />
@@ -1515,7 +1515,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
           {/* FOOTER ACTIONS */}
           <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-end items-center shrink-0 no-print">
-            <div className="text-center sm:text-right">
+            <div className="text-right">
               <p className="text-xs font-bold uppercase animate-pulse tracking-wide text-emerald-500/60 mb-1">Finalized Ledger ROI</p>
               <p className={`font-medium uppercase tracking-wide text-emerald-400 tabular-nums leading-none ${
                 (report.netRoi || 0).toLocaleString().length > 10 ? 'text-sm sm:text-base' :

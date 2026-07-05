@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Branch } from '../../types';
@@ -73,6 +74,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   const [branchServices, setBranchServices] = useState<BranchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [filterCatalog, setFilterCatalog] = useState('ALL');
   const [viewMode, setViewMode] = useState<'services' | 'branches'>('services');
   const [editingTemplate, setEditingTemplate] = useState<ServiceTemplate | null>(null);
@@ -158,9 +160,9 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     (Object.entries(catalogGroups) as [string, ServiceTemplate[]][]).forEach(([group, items]) => {
       if (filterCatalog !== 'ALL' && filterCatalog !== group) return;
       const filtered = items.filter(t =>
-        !search ||
-        t.name.includes(search) ||
-        t.default_price.toString().includes(search)
+        !debouncedSearch ||
+        t.name.includes(debouncedSearch) ||
+        t.default_price.toString().includes(debouncedSearch)
       );
       if (filtered.length > 0) result[group] = filtered;
     });
@@ -171,7 +173,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         if (filterCatalog === 'ALL' || filterCatalog === n) result[n] = [];
       });
     return result;
-  }, [catalogGroups, localCatalogNames, filterCatalog, search]);
+  }, [catalogGroups, localCatalogNames, filterCatalog, debouncedSearch]);
 
   const branchCount = (templateId: string) =>
     branchServices.filter(bs => bs.template_id === templateId).length;
@@ -412,7 +414,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {viewMode === 'branches' && (
         <div className="space-y-3">
           {branches.filter(branch =>
-            !search || branch.name.toUpperCase().includes(search)
+            !debouncedSearch || branch.name.toUpperCase().includes(debouncedSearch)
           ).map(branch => {
             const totalAssigned = templates.filter(t =>
               branchServices.some(bs => bs.template_id === t.id && bs.branch_id === branch.id)

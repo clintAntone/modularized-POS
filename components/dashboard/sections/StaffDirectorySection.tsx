@@ -1147,7 +1147,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       {/* Staff list */}
       {branchStaff.length > 0 ? (
-        <div className="space-y-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {branchStaff.map((emp, idx) => {
             const currentRole = getEmployeeRole(emp, branch.id);
             const branchCfg = emp.branchAllowances?.[branch.id];
@@ -1159,7 +1159,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
             return (
               <React.Fragment key={emp.id}>
-                {idx > 0 && <div className="h-3" />}
                 <StaffCard
                   emp={emp}
                   branchId={branch.id}

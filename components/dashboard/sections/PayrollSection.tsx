@@ -476,8 +476,9 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     const isSettled = settlementStatuses[settlementKey] === 'settled';
 
     const cycleEndDay = new Date(selectedCycle.endDate);
-    cycleEndDay.setHours(23, 59, 59, 999);
-    const isCycleComplete = new Date() > cycleEndDay;
+    cycleEndDay.setHours(0, 0, 0, 0);
+    const todayMidnight = getTrueDate(); todayMidnight.setHours(0, 0, 0, 0);
+    const isCycleComplete = cycleEndDay < todayMidnight;
 
     return (
       <div className="max-w-5xl mx-auto space-y-4 pb-32 px-3 sm:px-4 animate-in fade-in slide-in-from-bottom-4 duration-400">

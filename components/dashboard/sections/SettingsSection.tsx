@@ -8,7 +8,7 @@ import { generateSalt, hashPin } from '../../../lib/crypto';
 import { getInitials } from '../../../lib/payroll';
 import { useUpdateBranch, useAddAuditLog, useUpdateEmployee } from '../../../hooks/useNetworkData';
 import { invalidateBranchSessions } from '../../../lib/audit';
-import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle, Sun, Moon } from 'lucide-react';
+import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle, Sun, Moon, Building2 } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { getTrueISOString } from '../../../lib/time';
 
@@ -35,22 +35,30 @@ const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 );
 
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
+  <div className={`bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden ${className}`}>
     {children}
   </div>
 );
 
-const CardHeader = ({ icon, title, badge }: { icon: React.ReactNode; title: string; badge?: React.ReactNode }) => (
-  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
-    <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
-        {icon}
+const CardHeader = ({ icon, title, badge, accent = 'emerald' }: { icon: React.ReactNode; title: string; badge?: React.ReactNode; accent?: 'emerald' | 'indigo' | 'violet' | 'amber' }) => {
+  const accentClasses: Record<string, string> = {
+    emerald: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+    indigo:  'bg-indigo-50 text-indigo-600 border border-indigo-100',
+    violet:  'bg-violet-50 text-violet-600 border border-violet-100',
+    amber:   'bg-amber-50 text-amber-600 border border-amber-100',
+  };
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/40">
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${accentClasses[accent]}`}>
+          {icon}
+        </div>
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{title}</span>
       </div>
-      <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{title}</span>
+      {badge}
     </div>
-    {badge}
-  </div>
-);
+  );
+};
 
 // ── Confirm Modal ────────────────────────────────────────────────────────────
 interface ConfirmModalProps {
@@ -444,29 +452,53 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   return (
     <div className="max-w-2xl mx-auto pb-32 space-y-5">
 
-      {/* ── Page Header ── */}
-      <div className="flex items-center gap-3 px-1">
-        <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-md shrink-0">
-          <Terminal className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-base font-black text-slate-900 uppercase tracking-tighter leading-none">{isRelief ? 'My Account' : 'Terminal Admin'}</h2>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5 truncate">
-            {branch.name.replace('BRANCH - ', '')}
-          </p>
+      {/* ── Page Header — Identity Card ── */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 shadow-lg px-5 py-5">
+        {/* subtle texture ring */}
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5" />
+        <div className="absolute -bottom-8 -right-2 w-24 h-24 rounded-full bg-white/[0.03]" />
+        <div className="relative flex items-center gap-4">
+          {/* Avatar */}
+          <div className="w-14 h-14 rounded-2xl shrink-0 overflow-hidden border-2 border-white/20 shadow-md bg-slate-700">
+            {currentEmployee?.profile
+              ? <img src={currentEmployee.profile} alt="profile" className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center font-black text-xl text-white select-none">
+                  {getInitials(currentEmployee?.name || user.username || '?')}
+                </div>
+            }
+          </div>
+          {/* Identity info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-black text-white leading-tight truncate">
+              {currentEmployee?.name || user.username || '—'}
+            </p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5 truncate">
+              {isRelief ? 'Relief Manager' : (currentEmployee?.role || 'Branch Manager').replace(/_/g, ' ')}
+            </p>
+            <div className="flex items-center gap-1.5 mt-2">
+              <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+              <p className="text-xs font-medium text-slate-400 truncate">
+                {branch.name.replace(/BRANCH\s*-\s*/i, '')}
+              </p>
+            </div>
+          </div>
+          {/* Settings icon badge */}
+          <div className="w-9 h-9 rounded-xl bg-white/10 text-white/60 flex items-center justify-center shrink-0">
+            <Terminal className="w-4 h-4" />
+          </div>
         </div>
       </div>
 
       {/* ── Tab Bar ── */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner gap-1">
+      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner gap-1">
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); playSound('click'); setError(''); setSuccess(''); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${activeTab === tab.id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow border border-slate-200 dark:border-slate-600' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             {tab.icon}
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -491,32 +523,6 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       {activeTab === 'operations' && (
         <div className="space-y-4 animate-in fade-in duration-300">
 
-          {/* ── Appearance ─────────────────────────────────────────────────── */}
-          <Card>
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                  {isDark ? <Moon className="w-4 h-4 text-slate-500" /> : <Sun className="w-4 h-4 text-slate-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 leading-none">Appearance</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{isDark ? 'Dark mode' : 'Light mode'}</p>
-                </div>
-              </div>
-              <button
-                onClick={toggleTheme}
-                className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}
-              >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full shadow-sm transition-all duration-300 flex items-center justify-center ${isDark ? 'translate-x-6 bg-slate-200' : 'translate-x-0.5 bg-white'}`}>
-                  {isDark
-                    ? <Moon className="w-2.5 h-2.5 text-slate-700" />
-                    : <Sun className="w-2.5 h-2.5 text-amber-500" />
-                  }
-                </span>
-              </button>
-            </div>
-          </Card>
-
           {/* Branch must be closed notice */}
           {!branchIsClosed && (
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 px-4 py-3 rounded-2xl">
@@ -532,6 +538,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <CardHeader
               icon={<Clock className="w-4 h-4" />}
               title="Operational Window"
+              accent="emerald"
             />
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -542,7 +549,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     disabled={!branchIsClosed}
                     value={openingTime}
                     onChange={e => setOpeningTime(e.target.value)}
-                    className={`w-full px-4 py-3 rounded-2xl font-bold text-sm outline-none border-2 transition-all ${!branchIsClosed ? 'bg-slate-50 text-slate-300 border-transparent cursor-not-allowed' : 'bg-slate-50 border-transparent focus:border-emerald-500 focus:bg-white text-slate-900'}`}
+                    className={`w-full px-4 py-3 rounded-2xl font-bold text-sm outline-none border-2 transition-all ${!branchIsClosed ? 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500 border-transparent cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-700 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-600 text-slate-900 dark:text-white'}`}
                   />
                 </div>
                 <div>
@@ -552,7 +559,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     disabled={!branchIsClosed}
                     value={closingTime}
                     onChange={e => setClosingTime(e.target.value)}
-                    className={`w-full px-4 py-3 rounded-2xl font-bold text-sm outline-none border-2 transition-all ${!branchIsClosed ? 'bg-slate-50 text-slate-300 border-transparent cursor-not-allowed' : 'bg-slate-50 border-transparent focus:border-emerald-500 focus:bg-white text-slate-900'}`}
+                    className={`w-full px-4 py-3 rounded-2xl font-bold text-sm outline-none border-2 transition-all ${!branchIsClosed ? 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500 border-transparent cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-700 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-600 text-slate-900 dark:text-white'}`}
                   />
                 </div>
               </div>
@@ -565,11 +572,12 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <CardHeader
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>}
               title="Face Recognition"
+              accent="violet"
             />
             <div className="p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold text-slate-800">Clock-in via Face ID</p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Clock-in via Face ID</p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {localFaceIdEnabled
                       ? 'Employees must scan their face to clock in'
@@ -591,9 +599,16 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           <button
             onClick={handleBranchSettingsSubmit}
             disabled={isSavingOperational || !branchIsClosed}
-            className={`w-full h-12 rounded-2xl font-black text-xs uppercase tracking-widest shadow-md active:scale-95 transition-all ${!branchIsClosed ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
+            className={`w-full h-12 rounded-2xl font-black text-xs uppercase tracking-widest shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 ${
+              !branchIsClosed
+                ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200 shadow-lg'
+            }`}
           >
-            {isSavingOperational ? 'Saving…' : 'Save Branch Settings'}
+            {isSavingOperational
+              ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
+              : <><Check className="w-4 h-4" strokeWidth={3} />Save Branch Settings</>
+            }
           </button>
         </div>
       )}
@@ -989,6 +1004,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <CardHeader
               icon={<Shield className="w-4 h-4" />}
               title="Relief Manager Protocol"
+              accent="indigo"
               badge={
                 <div className="flex items-center gap-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${branch.tempManager ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`} />

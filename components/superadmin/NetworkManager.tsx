@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { Pagination } from '../dashboard/sections/common/Pagination';
@@ -19,6 +20,7 @@ interface NetworkManagerProps {
 
 export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd, onAddBulk, onEdit, onToggle, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('all');
   const [managerFilter, setManagerFilter] = useState<'all' | 'has_manager' | 'no_manager'>('all');
@@ -33,10 +35,10 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
   const filteredBranches = useMemo(() => {
     let res = [...branches];
     
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase().trim();
-      res = res.filter(b => 
-        b.name.toLowerCase().includes(term) || 
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.toLowerCase().trim();
+      res = res.filter(b =>
+        b.name.toLowerCase().includes(term) ||
         b.id.toLowerCase().includes(term)
       );
     }
@@ -58,11 +60,11 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
     }
 
     return res;
-  }, [branches, searchTerm, statusFilter, liveFilter, managerFilter]);
+  }, [branches, debouncedSearch, statusFilter, liveFilter, managerFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, liveFilter, managerFilter]);
+  }, [debouncedSearch, statusFilter, liveFilter, managerFilter]);
 
   const paginatedBranches = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;

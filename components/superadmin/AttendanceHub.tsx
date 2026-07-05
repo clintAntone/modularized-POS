@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Calendar } from 'lucide-react';
 import { Attendance, Branch, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -22,6 +23,7 @@ interface AttendanceHubProps {
 
 export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employees, onRefresh, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const todayStr = new Intl.DateTimeFormat('en-CA', {
@@ -63,7 +65,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
         if (dateFrom) query = query.gte(DB_COLUMNS.DATE, dateFrom);
         if (dateTo)   query = query.lte(DB_COLUMNS.DATE, dateTo);
         if (selectedBranchIds.length > 0) query = query.in(DB_COLUMNS.BRANCH_ID, selectedBranchIds);
-        if (searchTerm.trim()) query = query.ilike(DB_COLUMNS.STAFF_NAME, `%${searchTerm.trim()}%`);
+        if (debouncedSearch.trim()) query = query.ilike(DB_COLUMNS.STAFF_NAME, `%${debouncedSearch.trim()}%`);
         query = query.limit(2000);
 
         const { data, error } = await query;
@@ -84,7 +86,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
         if (token === fetchRef.current) setIsFetching(false);
       }
     })();
-  }, [dateFrom, dateTo, selectedBranchIds, searchTerm, refreshTick]);
+  }, [dateFrom, dateTo, selectedBranchIds, debouncedSearch, refreshTick]);
 
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'

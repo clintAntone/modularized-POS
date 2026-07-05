@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
@@ -24,6 +25,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; dot: strin
 
 export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports, realTimeExpenses = [], hideHeader = false }) => {
   const [searchTerm, setSearchTerm]       = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [startDate, setStartDate]         = useState('');
@@ -66,12 +68,12 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
   const filteredExpenses = useMemo(() => allExpenses.filter(exp => {
     const matchesBranch   = selectedBranchIds.length === 0 || selectedBranchIds.includes(exp.branchId);
     const matchesCategory = categoryFilter === 'all' || exp.category === categoryFilter;
-    const matchesSearch   = exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            exp.branchName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch   = exp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                            exp.branchName.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesStart    = !startDate || exp.reportDate >= startDate;
     const matchesEnd      = !endDate   || exp.reportDate <= endDate;
     return matchesBranch && matchesCategory && matchesSearch && matchesStart && matchesEnd;
-  }), [allExpenses, selectedBranchIds, categoryFilter, searchTerm, startDate, endDate]);
+  }), [allExpenses, selectedBranchIds, categoryFilter, debouncedSearch, startDate, endDate]);
 
   const totals = useMemo(() => filteredExpenses.reduce((acc, curr) => {
     acc.total += curr.amount;

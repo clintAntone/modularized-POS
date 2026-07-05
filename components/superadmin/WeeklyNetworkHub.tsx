@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -15,6 +16,7 @@ interface WeeklyNetworkHubProps {
 export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, salesReports }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getManilaTodayStr());
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   // Calculate the standard week range for the selected date (Monday to Sunday)
   const weekInfo = useMemo(() => {
@@ -73,13 +75,13 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
       };
     });
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toUpperCase();
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.toUpperCase();
       stats = stats.filter(b => b.name.toUpperCase().includes(term));
     }
 
     return stats.sort((a, b) => b.gross - a.gross);
-  }, [branches, salesReports, selectedDate, searchTerm]);
+  }, [branches, salesReports, selectedDate, debouncedSearch]);
 
   const networkTotals = useMemo(() => {
     return branchWeeklyStats.reduce((acc, curr) => ({

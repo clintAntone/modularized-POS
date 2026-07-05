@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, Transaction, Expense, Employee, Attendance, SalesReport } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
@@ -25,13 +26,14 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 }) => {
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   const filteredBranches = useMemo(() => {
-    return branches.filter(b => 
-      b.name.toUpperCase().includes(searchTerm.toUpperCase()) ||
-      b.id.toUpperCase().includes(searchTerm.toUpperCase())
+    return branches.filter(b =>
+      b.name.toUpperCase().includes(debouncedSearch.toUpperCase()) ||
+      b.id.toUpperCase().includes(debouncedSearch.toUpperCase())
     ).sort((a, b) => a.name.localeCompare(b.name));
-  }, [branches, searchTerm]);
+  }, [branches, debouncedSearch]);
 
   const selectedBranch = useMemo(() => 
     branches.find(b => b.id === selectedBranchId)

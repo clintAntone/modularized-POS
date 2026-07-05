@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import ReactDOM from 'react-dom';
 import { Branch, SalesReport, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -34,6 +35,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     }
     return saved;
   });
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [lastSync, setLastSync] = useState<Date>(getTrueDate());
   const [mobileSortBy, setMobileSortBy] = useState<SortKey>('gross');
   const [selectedReport, setSelectedReport] = useState<{ report: SalesReport; branch: Branch } | null>(null);
@@ -163,8 +165,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     }
 
     // Apply Search Filter
-    if (searchTerm.trim()) {
-      const term = searchTerm.toUpperCase();
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.toUpperCase();
       stats = stats.filter(b => (b.name || '').toUpperCase().includes(term) || (b.id || '').toUpperCase().includes(term));
     }
 
@@ -174,7 +176,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if (mobileSortBy === 'name') return (a.name || '').localeCompare(b.name || '');
       return (b[mobileSortBy] || 0) - (a[mobileSortBy] || 0);
     });
-  }, [branches, salesReports, selectedDate, mobileSortBy, searchTerm, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
+  }, [branches, salesReports, selectedDate, mobileSortBy, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
 
   const paginatedStats = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;

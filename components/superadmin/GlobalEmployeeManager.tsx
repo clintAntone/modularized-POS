@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Shield } from 'lucide-react';
 import { Branch, Employee } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -35,6 +36,7 @@ interface GlobalEmployeeManagerProps {
 
 export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
@@ -107,8 +109,8 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         return isTarget && isStatusValid && isRoleMatch && isResetMatch;
     });
 
-    if (searchTerm.trim()) {
-      const raw = searchTerm.toUpperCase().trim();
+    if (debouncedSearch.trim()) {
+      const raw = debouncedSearch.toUpperCase().trim();
       // Strip EMP-MM-DD- prefix if typed, so searching "EMP-04-05-abc" or just "abc" both work
       const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
       const stripPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
@@ -134,11 +136,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       if (sortBy === 'pay_desc') return (b.allowance || 0) - (a.allowance || 0);
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [employees, selectedBranchIds, searchTerm, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
+  }, [employees, selectedBranchIds, debouncedSearch, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
+  }, [debouncedSearch, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
 
   const resetRequestedCount = useMemo(() => 
     employees.filter(e => e.requestReset).length

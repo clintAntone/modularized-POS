@@ -267,14 +267,12 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     );
     const totalVaultWithdrawalExp = todayWithdrawals.reduce((s, t) => s + t.amount, 0);
     const totalProvisionExp = exps.filter(e => e.category === 'PROVISION').reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const regularAttendance = dailyAttendance.filter(a => {
-      const emp = employees.find(e => e.id === a.employeeId);
-      return emp && emp.branchId === branch.id;
-    });
-
-    const regularLateDeductions = regularAttendance.reduce((s, a) => s + (Number(a.lateDeduction) || 0), 0);
-    const regularOtAdditions = regularAttendance.reduce((s, a) => s + (Number(a.otPay) || 0), 0);
-    const regularTotalCashAdvances = regularAttendance.reduce((s, a) => s + (Number(a.cashAdvance) || 0), 0);
+    // Use all non-reliever staff (by summary.isReliever) so that temp managers'
+    // OT and late deductions are included — home-branch filter previously excluded them.
+    const regularStaffItems = Object.values(summary).filter((item: any) => !item.isReliever);
+    const regularLateDeductions = regularStaffItems.reduce((s, item: any) => s + (Number(item.attendance?.lateDeduction) || 0), 0);
+    const regularOtAdditions = regularStaffItems.reduce((s, item: any) => s + (Number(item.attendance?.otPay) || 0), 0);
+    const regularTotalCashAdvances = regularStaffItems.reduce((s, item: any) => s + (Number(item.attendance?.cashAdvance) || 0), 0);
 
     const totalAllowances = Object.values(summary).filter((item: any) => !item.isReliever).reduce((sum, item: any) => sum + item.allowance, 0);
     
@@ -428,24 +426,37 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
   const handleFinalDeleteVaultDeposit = async () => {
     if (!vaultDepositToDelete || isDeletingVaultDeposit || isClosedMode) return;
-    const { id: depositId, amount: refundAmount } = vaultDepositToDelete;
+    const { id: depositId } = vaultDepositToDelete;
     setIsDeletingVaultDeposit(true);
     try {
-      // Delete from vault_transactions — atomic, no partial-failure risk
-      const { error: txErr, count } = await supabase
+      // Fetch the authoritative deposit amount from DB before deleting — never trust stale cache
+      // for the refund amount, otherwise a concurrent update could leave the balance wrong.
+      const [{ data: depositRecord }, { data: liveVault }] = await Promise.all([
+        supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .select('amount')
+          .eq(DB_COLUMNS.ID, depositId)
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .maybeSingle(),
+        supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .select(DB_COLUMNS.VAULT_BALANCE)
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .single(),
+      ]);
+
+      if (!depositRecord) throw new Error(`Deposit ${depositId} not found — vault balance unchanged.`);
+      const refundAmount = Number(depositRecord.amount) || 0;
+
+      // Delete the vault_transaction record
+      const { error: txErr } = await supabase
         .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete({ count: 'exact' })
+        .delete()
         .eq(DB_COLUMNS.ID, depositId)
         .eq(DB_COLUMNS.BRANCH_ID, branch.id);
       if (txErr) throw txErr;
-      if ((count ?? 0) === 0) throw new Error(`Deposit ${depositId} not found — vault balance unchanged.`);
 
-      // Refund the deposit amount back to vault balance
-      const { data: liveVault } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
+      // Reduce vault balance by the authoritative deposit amount
       const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
       const { error: vaultErr } = await supabase
         .from(DB_TABLES.BRANCH_VAULTS)
@@ -575,16 +586,28 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     const timestamp = `${depositDate}T${timePart}.000+08:00`;
     const reportId = `${branch.id}_${depositDate.replace(/-/g, '')}`;
 
-    // One-deposit-per-day: check for an existing DEPOSIT for this date
-    const existingDeposit = vaultTransactions.find(
-      t => t.branchId === branch.id && t.type === 'DEPOSIT' && toManilaDateStr(t.timestamp) === depositDate
-    );
-
-    const { data: liveVault } = await supabase
-      .from(DB_TABLES.BRANCH_VAULTS)
-      .select(DB_COLUMNS.VAULT_BALANCE)
-      .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-      .single();
+    // One-deposit-per-day: query DB directly (not stale cache) to prevent duplicate inserts
+    // when two sessions or slow realtime subscriptions are in play.
+    const nextDepositDay = new Date(`${depositDate}T00:00:00+08:00`);
+    nextDepositDay.setDate(nextDepositDay.getDate() + 1);
+    const nextDepositDayStr = nextDepositDay.toISOString().slice(0, 10);
+    const [{ data: freshExisting }, { data: liveVault }] = await Promise.all([
+      supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select('id, amount')
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+        .gte(DB_COLUMNS.TIMESTAMP, `${depositDate}T00:00:00+08:00`)
+        .lt(DB_COLUMNS.TIMESTAMP, `${nextDepositDayStr}T00:00:00+08:00`)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(DB_COLUMNS.VAULT_BALANCE)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .single(),
+    ]);
+    const existingDeposit = freshExisting as { id: string; amount: number } | null;
     const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
 
     let newVaultBalance: number;
@@ -789,7 +812,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           const settlement = `${t.paymentMethod || 'CASH'} (${t.paymentStatus || 'PAID'})`;
 
           return [
-            new Date(t.timestamp.replace(/(\+00:00|Z)$/, "")).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(t.timestamp)),
             (t.clientName || '').toUpperCase(),
             (t.serviceName || '').toUpperCase(),
             `PHP ${netTotal.toLocaleString()}`,
@@ -1496,7 +1519,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 return (
                     <tr key={t.id}>
                       <td className="border border-slate-200 px-2 py-1.5 tabular-nums">
-                        {new Date(t.timestamp.replace(/(\+00:00|Z)$/, "")).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(t.timestamp))}
                       </td>
                       <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{t.clientName}</td>
                       <td className="border border-slate-200 px-2 py-1.5 uppercase leading-tight">{t.serviceName}</td>

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, AuditLog, Transaction } from '../../types';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -110,6 +111,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
     return () => { cancelled = true; };
   }, [selectedDate, allDates]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [entityFilter, setEntityFilter] = useState<EntityFilter>('ALL');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
@@ -128,8 +130,8 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
       const isEntityMatch = entityFilter === 'ALL' || log.entityType === entityFilter;
       return isDateMatch && isBranchMatch && isEntityMatch;
     });
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.toLowerCase();
       list = list.filter(l =>
         l.description.toLowerCase().includes(term) ||
         l.performerName?.toLowerCase().includes(term) ||
@@ -137,7 +139,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
       );
     }
     return list.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  }, [auditLogs, selectedBranchIds, selectedDate, allDates, searchTerm, entityFilter]);
+  }, [auditLogs, selectedBranchIds, selectedDate, allDates, debouncedSearch, entityFilter]);
 
   // Base logs (before entity filter) — used for pills and analytics
   const baseLogs = useMemo(() => auditLogs.filter(log => {

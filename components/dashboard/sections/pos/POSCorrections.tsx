@@ -97,31 +97,31 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                     </div>
 
                                     {/* ── Financial strip ── */}
-                                    <div className="grid grid-cols-3 border-t border-slate-100">
-                                        <div className="py-3 px-2 text-center border-r border-slate-100">
+                                    <div className="grid grid-cols-3 border-t border-slate-100 dark:border-slate-700">
+                                        <div className="py-3 px-2 text-center border-r border-slate-100 dark:border-slate-700">
                                             <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <Tag className="w-2.5 h-2.5 text-slate-400" />
                                                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Deducted</p>
                                             </div>
-                                            <p className={`text-sm font-black tabular-nums leading-none ${deduction > 0 ? 'text-rose-500' : 'text-slate-200'}`}>
+                                            <p className={`text-sm font-black tabular-nums leading-none ${deduction > 0 ? 'text-rose-500' : 'text-slate-400 dark:text-slate-600'}`}>
                                                 {deduction > 0 ? `-₱${deduction.toLocaleString()}` : '—'}
                                             </p>
                                         </div>
-                                        <div className="py-3 px-2 text-center border-r border-slate-100">
+                                        <div className="py-3 px-2 text-center border-r border-slate-100 dark:border-slate-700">
                                             <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <Banknote className="w-2.5 h-2.5 text-slate-400" />
                                                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Staff Pay</p>
                                             </div>
-                                            <p className={`text-sm font-black tabular-nums leading-none ${staffPay > 0 ? 'text-indigo-500' : 'text-slate-200'}`}>
+                                            <p className={`text-sm font-black tabular-nums leading-none ${staffPay > 0 ? 'text-indigo-500' : 'text-slate-400 dark:text-slate-600'}`}>
                                                 {staffPay > 0 ? `-₱${staffPay.toLocaleString()}` : '—'}
                                             </p>
                                         </div>
-                                        <div className="py-3 px-2 text-center bg-emerald-50/50">
+                                        <div className="py-3 px-2 text-center bg-emerald-50/50 dark:bg-emerald-900/20">
                                             <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <TrendingUp className="w-2.5 h-2.5 text-emerald-500" />
-                                                <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">ROI</p>
+                                                <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">ROI</p>
                                             </div>
-                                            <p className="text-sm font-black text-emerald-700 tabular-nums leading-none">₱{branchRoi.toLocaleString()}</p>
+                                            <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums leading-none">₱{branchRoi.toLocaleString()}</p>
                                         </div>
                                     </div>
 

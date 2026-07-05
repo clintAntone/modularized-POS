@@ -16,20 +16,11 @@ function getInitialTheme(): Theme {
   return 'light';
 }
 
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === 'dark') {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-}
-
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
+  // Only persist to localStorage — App.tsx owns the DOM class so there's no double-write conflict.
   useEffect(() => {
-    applyTheme(theme);
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {}
