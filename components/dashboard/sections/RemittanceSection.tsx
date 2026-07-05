@@ -603,7 +603,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </button>
           <button
             onClick={handleExportExcel}
-            className="flex items-center justify-center w-10 h-10 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
+            className="flex items-center justify-center w-10 h-10 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
             title="Export"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -673,7 +673,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {allGroupsWithCurrent.length <= 1 && (
               <button
                 onClick={handleExportExcel}
-                className="flex items-center justify-center w-9 h-9 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
+                className="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
                 title="Export"
               >
                 <FileSpreadsheet className="w-4 h-4" />
@@ -976,7 +976,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   <button
                     onClick={() => handleAddAdjustment(currentGroup.label, adjustedRoi)}
                     disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
-                    className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
+                    className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-800'}`}
                   >
                     {isSavingAdj ? '…' : isVaultDeposit ? 'Deposit' : 'Save'}
                   </button>

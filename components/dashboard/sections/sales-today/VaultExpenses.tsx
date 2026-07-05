@@ -317,26 +317,26 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
   return (
     <>
       {/* 2-column on desktop: Vault Fund Activity (left) | Expenses (right) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
 
         {/* ── LEFT: Vault Fund Activity (deposits + withdrawals) ── */}
         <div className="flex flex-col gap-3 order-2 md:order-1 pt-4 md:pt-0">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_6px_#818cf8]"></div>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+              </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Vault Fund</h4>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Deposits today</p>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest leading-none">Vault Fund</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Deposits today</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {vaultDepositSubtotal > 0 && (
-                <span className="text-xs font-bold text-indigo-500 tabular-nums">+₱{vaultDepositSubtotal.toLocaleString()}</span>
-              )}
-            </div>
+            {vaultDepositSubtotal > 0 && (
+              <span className="text-sm font-black text-emerald-600 tabular-nums">+₱{vaultDepositSubtotal.toLocaleString()}</span>
+            )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {hasVaultActivity ? allVaultActivity.map((e: any) => {
               const isDeposit = e.flow === 'deposit';
               const isRevealedDep = revealedVaultDepositDeleteId === e.id;
@@ -375,36 +375,36 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                   onMouseUp={cancelLP}
                   onMouseLeave={() => { cancelLP(); setRevealedVaultDepositDeleteId(null); setRevealedWithdrawalDeleteId(null); }}
                 >
-                  <div className={`p-4 rounded-[22px] border flex items-center justify-between shadow-sm transition-all duration-300 ${
+                  <div className={`px-3 py-3 rounded-xl border flex items-center justify-between transition-all duration-200 ${
                     isRevealed
-                      ? 'bg-white border-rose-400 translate-x-[-4px]'
+                      ? 'bg-rose-50 border-rose-300 translate-x-[-4px]'
                       : isDeposit
-                        ? 'border-indigo-100 bg-indigo-50/40'
-                        : 'border-amber-100 bg-amber-50/40'
+                        ? 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30'
+                        : 'bg-white border-slate-100 hover:border-amber-200 hover:bg-amber-50/30'
                   }`}>
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner border transition-colors ${
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                         isRevealed
-                          ? 'bg-rose-50 border-rose-200 text-rose-400'
+                          ? 'bg-rose-50 text-rose-400'
                           : isDeposit
-                            ? 'bg-indigo-100 border-indigo-200 text-indigo-500'
-                            : 'bg-amber-100 border-amber-200 text-amber-600'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-amber-50 text-amber-500'
                       }`}>
                         {isDeposit ? (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
                         ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 16l-6-6m6 6l6-6" /></svg>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 16l-6-6m6 6l6-6" /></svg>
                         )}
                       </div>
                       <div className="overflow-hidden">
-                        <p className={`text-xs font-bold uppercase truncate leading-none mb-1.5 transition-colors ${isRevealed ? 'text-rose-600' : isDeposit ? 'text-indigo-900' : 'text-amber-900'}`}>
+                        <p className={`text-xs font-bold uppercase truncate leading-none mb-1 transition-colors ${isRevealed ? 'text-rose-700' : isDeposit ? 'text-slate-800' : 'text-amber-900'}`}>
                           {expenseName}
                         </p>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${isDeposit ? 'bg-indigo-100 text-indigo-500' : 'bg-amber-100 text-amber-600'}`}>
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${isDeposit ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                             {isDeposit ? 'Saved' : 'Used'}
                           </span>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none tabular-nums">
+                          <p className="text-xs text-slate-400 tabular-nums">
                             {(() => {
                               const date = new Date((e.timestamp || '').replace(/(\+00:00|Z)$/, ''));
                               return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -414,14 +414,14 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <p className={`text-sm font-bold tabular-nums transition-colors ${isRevealed ? 'text-rose-600' : isDeposit ? 'text-indigo-700' : 'text-amber-700'}`}>
+                      <p className={`text-sm font-bold tabular-nums transition-colors ${isRevealed ? 'text-rose-600' : isDeposit ? 'text-emerald-700' : 'text-amber-600'}`}>
                         {isDeposit ? '+' : '−'}₱{Number(e.amount).toLocaleString()}
                       </p>
                       {/* DESKTOP hover delete */}
                       {canDelete && !isClosedMode && (
                         <button
                           onClick={handleDelete}
-                          className="hidden md:flex p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+                          className="hidden md:flex p-2 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 active:scale-90"
                           title={isDeposit ? 'Reverse deposit' : 'Reverse vault usage'}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -441,9 +441,9 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                 </div>
               );
             }) : (
-              <div className={`h-[100px] w-full text-center bg-slate-50/20 ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 grayscale opacity-10`}>
-                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No vault activity today</p>
+              <div className={`h-[90px] w-full bg-white ${UI_THEME.radius.card} border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2`}>
+                <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
+                <p className="text-xs text-slate-400">No vault deposits recorded today</p>
               </div>
             )}
           </div>
@@ -452,10 +452,10 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           <button
             onClick={onOpenVaultDeposit}
             disabled={isClosedMode || !onOpenVaultDeposit}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-indigo-100 ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
           >
-            <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
-            <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">Vault Deposit</span>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+            Vault Deposit
           </button>
         </div>
 
@@ -463,20 +463,24 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
         <div className="flex flex-col gap-3 order-1 md:order-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-pulse"></div>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+              </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Expenses</h4>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Leaves hands today</p>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest leading-none">Expenses</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Leaves hands today</p>
               </div>
             </div>
-            <span className="text-xs font-bold text-rose-600 tabular-nums">−₱{expensesSubtotal.toLocaleString()}</span>
+            {expensesSubtotal > 0 && (
+              <span className="text-sm font-black text-rose-600 tabular-nums">−₱{expensesSubtotal.toLocaleString()}</span>
+            )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {hasEntries ? allEntries.map(e => renderExpenseItem(e)) : (
-              <div className={`h-[100px] w-full text-center bg-slate-50/20 ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 grayscale opacity-10`}>
-                <div className="text-2xl">🧾</div>
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No expenses today</p>
+              <div className={`h-[90px] w-full bg-white ${UI_THEME.radius.card} border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2`}>
+                <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+                <p className="text-xs text-slate-400">No expenses recorded today</p>
               </div>
             )}
           </div>
@@ -485,53 +489,53 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           <button
             onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
             disabled={isClosedMode}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-rose-100 ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-rose-50 border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600'}`}
           >
-            <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-            <span className="text-xs font-bold text-rose-400 uppercase tracking-widest whitespace-nowrap">Record Expense</span>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Record Expense
           </button>
         </div>
 
       </div>
 
       {/* Desktop-only: shared button row so both buttons stay aligned regardless of column height */}
-      <div className="no-print hidden md:grid grid-cols-2 gap-3 w-full">
+      <div className="no-print hidden md:grid grid-cols-2 gap-4 w-full">
         <button
           onClick={onOpenVaultDeposit}
           disabled={isClosedMode || !onOpenVaultDeposit}
-          className={`flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-indigo-100 ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'}`}
+          className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
         >
-          <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
-          <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">Vault Deposit</span>
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+          Vault Deposit
         </button>
 
         <button
           onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
           disabled={isClosedMode}
-          className={`flex items-center justify-center gap-1.5 py-5 px-3 rounded-2xl border border-dashed transition-all active:bg-rose-100 ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white' : 'border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50'}`}
+          className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-rose-50 border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600'}`}
         >
-          <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-          <span className="text-xs font-bold text-rose-400 uppercase tracking-widest whitespace-nowrap">Record Expense</span>
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+          Record Expense
         </button>
       </div>
 
       {/* LEGACY RENT & BILLS — only shown when historical provision deposits exist */}
       {provisionLogs.length > 0 && (
-        <div className="flex flex-col w-full space-y-4">
-          <div className="flex justify-between items-center px-4 h-10">
+        <div className="flex flex-col w-full space-y-3">
+          <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]"></div>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+              </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Rent & Bills</h4>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">Daily Provision Deposits</p>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest leading-none">Rent & Bills</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Daily Provision Deposits</p>
               </div>
             </div>
-            <div className="bg-white px-3 py-1.5 rounded-xl border border-indigo-100 shadow-sm">
-              <span className="text-xs font-bold text-indigo-500 tabular-nums">₱{provisionTotal.toLocaleString()}</span>
-            </div>
+            <span className="text-sm font-black text-emerald-600 tabular-nums">₱{provisionTotal.toLocaleString()}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
             {provisionLogs.map(renderExpenseItem)}
           </div>
         </div>

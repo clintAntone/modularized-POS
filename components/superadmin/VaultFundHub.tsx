@@ -1562,9 +1562,9 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           <>
           {/* Landscape chart modal — mobile only */}
           {chartModalBranchId === branch.id && (
-            <div className="fixed inset-0 z-[1200] bg-slate-900 sm:hidden flex flex-col" style={{ touchAction: 'none' }}>
+            <div className="fixed inset-0 z-[1200] bg-white sm:hidden flex flex-col" style={{ touchAction: 'none' }}>
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
                 <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Deposit & Withdrawal Trend</p>
                   <p className="text-sm font-bold text-slate-900 leading-none mt-0.5">{branch.name}</p>
@@ -1574,7 +1574,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                     setChartModalBranchId(null);
                     try { (screen.orientation as any).unlock?.(); } catch (_) {}
                   }}
-                  className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-white shrink-0"
+                  className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 shrink-0"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -1587,7 +1587,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 />
               </div>
               {/* Rotate hint */}
-              <p className="text-center text-xs text-slate-600 font-medium uppercase tracking-wide pb-4 shrink-0">Rotate phone for landscape view</p>
+              <p className="text-center text-xs text-slate-400 font-medium uppercase tracking-wide pb-4 shrink-0">Rotate phone for landscape view</p>
             </div>
           )}
           <div
@@ -1597,7 +1597,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
             <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-xl overflow-hidden">
 
               {/* ── Header (dark) ── */}
-              <div className="bg-slate-900 px-4 sm:px-7 pt-5 sm:pt-6 pb-5 shrink-0">
+              <div className="bg-white border-b border-slate-100 px-4 sm:px-7 pt-5 sm:pt-6 pb-5 shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Vault Details</p>

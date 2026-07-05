@@ -472,7 +472,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   onClick={() => setTop10PickerOpen(v => !v)}
                   className={`flex items-center gap-2 pl-4 pr-3 py-2 rounded-2xl border transition-all shadow-sm ${
                     top10PickerOpen
-                      ? 'bg-slate-900 text-white border-slate-900'
+                      ? 'bg-slate-800 text-white border-slate-800'
                       : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -492,7 +492,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           onClick={() => setTop10Year(y)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-black tracking-wider transition-all ${
                             top10Year === y
-                              ? 'bg-slate-900 text-white'
+                              ? 'bg-slate-800 text-white'
                               : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
                           }`}
                         >
@@ -1154,7 +1154,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   <h4 className="text-xs md:text-sm font-black truncate px-2">{comparisonData.a.name}</h4>
                 </div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                  <div className="w-9 h-9 md:w-11 md:h-11 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-xs md:text-xs shadow-xl border-2 border-white">VS</div>
+                  <div className="w-9 h-9 md:w-11 md:h-11 bg-slate-800 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-xs md:text-xs shadow-lg border-2 border-white">VS</div>
                 </div>
                 <div className="flex-1 p-5 md:p-7 text-center bg-emerald-600 text-white">
                   <p className="text-xs font-semibold uppercase tracking-wide mb-1 opacity-60">Branch B</p>
@@ -1201,8 +1201,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 })}
               </div>
 
-              <div className="px-6 py-4 bg-slate-900 text-center">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-wide">All-time comparative data</p>
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 text-center">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">All-time comparative data</p>
               </div>
             </div>
           ) : (

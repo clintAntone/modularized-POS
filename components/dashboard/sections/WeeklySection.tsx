@@ -287,26 +287,26 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
                   );
                 })}
               </tbody>
-              <tfoot className="border-t-4 border-slate-900 bg-slate-900 text-white">
-                <tr className="divide-x divide-white/5">
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                <tr className="divide-x divide-slate-100">
                   <td colSpan={2} className="px-8 py-8">
-                    <span className="text-xs font-black uppercase text-slate-400 block mb-1">Weekly Totals</span>
-                    <span className="text-xs font-semibold uppercase tracking-wide">Aggregate Archive</span>
+                    <span className="text-xs font-semibold uppercase text-slate-400 block mb-1">Weekly Totals</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Aggregate Archive</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-xs font-black tracking-tighter">₱{selectedCycle.gross.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-slate-900 tabular-nums">₱{selectedCycle.gross.toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-xs font-black tracking-tighter text-amber-400">₱{selectedCycle.comm.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-amber-600 tabular-nums">₱{selectedCycle.comm.toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-xs font-black tracking-tighter text-rose-400">₱{selectedCycle.exp.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-rose-500 tabular-nums">₱{selectedCycle.exp.toLocaleString()}</span>
                   </td>
-                  <td className="px-8 py-8 text-right bg-indigo-900/40">
-                    <span className="text-[16px] font-black tracking-tighter text-indigo-200">₱{selectedCycle.vaultTotal.toLocaleString()}</span>
+                  <td className="px-8 py-8 text-right bg-indigo-50">
+                    <span className="text-[16px] font-black text-indigo-600 tabular-nums">₱{selectedCycle.vaultTotal.toLocaleString()}</span>
                   </td>
-                  <td className="px-8 py-8 text-right bg-emerald-900/50">
-                    <span className={`text-[20px] font-black tracking-tighter ${selectedCycle.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <td className="px-8 py-8 text-right bg-emerald-50">
+                    <span className={`text-[20px] font-black tabular-nums ${selectedCycle.net >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {selectedCycle.net < 0 ? '−' : ''}₱{Math.abs(selectedCycle.net).toLocaleString()}
                     </span>
                   </td>
