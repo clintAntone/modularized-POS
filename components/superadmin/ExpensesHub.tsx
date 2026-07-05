@@ -138,13 +138,13 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
               <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center text-lg shadow-inner">📊</div>
               <div>
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none">Ledger</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Global Expenditure Audit</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Global Expenditure Audit</p>
               </div>
             </div>
             <button
               onClick={handlePrint}
               disabled={isExporting}
-              className="h-9 rounded-2xl bg-emerald-600 text-white px-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="h-9 rounded-2xl bg-emerald-600 text-white px-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
             >
               {isExporting
                 ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -171,7 +171,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           {/* Branch filter */}
           {branches.length > 1 && (
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Branch</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Branch</p>
               <BranchCheckboxDropdown
                 branches={branches}
                 selectedIds={selectedBranchIds}
@@ -184,13 +184,13 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Category pills */}
             <div className="flex-1">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Category</p>
               <div className="flex gap-2 flex-wrap">
                 {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                   <button
                     key={key}
                     onClick={() => { playSound('click'); setCategoryFilter(key); }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide border transition-all ${
                       categoryFilter === key
                         ? 'bg-slate-900 text-white border-slate-900 shadow'
                         : `bg-white text-slate-500 border-slate-200 hover:border-slate-400`
@@ -205,17 +205,17 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
             {/* Date range */}
             <div className="sm:w-64">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Date Range</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date Range</p>
                 <div className="flex gap-1">
                   {(['today','week','month'] as const).map(p => (
                     <button key={p} onClick={() => setDatePreset(p)}
-                      className="px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                      className="px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
                       {p}
                     </button>
                   ))}
                   {(startDate || endDate) && (
                     <button onClick={() => { setStartDate(''); setEndDate(''); playSound('click'); }}
-                      className="px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors">
+                      className="px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors">
                       Clear
                     </button>
                   )}
@@ -241,7 +241,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           { label: 'Settlement', value: totals.SETTLEMENT || 0, accent: 'text-emerald-600', border: 'border-emerald-100' },
         ].map(({ label, value, accent, border }) => (
           <div key={label} className={`bg-white rounded-2xl border ${border} px-4 py-3 shadow-sm`}>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</p>
             <p className={`text-base font-black ${accent} tabular-nums leading-tight`}>₱{value.toLocaleString()}</p>
             {totals.total > 0 && label !== 'Total' && (
               <p className="text-xs font-bold text-slate-400 mt-0.5">{Math.round((value / totals.total) * 100)}% of total</p>
@@ -255,7 +255,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
 
         {filteredExpenses.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No expenses found matching criteria</p>
+            <p className="text-slate-400 font-medium uppercase tracking-wide text-xs">No expenses found matching criteria</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -368,14 +368,14 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           onClick={() => setReceiptExp(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl shadow-xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{receiptExp.name}</p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
                   {receiptExp.branchName} · {receiptExp.reportDate} · ₱{Number(receiptExp.amount).toLocaleString()}
                 </p>
               </div>
@@ -403,7 +403,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                 href={receiptExp.receiptImage}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-700 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 Open Full Size

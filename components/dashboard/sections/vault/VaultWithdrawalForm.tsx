@@ -25,13 +25,13 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
 
   return (
       <div className={`space-y-4 ${isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
-        <div className="bg-slate-900 rounded-[32px] p-1 shadow-xl border border-slate-800">
-          <form onSubmit={onSubmit} className="bg-white p-6 sm:p-8 rounded-[28px] space-y-6">
+        <div className="bg-slate-900 rounded-2xl p-1 shadow-xl border border-slate-800">
+          <form onSubmit={onSubmit} className="bg-white p-6 sm:p-8 rounded-2xl space-y-6">
 
             {/* 1. AMOUNT */}
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">1. Settlement Amount</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">1. Settlement Amount</label>
                 {isOverBalance && <span className="text-xs font-bold text-rose-500 uppercase tracking-widest animate-pulse">⚠️ Insufficient Vault Balance</span>}
               </div>
               <div className="relative group">
@@ -42,7 +42,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                     inputMode="decimal"
                     value={formData.amount || ''}
                     onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
-                    className={`w-full p-4 pl-12 bg-slate-50 border-2 rounded-[20px] font-bold text-2xl outline-none transition-all shadow-inner tabular-nums ${isOverBalance ? 'border-rose-200 text-rose-700 bg-rose-50' : 'border-transparent focus:border-rose-500 focus:bg-white'}`}
+                    className={`w-full p-4 pl-12 bg-slate-50 border-2 rounded-xl font-bold text-2xl outline-none transition-all shadow-inner tabular-nums ${isOverBalance ? 'border-rose-200 text-rose-700 bg-rose-50' : 'border-transparent focus:border-rose-500 focus:bg-white'}`}
                     placeholder="0"
                 />
               </div>
@@ -51,7 +51,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
             {/* 2. RECIPIENT / PURPOSE */}
             <div className="space-y-3">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">2. Bill Category / Payee</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">2. Bill Category / Payee</label>
               </div>
 
               <div className="relative group">
@@ -76,7 +76,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
 
                 {/* Suggestions Dropdown */}
                 {showSuggestions && (
-                  <div className="absolute z-10 left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute z-10 left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-2 grid grid-cols-2 gap-1">
                       {COMMON_BILLS.map(bill => (
                         <button
@@ -105,7 +105,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
             {/* 3. VERIFICATION */}
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">3. Receipt Evidence <span className="text-rose-500 font-black">(Required)</span></label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">3. Receipt Evidence <span className="text-rose-500 font-black">(Required)</span></label>
                 {file && (
                     <span className="text-[6px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                   Proof Attached
@@ -114,7 +114,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
               </div>
 
               {file ? (
-                  <div className="w-full p-3 rounded-[24px] border-2 border-emerald-500 bg-emerald-50 flex items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-300">
+                  <div className="w-full p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50 flex items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-300">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-xl border-2 border-white rotate-2 transition-transform hover:rotate-0">
                         <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Receipt" />
@@ -149,7 +149,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                             fileRef.current.click();
                           }
                         }}
-                        className="flex flex-col items-center justify-center gap-2 py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/30 transition-all group"
+                        className="flex flex-col items-center justify-center gap-2 py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl hover:border-emerald-400 hover:bg-emerald-50/30 transition-all group"
                     >
                       <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-md border border-slate-100 text-slate-400 group-hover:text-emerald-500 transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +157,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                           <circle cx="12" cy="13" r="3" />
                         </svg>
                       </div>
-                      <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-700">Take Photo</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 group-hover:text-emerald-700">Take Photo</span>
                     </button>
 
                     <button
@@ -168,14 +168,14 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                             fileRef.current.click();
                           }
                         }}
-                        className="flex flex-col items-center justify-center gap-2 py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group"
+                        className="flex flex-col items-center justify-center gap-2 py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group"
                     >
                       <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-md border border-slate-100 text-slate-400 group-hover:text-indigo-500 transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
                       </div>
-                      <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-700">Upload Image</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-700">Upload Image</span>
                     </button>
                   </div>
               )}
@@ -186,7 +186,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
               <button
                   type="submit"
                   disabled={isUploading || !canSubmit}
-                  className={`w-full font-bold py-5 rounded-[20px] uppercase tracking-[0.3em] text-xs shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${canSubmit ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                  className={`w-full font-bold py-5 rounded-xl uppercase tracking-wide text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${canSubmit ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
               >
                 {isUploading ? (
                     <>

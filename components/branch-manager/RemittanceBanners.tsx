@@ -38,7 +38,7 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
         </div>
         <button
           onClick={() => { onGoToRemittance(); playSound('click'); }}
-          className="px-3 py-2 bg-white text-amber-700 text-xs font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-50 transition-colors shrink-0"
+          className="px-3 py-2 bg-white text-amber-700 text-xs font-semibold uppercase tracking-wide rounded-lg shadow-sm hover:bg-amber-50 transition-colors shrink-0"
         >
           Review
         </button>
@@ -67,7 +67,7 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
         </div>
         <button
           onClick={() => { onGoToRemittance(); playSound('click'); }}
-          className="px-4 py-2 bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
+          className="px-4 py-2 bg-amber-600 text-white text-xs font-semibold uppercase tracking-wide rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
         >
           Go
         </button>

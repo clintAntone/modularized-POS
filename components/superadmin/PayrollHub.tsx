@@ -50,7 +50,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
             </button>
             <div>
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">{selectedBranch.name}</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Payroll Management</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch Payroll Management</p>
             </div>
           </div>
         </div>
@@ -70,7 +70,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -78,7 +78,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Global Payroll Hub</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Network-wide Compensation Audit</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Network-wide Compensation Audit</p>
             </div>
           </div>
 
@@ -91,7 +91,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               placeholder="SEARCH BRANCH..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold uppercase tracking-widest focus:bg-white focus:border-emerald-500 transition-all outline-none"
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium uppercase tracking-wide focus:bg-white focus:border-emerald-500 transition-all outline-none"
             />
           </div>
         </div>
@@ -102,18 +102,18 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
           <button
             key={branch.id}
             onClick={() => { playSound('click'); setSelectedBranchId(branch.id); }}
-            className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-500 transition-all duration-300 text-left group"
+            className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-500 transition-all duration-300 text-left group"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-xl group-hover:bg-emerald-50 transition-colors">🏢</div>
               <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
                 <div className={`w-1.5 h-1.5 rounded-full ${branch.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{branch.isOpen ? 'LIVE' : 'OFF'}</span>
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{branch.isOpen ? 'LIVE' : 'OFF'}</span>
               </div>
             </div>
             
             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors">{branch.name}</h4>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Manager: {branch.manager || 'Unassigned'}</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Manager: {branch.manager || 'Unassigned'}</p>
             
             <div className="mt-6 flex items-center justify-between">
               <div className="space-y-0.5">
@@ -131,8 +131,8 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       </div>
 
       {filteredBranches.length === 0 && (
-        <div className="py-20 text-center bg-white rounded-[40px] border border-dashed border-slate-200">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No branches found matching your search</p>
+        <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No branches found matching your search</p>
         </div>
       )}
     </div>

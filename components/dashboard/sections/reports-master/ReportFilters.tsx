@@ -39,14 +39,14 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ id, label, value, options, 
             {icon}
           </div>
           <div className="flex flex-col items-start min-w-0 pr-3 gap-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">{label}</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-0.5">{label}</p>
             <p className="font-bold text-sm text-slate-900 uppercase tracking-tight truncate w-full leading-none">{value}</p>
           </div>
           <svg className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 text-emerald-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
         </button>
 
         {isOpen && (
-            <div className={`absolute z-[110] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[340px] overflow-y-auto no-scrollbar ring-1 ring-slate-900/5 p-2`}>
+            <div className={`absolute z-[110] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[340px] overflow-y-auto no-scrollbar ring-1 ring-slate-900/5 p-2`}>
               {options.map((opt) => {
                 const isSelected = value === opt.label || (value === 'Every Year' && opt.val === 'all') || (value === 'Entire Season' && opt.val === 'all');
                 return (
@@ -110,14 +110,14 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
             </div>
             <div className="text-left">
               <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tighter">Report History</h3>
-              <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Historical Data Explorer</p>
+              <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Historical Data Explorer</p>
             </div>
           </div>
 
           {isFiltered && (
             <button 
               onClick={clearFilters}
-              className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100"
+              className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold uppercase tracking-wide hover:bg-rose-100 transition-all border border-rose-100"
             >
               Clear Filters
             </button>
@@ -139,7 +139,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                 placeholder="SEARCH REPORTS..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 md:pl-14 pr-4 md:pr-6 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-2xl md:rounded-[24px] text-xs md:text-sm font-bold uppercase tracking-widest focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
+                className="w-full pl-10 md:pl-14 pr-4 md:pr-6 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-2xl md:rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
             />
           </div>
 
@@ -149,7 +149,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           <div className="flex flex-col lg:flex-row items-stretch gap-4 md:gap-6">
             <div className="relative flex-1">
               <div
-                  className="w-full bg-slate-100 p-1 rounded-[20px] md:rounded-[24px] flex items-center shadow-inner border border-slate-200/80 h-full">
+                  className="w-full bg-slate-100 p-1 rounded-xl md:rounded-2xl flex items-center shadow-inner border border-slate-200/80 h-full">
                 {['daily', 'weekly', 'monthly'].map(v => (
                     <button
                         key={v}
@@ -157,7 +157,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                           setView(v);
                           playSound('click');
                         }}
-                        className={`flex-1 px-4 py-2.5 md:px-6 md:py-4 rounded-[16px] md:rounded-[20px] text-xs md:text-xs font-black uppercase tracking-widest transition-all duration-300 ${view === v ? 'bg-white text-slate-900 shadow-lg scale-[1.02] border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 px-4 py-2.5 md:px-6 md:py-4 rounded-[16px] md:rounded-xl text-xs md:text-xs font-semibold uppercase tracking-wide transition-all duration-300 ${view === v ? 'bg-white text-slate-900 shadow-lg scale-[1.02] border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                       {v}
                     </button>
@@ -166,8 +166,8 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
             </div>
 
             {(view === 'weekly' || view === 'monthly') && isNetworkView && setShowBreakdown && (
-              <div className="flex items-center gap-3 bg-slate-50 px-6 py-3 rounded-[24px] border border-slate-200 shadow-inner">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Breakdown by Branch</p>
+              <div className="flex items-center gap-3 bg-slate-50 px-6 py-3 rounded-2xl border border-slate-200 shadow-inner">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Breakdown by Branch</p>
                 <button
                   onClick={() => { setShowBreakdown(!showBreakdown); playSound('click'); }}
                   className={`w-12 h-6 rounded-full transition-all relative ${showBreakdown ? 'bg-emerald-500' : 'bg-slate-300'}`}
@@ -182,7 +182,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           {view === 'daily' && (
             <div className="flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
               <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${startDate ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'}`}>
-                <span className={`text-xs font-black uppercase tracking-[0.2em] leading-none ${startDate ? 'text-emerald-500' : 'text-slate-400'}`}>From</span>
+                <span className={`text-xs font-black uppercase tracking-wider leading-none ${startDate ? 'text-emerald-500' : 'text-slate-400'}`}>From</span>
                 <input
                   type="date"
                   value={startDate}
@@ -198,7 +198,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               </div>
 
               <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${endDate ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'}`}>
-                <span className={`text-xs font-black uppercase tracking-[0.2em] leading-none ${endDate ? 'text-emerald-500' : 'text-slate-400'}`}>To</span>
+                <span className={`text-xs font-black uppercase tracking-wider leading-none ${endDate ? 'text-emerald-500' : 'text-slate-400'}`}>To</span>
                 <input
                   type="date"
                   value={endDate}

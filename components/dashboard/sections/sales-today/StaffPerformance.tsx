@@ -193,14 +193,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
       <div className="space-y-4">
         {showAddStaffSelector && (
             <div className="fixed inset-0 z-[2000] bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4">
-              <div className={`bg-white ${UI_THEME.radius.card} w-full max-w-lg shadow-2xl flex flex-col animate-in zoom-in duration-300 overflow-hidden max-h-[85vh] border border-slate-100`}>
+              <div className={`bg-white ${UI_THEME.radius.card} w-full max-w-lg shadow-xl flex flex-col animate-in zoom-in duration-300 overflow-hidden max-h-[85vh] border border-slate-100`}>
                 <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
                   <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Archived Roster</h4>
                   <button onClick={() => setShowAddStaffSelector(false)} className="p-2 text-slate-300 hover:text-slate-900 transition-all"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-2 no-scrollbar">
                   {hiddenRosterStaff.length > 0 ? hiddenRosterStaff.map(emp => (
-                      <button key={emp.id} onClick={() => { handleRestoreStaff(emp.name); setShowAddStaffSelector(false); }} className="w-full p-4 rounded-[20px] border border-slate-100 bg-white hover:border-emerald-500 hover:bg-emerald-50/20 transition-all flex items-center justify-between group">
+                      <button key={emp.id} onClick={() => { handleRestoreStaff(emp.name); setShowAddStaffSelector(false); }} className="w-full p-4 rounded-xl border border-slate-100 bg-white hover:border-emerald-500 hover:bg-emerald-50/20 transition-all flex items-center justify-between group">
                         <div className="flex items-center gap-3"><span className="font-bold text-slate-700 uppercase text-xs tracking-tight">{emp.name}</span></div>
                         <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                       </button>
@@ -212,7 +212,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
         {selectedStaff && createPortal(
             <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto no-scrollbar">
-              <div className="bg-white rounded-[32px] sm:rounded-[44px] w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in duration-300 overflow-hidden my-auto max-h-[95vh] sm:max-h-[90vh] border border-slate-100">
+              <div className="bg-white rounded-2xl sm:rounded-[44px] w-full max-w-xl shadow-xl flex flex-col animate-in zoom-in duration-300 overflow-hidden my-auto max-h-[95vh] sm:max-h-[90vh] border border-slate-100">
                 <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-slate-100 flex justify-between items-center bg-white">
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base sm:text-lg">
@@ -220,7 +220,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     </div>
                     <div>
                       <h4 className="text-base sm:text-lg font-bold text-slate-900 uppercase tracking-tighter leading-none">{selectedStaff}</h4>
-                      <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Adjustment Hub</p>
+                      <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Adjustment Hub</p>
                     </div>
                   </div>
                   <button onClick={() => setSelectedStaff(null)} className="p-2 text-slate-300 hover:text-slate-900 active:scale-90 transition-colors">
@@ -232,7 +232,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                   <div className="space-y-4 sm:space-y-6">
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Cash Advance (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Cash Advance (₱)</label>
                         {selectedStaffData?.isReliever ? (
                           <span className="text-xs sm:text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded uppercase tracking-widest">Not Allowed for Relievers</span>
                         ) : (
@@ -258,7 +258,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Late Deduction (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Late Deduction (₱)</label>
                         {!staffIsCurrentlyLate && (
                           <span className="text-xs sm:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">On Time</span>
                         )}
@@ -278,7 +278,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">OT Pay Addition (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">OT Pay Addition (₱)</label>
                       </div>
                       <div className="relative group">
                         <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-emerald-600">₱</span>
@@ -299,8 +299,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <div className="flex items-center gap-3">
                           <span className="text-xl sm:text-2xl">{attendanceForm.isHalfDay ? '🌗' : '☀️'}</span>
                           <div className="text-left">
-                            <p className={`text-xs sm:text-xs font-black uppercase tracking-widest ${attendanceForm.isHalfDay ? 'text-amber-700' : 'text-slate-600'}`}>Half Day</p>
-                            <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 ${attendanceForm.isHalfDay ? 'text-amber-400' : 'text-slate-400'}`}>
+                            <p className={`text-xs sm:text-xs font-semibold uppercase tracking-wide ${attendanceForm.isHalfDay ? 'text-amber-700' : 'text-slate-600'}`}>Half Day</p>
+                            <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 ${attendanceForm.isHalfDay ? 'text-amber-400' : 'text-slate-400'}`}>
                               {attendanceForm.isHalfDay ? 'Applied — 50% allowance' : 'Tap to apply'}
                             </p>
                           </div>
@@ -315,9 +315,9 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                       </button>
                     </div>
 
-                    <div className="p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-slate-100 flex items-center justify-between bg-slate-50/50 shadow-inner">
+                    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-2xl border border-slate-100 flex items-center justify-between bg-slate-50/50 shadow-inner">
                       <div className="space-y-0.5 sm:space-y-1">
-                        <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Take-Home Impact</p>
+                        <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Take-Home Impact</p>
                         <p className={`text-lg sm:text-2xl font-bold tracking-tighter leading-none ${estimatedImpact < 0 ? 'text-rose-600' : estimatedImpact > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                           {estimatedImpact < 0 ? '−' : estimatedImpact > 0 ? '+' : ''}₱{Math.abs(estimatedImpact).toLocaleString()}
                         </p>
@@ -347,7 +347,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Audit</span>
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Live Audit</span>
           </div>
         </div>
 
@@ -401,7 +401,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             <div className="w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center">
                               <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
                             </div>
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center px-4">Has {data.count} session{data.count !== 1 ? 's' : ''} — cannot remove</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center px-4">Has {data.count} session{data.count !== 1 ? 's' : ''} — cannot remove</p>
                           </>
                         ) : (
                           <>
@@ -412,7 +412,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             >
                               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
                             </button>
-                            <p className="text-xs font-black text-white uppercase tracking-widest">Remove from today</p>
+                            <p className="text-xs font-semibold text-slate-700">Remove from today</p>
                           </>
                         )}
                       </div>
@@ -458,13 +458,13 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             finalPay.toLocaleString().length > 7 ? 'text-base sm:text-xl' : 
                             'text-[18px] sm:text-[26px]'
                           }`}>₱{isNaN(finalPay) ? '0' : finalPay.toLocaleString()}</p>
-                          <p className={`text-xs sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1 ${data.isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
+                          <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mt-0.5 sm:mt-1 ${data.isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
                         </div>
                     </div>
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Service Track</span>
+                        <span className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wider">Service Track</span>
                         <span className="text-xs sm:text-xs font-bold text-slate-900">{data.count} units</span>
                       </div>
                       <div className="flex gap-0.5 sm:gap-1 h-1 sm:h-1.5 px-0.5">
@@ -479,11 +479,11 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className="grid grid-cols-2 gap-1 sm:gap-2">
                       <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
-                        <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Allowance</p>
+                        <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
                         <p className="text-xs sm:text-xs font-bold text-slate-600 tabular-nums">₱{data.allowance.toLocaleString()}</p>
                       </div>
                       <div className={`p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border transition-all ${adv > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50/80 border-slate-100/50'}`}>
-                        <p className={`text-xs sm:text-xs font-bold uppercase tracking-widest mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
+                        <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
                         <p className={`text-xs sm:text-xs font-bold tabular-nums ${adv > 0 ? 'text-indigo-700' : 'text-slate-300'}`}>
                           {adv > 0 ? `−₱${adv.toLocaleString()}` : '₱0'}
                         </p>
@@ -528,7 +528,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
             </div>
             <div className="text-center space-y-0.5">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-emerald-700">Restore Profiles</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide group-hover:text-emerald-700">Restore Profiles</p>
               <p className="text-xs font-semibold text-slate-300 uppercase tracking-tight">Access Hidden Registry</p>
             </div>
           </button>

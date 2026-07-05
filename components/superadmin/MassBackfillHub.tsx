@@ -484,7 +484,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             {/* Header Section */}
             <div className={`bg-white p-4 md:px-8 md:py-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm no-print flex flex-col md:flex-row md:items-center justify-between gap-6 mt-6 md:mt-10`}>
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-xl shrink-0">
+                    <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-xl shrink-0">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                     <div>
@@ -500,7 +500,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 </div>
 
                 {/* Cycle Configuration - Inline for Desktop */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-50 p-2 rounded-[24px] border border-slate-100 shadow-inner">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100 shadow-inner">
                     <div className="relative min-w-[200px]" ref={dropdownRef}>
                         <button
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -513,7 +513,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         </button>
 
                         {isDropdownOpen && (
-                            <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-1.5 animate-in zoom-in-95 duration-200">
+                            <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl z-[100] p-1.5 animate-in zoom-in-95 duration-200">
                                 <div className="px-1 pb-1">
                                     <input
                                         autoFocus
@@ -521,7 +521,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         placeholder="Search branch..."
                                         value={personnelSearch}
                                         onChange={e => setPersonnelSearch(e.target.value)}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:border-emerald-400 transition-all"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-emerald-400 transition-all"
                                         onClick={e => e.stopPropagation()}
                                     />
                                 </div>
@@ -532,7 +532,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         <button
                                             key={b.id}
                                             onClick={() => { setSelectedBranchId(b.id); setIsDropdownOpen(false); setPersonnelSearch(''); playSound('click'); }}
-                                            className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all mb-1 ${selectedBranchId === b.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+                                            className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all mb-1 ${selectedBranchId === b.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
                                         >
                                             {b.name}
                                         </button>
@@ -561,7 +561,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             {/* Main Metrics Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
                 {/* Gross Sales */}
-                <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-4 hover:border-emerald-200 transition-all duration-200 group relative overflow-hidden">
+                <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm space-y-4 hover:border-emerald-200 transition-all duration-200 group relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
                     <div className="flex items-center justify-between relative z-10">
                         <label className={UI_THEME.text.label}>Gross Sales</label>
@@ -590,7 +590,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 </div>
 
                 {/* Total Salary */}
-                <div className={`bg-white p-6 md:p-8 rounded-[32px] border shadow-sm space-y-4 transition-all duration-200 group relative overflow-hidden ${isSalaryMismatch ? 'border-rose-100 hover:border-rose-300' : 'border-slate-100 hover:border-rose-200'}`}>
+                <div className={`bg-white p-6 md:p-8 rounded-2xl border shadow-sm space-y-4 transition-all duration-200 group relative overflow-hidden ${isSalaryMismatch ? 'border-rose-100 hover:border-rose-300' : 'border-slate-100 hover:border-rose-200'}`}>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
                     <div className="flex items-center justify-between relative z-10">
                         <label className={UI_THEME.text.label}>Total Salary</label>
@@ -621,7 +621,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         />
                         
                         {isSalaryMismatch && (
-                            <div className="absolute bottom-full right-0 mb-4 w-72 p-5 bg-slate-900 text-white text-xs font-bold uppercase tracking-widest rounded-3xl opacity-0 group-hover/salary:opacity-100 transition-all z-50 pointer-events-none shadow-2xl border border-white/10 ring-4 ring-rose-500/10 scale-95 group-hover/salary:scale-100 origin-bottom-right">
+                            <div className="absolute bottom-full right-0 mb-4 w-72 p-5 bg-slate-900 text-white text-xs font-medium uppercase tracking-wide rounded-3xl opacity-0 group-hover/salary:opacity-100 transition-all z-50 pointer-events-none shadow-xl border border-slate-200 ring-4 ring-rose-500/10 scale-95 group-hover/salary:scale-100 origin-bottom-right">
                                 <p className="text-rose-400 mb-3 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
                                     Payroll Discrepancy
@@ -629,7 +629,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                 <p className="text-slate-300 normal-case font-medium leading-relaxed">
                                     The sum of individual net pays (₱{totalEmployeeNetPay.toLocaleString()}) does not match your entered total (₱{totalSalary.toLocaleString()}).
                                 </p>
-                                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                                <div className="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
                                     <span className="text-slate-400">Difference:</span>
                                     <span className="text-rose-400 text-sm font-black">₱{Math.abs(totalSalary - totalEmployeeNetPay).toLocaleString()}</span>
                                 </div>
@@ -642,7 +642,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             <button
                                 onClick={handleSyncSalary}
                                 disabled={isReadOnly}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 text-xs font-black text-white uppercase tracking-widest bg-rose-600 px-3 py-1 rounded-full shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30"
+                                className="absolute right-0 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-700 bg-rose-600 px-3 py-1 rounded-full shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30"
                             >
                                 Auto-Sync
                             </button>
@@ -651,13 +651,13 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 </div>
 
                 {/* Net ROI - Enhanced */}
-                <div className={`p-6 md:p-8 rounded-[32px] border shadow-2xl flex flex-col justify-between space-y-4 transition-all duration-200 group relative overflow-hidden ${netRoi >= 0 ? 'bg-slate-900 border-slate-800' : 'bg-rose-900 border-rose-800'}`}>
+                <div className={`p-6 md:p-8 rounded-2xl border shadow-xl flex flex-col justify-between space-y-4 transition-all duration-200 group relative overflow-hidden ${netRoi >= 0 ? 'bg-slate-900 border-slate-800' : 'bg-rose-900 border-rose-800'}`}>
                     <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50"></div>
                     <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 blur-3xl rounded-full"></div>
                     
                     <div className="relative z-10 flex items-center justify-between">
                         <div className="space-y-1">
-                            <label className="text-xs font-black text-white/40 uppercase tracking-[0.2em]">Net Return on Investment</label>
+                            <label className="text-xs font-black text-white/40 uppercase tracking-wider">Net Return on Investment</label>
                             <p className="text-xs font-bold text-white/20 uppercase tracking-widest">Calculated across all operational streams</p>
                         </div>
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${netRoi >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
@@ -673,7 +673,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             </p>
                         </div>
                         <div className="hidden sm:block text-right">
-                            <div className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${netRoi >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            <div className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wide ${netRoi >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                                 {netRoi >= 0 ? 'Profitable Cycle' : 'Deficit Cycle'}
                             </div>
                         </div>
@@ -686,9 +686,9 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             </div>
 
             {/* Operational Expenses — itemized */}
-            <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Operational Expenses</span>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Operational Expenses</span>
                     <div className="h-px flex-1 bg-slate-100"></div>
                     {derivedExpenses > 0 && (
                         <span className="text-xs font-black text-rose-500 tabular-nums">−₱{derivedExpenses.toLocaleString()}</span>
@@ -761,9 +761,9 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             </div>
 
             {/* Rent & Bills Deposit (legacy) / Vault Deposit (vault-era) — itemized */}
-            <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                         {isLegacy ? 'Rent & Bills Deposit' : 'Vault Deposit'}
                     </span>
                     <div className="h-px flex-1 bg-slate-100"></div>
@@ -798,7 +798,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             disabled={!(Number(selectedBranch?.dailyProvisionAmount) > 0)}
                             className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40"
                         >
-                            <span className="text-xs font-black uppercase tracking-widest">+ Add Deposit</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide">+ Add Deposit</span>
                             {Number(selectedBranch?.dailyProvisionAmount) > 0 && (
                                 <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-xs font-black tabular-nums">
                                     ₱{Number(selectedBranch?.dailyProvisionAmount).toLocaleString()}
@@ -851,14 +851,14 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         value={personnelSearch}
                                         onChange={(e) => { setPersonnelSearch(e.target.value.toUpperCase()); setIsAddPersonnelOpen(true); }}
                                         onFocus={() => setIsAddPersonnelOpen(true)}
-                                        className="w-full h-16 pl-14 pr-6 bg-white border-2 border-slate-100 rounded-[24px] text-xs font-black uppercase tracking-widest focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 outline-none transition-all placeholder:text-slate-300 shadow-sm"
+                                        className="w-full h-16 pl-14 pr-6 bg-white border-2 border-slate-100 rounded-2xl text-xs font-semibold uppercase tracking-wide focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 outline-none transition-all placeholder:text-slate-300 shadow-sm"
                                     />
                                 </div>
 
                                 {isAddPersonnelOpen && (
-                                    <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white border border-slate-100 rounded-[32px] shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                         <div className="p-4 border-b border-slate-50 bg-slate-50/50">
-                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2">Available Personnel</p>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-2">Available Personnel</p>
                                         </div>
                                         <div className="max-h-[400px] overflow-y-auto no-scrollbar p-2">
                                             {employees
@@ -868,7 +868,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 <button
                                                     key={emp.id}
                                                     onClick={() => { if (!isReadOnly) { handleAddEmployee(emp); setPersonnelSearch(''); setIsAddPersonnelOpen(false); } }}
-                                                    className="w-full p-4 flex items-center justify-between hover:bg-emerald-50 rounded-[20px] transition-all group"
+                                                    className="w-full p-4 flex items-center justify-between hover:bg-emerald-50 rounded-xl transition-all group"
                                                 >
                                                     <div className="flex items-center gap-4 min-w-0">
                                                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors shrink-0">
@@ -898,18 +898,18 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden md:block overflow-hidden bg-white border border-slate-200 rounded-[32px] shadow-sm">
+                        <div className="hidden md:block overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm">
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50/50 border-b border-slate-100">
-                                        <th className="pl-8 pr-4 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Personnel</th>
-                                        <th className="px-4 py-5 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Commission</th>
-                                        <th className="px-4 py-5 text-center text-xs font-black text-slate-400 uppercase tracking-widest">OT Pay</th>
-                                        <th className="px-4 py-5 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Cash Adv</th>
-                                        <th className="px-4 py-5 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Deduction</th>
-                                        <th className="px-4 py-5 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Allowance</th>
+                                        <th className="pl-8 pr-4 py-5 text-left text-xs font-medium text-slate-400 uppercase tracking-wide">Personnel</th>
+                                        <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">Commission</th>
+                                        <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">OT Pay</th>
+                                        <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">Cash Adv</th>
+                                        <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">Deduction</th>
+                                        <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">Allowance</th>
                                         <th className="px-4 py-5 text-center text-xs font-black text-amber-500 uppercase tracking-widest">½ Day</th>
-                                        <th className="px-4 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest w-40">Net Pay</th>
+                                        <th className="px-4 py-5 text-right text-xs font-medium text-slate-400 uppercase tracking-wide w-40">Net Pay</th>
                                         <th className="pl-4 pr-8 py-5 text-right w-20"></th>
                                     </tr>
                                 </thead>
@@ -1041,7 +1041,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                             <td colSpan={9} className="py-20 text-center">
                                                 <div className="flex flex-col items-center gap-3 opacity-20">
                                                     <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                                                    <p className="text-xs font-black uppercase tracking-widest">No personnel added yet</p>
+                                                    <p className="text-xs font-semibold uppercase tracking-wide">No personnel added yet</p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1055,7 +1055,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             {employeeEntries.map((emp) => {
                                 const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                 return (
-                                    <div key={emp.employeeId} className={`border rounded-[24px] p-5 space-y-5 shadow-sm ${emp.isReliever ? 'bg-violet-50 border-violet-200' : emp.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+                                    <div key={emp.employeeId} className={`border rounded-2xl p-5 space-y-5 shadow-sm ${emp.isReliever ? 'bg-violet-50 border-violet-200' : emp.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-0.5">
                                                 <p className="text-xs font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>
@@ -1067,7 +1067,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 {!isReadOnly && (
                                                 <button
                                                     onClick={() => handleToggleHalfDay(emp.employeeId)}
-                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all active:scale-95 ${
                                                         emp.isHalfDay
                                                             ? 'bg-amber-500 text-white'
                                                             : 'bg-slate-100 text-slate-400 hover:bg-amber-100 hover:text-amber-600'
@@ -1090,7 +1090,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
-                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Commission</label>
+                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Commission</label>
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">₱</span>
                                                     <input
@@ -1106,7 +1106,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">OT Pay</label>
+                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">OT Pay</label>
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">₱</span>
                                                     <input
@@ -1122,7 +1122,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Cash Adv</label>
+                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Cash Adv</label>
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">₱</span>
                                                     <input
@@ -1138,7 +1138,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Deduction</label>
+                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Deduction</label>
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">₱</span>
                                                     <input
@@ -1154,7 +1154,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                                 </div>
                                             </div>
                                             <div className="col-span-2 space-y-1.5">
-                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Allowance</label>
+                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Allowance</label>
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">₱</span>
                                                     <input
@@ -1172,15 +1172,15 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         </div>
 
                                         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Net Pay</p>
+                                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Net Pay</p>
                                             <p className="text-sm font-black text-emerald-600 tabular-nums tracking-tight">₱{netPay.toLocaleString()}</p>
                                         </div>
                                     </div>
                                 );
                             })}
                             {employeeEntries.length === 0 && (
-                                <div className="py-12 text-center bg-slate-50 rounded-[24px] border border-dashed border-slate-200">
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No personnel added yet</p>
+                                <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No personnel added yet</p>
                                 </div>
                             )}
                         </div>
@@ -1189,16 +1189,16 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
                 <div className="pt-10 space-y-8">
                     {status && (
-                        <div className={`p-6 rounded-[24px] flex items-center gap-4 animate-in fade-in slide-in-from-top-2 border ${status.includes('Aborted') ? 'bg-rose-50 border-rose-100 text-rose-800' : 'bg-emerald-50 border-emerald-100 text-emerald-800'}`}>
+                        <div className={`p-6 rounded-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2 border ${status.includes('Aborted') ? 'bg-rose-50 border-rose-100 text-rose-800' : 'bg-emerald-50 border-emerald-100 text-emerald-800'}`}>
                             <div className={`w-3 h-3 rounded-full animate-pulse ${status.includes('Aborted') ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
-                            <p className="text-xs font-black uppercase tracking-widest">{status}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide">{status}</p>
                         </div>
                     )}
 
                     <button
                         onClick={() => setShowConfirmModal(true)}
                         disabled={isReadOnly || isProcessing || !selectedBranchId || !selectedDate}
-                        className={`group relative w-full h-20 md:h-24 rounded-[28px] font-black uppercase tracking-[0.3em] text-xs md:text-sm shadow-2xl transition-all active:scale-[0.98] overflow-hidden ${isReadOnly || isProcessing || !selectedBranchId || !selectedDate ? 'bg-slate-100 text-slate-300' : 'bg-slate-950 text-white hover:bg-emerald-600'}`}
+                        className={`group relative w-full h-20 md:h-24 rounded-2xl font-black uppercase tracking-wide text-xs md:text-sm shadow-xl transition-all active:scale-[0.98] overflow-hidden ${isReadOnly || isProcessing || !selectedBranchId || !selectedDate ? 'bg-slate-100 text-slate-300' : 'bg-slate-950 text-white hover:bg-emerald-600'}`}
                     >
                         <div className="relative z-10 flex items-center justify-center gap-4">
                             {isProcessing ? (
@@ -1222,7 +1222,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 {/* Confirmation Modal */}
             {showConfirmModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl border border-white/20 animate-in zoom-in-95 duration-300">
                         <div className="p-8 text-center space-y-6">
                             <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto text-amber-500 shadow-inner">
                                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -1237,14 +1237,14 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             <div className="grid grid-cols-2 gap-3 pt-4">
                                 <button
                                     onClick={() => setShowConfirmModal(false)}
-                                    className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                                    className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 transition-all"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleBackfill}
                                     disabled={isProcessing}
-                                    className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-emerald-600 shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-slate-900 text-white hover:bg-emerald-600 shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     {isProcessing ? (
                                         <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
@@ -1262,7 +1262,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             {/* Success Modal */}
             {showSuccessModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl border border-white/20 animate-in zoom-in-95 duration-300">
                         <div className="p-8 text-center space-y-6">
                             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-500 shadow-inner">
                                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1277,7 +1277,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                             <div className="pt-4">
                                 <button
                                     onClick={() => setShowSuccessModal(false)}
-                                    className="w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-95"
+                                    className="w-full py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-95"
                                 >
                                     Dismiss
                                 </button>

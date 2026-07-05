@@ -21,7 +21,7 @@ export const RoleBadge = ({ role }: { role: string }) => {
   return (
     <div className="flex flex-wrap gap-1 justify-center md:justify-start">
       {roles.map(r => (
-        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest border ${styles[r] || styles.TRAINEE}`}>
+        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide border ${styles[r] || styles.TRAINEE}`}>
           {r}
         </span>
       ))}

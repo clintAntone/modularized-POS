@@ -60,14 +60,14 @@ const PillDropdown = ({ value, onChange, options, placeholder, className }: {
         <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden p-1 animate-in zoom-in-95 fade-in duration-150">
           {value && (
             <button type="button" onClick={() => { onChange(''); setOpen(false); }}
-              className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-300 hover:bg-slate-50 transition-colors">
+              className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-50 transition-colors">
               — Clear —
             </button>
           )}
           {options.map(opt => (
             <button key={opt.value} type="button"
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-between ${
+              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-colors flex items-center justify-between ${
                 value === opt.value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
               }`}>
               {opt.label}
@@ -241,8 +241,8 @@ export const EditorModal: React.FC<EditorModalProps> = ({
   // ── Shared styles ─────────────────────────────────────────────────
   const inputCls = 'w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[18px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner';
   const pdInputCls = 'w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[18px] font-semibold text-xs sm:text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner';
-  const pdInputErrCls = 'w-full p-3 sm:p-4 bg-rose-50 border-2 border-rose-200 rounded-[14px] sm:rounded-[18px] font-semibold text-xs sm:text-sm outline-none focus:border-rose-400 focus:bg-white transition-all shadow-inner';
-  const labelCls = 'text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block';
+  const pdInputErrCls = 'w-full p-3 sm:p-4 bg-rose-50 border-2 border-rose-200 rounded-[14px] sm:rounded-[18px] font-semibold text-xs sm:text-sm outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 transition-all shadow-inner';
+  const labelCls = 'text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide ml-1 mb-1 block';
   const fieldErr = (key: string) => pdErrors[key]
     ? <p className="text-xs font-black text-rose-500 uppercase tracking-widest mt-1 ml-1">{pdErrors[key]}</p>
     : null;
@@ -268,7 +268,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-0.5">
                 {isExisting ? 'Edit Employee' : 'New Registration'}
               </p>
               <h3 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter leading-none truncate">
@@ -307,7 +307,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('assignment')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                 activeTab === 'assignment'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-400 hover:text-slate-600'
@@ -321,7 +321,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('personal')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                 activeTab === 'personal'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-400 hover:text-slate-600'
@@ -345,7 +345,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
         {isExisting && localEmployee.requestReset && (
           <div className="bg-rose-600 text-white p-3 rounded-2xl flex items-center justify-center gap-3 animate-pulse shadow-lg shadow-rose-600/20 mb-3 shrink-0">
             <span>🆘</span>
-            <p className="text-xs font-black uppercase tracking-[0.2em]">Personnel Requested Credential Recovery</p>
+            <p className="text-xs font-black uppercase tracking-wider">Personnel Requested Credential Recovery</p>
           </div>
         )}
 
@@ -372,7 +372,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                 </div>
                 {(localEmployee.firstName || localEmployee.lastName) && (
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Display Name</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Display Name</p>
                     <p className="text-sm font-black text-slate-900 uppercase">{localEmployee.name || '—'}</p>
                   </div>
                 )}
@@ -395,7 +395,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             {/* Workplace Assignment */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden">
               <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 border-b border-slate-200">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Authorized Workplaces</p>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Authorized Workplaces</p>
               </div>
               <WorkplaceAuthorizationGrid
                 branches={branches}
@@ -414,7 +414,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             {authorizedBranchIds.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Branch Configuration</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Branch Configuration</p>
                   <span className="text-xs font-black text-emerald-600 uppercase tracking-tighter bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">Source of Truth</span>
                 </div>
                 {authorizedBranchIds.map(id => {
@@ -428,24 +428,24 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                     <div key={id} className={`rounded-2xl border overflow-hidden ${isHome ? 'border-indigo-200' : 'border-slate-200'}`}>
                       <div className={`flex items-center justify-between gap-2 px-4 py-3 ${isHome ? 'bg-indigo-500' : 'bg-slate-600'}`}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-black text-white uppercase tracking-tight leading-tight truncate">{branch.name}</p>
+                          <p className="text-xs font-bold text-slate-900 leading-tight truncate">{branch.name}</p>
                           {branch.manager && <p className="text-xs font-medium text-white/80 truncate mt-0.5">{branch.manager}</p>}
                         </div>
                         {!isHome ? (
                           <button type="button" onClick={() => { setPendingHomeId(id); playSound('click'); }} className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                            <span className="text-xs font-black uppercase tracking-widest">Set Home</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide">Set Home</span>
                           </button>
                         ) : (
                           <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-white/20 text-white pointer-events-none">
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
-                            <span className="text-xs font-black uppercase tracking-widest">Home</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide">Home</span>
                           </div>
                         )}
                       </div>
                       <div className="bg-white divide-y divide-slate-100">
                         <div className="px-4 py-3">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Daily Allowance</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Daily Allowance</p>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₱</span>
                             <input type="text" inputMode="decimal" value={allowance === 0 ? '' : allowance}
@@ -461,13 +461,13 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                           </div>
                         </div>
                         <div className="px-4 py-3">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assigned Roles</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Assigned Roles</p>
                           <div className="flex flex-wrap gap-2">
                             {ROLE_ORDER.filter(r => r !== 'MANAGER' && (r !== 'RELIEVER' || !isHome)).map(role => {
                               const isActive = (branchRole || '').split(',').includes(role);
                               return (
                                 <button key={role} type="button" onClick={() => toggleBranchRole(id, role)}
-                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all active:scale-95 ${
+                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide border-2 transition-all active:scale-95 ${
                                     isActive && role === 'THERAPIST' ? 'bg-emerald-100 border-emerald-200 text-emerald-700'
                                     : isActive && role === 'BONESETTER' ? 'bg-amber-100 border-amber-200 text-amber-700'
                                     : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-700'
@@ -490,7 +490,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             {/* Status & Account */}
             {isExisting && (
               <div className="space-y-2">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Status</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Status</p>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <div>
                     <p className="text-xs font-black uppercase text-slate-900 tracking-widest">Global Status</p>
@@ -502,7 +502,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     )}
-                    <button type="button" onClick={() => setLocalEmployee(prev => ({ ...prev, isActive: !prev.isActive }))} className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-all ${localEmployee.isActive ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-rose-50 border-rose-200 text-rose-500'}`}>
+                    <button type="button" onClick={() => setLocalEmployee(prev => ({ ...prev, isActive: !prev.isActive }))} className={`px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide border-2 transition-all ${localEmployee.isActive ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-rose-50 border-rose-200 text-rose-500'}`}>
                       {localEmployee.isActive ? 'Active' : 'Inactive'}
                     </button>
                   </div>
@@ -540,11 +540,11 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                     </button>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Employee ID</p>
                     {empId ? (
                       <button type="button" onClick={() => { navigator.clipboard.writeText(empId); setEmpIdCopied(true); setTimeout(() => setEmpIdCopied(false), 2000); }} className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 hover:border-emerald-400 transition-all active:scale-[0.98] text-left">
                         <p className="text-xs font-black text-slate-700 font-mono flex-1 min-w-0 truncate">{empId}</p>
-                        <span className="shrink-0 text-xs font-black uppercase tracking-widest text-slate-400">{empIdCopied ? '✓' : 'Copy'}</span>
+                        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">{empIdCopied ? '✓' : 'Copy'}</span>
                       </button>
                     ) : <p className="text-xs font-bold text-slate-300 italic">No ID yet</p>}
                   </div>
@@ -678,7 +678,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             return (
               <>
                 {!ok && (localEmployee.firstName || isExisting) && <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest animate-pulse">All branches must have a non-zero allowance</p>}
-                <button type="submit" disabled={isSaving || !canSubmit} className="w-full bg-slate-900 text-white font-black py-3.5 sm:py-5 rounded-[16px] sm:rounded-[20px] uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                <button type="submit" disabled={isSaving || !canSubmit} className="w-full bg-slate-900 text-white font-black py-3.5 sm:py-5 rounded-[16px] sm:rounded-xl uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                   {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : (isExisting ? 'Save Assignment' : 'Register Employee')}
                 </button>
               </>
@@ -689,7 +689,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               {Object.keys(pdErrors).filter(k => pdErrors[k]).length > 0 && (
                 <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest">Please fix the errors above before saving</p>
               )}
-              <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white font-black py-3.5 sm:py-5 rounded-[16px] sm:rounded-[20px] uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white font-black py-3.5 sm:py-5 rounded-[16px] sm:rounded-xl uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                 {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : 'Save Personal Details'}
               </button>
             </>
@@ -703,7 +703,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
         const currentHome = branches.find(b => b.id === finalHomeBranchId);
         return (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 rounded-[inherit] p-6">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 fade-in duration-150">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 w-full max-w-sm animate-in zoom-in-95 fade-in duration-150">
               <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -720,7 +720,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPendingHomeId(null)}
-                  className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:border-slate-300 transition-all active:scale-95"
+                  className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:border-slate-300 transition-all active:scale-95"
                 >
                   Cancel
                 </button>
@@ -731,7 +731,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                     setPendingHomeId(null);
                     playSound('success');
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
                 >
                   Confirm
                 </button>

@@ -58,7 +58,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             autoFocus
           />
           {isReliefMode && reliefStep === 'setup' && (
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
           )}
         </div>
       )}

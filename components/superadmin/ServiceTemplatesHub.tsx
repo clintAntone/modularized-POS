@@ -344,7 +344,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
           {!isReadOnly && (
             <button
               onClick={() => { setNewCatalogName(''); setShowNewCatalogModal(true); playSound('click'); }}
-              className="h-8 px-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-600 transition-all active:scale-95 shrink-0"
+              className="h-8 px-3 bg-slate-900 text-white rounded-xl text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 hover:bg-emerald-600 transition-all active:scale-95 shrink-0"
             >
               <Plus className="w-3 h-3" strokeWidth={3} />
               <span>New Catalog</span>
@@ -375,14 +375,14 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
           </div>
           <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5 shrink-0">
             <button onClick={() => setViewMode('services')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
                 viewMode === 'services' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
               }`}>
               <LayoutGrid className="w-3 h-3" strokeWidth={2.5} />
               <span className="hidden sm:inline">Catalogs</span>
             </button>
             <button onClick={() => setViewMode('branches')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
                 viewMode === 'branches' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
               }`}>
               <List className="w-3 h-3" strokeWidth={2.5} />
@@ -427,13 +427,13 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     </div>
                     <div>
                       <p className="text-xs font-black uppercase tracking-tight text-slate-900 leading-none">{branch.name}</p>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{totalAssigned} of {templates.length} services assigned</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{totalAssigned} of {templates.length} services assigned</p>
                     </div>
                   </div>
                   {!isReadOnly && (
                     <button
                       onClick={() => { setBranchManage(branch); playSound('click'); }}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all active:scale-95"
                     >
                       <GitBranch className="w-3 h-3" />
                       Manage
@@ -466,7 +466,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                                 setBulkMode('assign');
                                 playSound('click');
                               }}
-                              className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-emerald-600 transition-colors"
+                              className="text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-emerald-600 transition-colors"
                             >
                               {allAssigned ? 'All assigned' : 'Assign all →'}
                             </button>
@@ -488,16 +488,16 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         </div>
       ) : viewMode === 'services' && Object.keys(filteredGroups).length === 0 ? (
         <div className="text-center py-16 text-slate-400">
-          <p className="text-xs font-bold uppercase tracking-widest">No services found</p>
+          <p className="text-xs font-medium uppercase tracking-wide">No services found</p>
         </div>
       ) : viewMode === 'services' ? (
         (Object.entries(filteredGroups) as [string, ServiceTemplate[]][]).map(([group, items]) => (
           <div key={group} className="space-y-3">
             {/* Group header */}
             <div className="flex items-center gap-2 px-1">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap shrink-0">{group}</p>
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400 whitespace-nowrap shrink-0">{group}</p>
               {prioCatalogs.includes(group) && (
-                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 text-xs font-black uppercase tracking-widest shrink-0">PRIO</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 text-xs font-semibold uppercase tracking-wide shrink-0">PRIO</span>
               )}
               <div className="flex-1 h-px bg-slate-200 min-w-0" />
               <span className="text-xs font-bold text-slate-300 uppercase tracking-widest whitespace-nowrap shrink-0">{items.length} service{items.length !== 1 ? 's' : ''}</span>
@@ -559,7 +559,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         setBulkMode('assign');
                         playSound('click');
                       }}
-                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all active:scale-95"
                     >
                       <Zap className="w-2.5 h-2.5 shrink-0" />
                       <span className="hidden sm:inline">Assign</span>
@@ -573,7 +573,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
                 <BookOpen className="w-7 h-7 text-slate-200" />
                 <div>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Empty Catalog</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Empty Catalog</p>
                   <p className="text-xs text-slate-300 mt-1">Use <span className="font-bold text-indigo-400">Import</span> to pull services from other catalogs, or <span className="font-bold text-slate-500">Add</span> to create a new service.</p>
                 </div>
               </div>
@@ -682,20 +682,20 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Create / Edit Modal ── */}
       {editingTemplate && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-tight">{isNew ? 'New Service' : 'Edit Service'}</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Template Definition</p>
+                <h3 className="text-sm font-bold text-slate-900">{isNew ? 'New Service' : 'Edit Service'}</h3>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Template Definition</p>
               </div>
-              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Service Name</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Name</label>
                 <input
                   value={editingTemplate.name}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, name: e.target.value.toUpperCase() }))}
@@ -706,7 +706,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Catalog Group</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Catalog Group</label>
                 <input
                   value={editingTemplate.catalog_name || ''}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, catalog_name: e.target.value.toUpperCase() }))}
@@ -728,7 +728,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       {suggestions.map(s => (
                         <button key={s} type="button"
                           onClick={() => setEditingTemplate(t => t && ({ ...t, catalog_name: s }))}
-                          className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all">
+                          className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold uppercase tracking-wide hover:bg-emerald-100 transition-all">
                           {s}
                         </button>
                       ))}
@@ -739,7 +739,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Default Price (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Default Price (₱)</label>
                   <input type="number" min="0"
                     value={editingTemplate.default_price}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, default_price: Number(e.target.value) }))}
@@ -747,7 +747,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Duration (min)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Duration (min)</label>
                   <input type="number" min="0"
                     value={editingTemplate.duration}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, duration: Number(e.target.value) }))}
@@ -757,12 +757,12 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Primary Role</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Primary Role</label>
                 <div className="grid grid-cols-2 gap-2">
                   {['THERAPIST', 'BONESETTER'].map(role => (
                     <button key={role}
                       onClick={() => setEditingTemplate(t => t && ({ ...t, primary_role: role }))}
-                      className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
+                      className={`py-3 rounded-xl text-xs font-semibold uppercase tracking-wide border transition-all ${
                         editingTemplate.primary_role === role
                           ? 'bg-slate-900 text-white border-slate-900'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
@@ -794,7 +794,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Commission (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Commission (₱)</label>
                   <input type="number" min="0"
                     value={editingTemplate.commission_value}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, commission_value: Number(e.target.value) }))}
@@ -803,7 +803,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 </div>
                 {editingTemplate.is_dual_provider && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">2nd Commission (₱)</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">2nd Commission (₱)</label>
                     <input type="number" min="0"
                       value={editingTemplate.secondary_commission_value ?? 0}
                       onChange={e => setEditingTemplate(t => t && ({ ...t, secondary_commission_value: Number(e.target.value) }))}
@@ -836,11 +836,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   </p>
                   <div className="flex gap-3">
                     <button onClick={() => setSaveConfirm(false)}
-                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                       Go Back
                     </button>
                     <button onClick={() => { setSaveConfirm(false); handleSaveTemplate(); }} disabled={isSaving}
-                      className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                      className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-800 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                       {isSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                       {isSaving ? 'Saving...' : 'Yes, Confirm'}
                     </button>
@@ -849,11 +849,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               ) : (
                 <div className="flex gap-3">
                   <button onClick={() => { setSaveConfirm(false); setEditingTemplate(null); }}
-                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                     Cancel
                   </button>
                   <button onClick={() => setSaveConfirm(true)} disabled={!editingTemplate.name.trim()}
-                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-40">
+                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-800 transition-all disabled:opacity-40">
                     {isNew ? 'Create Service' : 'Save Changes'}
                   </button>
                 </div>
@@ -867,7 +867,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Branch Assignments Modal ── */}
       {managingTemplate && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
             {/* Header */}
             <div className="px-6 pt-6 pb-4 shrink-0">
@@ -878,7 +878,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 </div>
                 <button
                   onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); }}
-                  className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
+                  className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -886,7 +886,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               {/* Summary pill */}
               <div className="mt-3 flex items-center gap-2">
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black uppercase tracking-widest">
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold uppercase tracking-wide">
                   {draftBranchIds.length} branch{draftBranchIds.length !== 1 ? 'es' : ''} selected
                 </span>
                 {draftBranchIds.length > 0 && !isReadOnly && (
@@ -940,7 +940,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     {/* Price override — only visible when selected */}
                     {inDraft && (
                       <div className="px-4 pb-3 flex items-center gap-2 border-t border-emerald-100">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest shrink-0">Custom price</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">Custom price</span>
                         <div className="flex items-center gap-1.5 ml-auto">
                           <span className="text-xs font-bold text-slate-400">₱</span>
                           <input
@@ -968,7 +968,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <div className="px-4 py-4 border-t border-slate-100 shrink-0 flex gap-2">
                 <button
                   onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); }}
-                  className="flex-1 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  className="flex-1 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
@@ -1005,7 +1005,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       setIsAssignSaving(false);
                     }
                   }}
-                  className="flex-[2] py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                  className="flex-[2] py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                 >
                   {isAssignSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                   {isAssignSaving ? 'Saving...' : 'Save Changes'}
@@ -1020,16 +1020,16 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── New Catalog Modal ── */}
       {showNewCatalogModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <LayoutGrid className="w-3.5 h-3.5 text-emerald-400" />
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">New Catalog</h3>
+                  <h3 className="text-sm font-bold text-slate-900">New Catalog</h3>
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Give your catalog a name</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Give your catalog a name</p>
               </div>
-              <button onClick={() => setShowNewCatalogModal(false)} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+              <button onClick={() => setShowNewCatalogModal(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1071,7 +1071,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   playSound('success');
                 }}
                 disabled={!newCatalogName.trim() || catalogNames.includes(newCatalogName.trim())}
-                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={3} />
                 Create Catalog &amp; Import Services
@@ -1085,24 +1085,24 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Import Services Modal ── */}
       {importTo !== null && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
             {/* Header */}
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">
+                  <h3 className="text-sm font-bold text-slate-900">
                     {importStep === 1 ? 'Import Services' : 'Set Prices'}
                   </h3>
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate">
                   Into: {importTo}{importStep === 2 ? ` · ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''}` : ''}
                 </p>
               </div>
               <button
                 onClick={() => { setImportTo(null); setImportSelected([]); setImportPrices({}); setImportStep(1); setFilterCatalog('ALL'); }}
-                className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
+                className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1149,7 +1149,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                               {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
                               {!allSelected && someSelected && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm" />}
                             </div>
-                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{catalogName}</p>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{catalogName}</p>
                             <span className="ml-auto text-xs font-bold text-slate-400">{catalogItems.length} services</span>
                           </button>
                           {/* Service rows */}
@@ -1179,7 +1179,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     <button
                       onClick={() => setImportStep(2)}
                       disabled={importSelected.length === 0}
-                      className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                      className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                     >
                       {importSelected.length === 0 ? 'Select services above' : `Next: Set Prices → (${importSelected.length} selected)`}
                     </button>
@@ -1224,14 +1224,14 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
                   <button
                     onClick={() => setImportStep(1)}
-                    className="px-5 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all shrink-0"
+                    className="px-5 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide hover:bg-slate-200 transition-all shrink-0"
                   >
                     ← Back
                   </button>
                   <button
                     onClick={handleImport}
                     disabled={isImportSaving}
-                    className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                    className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                   >
                     {isImportSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                     {isImportSaving ? 'Importing...' : `Import ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''} into ${importTo}`}
@@ -1247,22 +1247,22 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Bulk Assign Modal ── */}
       {bulkAssign && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
             {/* Header */}
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">
+                  <h3 className="text-sm font-bold text-slate-900">
                     Bulk Assign
                   </h3>
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   {bulkAssign.catalogName} · {bulkAssign.templateIds.length} service{bulkAssign.templateIds.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <button onClick={() => { setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign'); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+              <button onClick={() => { setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign'); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1271,13 +1271,13 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className="px-6 py-3 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2">
               <button
                 onClick={() => { setBulkMode('assign'); setBulkSelectedBranches([]); }}
-                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${bulkMode === 'assign' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${bulkMode === 'assign' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
               >
                 Assign
               </button>
               <button
                 onClick={() => { setBulkMode('unassign'); setBulkSelectedBranches([]); }}
-                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${bulkMode === 'unassign' ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${bulkMode === 'unassign' ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
               >
                 Unassign
               </button>
@@ -1287,7 +1287,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             {bulkMode === 'assign' && prioCatalogs.includes(bulkAssign.catalogName) && (
               <div className="px-6 py-3 bg-amber-400 shrink-0 flex items-start gap-2">
                 <span className="text-white text-xs leading-none shrink-0 mt-0.5">★</span>
-                <p className="text-xs font-black text-white uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-semibold text-slate-700 leading-relaxed">
                   PRIO catalog — assigning will replace ALL existing services on selected branches with only this catalog's services.
                 </p>
               </div>
@@ -1297,7 +1297,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className={`px-6 py-3 border-b shrink-0 ${
               bulkMode === 'assign' ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'
             }`}>
-              <p className={`text-xs font-bold uppercase tracking-widest ${
+              <p className={`text-xs font-medium uppercase tracking-wide ${
                 bulkMode === 'assign' ? 'text-amber-700' : 'text-rose-700'
               }`}>
                 {bulkMode === 'assign'
@@ -1325,7 +1325,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     <div className="w-2 h-2 bg-slate-400 rounded-sm" />
                   )}
                 </div>
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   {bulkSelectedBranches.length === branches.length ? 'Deselect All' : 'Select All Branches'}
                 </p>
               </button>
@@ -1367,7 +1367,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       ) : null
                     ) : (
                       noneAssigned ? (
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">None assigned</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">None assigned</span>
                       ) : (
                         <span className="text-xs font-black text-rose-400 uppercase tracking-widest shrink-0">{assignedCount} will remove</span>
                       )
@@ -1382,7 +1382,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <button
                 onClick={handleBulkAssign}
                 disabled={bulkSelectedBranches.length === 0 || isBulkSaving}
-                className={`flex-1 py-3.5 rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all disabled:opacity-40 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3.5 rounded-2xl text-white text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-40 flex items-center justify-center gap-2 ${
                   bulkMode === 'assign' ? 'bg-slate-900 hover:bg-emerald-600' : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
@@ -1405,16 +1405,16 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Branch Manage Modal (all services for a branch) ── */}
       {branchManage && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-0.5">
                   <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight truncate">{branchManage.name}</h3>
+                  <h3 className="text-sm font-bold text-slate-900 truncate">{branchManage.name}</h3>
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Service Assignments</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Assignments</p>
               </div>
-              <button onClick={() => setBranchManage(null)} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+              <button onClick={() => setBranchManage(null)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1432,7 +1432,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                     <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100 border-t">
                       <div className="flex items-center gap-2">
                         <div className={`w-1.5 h-1.5 rounded-full ${palette.dot}`} />
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-700">{group}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{group}</p>
                         <span className="text-xs font-bold text-slate-400">{assignedInGroup.length}/{items.length}</span>
                       </div>
                       <button
@@ -1444,7 +1444,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                           playSound('click');
                         }}
                         disabled={allAssigned}
-                        className={`text-xs font-black uppercase tracking-widest transition-colors ${allAssigned ? 'text-emerald-400 cursor-default' : 'text-slate-400 hover:text-emerald-600'}`}
+                        className={`text-xs font-semibold uppercase tracking-wide transition-colors ${allAssigned ? 'text-emerald-400 cursor-default' : 'text-slate-400 hover:text-emerald-600'}`}
                       >
                         {allAssigned ? '✓ All assigned' : 'Assign all →'}
                       </button>
@@ -1479,7 +1479,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             </div>
 
             <div className="px-6 py-4 border-t border-slate-100 shrink-0">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center">
                 {branchServices.filter(bs => bs.branch_id === branchManage.id).length} of {templates.length} services assigned to this branch
               </p>
             </div>
@@ -1491,21 +1491,21 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Delete Confirm ── */}
       {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-[32px] p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-8 text-center shadow-xl animate-in zoom-in-95 duration-300">
             <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <Trash2 className="w-6 h-6 text-rose-500" />
             </div>
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Delete Service?</h3>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mt-2 mb-6 leading-relaxed">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-2 mb-6 leading-relaxed">
               This removes <span className="text-slate-700 font-black">{deleteConfirm.name}</span> and all {branchCount(deleteConfirm.id)} branch assignments permanently.
             </p>
             <div className="flex flex-col gap-2">
               <button onClick={handleDelete} disabled={isSaving}
-                className="w-full py-4 rounded-full bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                className="w-full py-4 rounded-full bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                 {isSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                 {isSaving ? 'Deleting...' : 'Delete Service'}
               </button>
-              <button onClick={() => setDeleteConfirm(null)} className="w-full py-3 text-slate-400 text-xs font-bold uppercase tracking-widest">
+              <button onClick={() => setDeleteConfirm(null)} className="w-full py-3 text-slate-400 text-xs font-medium uppercase tracking-wide">
                 Cancel
               </button>
             </div>

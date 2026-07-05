@@ -15,12 +15,12 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   unlockPin, unlockError, onChangePin, onUnlock, onCancel,
 }) => (
   <div className={UI_THEME.layout.modalWrapper}>
-    <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-8 text-center border border-slate-100 shadow-2xl animate-in zoom-in-95`}>
+    <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-8 text-center border border-slate-100 shadow-xl animate-in zoom-in-95`}>
       <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
         <Lock className="w-8 h-8" strokeWidth={3} />
       </div>
       <h4 className="text-xl font-bold text-slate-900 mb-2 uppercase tracking-tight">Unlock Manager Access</h4>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6">
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed mb-6">
         Enter your Manager PIN to restore full access.
       </p>
       <div className="space-y-4">

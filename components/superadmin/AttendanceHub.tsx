@@ -248,7 +248,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
   return (
     <div className="animate-in fade-in duration-300 space-y-6">
       {/* Header & Filters */}
-      <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm space-y-4">
+      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
         {/* Title row + Export button */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -259,10 +259,10 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Attendance Logs</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Global Staff Clock-in Registry</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Global Staff Clock-in Registry</p>
             </div>
             {filteredAttendance.length > 0 && (
-              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-black uppercase tracking-widest">
+              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold uppercase tracking-wide">
                 {filteredAttendance.length} records
               </span>
             )}
@@ -305,7 +305,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
             >
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span className="text-xs font-black uppercase tracking-widest">
+                <span className="text-xs font-semibold uppercase tracking-wide">
                   {dateFrom === dateTo
                     ? (dateFrom === todayStr ? 'Today' : dateFrom)
                     : `${dateFrom} → ${dateTo}`}
@@ -315,7 +315,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 {(dateFrom !== todayStr || dateTo !== todayStr) && (
                   <span
                     onClick={e => { e.stopPropagation(); setDateFrom(todayStr); setDateTo(todayStr); setCurrentPage(1); playSound('click'); }}
-                    className="text-xs font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-800 transition-colors"
+                    className="text-xs font-semibold uppercase tracking-wide text-emerald-600 hover:text-emerald-800 transition-colors"
                   >
                     Reset
                   </span>
@@ -359,7 +359,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <button
                   key={opt}
                   onClick={() => { setClockOutFilter(opt); setCurrentPage(1); playSound('click'); }}
-                  className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all ${
                     active
                       ? opt === 'IN_PROGRESS'
                         ? 'bg-amber-500 border-amber-500 text-white shadow'
@@ -394,7 +394,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
           <button
             onClick={handleExportPDF}
             disabled={isExporting || filteredAttendance.length === 0}
-            className="h-14 px-5 flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-14 px-5 flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isExporting ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -406,7 +406,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
         </div>
 
         {/* Table / Mobile Cards */}
-        <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Desktop View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -414,14 +414,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <tr className="bg-slate-50 border-b border-slate-100">
                   {/* accent col — no header */}
                   <th className="w-1.5 p-0" />
-                  <th className="pl-5 pr-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Staff</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Branch</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Date</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Clock In</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Clock Out</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Duration</th>
-                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="pl-4 pr-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="pl-5 pr-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Staff</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Date</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Clock In</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Clock Out</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Duration</th>
+                  <th className="px-4 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Status</th>
+                  <th className="pl-4 pr-5 py-4 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -515,7 +515,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
 
                         {/* Status */}
                         <td className="px-4 py-4">
-                          <span className={`px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-widest ${statusBadge}`}>
+                          <span className={`px-2.5 py-1 rounded-full border text-xs font-semibold uppercase tracking-wide ${statusBadge}`}>
                             {isActive ? 'Active' : log.status}
                           </span>
                         </td>
@@ -528,7 +528,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                                 onClick={() => handleResetClockOut(log)}
                                 disabled={isResetting === log.id}
                                 title="Reset clock-out"
-                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
                               >
                                 {isResetting === log.id ? (
                                   <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -598,7 +598,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                                                   { bar: 'bg-slate-400',   badge: 'bg-slate-50 text-slate-600 border-slate-200' };
 
                 return (
-                  <div key={log.id} className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
+                  <div key={log.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 
                     {/* ── Colour accent bar ── */}
                     <div className={`h-1 w-full ${statusStyle.bar} ${isActive ? 'animate-pulse' : ''}`} />
@@ -610,11 +610,11 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           {log.staffName}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate" title={branch?.name || 'Unknown'}>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate" title={branch?.name || 'Unknown'}>
                             {branch?.name?.replace('BRANCH - ', '') || 'Unknown'}
                           </p>
                           <span className="text-slate-200">·</span>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                             {new Date(log.clockIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         </div>
@@ -624,7 +624,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           </span>
                         )}
                       </div>
-                      <span className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-widest ${statusStyle.badge}`}>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-semibold uppercase tracking-wide ${statusStyle.badge}`}>
                         {isActive ? 'Active' : log.status}
                       </span>
                     </div>
@@ -644,7 +644,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         </div>
                         {/* Clock Out */}
                         <div className="px-4 py-3">
-                          <p className={`text-xs font-black uppercase tracking-widest mb-1 flex items-center gap-1 ${isActive ? 'text-slate-300' : 'text-rose-500'}`}>
+                          <p className={`text-xs font-semibold uppercase tracking-wide mb-1 flex items-center gap-1 ${isActive ? 'text-slate-300' : 'text-rose-500'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full inline-block ${isActive ? 'bg-slate-300 animate-pulse' : 'bg-rose-500'}`} />
                             Clock Out
                           </p>
@@ -666,7 +666,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                       {/* Duration footer */}
                       <div className={`border-t border-slate-100 px-4 py-2 flex items-center justify-center ${isActive ? 'bg-emerald-50/40' : ''}`}>
                         {durationHrs !== null ? (
-                          <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                             Duration: {durationHrs}h {durationMins}m
                           </p>
                         ) : isActive ? (
@@ -688,7 +688,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           <button
                             onClick={() => handleResetClockOut(log)}
                             disabled={isResetting === log.id}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
                           >
                             {isResetting === log.id ? (
                               <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -700,7 +700,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         )}
                         <button
                           onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
-                          className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
+                          className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-xs font-semibold uppercase tracking-wide transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           Delete
@@ -711,7 +711,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 );
               })
             ) : (
-              <div className="py-20 text-center bg-white rounded-[24px] border border-slate-100 flex flex-col items-center gap-3">
+              <div className="py-20 text-center bg-white rounded-2xl border border-slate-100 flex flex-col items-center gap-3">
                 {isFetching ? (
                   <>
                     <div className="w-7 h-7 border-[3px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />
@@ -731,7 +731,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
       {/* Reset Clock-Out Confirmation Modal */}
       {resetConfirmLog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center space-y-5">
               <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto">
                 <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -746,20 +746,20 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {resetConfirmLog.staffName}
                 </p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   and mark them as "In Progress" again.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={() => { playSound('click'); setResetConfirmLog(null); }}
-                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmResetClockOut}
-                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -775,7 +775,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
       {/* Delete Confirmation Modal */}
       {deleteConfirmLog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center space-y-5">
               <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
                 <svg className="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -790,7 +790,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {deleteConfirmLog.staffName}
                 </p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   {new Date(deleteConfirmLog.clockIn).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
@@ -802,14 +802,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <button
                   onClick={() => { playSound('click'); setDeleteConfirmLog(null); }}
                   disabled={isDeleting}
-                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteEntry}
                   disabled={isDeleting}
-                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   {isDeleting ? (
                     <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

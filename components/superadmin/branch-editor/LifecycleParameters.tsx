@@ -35,7 +35,7 @@ export const LifecycleParameters: React.FC<LifecycleParametersProps> = ({
   return (
     <section className="space-y-5 animate-in slide-in-from-bottom-4 duration-500">
       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Lifecycle Parameters</h4>
-      <div className="bg-slate-50/50 p-6 rounded-[32px] space-y-8 border border-slate-100 shadow-inner">
+      <div className="bg-slate-50/50 p-6 rounded-2xl space-y-8 border border-slate-100 shadow-inner">
         <div className="space-y-3">
           <label className="block text-xs font-semibold uppercase text-slate-500 ml-1 tracking-widest">Cutoff Rotation Day</label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">

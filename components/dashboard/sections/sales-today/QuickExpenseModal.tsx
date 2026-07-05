@@ -279,7 +279,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       {/* Centered on all screen sizes */}
       <div className="relative h-full flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-sm">
-          <div className="relative bg-white rounded-[28px] sm:rounded-[40px] w-full shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full shadow-xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
 
             {/* Header */}
             <div className="px-5 sm:px-6 pt-5 pb-4 rounded-t-[28px] sm:rounded-t-[40px] shrink-0">
@@ -310,12 +310,12 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     </h4>
                     {mode === 'deposit' && (
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Balance</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Balance</span>
                         <span className="text-xs font-black text-emerald-600 tabular-nums">₱{vaultBal.toLocaleString()}</span>
                         {vaultTarget > 0 && (
                           <>
                             <span className="text-slate-200">·</span>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Target</span>
+                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Target</span>
                             <span className="text-xs font-black text-slate-500 tabular-nums">₱{vaultTarget.toLocaleString()}</span>
                           </>
                         )}
@@ -325,7 +325,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-0.5">Rent & Bills Provision</p>
                     )}
                     {mode === 'expense' && (
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{branch.name}</p>
                     )}
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <div className="flex gap-1.5 p-1 bg-white/60 rounded-xl border border-slate-100">
                   <button
                     onClick={() => switchMode('expense')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
                       mode === 'expense'
                         ? 'bg-slate-900 text-white shadow-sm'
                         : 'text-slate-400 hover:text-slate-700'
@@ -354,7 +354,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </button>
                   <button
                     onClick={() => switchMode('deposit')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
                       mode === 'deposit'
                         ? 'bg-emerald-600 text-white shadow-sm'
                         : 'text-slate-400 hover:text-slate-700'
@@ -382,13 +382,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <>
                   {/* Label Input */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">What's the expense?</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">What's the expense?</label>
                     <div className="relative suggestion-wrapper">
                       <input
                         ref={labelInputRef}
                         value={expenseName}
                         onChange={e => { setExpenseName(e.target.value); setShowSuggestions(true); }}
-                        className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-sm uppercase outline-none transition-all focus:border-rose-400 focus:bg-white placeholder:font-semibold placeholder:normal-case placeholder:text-slate-300"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 placeholder:font-semibold placeholder:normal-case placeholder:text-slate-300"
                         placeholder="e.g. Rent, Electricity, Food..."
                         autoFocus
                         autoComplete="off"
@@ -400,7 +400,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                               key={s}
                               type="button"
                               onMouseDown={e => { e.preventDefault(); setExpenseName(s); setShowSuggestions(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-colors hover:bg-rose-50 hover:text-rose-700 ${
+                              className={`w-full text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-rose-50 hover:text-rose-700 ${
                                 i < filteredSuggestions.length - 1 ? 'border-b border-slate-100' : ''
                               } text-slate-600`}
                             >
@@ -414,14 +414,14 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                   {/* Amount */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Amount</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Amount</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[18px] font-black text-slate-300 pointer-events-none select-none">₱</span>
                       <input
                         type="number"
                         value={expenseAmount || ''}
                         onChange={e => setExpenseAmount(Number(e.target.value))}
-                        className="w-full pl-9 pr-4 py-3.5 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-[22px] tabular-nums outline-none transition-all focus:border-rose-400 focus:bg-white placeholder:text-slate-300 placeholder:font-bold placeholder:text-lg"
+                        className="w-full pl-9 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl font-semibold text-[22px] tabular-nums outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 placeholder:text-slate-300 placeholder:font-bold placeholder:text-lg"
                         placeholder="0"
                         min="0"
                       />
@@ -439,7 +439,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       </div>
                       <div className="px-4 py-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vault Can Cover</span>
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Vault Can Cover</span>
                           <span className="text-xs font-black text-amber-500 tabular-nums">₱{vaultBal.toLocaleString()}</span>
                         </div>
                         <div className="flex items-center justify-between border-t border-rose-200 pt-2">
@@ -471,10 +471,10 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-black uppercase tracking-widest ${withdrawFromVault ? 'text-amber-900' : 'text-slate-600'}`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wide ${withdrawFromVault ? 'text-amber-900' : 'text-slate-600'}`}>
                           Cover ₱{vaultCoverAmount.toLocaleString()} from vault
                         </p>
-                        <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 tabular-nums ${withdrawFromVault ? 'text-amber-500' : 'text-slate-400'}`}>
+                        <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 tabular-nums ${withdrawFromVault ? 'text-amber-500' : 'text-slate-400'}`}>
                           Expense ₱{expenseAmount.toLocaleString()}{roiShortfall > expenseAmount ? ` + ₱${(roiShortfall - expenseAmount).toLocaleString()} prior deficit` : ''} · vault ₱{vaultBal.toLocaleString()}
                         </p>
                       </div>
@@ -483,7 +483,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                   {/* Receipt */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">
                       Receipt{' '}
                       {withdrawFromVault
                         ? <span className="text-rose-500">*</span>
@@ -522,7 +522,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                           </div>
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-rose-500 transition-colors">Take Photo</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 group-hover:text-rose-500 transition-colors">Take Photo</span>
                         </button>
                         <button type="button"
                           onClick={() => { if (fileInputRef.current) { fileInputRef.current.removeAttribute('capture'); fileInputRef.current.click(); } }}
@@ -532,7 +532,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
                           </div>
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Upload</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 group-hover:text-indigo-500 transition-colors">Upload</span>
                         </button>
                       </div>
                     )}
@@ -588,10 +588,10 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-black uppercase tracking-widest ${depositAmount === maxDeposit ? 'text-indigo-900' : 'text-slate-600'}`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wide ${depositAmount === maxDeposit ? 'text-indigo-900' : 'text-slate-600'}`}>
                           Deposit all from net ROI
                         </p>
-                        <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 ${depositAmount === maxDeposit ? 'text-indigo-500' : 'text-slate-400'}`}>
+                        <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 ${depositAmount === maxDeposit ? 'text-indigo-500' : 'text-slate-400'}`}>
                           ₱{maxDeposit.toLocaleString()} available
                         </p>
                       </div>
@@ -599,12 +599,12 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Amount (₱)</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Amount (₱)</label>
                     <input
                       type="number"
                       value={depositAmount || ''}
                       onChange={e => setDepositAmount(Number(e.target.value))}
-                      className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-xl outline-none transition-all shadow-inner focus:border-indigo-400 focus:bg-white"
+                      className="w-full p-5 bg-white border border-slate-200 rounded-xl font-semibold text-xl outline-none transition-all shadow-inner focus:border-indigo-400 focus:bg-white"
                       placeholder="0"
                       min="0"
                       autoFocus={mode === 'legacy_deposit'}
@@ -614,14 +614,14 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   <div className="flex gap-3 pt-1">
                     <button
                       onClick={onClose}
-                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveLegacyDeposit}
                       disabled={!canSaveLegacyDeposit || isSaving}
-                      className="flex-1 py-3 rounded-xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-30 hover:bg-indigo-700 active:scale-95 transition-all"
+                      className="flex-1 py-3 rounded-xl bg-indigo-600 text-white text-xs font-semibold uppercase tracking-wide shadow-lg disabled:opacity-30 hover:bg-indigo-700 active:scale-95 transition-all"
                     >
                       {isSaving ? 'Saving...' : `Deposit ₱${(depositAmount || 0).toLocaleString()}`}
                     </button>
@@ -650,10 +650,10 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       )}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-black uppercase tracking-widest ${depositAll ? 'text-emerald-900' : 'text-slate-600'}`}>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${depositAll ? 'text-emerald-900' : 'text-slate-600'}`}>
                         Remit full net ROI
                       </p>
-                      <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 tabular-nums ${depositAll ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 tabular-nums ${depositAll ? 'text-emerald-600' : 'text-slate-400'}`}>
                         ₱{maxDeposit.toLocaleString()} available
                       </p>
                     </div>
@@ -662,12 +662,12 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   {/* Custom amount — only when not remitting all */}
                   {!depositAll && (
                     <div className="space-y-1.5">
-                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Custom Amount (₱)</label>
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Custom Amount (₱)</label>
                       <input
                         type="number"
                         value={depositAmount || ''}
                         onChange={e => setDepositAmount(Number(e.target.value))}
-                        className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-xl outline-none transition-all shadow-inner focus:border-emerald-400 focus:bg-white"
+                        className="w-full p-5 bg-white border border-slate-200 rounded-xl font-semibold text-xl outline-none transition-all shadow-inner focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
                         placeholder="0"
                         min="0"
                         max={maxDeposit}
@@ -683,7 +683,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                   {effectiveDepositAmount > 0 && (
                     <div className="bg-emerald-50 rounded-2xl px-4 py-3 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">After deposit</span>
+                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">After deposit</span>
                       <span className="text-sm font-black text-emerald-900 tabular-nums">₱{(vaultBal + effectiveDepositAmount).toLocaleString()}</span>
                     </div>
                   )}
@@ -703,14 +703,14 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   <div className="flex gap-3 pt-1">
                     <button
                       onClick={onClose}
-                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveDeposit}
                       disabled={!canSaveDeposit || isSaving}
-                      className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-30 hover:bg-emerald-700 active:scale-95 transition-all"
+                      className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-wide shadow-lg disabled:opacity-30 hover:bg-emerald-700 active:scale-95 transition-all"
                     >
                       {isSaving ? 'Saving...' : `Confirm ₱${effectiveDepositAmount.toLocaleString()}`}
                     </button>

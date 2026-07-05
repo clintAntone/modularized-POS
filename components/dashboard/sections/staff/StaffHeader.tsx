@@ -87,7 +87,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             <Store className="w-4.5 h-4.5 text-emerald-600" strokeWidth={2} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Staff Directory</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Staff Directory</p>
             <h2 className="text-base font-black text-slate-900 uppercase tracking-tight leading-tight truncate">{branchName}</h2>
           </div>
         </div>
@@ -122,7 +122,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             value={searchTerm}
             onChange={e => onSearchChange(e.target.value)}
             placeholder="SEARCH ROSTER..."
-            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-semibold text-xs text-slate-700 placeholder:text-slate-300 outline-none focus:border-emerald-400 focus:bg-white transition-all"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-semibold text-xs text-slate-700 placeholder:text-slate-300 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all"
           />
         </div>
 
@@ -178,7 +178,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setOpen(v => !v)}
-            className={`relative h-9 px-3 rounded-xl border transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${
+            className={`relative h-9 px-3 rounded-xl border transition-all text-xs font-medium uppercase tracking-wide flex items-center gap-1.5 ${
               open
                 ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-slate-300'
@@ -197,7 +197,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
 
               {/* Roles */}
               <div className="px-4 pt-4 pb-2">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Designation</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Designation</p>
                 <div className="space-y-1">
                   {/* ALL option */}
                   <button
@@ -207,7 +207,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${allSelected ? 'bg-white border-white' : 'border-slate-300'}`}>
                       {allSelected && <Check className="w-2.5 h-2.5 text-slate-900" strokeWidth={3} />}
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest">All Roles</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide">All Roles</span>
                   </button>
 
                   {ROLES.map(role => {
@@ -221,7 +221,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
                         <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${checked ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                           {checked && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                         </div>
-                        <span className="text-xs font-black uppercase tracking-widest">{role}</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{role}</span>
                       </button>
                     );
                   })}
@@ -233,7 +233,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
 
               {/* Status */}
               <div className="px-4 py-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Status</p>
                 <button
                   onClick={() => onFilterActiveOnlyChange(!filterActiveOnly)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-left ${filterActiveOnly ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -241,13 +241,13 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${filterActiveOnly ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                     {filterActiveOnly && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest">Active Only</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide">Active Only</span>
                 </button>
               </div>
 
               {/* Footer */}
               <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{totalShowing} showing</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{totalShowing} showing</span>
                 {hasActiveFilters && (
                   <button
                     onClick={resetFilters}

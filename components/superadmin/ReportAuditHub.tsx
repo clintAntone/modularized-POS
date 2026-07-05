@@ -80,7 +80,7 @@ const BranchPicker: React.FC<{
 
   return (
     <div className="space-y-1" ref={ref}>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch</p>
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</p>
       <div className="relative">
         <button
           onClick={() => { setOpen(o => !o); setQuery(''); }}
@@ -328,7 +328,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
 
         {/* Diagnosis pills */}
         <div className="space-y-1.5">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Diagnosis</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Diagnosis</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setDiagFilter('')}
@@ -360,7 +360,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 {/* Tooltip */}
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                   <div className="bg-slate-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2 shadow-xl">
-                    <p className="font-bold uppercase tracking-widest text-xs mb-1 opacity-60">{d}</p>
+                    <p className="font-medium uppercase tracking-wide text-xs mb-1 opacity-60">{d}</p>
                     <p>{DIAG_DESCRIPTIONS[d]}</p>
                   </div>
                   <div className="w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1" />
@@ -374,7 +374,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Search */}
           <div className="space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Search</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Search</p>
             <div className="relative">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input
@@ -396,7 +396,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
 
           {/* Date From */}
           <div className="space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date From</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date From</p>
             <input
               type="date"
               value={dateFrom}
@@ -407,7 +407,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
 
           {/* Date To */}
           <div className="space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date To</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date To</p>
             <input
               type="date"
               value={dateTo}

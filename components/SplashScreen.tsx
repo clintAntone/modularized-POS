@@ -85,10 +85,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
 
         <div className="text-center space-y-3">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600 animate-pulse">
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-600 animate-pulse">
             {message}
           </p>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
             {subMessage}
           </p>
           {elapsed >= 5 && diagState === 'idle' && (
@@ -99,7 +99,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         {/* Diagnostic panel — appears after 8 s */}
         {elapsed >= 8 && (
           <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm">
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-center">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">
               {diagState === 'running' ? 'Checking connection…' : 'Taking longer than expected'}
             </p>
 
@@ -133,7 +133,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <div className="space-y-2 pt-1">
                 {!internet && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed">
-                    <p className="font-black uppercase tracking-widest mb-1">Try this:</p>
+                    <p className="font-semibold uppercase tracking-wide mb-1">Try this:</p>
                     <ol className="list-decimal list-inside space-y-1">
                       <li>Toggle airplane mode off and on</li>
                       <li>Switch between WiFi and mobile data</li>
@@ -143,7 +143,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 )}
                 {internet && supabaseOk === false && (
                   <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 leading-relaxed space-y-2">
-                    <p className="font-black uppercase tracking-widest">Most likely fix — Change DNS:</p>
+                    <p className="font-semibold uppercase tracking-wide">Most likely fix — Change DNS:</p>
                     <div className="space-y-1">
                       <p className="font-bold">Android (easiest — works on all networks):</p>
                       <ol className="list-decimal list-inside space-y-0.5 pl-1">

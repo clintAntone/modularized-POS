@@ -157,7 +157,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             <p className="hidden sm:block text-xs font-black text-white/30 uppercase tracking-widest text-center">Front</p>
 
         {/* ID Card — fixed portrait badge */}
-        <div ref={cardRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
+        <div ref={cardRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-xl flex flex-col" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
 
           {/* ── Wrapper so photo can overlap the header/body seam without being clipped ── */}
           <div className="relative">
@@ -179,7 +179,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
                     <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
                   </div>
                 </div>
-                <div className={`px-2 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${employee.isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+                <div className={`px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border ${employee.isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
                   {employee.isActive ? 'Active' : 'Inactive'}
                 </div>
               </div>
@@ -207,7 +207,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Primary role badge (e.g. MANAGER) */}
             {roles.includes('MANAGER') && (
               <div className="mb-2">
-                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-indigo-600 text-white shadow-sm">
+                <span className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-indigo-600 text-white shadow-sm">
                   Manager
                 </span>
               </div>
@@ -241,7 +241,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
                   };
                   const pc = pillColors[role] ?? 'bg-slate-100 text-slate-600 border-slate-200';
                   return (
-                    <span key={role} className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${pc}`}>
+                    <span key={role} className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border ${pc}`}>
                       {role}
                     </span>
                   );
@@ -257,11 +257,11 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Detail rows */}
             <div className="w-full space-y-3 mb-5">
               <div className="flex items-start gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-14 shrink-0 pt-0.5">ID No.</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-14 shrink-0 pt-0.5">ID No.</p>
                 <p className="text-xs font-black text-slate-900 font-mono tracking-wider leading-tight break-all">{empId?.toUpperCase()}</p>
               </div>
               <div className="flex items-center gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Issued</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-14 shrink-0">Issued</p>
                 <p className="text-xs font-black text-slate-800">{createdAt}</p>
               </div>
             </div>
@@ -269,7 +269,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Assigned branches */}
             {assignedBranches.length > 0 && (
               <div className="w-full mb-4">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Assigned Branches</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Assigned Branches</p>
                 <div className="flex flex-wrap gap-1">
                   {assignedBranches.map((b, i) => (
                     <span key={i} className={`text-xs font-black uppercase tracking-wide px-2 py-0.5 rounded-md leading-tight ${b.id === employee.branchId ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
@@ -314,7 +314,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             <p className="hidden sm:block text-xs font-black text-white/30 uppercase tracking-widest text-center">Back</p>
 
         {/* ── Back Card ── */}
-        <div ref={backRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col sm:h-full" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
+        <div ref={backRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-xl flex flex-col sm:h-full" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
 
           {/* Dark header */}
           <div className="relative bg-slate-900 overflow-hidden px-5 py-4">
@@ -344,19 +344,19 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Detail rows */}
             <div className="space-y-2">
               <div className="flex gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Name</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-16 shrink-0">Name</p>
                 <p className="text-xs font-black text-slate-900 leading-tight">{fullNameFormatted}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">ID No.</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-16 shrink-0">ID No.</p>
                 <p className="text-xs font-black text-slate-900 font-mono tracking-wider">{(empId || '').toUpperCase()}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Branch</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-16 shrink-0">Branch</p>
                 <p className="text-xs font-black text-slate-900">{homeBranch?.name || '—'}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Contact</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide w-16 shrink-0">Contact</p>
                 <p className="text-xs font-black text-slate-900">{employee.details?.contactNumber || '—'}</p>
               </div>
             </div>
@@ -365,7 +365,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
 
             {/* Emergency contact */}
             <div className="space-y-2">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">In Case of Emergency</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">In Case of Emergency</p>
               <div className="flex gap-3">
                 <p className="text-xs font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Name</p>
                 <p className="text-xs font-black text-slate-900">{employee.details?.emergencyContactName || '—'}</p>
@@ -390,11 +390,11 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             <div className="flex gap-4">
               <div className="flex-1 flex flex-col items-center">
                 <div className="w-full h-7 border-b border-slate-300" />
-                <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center">Employee Signature</p>
+                <p className="text-[6.5px] font-medium text-slate-400 uppercase tracking-widest mt-1 text-center">Employee Signature</p>
               </div>
               <div className="flex-1 flex flex-col items-center">
                 <div className="w-full h-7 border-b border-slate-300" />
-                <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center">Authorized By</p>
+                <p className="text-[6.5px] font-medium text-slate-400 uppercase tracking-widest mt-1 text-center">Authorized By</p>
               </div>
             </div>
 
@@ -402,7 +402,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
 
             {/* If found */}
             <div className="text-center">
-              <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mb-1">If found, please return to:</p>
+              <p className="text-[6.5px] font-medium text-slate-400 uppercase tracking-widest mb-1">If found, please return to:</p>
               <p className="text-xs font-black text-slate-800 uppercase tracking-wide">{APP_NAME}</p>
               <p className="text-xs text-slate-500 mt-0.5">{homeBranch?.name || '—'}</p>
             </div>
@@ -427,7 +427,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           <button
             onClick={handleDownloadPDF}
             disabled={isDownloading}
-            className="flex-1 flex items-center justify-center gap-2 h-11 bg-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 h-11 bg-indigo-600 rounded-2xl text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
           >
             {isDownloading ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -440,7 +440,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           </button>
           <button
             onClick={onClose}
-            className="flex-1 h-11 bg-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest text-white hover:bg-slate-800 transition-all active:scale-95"
+            className="flex-1 h-11 bg-slate-900 rounded-2xl text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800 transition-all active:scale-95"
           >
             Close
           </button>

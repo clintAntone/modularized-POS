@@ -74,7 +74,7 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
                       {emp.onLeave && (
-                        <span className="text-xs font-black uppercase tracking-widest text-purple-500 leading-none">● On Leave</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-purple-500 leading-none">● On Leave</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">

@@ -235,7 +235,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
             <div className="space-y-3">
                 <div className="flex items-center gap-2">
                     <ScanFace className="w-4 h-4 text-emerald-600" />
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Face ID Enrollment</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Face ID Enrollment</label>
                     {hasEnrolled && (
                         <span className="ml-auto flex items-center gap-1 text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg uppercase tracking-widest">
                             <CheckCircle className="w-2.5 h-2.5" />
@@ -246,7 +246,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
 
                 {/* Checklist */}
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-2">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Before you start</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Before you start</p>
                     {[
                         { icon: '🕶️', text: 'Remove sunglasses or tinted lenses' },
                         { icon: '🧢', text: 'Remove cap, hat, or hood' },
@@ -264,7 +264,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <div className="flex gap-1.5">
                     {STEPS.map(s => (
                         <div key={s.id} className="flex-1 bg-slate-100 rounded-xl py-2 px-1 text-center">
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-tight">{s.label}</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-tight">{s.label}</p>
                         </div>
                     ))}
                 </div>
@@ -272,7 +272,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <button
                     type="button"
                     onClick={handleStart}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-500 transition-all active:scale-95"
                 >
                     <Camera className="w-4 h-4" />
                     {hasEnrolled ? 'Re-enroll Face ID' : 'Start Enrollment'}
@@ -308,7 +308,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
 
                 {/* Step label */}
                 <div className="text-center">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Step {stepIdx + 1} of {STEPS.length}</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Step {stepIdx + 1} of {STEPS.length}</p>
                     <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-tight">{currentStep.label}</p>
                     <p className="text-xs font-bold text-slate-500 mt-0.5">{currentStep.instruction}</p>
                 </div>
@@ -322,7 +322,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 px-6">
                             <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
                             <div className="text-center space-y-1">
-                                <p className="text-xs font-black text-white uppercase tracking-widest">
+                                <p className="text-xs font-semibold text-slate-700">
                                     {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
                                 <p className="text-xs font-bold text-slate-400">
@@ -397,7 +397,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                                         : <div className="w-full h-full bg-slate-100" />
                                     }
                                 </div>
-                                <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest text-center truncate">{s.label}</p>
+                                <p className="text-[6px] font-medium text-slate-400 uppercase tracking-widest text-center truncate">{s.label}</p>
                             </div>
                         );
                     })}
@@ -409,7 +409,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         <button
                             type="button"
                             onClick={retakeShot}
-                            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-slate-200 transition-all"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
                             Retake
@@ -420,7 +420,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                             type="button"
                             onClick={handleCapture}
                             disabled={!canCapture}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40"
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40"
                         >
                             {isProcessing
                                 ? <><Loader className="w-4 h-4 animate-spin" /> Processing...</>
@@ -443,7 +443,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
         <div className="space-y-3">
             <div className="flex items-center gap-2">
                 <ScanFace className="w-4 h-4 text-emerald-600" />
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Review Captures</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Review Captures</label>
                 <span className="ml-auto text-xs font-black text-emerald-600 uppercase tracking-widest">{validCount}/{STEPS.length} valid</span>
             </div>
 
@@ -468,10 +468,10 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-0.5 transition-opacity"
                                 >
                                     <RotateCcw className="w-4 h-4 text-white" />
-                                    <span className="text-xs font-black text-white uppercase tracking-widest">Retake</span>
+                                    <span className="text-xs font-semibold text-slate-700">Retake</span>
                                 </button>
                             </div>
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">{s.label}</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center">{s.label}</p>
                         </div>
                     );
                 })}
@@ -487,7 +487,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <button
                     type="button"
                     onClick={resetAll}
-                    className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-slate-200 transition-all"
                 >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Redo All
@@ -496,7 +496,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     type="button"
                     onClick={handleSave}
                     disabled={isSaving || validCount === 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95 disabled:opacity-40"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-500 transition-all active:scale-95 disabled:opacity-40"
                 >
                     {isSaving
                         ? <><Loader className="w-4 h-4 animate-spin" /> Saving...</>

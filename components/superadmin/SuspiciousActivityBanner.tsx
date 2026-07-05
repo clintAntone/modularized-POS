@@ -22,8 +22,8 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
 
   return (
     <div className="fixed bottom-4 right-4 z-[9990] w-80 no-print animate-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-slate-900 rounded-2xl shadow-2xl border border-rose-500/30 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="bg-slate-900 rounded-2xl shadow-xl border border-rose-500/30 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
               <svg className="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -61,7 +61,7 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-black text-white uppercase tracking-wide leading-tight">{flag.title}</p>
                 <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{flag.detail}</p>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{flag.branchName}</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-1">{flag.branchName}</p>
               </div>
               <button
                 onClick={() => onDismiss(flag.id)}

@@ -158,10 +158,10 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
       <div className={`bg-white p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm space-y-6`}>
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-lg border border-white/10 text-white">📊</div>
+            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-lg border border-slate-200 text-white">📊</div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter text-left">Weekly Network Matrix</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-left">Consolidated Weekly Performance</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-left">Consolidated Weekly Performance</p>
             </div>
           </div>
 
@@ -196,12 +196,12 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
               placeholder="SEARCH BRANCH..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold uppercase tracking-widest focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner"
+              className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium uppercase tracking-wide focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner"
             />
           </div>
           <button
             onClick={handleExportPDF}
-            className="h-14 px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-2.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
+            className="h-14 px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             <span className="hidden sm:inline">Export PDF</span>
@@ -212,25 +212,25 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
       {/* KPI SUMMARY */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className={`p-6 ${UI_THEME.radius.card} bg-slate-900 text-white shadow-lg`}>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Network Net ROI</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Network Net ROI</p>
           <p className={`text-3xl font-bold mt-2 tabular-nums ${networkTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             ₱{networkTotals.net.toLocaleString()}
           </p>
         </div>
         <div className={`p-6 ${UI_THEME.radius.card} bg-white border border-slate-200 shadow-sm`}>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Gross Yield</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Gross Yield</p>
           <p className="text-3xl font-bold mt-2 tabular-nums text-slate-900">₱{networkTotals.gross.toLocaleString()}</p>
         </div>
         <div className={`p-6 ${UI_THEME.radius.card} bg-white border border-slate-200 shadow-sm`}>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Units</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Units</p>
           <p className="text-3xl font-bold mt-2 tabular-nums text-indigo-600">{networkTotals.sessions.toLocaleString()}</p>
         </div>
         <div className={`p-6 ${UI_THEME.radius.card} bg-white border border-slate-200 shadow-sm`}>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Payroll</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Payroll</p>
           <p className="text-3xl font-bold mt-2 tabular-nums text-amber-600">₱{networkTotals.staffPay.toLocaleString()}</p>
         </div>
         <div className={`p-6 ${UI_THEME.radius.card} bg-white border border-slate-200 shadow-sm`}>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Expenses</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Expenses</p>
           <p className="text-3xl font-bold mt-2 tabular-nums text-rose-500">₱{networkTotals.operational.toLocaleString()}</p>
         </div>
       </div>
@@ -241,14 +241,14 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Branch</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Days</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Units</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Gross</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Payroll</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Expenses</th>
-                <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Vault/Rent</th>
-                <th className="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Net ROI</th>
+                <th className="px-8 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-center">Days</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Units</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Gross</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Payroll</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Expenses</th>
+                <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Vault/Rent</th>
+                <th className="px-8 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Net ROI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -257,7 +257,7 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
                   <td className="px-8 py-5">
                     <p className="font-bold text-slate-900 uppercase text-sm group-hover:text-indigo-600 transition-colors">{b.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">ID: {b.id.slice(0, 8)}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">ID: {b.id.slice(0, 8)}</p>
                       <span className="text-xs text-slate-300">•</span>
                       <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{b.periodLabel}</p>
                     </div>

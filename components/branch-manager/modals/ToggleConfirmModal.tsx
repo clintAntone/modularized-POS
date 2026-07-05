@@ -20,7 +20,7 @@ export const ToggleConfirmModal: React.FC<ToggleConfirmModalProps> = ({
       <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">
         {isOpen ? 'Close Branch?' : 'Open Branch?'}
       </h4>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
         {isOpen
           ? 'Disabling POS operations for this node. Ensure all staff have clocked out to avoid system auto-logout.'
           : 'Enabling POS operations and shift tracking.'}

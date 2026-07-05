@@ -254,8 +254,8 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       ) : (
         /* MOBILE NAV */
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
-          <div className="bg-slate-800/95 backdrop-blur-2xl px-3 py-2 rounded-[32px] flex items-center
-            shadow-[0_20px_50px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.10),inset_0_1px_0_rgba(255,255,255,0.07)]">
+          <div className="bg-white/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center
+            shadow-[0_8px_32px_-4px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.06)]">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;
               const isSoon = (tab as any).comingSoon;
@@ -263,19 +263,19 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                 <button
                   key={tab.id}
                   onClick={() => !isSoon && handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-40 cursor-not-allowed' : !isActive ? 'opacity-40 active:opacity-70' : ''}`}
+                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : !isActive ? 'opacity-40 active:opacity-70' : ''}`}
                 >
                   {/* Icon with active pill background */}
-                  <div className={`flex items-center justify-center w-11 h-7 rounded-2xl transition-all duration-300 ${isActive ? 'bg-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.25)]' : ''}`}>
-                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-400 scale-110' : 'text-slate-300'}`}>
+                  <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isActive ? 'bg-emerald-50' : ''}`}>
+                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>
                       {tab.icon}
                     </div>
                   </div>
-                  <span className={`text-xs uppercase tracking-tight transition-all ${isActive ? 'font-black text-white' : 'font-bold text-slate-500'}`}>
+                  <span className={`text-xs uppercase tracking-tight transition-all ${isActive ? 'font-bold text-emerald-700' : 'font-medium text-slate-400'}`}>
                     {tab.label}
                   </span>
-                  {isSoon && <span className="text-[6px] font-black uppercase bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-1.5 py-0.5 rounded-full">✦</span>}
-                  {isActive && <div className="w-3 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981] mt-0.5" />}
+                  {isSoon && <span className="text-[6px] font-bold uppercase bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">New</span>}
+                  {isActive && <div className="w-4 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
                 </button>
               );
             })}
@@ -285,16 +285,16 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                 onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
                 className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${!isMoreActive ? 'opacity-40 active:opacity-70' : ''}`}
               >
-                <div className={`flex items-center justify-center w-11 h-7 rounded-2xl transition-all duration-300 ${isMoreActive ? 'bg-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.25)]' : ''}`}>
+                <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isMoreActive ? 'bg-emerald-50' : ''}`}>
                   <div className="relative">
-                    <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-400 scale-110' : 'text-slate-300'}`}>{Icons.more}</div>
+                    <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>{Icons.more}</div>
                     {showBillsAlert && overflowTabs.some(t => t.id === 'monthly_bills') && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-pulse" />
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                     )}
                   </div>
                 </div>
-                <span className={`text-xs uppercase tracking-tight transition-all ${isMoreActive ? 'font-black text-white' : 'font-bold text-slate-500'}`}>More</span>
-                {isMoreActive && <div className="w-3 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981] mt-0.5" />}
+                <span className={`text-xs uppercase tracking-tight transition-all ${isMoreActive ? 'font-bold text-emerald-700' : 'font-medium text-slate-400'}`}>More</span>
+                {isMoreActive && <div className="w-4 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
               </button>
             )}
           </div>
@@ -303,12 +303,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
 
       {showMoreModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md no-print animate-in fade-in duration-300">
-          <div className={`bg-white ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-2xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto no-scrollbar border border-slate-200 flex flex-col`}>
+          <div className={`bg-white ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-2xl shadow-xl relative animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto no-scrollbar border border-slate-200 flex flex-col`}>
             
             <div className="sticky top-0 bg-white/95 backdrop-blur-md z-30 flex justify-between items-center py-4 px-5 sm:py-8 sm:px-12 border-b border-slate-100 shrink-0">
               <div className="space-y-0.5 sm:space-y-1">
-                <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tighter text-slate-900">More options</h3>
-                <p className="text-xs sm:text-xs font-bold uppercase tracking-[0.2em] text-emerald-600 opacity-80">Extended Branch Operations</p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900">More options</h3>
+                <p className="text-xs sm:text-xs font-bold uppercase tracking-wider text-emerald-600 opacity-80">Extended Branch Operations</p>
               </div>
               <button 
                 onClick={() => { playSound('click'); setShowMoreModal(false); }} 
@@ -354,7 +354,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       </div>
                       <div>
                         <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1.5 group-hover:text-emerald-600 transition-colors duration-200">{item.label}</h4>
-                        <p className="text-xs sm:text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
+                        <p className="text-xs sm:text-xs font-medium uppercase tracking-wide text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
                       </div>
                       {isStarred && (
                         <div className="absolute top-2.5 right-2.5">
@@ -367,12 +367,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       {showBillsAlert && item.id === 'monthly_bills' && activeTab !== item.id && !isStarred && (
                         <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-amber-400 text-white rounded-full px-2 py-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          <span className="text-xs font-black uppercase tracking-widest">Setup</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide">Setup</span>
                         </div>
                       )}
                       {isSoon && (
                         <div className="absolute top-2 right-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-full px-2 py-0.5 shadow-[0_0_10px_rgba(167,139,250,0.5)] animate-pulse">
-                          <span className="text-xs font-black uppercase tracking-widest">✦ New</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide">✦ New</span>
                         </div>
                       )}
                     </button>
@@ -390,7 +390,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                         <div className="flex items-center gap-4 px-2">
                           <div className="flex items-center gap-2">
                             <svg className="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <h5 className="text-xs font-black text-amber-500 uppercase tracking-[0.4em] whitespace-nowrap">Favorites</h5>
+                            <h5 className="text-xs font-black text-amber-500 uppercase tracking-wide whitespace-nowrap">Favorites</h5>
                           </div>
                           <div className="h-px flex-1 bg-amber-100"></div>
                         </div>
@@ -409,7 +409,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       return (
                         <div key={group.name} className="space-y-5">
                           <div className="flex items-center gap-4 px-2">
-                            <h5 className="text-xs font-black text-emerald-600 uppercase tracking-[0.4em] whitespace-nowrap">{group.name}</h5>
+                            <h5 className="text-xs font-black text-emerald-600 uppercase tracking-wide whitespace-nowrap">{group.name}</h5>
                             <div className="h-px flex-1 bg-slate-100"></div>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">

@@ -1058,13 +1058,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   return (
     <>
       {toast && createPortal(
-        <div className="fixed bottom-6 right-6 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
-          {toast.message}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-2xl shadow-lg animate-in slide-in-from-bottom-4 duration-300 font-semibold text-sm bg-white border border-slate-200 flex items-center gap-3 min-w-[220px] max-w-xs">
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+          <span className={toast.type === 'error' ? 'text-rose-700' : 'text-slate-800'}>{toast.message}</span>
         </div>,
         document.body
       )}
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4">
 
       <StaffModals 
         isTimeModalOpen={isTimeModalOpen}
@@ -1113,85 +1113,108 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       />
 
       {isSetupRequired && (
-        <div className={`bg-amber-50 border border-amber-100 p-6 ${UI_THEME.radius.card} flex items-center gap-6 animate-in slide-in-from-top-4`}>
-           <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-             <AlertTriangle className="w-6 h-6" strokeWidth={2.5} />
-           </div>
-           <div className="space-y-1">
-             <p className="text-sm font-bold text-amber-900 uppercase tracking-tight">Personnel Initialization Required</p>
-             <p className="text-xs font-bold text-amber-700 uppercase tracking-widest leading-relaxed opacity-80">No therapists or specialists registered for this node. Use the button above to add staff before initializing POS operations.</p>
-           </div>
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4 animate-in slide-in-from-top-4">
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600" strokeWidth={2} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-900 leading-snug">Personnel setup required</p>
+            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">No therapists or specialists are registered for this branch. Add staff before starting POS operations.</p>
+          </div>
         </div>
       )}
 
       {/* Reliever hint — shown when there are guest/reliever staff visible */}
       {branchStaff.some(e => e.branchId !== branch.id) && (
-        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700">
+        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
           <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-xs font-semibold leading-relaxed">
-            <span className="font-black uppercase tracking-widest">Reliever Staff:</span> Staff cards marked <span className="font-black">RELIEVER</span> are from another branch. If they have been transferred permanently, use the <span className="font-black">✕ remove button</span> on their card — do not request to disable them.
+          <p className="text-xs text-indigo-700 leading-relaxed">
+            <span className="font-bold">Reliever staff</span> are from another branch. To permanently transfer them, use the remove button on their row — do not request to disable them.
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-1">
-        {branchStaff.length > 0 ? branchStaff.map(emp => {
-          const currentRole = getEmployeeRole(emp, branch.id);
-          const branchCfg = emp.branchAllowances?.[branch.id];
-          const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
-          const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
-          const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
-          // A staff from another branch is a reliever unless they ARE this branch's main/temp manager
-          const isReliever = emp.branchId !== branch.id && !isMainManager && !isTempManager && !excludeFromReliever;
-
-          return (
-            <StaffCard
-              key={emp.id}
-              emp={emp}
-              branchId={branch.id}
-              isReliever={isReliever}
-              isMainManager={isMainManager}
-              isTempManager={isTempManager}
-              shiftState={getShiftState(emp.id)}
-              isClosedMode={isClosedMode}
-              onEdit={handleOpenEdit}
-              onTimeAction={handleOpenTimeModal}
-              onReset={isDelegate ? undefined : handleOpenReset}
-              onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
-              onReturnFromLeave={!isDelegate && emp.isActive && emp.branchId === branch.id && emp.onLeave ? () => handleReturnFromLeave(emp) : undefined}
-              onRequestLeave={!isDelegate && emp.isActive && !isReliever && !emp.onLeave ? () => openLeaveModal(emp) : undefined}
-              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager && !isReliever && !emp.onLeave ? () => openDisableModal(emp) : undefined}
-              onRemoveReliever={
-                !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
-                  ? () => setRemoveRelieversEmployee(emp)
-                  : undefined
-              }
-              onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
-            />
-          );
-        }) : (
-          <div className={`col-span-full py-40 text-center bg-white ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center gap-6 opacity-20`}>
-             <Users className="w-20 h-20 text-slate-300" strokeWidth={1} />
-             <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.5em]">No Personnel Record Found</p>
-          </div>
-        )}
+      {/* Section header with count badge */}
+      <div className="flex items-center gap-3 px-1">
+        <h2 className="text-sm font-bold text-slate-800">Team Members</h2>
+        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold tabular-nums">
+          {branchStaff.length}
+        </span>
+        <div className="flex-1 h-px bg-slate-100" />
       </div>
+
+      {/* Staff list */}
+      {branchStaff.length > 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          {branchStaff.map((emp, idx) => {
+            const currentRole = getEmployeeRole(emp, branch.id);
+            const branchCfg = emp.branchAllowances?.[branch.id];
+            const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
+            const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
+            const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
+            // A staff from another branch is a reliever unless they ARE this branch's main/temp manager
+            const isReliever = emp.branchId !== branch.id && !isMainManager && !isTempManager && !excludeFromReliever;
+
+            return (
+              <React.Fragment key={emp.id}>
+                {idx > 0 && <div className="h-px bg-slate-100 mx-4" />}
+                <StaffCard
+                  emp={emp}
+                  branchId={branch.id}
+                  isReliever={isReliever}
+                  isMainManager={isMainManager}
+                  isTempManager={isTempManager}
+                  shiftState={getShiftState(emp.id)}
+                  isClosedMode={isClosedMode}
+                  onEdit={handleOpenEdit}
+                  onTimeAction={handleOpenTimeModal}
+                  onReset={isDelegate ? undefined : handleOpenReset}
+                  onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
+                  onReturnFromLeave={!isDelegate && emp.isActive && emp.branchId === branch.id && emp.onLeave ? () => handleReturnFromLeave(emp) : undefined}
+                  onRequestLeave={!isDelegate && emp.isActive && !isReliever && !emp.onLeave ? () => openLeaveModal(emp) : undefined}
+                  onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager && !isReliever && !emp.onLeave ? () => openDisableModal(emp) : undefined}
+                  onRemoveReliever={
+                    !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
+                      ? () => setRemoveRelieversEmployee(emp)
+                      : undefined
+                  }
+                  onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+                />
+              </React.Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 py-16 flex flex-col items-center justify-center gap-4 text-center px-6">
+          <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center">
+            <Users className="w-8 h-8 text-slate-300" strokeWidth={1.5} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-500">No team members found</p>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-[220px] mx-auto">
+              {searchTerm || filterRoles.length > 0
+                ? 'Try adjusting your search or filters.'
+                : 'Add staff using the button above to get started.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {isManagerView && !isDelegate && onNavigateToComplaints && (
         <button
           onClick={() => { playSound('click'); onNavigateToComplaints(); }}
-          className="w-full flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:border-rose-300 hover:bg-rose-50/40 transition-all group"
+          className="w-full flex items-center gap-4 px-4 py-4 bg-white border border-slate-200 rounded-2xl hover:border-rose-200 hover:bg-rose-50/30 active:scale-[0.99] transition-all group min-h-[56px]"
         >
-          <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-slate-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
             <svg className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
             </svg>
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-xs font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
+            <p className="text-sm font-semibold text-slate-700 group-hover:text-rose-700 transition-colors">Complaints</p>
+            <p className="text-xs text-slate-400">File or review employee incident reports</p>
           </div>
           <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1220,7 +1243,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {removeRelieversEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setRemoveRelieversEmployee(null)} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1235,11 +1258,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Reliever</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Reliever</span>
               <span className="text-xs font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Home Branch</span>
               <span className="text-xs font-black text-slate-700 uppercase">
                 {branches.find(b => b.id === removeRelieversEmployee.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}
               </span>
@@ -1254,14 +1277,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isRemovingReliever}
               onClick={() => setRemoveRelieversEmployee(null)}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isRemovingReliever}
               onClick={handleConfirmRemoveReliever}
-              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isRemovingReliever
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1277,7 +1300,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {leaveEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeLeaveModal} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0">
@@ -1293,24 +1316,24 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
               <span className="text-xs font-black text-slate-900 uppercase">{leaveEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</span>
               <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
             </div>
           </div>
 
           {/* Subtype: Leave or Suspended */}
           <div className="mb-4">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
           </div>
 
           {/* Leave type picker */}
           {(
             <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
               <div className="grid grid-cols-2 gap-2">
                 {(['VACATION', 'SICK', 'MATERNITY', 'PATERNITY', 'EMERGENCY'] as const).map(type => {
                   const lMeta: Record<string, { label: string; dot: string }> = {
@@ -1345,11 +1368,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             return (
               <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
                   <input type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">
                     End Date {endRequired ? <span className="text-rose-500">*</span> : <span className="font-bold normal-case opacity-60">(optional)</span>}
                   </label>
                   <input type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} min={leaveStartDate} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
@@ -1360,12 +1383,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
           {/* Notes */}
           <div className="mb-5">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
             <textarea value={leaveNotes} onChange={e => setLeaveNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
-            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
               disabled={
                 isSubmittingLeave || !leaveType ||
@@ -1378,7 +1401,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 })()
               }
               onClick={handleSubmitLeaveRequest}
-              className="flex-1 h-10 rounded-xl bg-purple-600 text-xs font-black uppercase tracking-widest text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-purple-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Confirm Leave'}
             </button>
@@ -1391,7 +1414,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {disableEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeDisableModal} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
@@ -1407,17 +1430,17 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
               <span className="text-xs font-black text-slate-900 uppercase">{disableEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</span>
               <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
             </div>
           </div>
 
           <div className="mb-4 space-y-3">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Reason <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block">Reason <span className="text-rose-500">*</span></label>
             {(['RESIGNED', 'TERMINATED'] as const).map(opt => {
               const dMeta = {
                 RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         dot: 'bg-slate-700' },
@@ -1449,16 +1472,16 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
 
           <div className="mb-5">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
             <textarea value={disableNotes} onChange={e => setDisableNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
-            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
               disabled={isSubmittingDisable || !disableReason || (disableReason === 'TERMINATED' && !complaintRef.trim())}
               onClick={handleSubmitDisableRequest}
-              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingDisable ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
             </button>
@@ -1471,7 +1494,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {returnEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setReturnEmployee(null)} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-sm p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-sm p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
           <div className="flex items-center gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1487,8 +1510,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             Confirm that <span className="font-black text-slate-900">{returnEmployee.name}</span> is back and ready to resume work. This will clear their leave status immediately.
           </p>
           <div className="flex gap-3">
-            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
-            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-black uppercase tracking-widest text-white active:scale-95 transition-all">Confirm Return</button>
+            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-semibold uppercase tracking-wide text-white active:scale-95 transition-all">Confirm Return</button>
           </div>
         </div>
       </div>
@@ -1497,7 +1520,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {/* NEW EMPLOYEE CREATION REQUEST MODAL */}
     {showNewEmpRequest && createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}>
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1511,22 +1534,22 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
 
           {/* Info banner */}
-          <div className="bg-slate-900 rounded-2xl px-4 py-3.5 flex gap-3 items-start mb-4">
-            <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
-              <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3.5 flex gap-3 items-start mb-4">
+            <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">Requesting New Staff</p>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">This form is for employees brand new to the network. Your request will be sent to the superadmin for review and approval before the employee is added.</p>
+              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Requesting New Staff</p>
+              <p className="text-xs text-indigo-600 mt-1 leading-relaxed">This form is for employees brand new to the network. Your request will be sent to the superadmin for review and approval before the employee is added.</p>
             </div>
           </div>
 
           <div className="space-y-3 mb-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">First Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">First Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpFirstName}
                   onChange={e => { setNewEmpFirstName(e.target.value); checkNewEmpName(e.target.value, newEmpMiddleName, newEmpLastName); }}
@@ -1535,7 +1558,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 />
               </div>
               <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Last Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Last Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpLastName}
                   onChange={e => { setNewEmpLastName(e.target.value); checkNewEmpName(newEmpFirstName, newEmpMiddleName, e.target.value); }}
@@ -1545,7 +1568,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </div>
             </div>
             <div>
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
               <input
                 value={newEmpMiddleName}
                 onChange={e => { setNewEmpMiddleName(e.target.value); checkNewEmpName(newEmpFirstName, e.target.value, newEmpLastName); }}
@@ -1569,7 +1592,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
 
           <div className="mb-4">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Role <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 block">Role <span className="text-rose-500">*</span></label>
             <div className="flex flex-wrap gap-2">
               {(['THERAPIST', 'BONESETTER'] as const).map(r => {
                 const selected = newEmpRole.split(',').map(s => s.trim()).includes(r);
@@ -1582,7 +1605,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       const next = selected ? current.filter(x => x !== r) : [...current, r];
                       setNewEmpRole(next.join(','));
                     }}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all border-2 ${
                       selected
                         ? r === 'THERAPIST'
                           ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
@@ -1599,7 +1622,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
 
           <div className="mb-5">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
             <input
               type="number"
               min="1"
@@ -1617,14 +1640,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isSubmittingNewEmp}
               onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isSubmittingNewEmp || !!newEmpBlockError || !newEmpFirstName.trim() || !newEmpLastName.trim() || !newEmpRole || !newEmpAllowance || Number(newEmpAllowance) <= 0}
               onClick={handleSubmitNewEmployeeRequest}
-              className="flex-1 h-10 rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-indigo-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingNewEmp
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1644,7 +1667,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div
-            className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150"
+            className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -1663,19 +1686,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             {/* What changes */}
             <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
                 <span className="text-xs font-black text-slate-900 uppercase">{confirmPromoteEmployee.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Previous Status</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Previous Status</span>
                 <span className="text-xs font-black text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-lg">Reliever (Expenses)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">New Status</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">New Status</span>
                 <span className="text-xs font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-lg">Regular (Payroll)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Home Branch</span>
                 <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
               </div>
             </div>
@@ -1687,7 +1710,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
             {/* Name confirmation input */}
             <div className="mb-4">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">
                 Type <span className="text-slate-700">{confirmPromoteEmployee.name}</span> to confirm
               </label>
               <input
@@ -1711,14 +1734,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               <button
                 disabled={isPromoting}
                 onClick={() => { setConfirmPromoteEmployee(null); setPromoteConfirmInput(''); }}
-                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 disabled={!inputMatch || isPromoting}
                 onClick={handleConfirmPromotion}
-                className="flex-1 h-10 rounded-xl bg-emerald-600 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 h-10 rounded-xl bg-emerald-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isPromoting ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>

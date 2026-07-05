@@ -98,12 +98,12 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                       {emp.onLeave ? (
                         <>
                           <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                          <span className="text-xs font-bold uppercase tracking-widest text-purple-500">On Leave</span>
+                          <span className="text-xs font-medium uppercase tracking-wide text-purple-500">On Leave</span>
                         </>
                       ) : (
                         <>
                           <div className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-300'}`} />
-                          <span className={`text-xs font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
+                          <span className={`text-xs font-medium uppercase tracking-wide ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
                         </>
                       )}
                     </div>
@@ -111,7 +111,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     {position === 'manager'
                       ? <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">Manager</span>
-                      : <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Regular</span>
+                      : <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Regular</span>
                     }
                   </td>
                   <td className="px-8 py-5 text-right">

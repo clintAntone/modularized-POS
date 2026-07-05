@@ -681,7 +681,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   return createPortal(
       <div className="fixed inset-0 z-[5000] bg-slate-950/80 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
-        <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:bg-white print:overflow-visible print:block`}>
+        <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:bg-white print:overflow-visible print:block`}>
 
           {viewingExpense && (
               <ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />
@@ -694,7 +694,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2-0 01-2-2V5a2 2-0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2-0 01-2 2z" /></svg>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
                   Generate and download the report for {branchName}?
                 </p>
                 <div className="flex flex-col gap-4 mt-10">
@@ -719,14 +719,14 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div className="hidden print:block p-8 border-b-2 border-slate-900 mb-8">
             <div className="flex justify-between items-end">
               <div>
-                <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{branchName}</h1>
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
+                <h1 className="text-2xl font-bold text-slate-900">{branchName}</h1>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                   {isAggregate ? 'Consolidated Period Report' : 'Daily Operational Ledger'}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold uppercase tracking-tight text-slate-900">{displayDate}</p>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Report ID: {report.id.toUpperCase()}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Report ID: {report.id.toUpperCase()}</p>
               </div>
             </div>
           </div>
@@ -741,13 +741,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 <div className="flex items-center gap-2 mb-0.5">
                   <h3 className="text-sm sm:text-lg md:text-xl font-bold uppercase tracking-tighter text-slate-900 leading-tight truncate">{displayDate}</h3>
                   {isBackfill && (
-                    <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-black uppercase tracking-widest">Backfilled</span>
+                    <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold uppercase tracking-wide">Backfilled</span>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="text-xs sm:text-xs font-bold uppercase tracking-widest text-emerald-600 whitespace-nowrap">{branchName} Node</span>
+                  <span className="text-xs sm:text-xs font-medium uppercase tracking-wide text-emerald-600 whitespace-nowrap">{branchName} Node</span>
                   <span className="text-slate-200 hidden sm:inline">/</span>
-                  <span className="text-xs sm:text-xs font-bold uppercase tracking-widest text-slate-400 opacity-40 whitespace-nowrap">
+                  <span className="text-xs sm:text-xs font-medium uppercase tracking-wide text-slate-400 opacity-40 whitespace-nowrap">
                     {isAggregate ? `${constituents.length} PERIOD UNITS` : `ID: ${report.id}`}
                  </span>
                 </div>
@@ -758,7 +758,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               <button
                 onClick={() => handleExportPDF()}
                 disabled={isExporting}
-                className="flex items-center gap-2 px-3 md:px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 md:px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
               >
                 {isExporting ? (
                   <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin"></div>
@@ -814,18 +814,18 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Tabular Ledger View</span>
                   </div>
 
-                  <div className="overflow-hidden bg-white md:rounded-[32px] md:border border-slate-100 shadow-sm p-4 md:p-0">
+                  <div className="overflow-hidden bg-white md:rounded-2xl md:border border-slate-100 shadow-sm p-4 md:p-0">
                     <div className="hidden md:block overflow-x-auto no-scrollbar">
                       <table className="w-full text-left border-collapse min-w-[800px]">
                         <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-100">
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Period / Unit</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Branch Node</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Gross Yield</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Staff Payroll</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Operational Exp</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Vault Deposit</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Net ROI</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Period / Unit</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Branch Node</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Gross Yield</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Staff Payroll</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Operational Exp</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Vault Deposit</th>
+                          <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Net ROI</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -1081,13 +1081,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                     finalPay.toLocaleString().length > 7 ? 'text-base sm:text-xl' : 
                                     'text-[18px] sm:text-[26px]'
                                   }`}>₱{finalPay.toLocaleString()}</p>
-                                  <p className={`text-xs sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1 ${isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
+                                  <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mt-0.5 sm:mt-1 ${isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
                                 </div>
                               </div>
 
                               <div className="space-y-1 sm:space-y-2">
                                 <div className="flex items-center justify-between px-1">
-                                  <span className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Service Track</span>
+                                  <span className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wider">Service Track</span>
                                   <span className="text-xs sm:text-xs font-bold text-slate-900">{s.count} units</span>
                                 </div>
                                 <div className="flex gap-0.5 sm:gap-1 h-1 sm:h-1.5 px-0.5">
@@ -1102,11 +1102,11 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
                               <div className="grid grid-cols-2 gap-1 sm:gap-2">
                                 <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
-                                  <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Allowance</p>
+                                  <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
                                   <p className="text-xs sm:text-xs font-bold text-slate-600 tabular-nums">₱{baseAllw.toLocaleString()}</p>
                                 </div>
                                 <div className={`p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border transition-all ${adv > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50/80 border-slate-100/50'}`}>
-                                  <p className={`text-xs sm:text-xs font-bold uppercase tracking-widest mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
+                                  <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
                                   <p className={`text-xs sm:text-xs font-bold tabular-nums ${adv > 0 ? 'text-indigo-700' : 'text-slate-300'}`}>
                                     {adv > 0 ? `−₱${adv.toLocaleString()}` : '₱0'}
                                   </p>
@@ -1197,8 +1197,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                           <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-violet-400"></div>
                             <div>
-                              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Vault Fund</p>
-                              <p className="text-xs font-bold uppercase tracking-widest text-slate-300">Deposits Today</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vault Fund</p>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-300">Deposits Today</p>
                             </div>
                           </div>
                           <p className="text-xs font-black text-violet-500 tabular-nums">
@@ -1236,8 +1236,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                           <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>
                             <div>
-                              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Expenses</p>
-                              <p className="text-xs font-bold uppercase tracking-widest text-slate-300">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expenses</p>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-300">
                                 Leaves ₱{Number(report.totalExpenses || 0).toLocaleString()} Today
                               </p>
                             </div>
@@ -1298,7 +1298,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div ref={printRef} className="hidden print:block p-8 space-y-8 print-container overflow-visible h-auto">
             {/* KPI SUMMARY TABLE */}
             <div className="space-y-2 break-inside-avoid">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Summary</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Financial Summary</h4>
               <table className="w-full border-collapse border border-slate-200 text-xs">
                 <thead>
                 <tr className="bg-slate-50">
@@ -1332,7 +1332,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                   <td className="border border-slate-200 px-4 py-2 text-right font-bold tabular-nums text-indigo-600">₱{Number(report.totalVaultProvision || 0).toLocaleString()}</td>
                 </tr>
                 <tr className="bg-slate-900 text-white">
-                  <td className="border border-slate-900 px-4 py-2 font-black uppercase tracking-widest">Net ROI</td>
+                  <td className="border border-slate-900 px-4 py-2 font-semibold uppercase tracking-wide">Net ROI</td>
                   <td className="border border-slate-900 px-4 py-2 text-right font-black tabular-nums">₱{Number(report.netRoi || 0).toLocaleString()}</td>
                 </tr>
                 </tbody>
@@ -1341,10 +1341,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
             {isAggregate && (
                 <div className="space-y-2 break-inside-avoid">
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Constituent Unit Breakdown</h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Constituent Unit Breakdown</h4>
                   <table className="w-full border-collapse border border-slate-200 text-xs">
                     <thead>
-                    <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                    <tr className="bg-slate-50 font-medium uppercase tracking-wide">
                       <th className="border border-slate-200 px-3 py-2 text-left">Date</th>
                       <th className="border border-slate-200 px-3 py-2 text-right">Gross</th>
                       <th className="border border-slate-200 px-3 py-2 text-right">Payroll</th>
@@ -1372,10 +1372,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             )}
 
             <div className="space-y-2 break-inside-avoid">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Session Logs</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Session Logs</h4>
               <table className="w-full border-collapse border border-slate-200 text-xs">
                 <thead>
-                <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                <tr className="bg-slate-50 font-medium uppercase tracking-wide">
                   <th className="border border-slate-200 px-2 py-1.5 text-left">Time</th>
                   <th className="border border-slate-200 px-2 py-1.5 text-left">Client</th>
                   <th className="border border-slate-200 px-2 py-1.5 text-left">Service</th>
@@ -1417,10 +1417,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             </div>
 
             <div className="space-y-2 break-inside-avoid">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Staff Performance Matrix</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Staff Performance Matrix</h4>
               <table className="w-full border-collapse border border-slate-200 text-xs">
                 <thead>
-                <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                <tr className="bg-slate-50 font-medium uppercase tracking-wide">
                   <th className="border border-slate-200 px-3 py-2 text-left">Employee</th>
                   <th className="border border-slate-200 px-3 py-2 text-center">Sessions</th>
                   <th className="border border-slate-200 px-3 py-2 text-right">Base Pay</th>
@@ -1463,10 +1463,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
             <div className="break-inside-avoid">
               <div className="space-y-2">
-                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Operational Outflows</h4>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Operational Outflows</h4>
                 <table className="w-full border-collapse border border-slate-200 text-xs">
                   <thead>
-                  <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                  <tr className="bg-slate-50 font-medium uppercase tracking-wide">
                     <th className="border border-slate-200 px-2 py-1.5 text-left">Expense</th>
                     {!isLegacy && <th className="border border-slate-200 px-2 py-1.5 text-center">Type</th>}
                     <th className="border border-slate-200 px-2 py-1.5 text-right">Amount</th>
@@ -1493,10 +1493,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
             {isLegacy && rentAndBillsEntries.length > 0 && (
               <div className="space-y-2 break-inside-avoid">
-                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Rent & Bills</h4>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Rent & Bills</h4>
                 <table className="w-full border-collapse border border-slate-200 text-xs">
                   <thead>
-                  <tr className="bg-slate-50 font-bold uppercase tracking-widest">
+                  <tr className="bg-slate-50 font-medium uppercase tracking-wide">
                     <th className="border border-slate-200 px-2 py-1.5 text-left">Item</th>
                     <th className="border border-slate-200 px-2 py-1.5 text-right">Amount</th>
                   </tr>
@@ -1517,8 +1517,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           {/* FOOTER ACTIONS */}
           <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-end items-center shrink-0 no-print">
             <div className="text-center sm:text-right">
-              <p className="text-xs font-bold uppercase animate-pulse tracking-[0.3em] text-emerald-500/60 mb-1">Finalized Ledger ROI</p>
-              <p className={`font-bold uppercase tracking-widest text-emerald-400 tabular-nums leading-none ${
+              <p className="text-xs font-bold uppercase animate-pulse tracking-wide text-emerald-500/60 mb-1">Finalized Ledger ROI</p>
+              <p className={`font-medium uppercase tracking-wide text-emerald-400 tabular-nums leading-none ${
                 (report.netRoi || 0).toLocaleString().length > 10 ? 'text-sm sm:text-base' :
                 (report.netRoi || 0).toLocaleString().length > 7 ? 'text-base sm:text-lg' :
                 'text-xl sm:text-2xl'

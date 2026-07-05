@@ -126,10 +126,10 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-1.5 rounded-full mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Executive Insight Hub</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Executive Insight Hub</span>
           </div>
           <h2 className="text-3xl font-semibold text-slate-900 uppercase tracking-tight leading-none">Network Financial Health</h2>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest max-w-md">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide max-w-md">
             Operational visibility for <span className="text-indigo-600 font-bold">{currentFilterName}</span>.
           </p>
         </div>
@@ -139,7 +139,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
           <select 
             value={filterBranchId}
             onChange={(e) => { setFilterBranchId(e.target.value); playSound('click'); }}
-            className="bg-slate-100 px-6 py-3 rounded-[18px] text-xs font-bold uppercase tracking-widest outline-none border border-slate-200/60 shadow-inner appearance-none cursor-pointer hover:bg-slate-200 transition-colors"
+            className="bg-slate-100 px-6 py-3 rounded-[18px] text-xs font-medium uppercase tracking-wide outline-none border border-slate-200/60 shadow-inner appearance-none cursor-pointer hover:bg-slate-200 transition-colors"
           >
             <option value="all">All Active Branches</option>
             {branches.filter(b => b.isEnabled).map(b => (
@@ -153,7 +153,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
               <button
                 key={w}
                 onClick={() => handleWindowChange(w)}
-                className={`flex-1 min-w-[100px] py-3 px-6 rounded-[18px] text-xs font-bold uppercase tracking-widest transition-all duration-300 ${timeWindow === w ? 'bg-white text-slate-900 shadow-md border border-slate-100 scale-[1.03]' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`flex-1 min-w-[100px] py-3 px-6 rounded-[18px] text-xs font-medium uppercase tracking-wide transition-all duration-300 ${timeWindow === w ? 'bg-white text-slate-900 shadow-md border border-slate-100 scale-[1.03]' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 {w === '7d' ? '7 Days' : w === '30d' ? '30 Days' : '12 Months'}
               </button>
@@ -164,27 +164,27 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
 
       {/* COMPREHENSIVE KPI GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 px-4 sm:px-2">
-        <div className="bg-slate-900 p-6 sm:p-8 rounded-[40px] shadow-xl border border-slate-800 relative overflow-hidden group col-span-2 lg:col-span-1">
+        <div className="bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden group col-span-2 lg:col-span-1">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
           <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-3">Target Revenue</p>
           <p className="text-3xl font-semibold text-white tabular-nums tracking-tighter leading-none">₱{stats.totalGross.toLocaleString()}</p>
         </div>
-        <div className="bg-white p-6 rounded-[40px] shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-2">Staff Payroll</p>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Staff Payroll</p>
           <p className="text-xl font-semibold text-amber-600 tabular-nums leading-none">₱{stats.totalPay.toLocaleString()}</p>
           <p className="text-xs font-medium text-slate-300 uppercase mt-2 tracking-widest">Comm + Allowance</p>
         </div>
-        <div className="bg-white p-6 rounded-[40px] shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-2">Op Expenses</p>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Op Expenses</p>
           <p className="text-xl font-semibold text-rose-500 tabular-nums leading-none">₱{stats.totalExp.toLocaleString()}</p>
           <p className="text-xs font-medium text-slate-300 uppercase mt-2 tracking-widest">Daily Outflows</p>
         </div>
-        <div className="bg-white p-6 rounded-[40px] shadow-sm border border-slate-100">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-2">Vault Provision</p>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Vault Provision</p>
           <p className="text-xl font-semibold text-indigo-700 tabular-nums leading-none">₱{stats.totalVault.toLocaleString()}</p>
           <p className="text-xs font-medium text-slate-300 uppercase mt-2 tracking-widest">Rent & Utilities</p>
         </div>
-        <div className={`p-6 rounded-[40px] shadow-sm border flex flex-col justify-center col-span-2 lg:col-span-1 ${stats.totalNet >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+        <div className={`p-6 rounded-3xl shadow-sm border flex flex-col justify-center col-span-2 lg:col-span-1 ${stats.totalNet >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
           <p className={`text-xs font-medium uppercase tracking-widest mb-2 ${stats.totalNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>Net Profit (ROI)</p>
           <p className={`text-2xl font-semibold tabular-nums tracking-tighter leading-none ${stats.totalNet >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
             {stats.totalNet < 0 ? '−' : ''}₱{Math.abs(stats.totalNet).toLocaleString()}
@@ -197,7 +197,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-8">
            <div className="space-y-1">
              <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">The Profit Margin Gap</h3>
-             <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">Revenue vs Profitability across the chosen window</p>
+             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Revenue vs Profitability across the chosen window</p>
            </div>
            
            {/* INTERACTIVE LEGEND */}
@@ -266,7 +266,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
                       <line x1={getX(i)} y1={padding} x2={getX(i)} y2={height - padding} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4" />
                       
                       {/* Tooltip Background */}
-                      <rect x={getX(i) > width / 2 ? getX(i) - 180 : getX(i) + 20} y={padding} width="160" height="220" rx="20" fill="#0f172a" className="shadow-2xl" />
+                      <rect x={getX(i) > width / 2 ? getX(i) - 180 : getX(i) + 20} y={padding} width="160" height="220" rx="20" fill="#0f172a" className="shadow-xl" />
                       
                       {/* Tooltip Content */}
                       <g transform={`translate(${getX(i) > width / 2 ? getX(i) - 165 : getX(i) + 35}, ${padding + 25})`}>
@@ -315,13 +315,13 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20">
                <div className="text-6xl mb-4">📉</div>
-               <p className="text-xs font-bold uppercase tracking-[0.4em]">No indexed data for this scope</p>
+               <p className="text-xs font-bold uppercase tracking-wide">No indexed data for this scope</p>
             </div>
           )}
         </div>
 
         <div className="mt-8 flex justify-center">
-            <p className="text-xs font-medium text-slate-300 uppercase tracking-[0.4em] italic text-center max-w-lg">
+            <p className="text-xs font-medium text-slate-300 uppercase tracking-wide italic text-center max-w-lg">
                 Visualizing multi-node retention. Points represent synchronized daily ledger batches.
             </p>
         </div>
@@ -332,9 +332,9 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
         <div className="p-8 md:p-12 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 gap-4">
           <div className="space-y-1">
             <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Terminal Yield Ranking</h3>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">Branch contribution for the current {timeWindow === '7d' ? 'week' : timeWindow === '30d' ? 'month' : 'year'}</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch contribution for the current {timeWindow === '7d' ? 'week' : timeWindow === '30d' ? 'month' : 'year'}</p>
           </div>
-          <span className="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+          <span className="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-medium uppercase tracking-wide shadow-lg">
             {branches.length} Physical Nodes Syncing
           </span>
         </div>
@@ -393,7 +393,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
       </div>
       
       <div className="flex flex-col items-center gap-3 py-10 opacity-20 group">
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-[0.4em]">Mainframe Analytics v5.5</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Mainframe Analytics v5.5</p>
       </div>
     </div>
   );

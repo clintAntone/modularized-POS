@@ -21,7 +21,7 @@ export const OperatingHours: React.FC<OperatingHoursProps> = ({
           <span className="text-xs font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded border border-amber-100 uppercase tracking-widest animate-pulse">Window Locked</span>
         )}
       </div>
-      <div className="bg-slate-50/50 p-6 rounded-[32px] space-y-8 border border-slate-100 shadow-inner">
+      <div className="bg-slate-50/50 p-6 rounded-2xl space-y-8 border border-slate-100 shadow-inner">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="block text-xs font-semibold uppercase text-slate-500 ml-1 tracking-widest">Opening Hour</label>

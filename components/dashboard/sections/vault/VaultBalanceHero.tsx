@@ -12,7 +12,7 @@ export const VaultBalanceHero: React.FC<VaultBalanceHeroProps> = ({ balance, dep
     <div className="px-1 mb-6">
       {/* MAIN BALANCE CARD */}
       <div
-          className="bg-slate-900 p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-10">
+          className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-xl relative overflow-hidden border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-10">
 
         {/* Dynamic Glows */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 blur-[80px] rounded-full -mr-32 -mt-32 animate-pulse"></div>
@@ -23,7 +23,7 @@ export const VaultBalanceHero: React.FC<VaultBalanceHeroProps> = ({ balance, dep
             <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 border border-rose-500/30">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
             </div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               Vault Reserve
             </p>
           </div>
@@ -33,14 +33,14 @@ export const VaultBalanceHero: React.FC<VaultBalanceHeroProps> = ({ balance, dep
               <span className="text-slate-500 text-xl mr-1 font-bold">₱</span>
               {balance.toLocaleString()}
             </h2>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide ml-1">
               Accumulated for Monthly Bills
             </p>
           </div>
         </div>
 
         {/* Stats Section */}
-        <div className="relative z-10 flex items-center gap-8 bg-white/5 backdrop-blur-md px-6 py-4 rounded-[24px] border border-white/10 shadow-xl">
+        <div className="relative z-10 flex items-center gap-8 bg-white/5 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 shadow-xl">
           <div className="flex flex-col items-center">
             <p className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-1">
               Provisions

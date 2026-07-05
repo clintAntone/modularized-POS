@@ -229,7 +229,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                   <button
                       key={v}
                       onClick={() => { setView(v); playSound('click'); }}
-                      className={`flex-1 py-2.5 px-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-300 ${view === v ? 'bg-white text-slate-900 shadow-sm border border-slate-100 scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex-1 py-2.5 px-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all duration-300 ${view === v ? 'bg-white text-slate-900 shadow-sm border border-slate-100 scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                   >
                     {v}
                   </button>
@@ -252,7 +252,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate leading-none mb-1.5 group-hover:text-emerald-700 transition-colors">{row.name}</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate">{row.displayDate}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate">{row.displayDate}</p>
                     </div>
                     {row.isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>}
                   </div>
@@ -266,7 +266,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                     { label: 'Vault / R&B', value: row.vault,    color: 'text-indigo-600' },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between gap-4">
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{label}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">{label}</p>
                       <p className={`text-sm font-black tabular-nums ${color}`}>₱{value.toLocaleString()}</p>
                     </div>
                   ))}
@@ -274,7 +274,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
 
                 <div className={`mx-3 mb-3 p-3.5 rounded-lg flex items-center justify-between transition-all duration-300 ${row.net >= 0 ? 'bg-[#0F172A]' : 'bg-rose-50 border border-rose-100'}`}>
                   <div>
-                    <p className={`text-xs font-black uppercase tracking-widest leading-none mb-1 ${row.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Net ROI</p>
+                    <p className={`text-xs font-semibold uppercase tracking-wide leading-none mb-1 ${row.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Net ROI</p>
                     <p className={`text-xl font-black tabular-nums leading-none ${row.net >= 0 ? 'text-[#34D399]' : 'text-rose-700'}`}>
                       {row.net < 0 ? '−' : ''}₱{Math.abs(row.net).toLocaleString()}
                     </p>

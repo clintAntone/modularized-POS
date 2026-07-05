@@ -126,33 +126,31 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
     <div className="space-y-5 pb-4">
 
       {/* ── Header ── */}
-      <div className="bg-slate-900 rounded-[24px] px-5 py-5 space-y-4">
+      <div className="bg-white border border-slate-100 rounded-2xl px-5 py-5 space-y-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-            <Flag className="w-5 h-5 text-white" strokeWidth={2.5} />
+          <div className="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0">
+            <Flag className="w-5 h-5 text-rose-500" strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-black uppercase tracking-tight text-white leading-none">Complaints</h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
-              Employee Incident Reports
-            </p>
+            <h2 className="text-base font-bold text-slate-900 leading-none">Complaints</h2>
+            <p className="text-xs font-medium text-slate-400 mt-1 truncate">Employee Incident Reports</p>
           </div>
           {pendingCount > 0 && (
-            <div className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/30 px-2.5 py-1.5 rounded-xl shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-black text-amber-400 uppercase tracking-widest">{pendingCount} pending</span>
+            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-full shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-semibold text-amber-700">{pendingCount} pending</span>
             </div>
           )}
         </div>
         {/* KPI tiles */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white/5 rounded-2xl px-4 py-3">
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">All Complaints</p>
-            <p className="text-2xl font-black text-white tabular-nums leading-none">{totalComplaints}</p>
+          <div className="bg-slate-50 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">All Complaints</p>
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{totalComplaints}</p>
           </div>
-          <div className={`rounded-2xl px-4 py-3 ${activeComplaints > 0 ? 'bg-amber-500/15' : 'bg-white/5'}`}>
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Active / Open</p>
-            <p className={`text-2xl font-black tabular-nums leading-none ${activeComplaints > 0 ? 'text-amber-400' : 'text-white'}`}>{activeComplaints}</p>
+          <div className={`rounded-xl px-4 py-3 ${activeComplaints > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'}`}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Active / Open</p>
+            <p className={`text-2xl font-black tabular-nums leading-none ${activeComplaints > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{activeComplaints}</p>
           </div>
         </div>
       </div>
@@ -161,7 +159,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
       {isDelegate && (
         <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
           <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={2.5} />
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">View only — only the assigned branch manager can file complaints</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">View only — only the assigned branch manager can file complaints</p>
         </div>
       )}
 
@@ -176,10 +174,10 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
       )}
 
       {/* ── Staff list ── */}
-      <div className="bg-white border border-slate-100 rounded-[24px] overflow-hidden shadow-sm">
-        <div className="px-5 py-4 bg-slate-900 flex items-center justify-between">
-          <p className="text-xs font-black text-white uppercase tracking-widest">Branch Staff</p>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{sortedStaff.length} member{sortedStaff.length !== 1 ? 's' : ''}</p>
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Branch Staff</p>
+          <p className="text-xs font-medium text-slate-400">{sortedStaff.length} member{sortedStaff.length !== 1 ? 's' : ''}</p>
         </div>
 
         {sortedStaff.length === 0 ? (
@@ -194,7 +192,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
             ].map(({ group, label }) => group.length === 0 ? null : (
               <React.Fragment key={label}>
                 <div className="px-5 py-2 bg-slate-50 border-b border-slate-100">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label} · {group.length}</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label} · {group.length}</p>
                 </div>
                 {group.map(emp => {
               const role = getEmployeeRole(emp, branch.id);
@@ -231,7 +229,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{emp.name}</p>
                       {displayRole && (
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">{displayRole}</p>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate mt-0.5">{displayRole}</p>
                       )}
                     </div>
 
@@ -246,7 +244,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                         title="File a report"
                       >
                         <Flag className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
-                        <span className="hidden sm:inline text-xs font-black uppercase tracking-widest">Report</span>
+                        <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide">Report</span>
                       </button>
                     )}
                   </div>
@@ -274,14 +272,14 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                               className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
                               onClick={() => setExpandedComplaintId(isComplaintExpanded ? null : c.id)}
                             >
-                              <span className="shrink-0 text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
+                              <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
                                 {ordinal(offenseNum)}
                               </span>
-                              <span className={`shrink-0 text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${reportColor}`}>
+                              <span className={`shrink-0 text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg border ${reportColor}`}>
                                 {REPORT_LABEL[c.reportType] || c.reportType || '—'}
                               </span>
                               <span className="flex-1 text-xs font-bold text-slate-400 tabular-nums">{filedDate}</span>
-                              <span className={`shrink-0 flex items-center gap-1 text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${statusMeta.pill}`}>
+                              <span className={`shrink-0 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${statusMeta.pill}`}>
                                 {statusMeta.icon}
                                 {statusMeta.label}
                               </span>
@@ -293,25 +291,25 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                               <div className="px-4 pb-4 pt-1 space-y-3 border-t border-slate-100">
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Incident Date</p>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Incident Date</p>
                                     <p className="text-xs font-bold text-slate-700">
                                       {c.incidentDate || '—'}{c.incidentTime ? ` · ${c.incidentTime}` : ''}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Filed By</p>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Filed By</p>
                                     <p className="text-xs font-bold text-slate-700">{c.filedByName || '—'}</p>
                                   </div>
                                 </div>
                                 {c.witnesses && (
                                   <div>
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Witnesses</p>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Witnesses</p>
                                     <p className="text-xs font-semibold text-slate-700">{c.witnesses}</p>
                                   </div>
                                 )}
                                 {c.description && (
                                   <div>
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Description</p>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Description</p>
                                     <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 rounded-xl px-3 py-2.5">{c.description}</p>
                                   </div>
                                 )}

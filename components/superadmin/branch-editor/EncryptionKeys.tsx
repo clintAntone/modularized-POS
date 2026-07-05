@@ -13,23 +13,23 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
     return (
         <section className="space-y-5 animate-in slide-in-from-bottom-3 duration-500">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Terminal Encryption Keys</h4>
-            <div className={`p-6 rounded-[28px] shadow-lg relative overflow-hidden transition-all duration-700 ${isPinChanged ? 'bg-[#0F172A]' : 'bg-amber-600'}`}>
+            <div className={`p-6 rounded-2xl shadow-lg relative overflow-hidden transition-all duration-700 ${isPinChanged ? 'bg-[#0F172A]' : 'bg-amber-600'}`}>
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 blur-[80px] rounded-full translate-x-1/4 -translate-y-1/4"></div>
 
                 <div className="relative z-10">
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                             <div className={`w-1.5 h-1.5 rounded-full ${isPinChanged ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'}`}></div>
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-[0.2em]">
+                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider">
                                 {isPinChanged ? 'Secured' : 'Temporary Key'}
                             </p>
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10 ${isPinChanged ? 'text-emerald-400' : 'text-white animate-pulse'}`}>
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium uppercase tracking-wide border border-slate-200 ${isPinChanged ? 'text-emerald-400' : 'text-white animate-pulse'}`}>
                             {isPinChanged ? 'Encrypted' : 'Exposed'}
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/10">
+                    <div className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-slate-200">
                         <div className="flex-1 overflow-hidden">
                             {isPinChanged && !showPin ? (
                                 <div className="flex gap-2 items-center h-8 ml-1">
@@ -38,7 +38,7 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-2xl font-bold tracking-[0.2em] text-white font-mono leading-none ml-1">
+                                <p className="text-2xl font-bold tracking-wider text-white font-mono leading-none ml-1">
                                     {pin || '------'}
                                 </p>
                             )}

@@ -34,28 +34,28 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
 
   return (
   <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-    <div className="w-full sm:max-w-sm bg-white rounded-t-[36px] sm:rounded-[36px] shadow-2xl max-h-[92dvh] overflow-y-auto animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+    <div className="w-full sm:max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl shadow-xl max-h-[92dvh] overflow-y-auto animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
 
       <div className="pt-3 flex justify-center sm:hidden">
         <div className="w-10 h-1 bg-slate-200 rounded-full" />
       </div>
 
-      <div className="relative bg-slate-900 px-6 pt-6 pb-8 overflow-hidden">
+      <div className="relative bg-white px-6 pt-6 pb-5 border-b border-slate-100 overflow-hidden">
         <div className="absolute -top-8 -right-8 w-36 h-36 bg-indigo-600/20 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="relative flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0 shadow-inner">
-              <span className="text-2xl font-black text-white uppercase leading-none">
+            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-slate-200 flex items-center justify-center shrink-0 shadow-inner">
+              <span className="text-2xl font-bold text-slate-900 leading-none">
                 {(user.username || '?').charAt(0)}
               </span>
             </div>
             <div>
-              <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em]">Portal Access</p>
-              <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight mt-0.5">{user.username}</h3>
+              <p className="text-xs font-black text-indigo-400 uppercase tracking-wide">Portal Access</p>
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight leading-tight mt-0.5">{user.username}</h3>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Session</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Active Session</span>
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Username</p>
           </div>
           <div>
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">New Username</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1.5">New Username</label>
             <input
               type="text"
               value={form.username}
@@ -94,7 +94,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             />
           </div>
           <div>
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm Username</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1.5">Confirm Username</label>
             <div className="relative">
               <input
                 type="text"
@@ -138,7 +138,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Optional</span>
           </div>
           <div>
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">New PIN</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1.5">New PIN</label>
             <input
               type="password"
               inputMode="numeric"
@@ -146,11 +146,11 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
               onChange={e => onChange({ ...form, pin: e.target.value, confirmPin: '' })}
               placeholder="────────"
               maxLength={8}
-              className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 outline-none focus:border-emerald-400 focus:bg-white transition-all tracking-[0.4em] text-center"
+              className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all tracking-wide text-center"
             />
           </div>
           <div>
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm PIN</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1.5">Confirm PIN</label>
             <div className="relative">
               <input
                 type="password"
@@ -160,7 +160,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
                 placeholder="────────"
                 maxLength={8}
                 disabled={!form.pin}
-                className={`w-full h-11 px-4 pr-10 bg-slate-50 border rounded-2xl font-black text-slate-900 outline-none focus:bg-white transition-all tracking-[0.4em] text-center disabled:opacity-30 disabled:cursor-not-allowed ${
+                className={`w-full h-11 px-4 pr-10 bg-slate-50 border rounded-2xl font-black text-slate-900 outline-none focus:bg-white transition-all tracking-wide text-center disabled:opacity-30 disabled:cursor-not-allowed ${
                   form.confirmPin && form.confirmPin !== form.pin
                     ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400'
                     : form.confirmPin && form.confirmPin === form.pin
@@ -232,7 +232,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
 
             {/* Branch scope */}
             <div className="mb-2">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Branch Scope</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Branch Scope</p>
               {scopedBranches === null ? (
                 <span className="text-xs font-bold text-emerald-600">All branches</span>
               ) : (
@@ -247,7 +247,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             {/* Permitted tabs */}
             {allowedTabs.length > 0 && (
               <div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Permitted Tabs</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Permitted Tabs</p>
                 <div className="flex flex-wrap gap-1">
                   {allowedTabs.map(tab => (
                     <span key={tab} className="px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-black text-indigo-600 uppercase tracking-wide">

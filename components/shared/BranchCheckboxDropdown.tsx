@@ -66,7 +66,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(o => !o)}
-        className={`h-11 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all outline-none ${
+        className={`h-11 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
           isOpen
             ? 'bg-white border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900'
             : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'
@@ -89,7 +89,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       )}
 
       {isOpen && (
-        <div className="absolute z-50 top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+        <div className="absolute z-50 top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
           {/* Search */}
           <div className="p-2 border-b border-slate-100">
             <div className="relative">
@@ -121,7 +121,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                   )}
                 </span>
                 <input type="checkbox" checked={allSelected} onChange={() => onChange([])} className="sr-only" />
-                <span className={`text-xs font-black uppercase tracking-widest ${allSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${allSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
                   All Branches
                 </span>
               </label>
@@ -145,11 +145,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                     )}
                   </span>
                   <input type="checkbox" checked={checked} onChange={() => toggleBranch(branch.id)} className="sr-only" />
-                  <span className={`text-xs font-bold uppercase tracking-widest truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
+                  <span className={`text-xs font-medium uppercase tracking-wide truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
                     {branch.name}
                   </span>
                   {inactive && (
-                    <span className="ml-auto shrink-0 text-xs font-black uppercase tracking-widest text-amber-500 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                    <span className="ml-auto shrink-0 text-xs font-semibold uppercase tracking-wide text-amber-500 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
                       Inactive
                     </span>
                   )}
@@ -158,7 +158,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
             })}
 
             {filtered.length === 0 && (
-              <div className="px-4 py-6 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+              <div className="px-4 py-6 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">
                 No branches found
               </div>
             )}
@@ -169,7 +169,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
             <div className="border-t border-slate-100 px-4 py-2">
               <button
                 onClick={() => onChange([])}
-                className="text-xs font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors"
+                className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors"
               >
                 Clear selection
               </button>

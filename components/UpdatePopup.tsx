@@ -7,7 +7,7 @@ interface UpdatePopupProps {
 export const UpdatePopup: React.FC<UpdatePopupProps> = ({ apkUrl }) => {
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-white rounded-[32px] w-full max-w-sm p-8 text-center border border-slate-100 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-8 text-center border border-slate-100 shadow-xl animate-in zoom-in-95 duration-200">
         {/* Icon */}
         <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
           <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -17,7 +17,7 @@ export const UpdatePopup: React.FC<UpdatePopupProps> = ({ apkUrl }) => {
 
         <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Update Required</p>
         <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">New Version Available</h3>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-3 leading-relaxed">
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-3 leading-relaxed">
           Your app is out of date. Please update to continue using the system.
         </p>
 

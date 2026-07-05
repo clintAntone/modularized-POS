@@ -259,7 +259,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
   return (
     <div className="w-full mx-auto pb-20 px-2 sm:px-6">
       {toast && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-black text-xs uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-xl animate-in slide-in-from-top-6 duration-300 font-black text-xs uppercase tracking-wide bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
           {toast.message}
         </div>
@@ -270,10 +270,10 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
           {/* LEFT COLUMN: ENTRY FORM */}
           <div className="md:col-span-5 space-y-8">
             {fixedCategory === 'PROVISION' ? (
-              <div className="bg-slate-900 rounded-[36px] p-1 shadow-2xl border border-slate-800">
+              <div className="bg-slate-900 rounded-3xl p-1 shadow-xl border border-slate-800">
                 <div className="bg-white p-8 sm:p-10 rounded-[30px] space-y-8 text-center">
                   <div className="space-y-2">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Vault Provision</h3>
+                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Vault Provision</h3>
                     <p className="text-4xl font-black text-slate-900">₱{(branch.dailyProvisionAmount || 0).toLocaleString()}</p>
                     <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 inline-block px-3 py-1 rounded-full border border-emerald-100">Daily R&B Provision</p>
                   </div>
@@ -281,7 +281,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
                   <button
                     onClick={handleSaveExpense}
                     disabled={isUploading || isClosedMode}
-                    className="w-full bg-slate-900 text-white font-black py-6 rounded-[24px] uppercase tracking-[0.3em] text-xs shadow-xl hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-3"
+                    className="w-full bg-slate-900 text-white font-black py-6 rounded-2xl uppercase tracking-wide text-xs shadow-xl hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
                     {isUploading ? (
                       <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -318,11 +318,11 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
             {/* Quick Summary of Today */}
             <div className={`bg-slate-50 border border-slate-200 ${UI_THEME.radius.card} p-6 flex items-center justify-between`}>
               <div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Today's Total Expense Burn</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Today's Total Expense Burn</p>
                 <p className="text-2xl font-black text-slate-900">₱{totalDailyBurn.toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Entries</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Entries</p>
                 <p className="text-2xl font-black text-slate-900">{dailyExpenses.length}</p>
               </div>
             </div>
@@ -331,7 +331,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
           {/* RIGHT COLUMN: ACTIVITY LOG / TABLE */}
           <div className="md:col-span-7 space-y-4">
             <div className="flex items-center justify-between px-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Session Activity</h3>
+              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Session Activity</h3>
               <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">{dailyExpenses.length} Outflows</span>
             </div>
             <ExpenseActivityLog 
@@ -352,7 +352,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
               <Trash2 className="w-8 h-8" strokeWidth={3} />
             </div>
             <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">Scrub Entry?</h4>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
               This will permanently remove the record for <span className="text-slate-900">{expenseToDelete.name}</span>.
             </p>
             <div className="flex flex-col gap-3 mt-10">

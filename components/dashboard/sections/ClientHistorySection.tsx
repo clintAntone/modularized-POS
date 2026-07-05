@@ -114,7 +114,7 @@ const BrowseSkeleton: React.FC = () => (
 // ── KPI Card ────────────────────────────────────────────────────
 const KpiCard: React.FC<{ label: string; value: string; sub?: string; accent?: string }> = ({ label, value, sub, accent = 'text-slate-900' }) => (
   <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-1 shadow-sm">
-    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</p>
+    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
     <p className={`text-lg font-black tabular-nums leading-none ${accent}`}>{value}</p>
     {sub && <p className="text-xs font-bold text-slate-400 uppercase">{sub}</p>}
   </div>
@@ -314,7 +314,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
           </div>
           <div>
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none">{client.displayName}</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">
               {client.visitCount} session{client.visitCount !== 1 ? 's' : ''} · Client Profile
             </p>
           </div>
@@ -337,11 +337,11 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Service Breakdown + Preferred Staff */}
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Top Services</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Top Services</p>
             <ServiceBarChart txs={client.transactions} />
           </div>
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Preferred Staff</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Preferred Staff</p>
             <PreferredStaff txs={client.transactions} />
           </div>
         </div>
@@ -349,7 +349,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Session History — cards (mobile-friendly, with notes) */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Session History</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Session History</p>
           </div>
           <div className="divide-y divide-slate-50">
             {client.transactions.map(tx => {
@@ -399,17 +399,17 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     <div className="space-y-5">
 
       {/* ── Header Hero Card ── */}
-      <div className="bg-slate-900 rounded-[24px] p-5 flex items-center justify-between gap-4">
+      <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between gap-4 shadow-sm">
         {/* Left: icon + title + subtitle */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Client Lookup</p>
-            <p className="text-[15px] font-black text-white uppercase tracking-tight leading-none truncate">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-none mb-1">Client Lookup</p>
+            <p className="text-[15px] font-bold text-slate-900 leading-none truncate">
               {branch.name}
             </p>
           </div>
@@ -418,18 +418,18 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Right: KPI tiles */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Unique clients */}
-          <div className="bg-white/10 rounded-2xl px-3.5 py-2.5 text-center min-w-[64px]">
-            <p className="text-[22px] font-black text-white tabular-nums leading-none">
+          <div className="bg-slate-50 rounded-xl px-3.5 py-2.5 text-center min-w-[64px]">
+            <p className="text-[22px] font-black text-slate-900 tabular-nums leading-none">
               {loading ? '—' : allProfiles.length}
             </p>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1 leading-none">Clients</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1 leading-none">Clients</p>
           </div>
           {/* Total sessions */}
-          <div className="bg-indigo-500/20 border border-indigo-500/30 rounded-2xl px-3.5 py-2.5 text-center min-w-[64px]">
-            <p className="text-[22px] font-black text-indigo-300 tabular-nums leading-none">
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3.5 py-2.5 text-center min-w-[64px]">
+            <p className="text-[22px] font-black text-indigo-600 tabular-nums leading-none">
               {loading ? '—' : allTransactions.length}
             </p>
-            <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mt-1 leading-none">Sessions</p>
+            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mt-1 leading-none">Sessions</p>
           </div>
         </div>
       </div>
@@ -468,12 +468,12 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <p className="text-sm font-black uppercase tracking-widest">No clients found</p>
+              <p className="text-sm font-semibold uppercase tracking-wide">No clients found</p>
             </div>
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide px-1">
               {filteredProfiles.length} result{filteredProfiles.length !== 1 ? 's' : ''}
             </p>
             {filteredProfiles.map(profile => (
@@ -509,12 +509,12 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
       ) : (
         /* ── Default view: activity summary by day (no client names) ── */
         dailySummary.length === 0 ? (
-          <div className="bg-white rounded-[24px] border border-slate-100 p-16 text-center shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
             <div className="flex flex-col items-center gap-3 opacity-20">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <p className="text-sm font-black uppercase tracking-widest">No sessions recorded yet</p>
+              <p className="text-sm font-semibold uppercase tracking-wide">No sessions recorded yet</p>
             </div>
           </div>
         ) : (
@@ -526,7 +526,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                 <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-none">
                   Client names are hidden — search by name to view a profile
                 </p>
               </div>
@@ -536,10 +536,10 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
             {(() => {
               const maxSessions = Math.max(...dailySummary.map(e => e.sessionCount), 1);
               return (
-                <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                   {/* List header */}
                   <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Daily Activity</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Daily Activity</p>
                     <div className="flex items-center gap-5">
                       <p className="text-xs font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
                       <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Sessions</p>

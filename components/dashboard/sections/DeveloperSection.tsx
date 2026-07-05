@@ -66,7 +66,7 @@ const STATS = [
 export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) => {
   return (
     <div className="w-full max-w-lg mx-auto px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="rounded-[28px] overflow-hidden shadow-2xl border border-white/5">
+      <div className="rounded-2xl overflow-hidden shadow-xl border border-white/5">
 
         {/* ── HERO ─────────────────────────────────────── */}
         <div
@@ -85,13 +85,13 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
 
           <div className="relative z-10 space-y-3">
             <div
-              className="inline-flex items-center justify-center w-16 h-16 rounded-[18px] shadow-2xl select-none"
+              className="inline-flex items-center justify-center w-16 h-16 rounded-[18px] shadow-xl select-none"
               style={{ background: 'linear-gradient(135deg, #6366f1, #10b981)' }}
             >
               <span className="text-xl font-black text-white tracking-tighter">CA</span>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white uppercase tracking-tighter leading-none">
+              <h1 className="text-xl font-bold text-slate-900 tracking-tighter leading-none">
                 Clint Antone Raro
               </h1>
               <p className="mt-1 text-xs font-bold uppercase tracking-[0.25em]"

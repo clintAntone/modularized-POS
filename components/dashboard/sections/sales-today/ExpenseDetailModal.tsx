@@ -23,7 +23,7 @@ export const ExpenseDetailModal: React.FC<ExpenseDetailModalProps> = ({ expense,
       onClick={onClose}
     >
       <div
-        className="bg-white w-full sm:max-w-md shadow-2xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in duration-300 overflow-hidden rounded-t-[32px] sm:rounded-[32px] max-h-[90vh]"
+        className="bg-white w-full sm:max-w-md shadow-xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in duration-300 overflow-hidden rounded-t-[32px] sm:rounded-2xl max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle (mobile only) */}
@@ -48,21 +48,21 @@ export const ExpenseDetailModal: React.FC<ExpenseDetailModalProps> = ({ expense,
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-          <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100 text-center">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Description</p>
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 text-center">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Description</p>
             <p className="text-lg font-bold text-slate-900 uppercase tracking-tighter mb-4 leading-tight">{expense.name}</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Amount</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Amount</p>
             <p className="text-2xl font-bold text-slate-900 tracking-tighter">₱{Number(expense.amount).toLocaleString()}</p>
           </div>
 
           {hasReceipt ? (
-            <div className="rounded-[24px] bg-slate-100 border border-slate-200 overflow-hidden">
+            <div className="rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden">
               <img src={expense.receiptImage!} className="w-full object-contain max-h-64" alt="Receipt" />
             </div>
           ) : (
-            <div className="py-8 rounded-[24px] bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 opacity-40">
+            <div className="py-8 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 opacity-40">
               <div className="text-3xl">📷</div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">No Receipt Captured</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">No Receipt Captured</p>
             </div>
           )}
         </div>

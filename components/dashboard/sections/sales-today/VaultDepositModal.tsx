@@ -47,7 +47,7 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
       <div className="relative h-full overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-4 py-8">
 
-          <div className="relative bg-white rounded-[40px] w-full max-w-md shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-3xl w-full max-w-md shadow-xl flex flex-col animate-in zoom-in-95 duration-200">
 
             {/* Header */}
             <div className="px-8 pt-8 pb-6 rounded-t-[40px] bg-emerald-50/70">
@@ -71,7 +71,7 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
 
               {/* Current vault balance chip */}
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Balance</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Current Balance</span>
                 <span className="text-xs font-black text-emerald-700 tabular-nums">₱{vaultBalance.toLocaleString()}</span>
               </div>
             </div>
@@ -102,10 +102,10 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
                   )}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-black uppercase tracking-widest ${depositAll ? 'text-emerald-900' : 'text-slate-600'}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${depositAll ? 'text-emerald-900' : 'text-slate-600'}`}>
                     Deposit full net ROI
                   </p>
-                  <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 tabular-nums ${depositAll ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 tabular-nums ${depositAll ? 'text-emerald-600' : 'text-slate-400'}`}>
                     ₱{maxDeposit.toLocaleString()} available
                   </p>
                 </div>
@@ -114,12 +114,12 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
               {/* Custom amount input — only when not depositing all */}
               {!depositAll && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Custom Amount (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Custom Amount (₱)</label>
                   <input
                     type="number"
                     value={customAmount || ''}
                     onChange={e => setCustomAmount(Number(e.target.value))}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-lg outline-none transition-all shadow-inner focus:border-emerald-400 focus:bg-white"
+                    className="w-full p-4 bg-white border border-slate-200 rounded-xl font-semibold text-lg outline-none transition-all shadow-inner focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
                     placeholder="0"
                     min="0"
                     max={maxDeposit}
@@ -136,7 +136,7 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
               {/* After-deposit preview */}
               {amount > 0 && (
                 <div className="bg-emerald-50 rounded-2xl px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">After deposit</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">After deposit</span>
                   <span className="text-sm font-black text-emerald-900 tabular-nums">₱{afterBalance.toLocaleString()}</span>
                 </div>
               )}
@@ -145,14 +145,14 @@ export const VaultDepositModal: React.FC<VaultDepositModalProps> = ({
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                  className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeposit}
                   disabled={!canSave || isSaving}
-                  className="flex-1 py-4 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-30 hover:bg-emerald-700 active:scale-95 transition-all"
+                  className="flex-1 py-3.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-wide shadow-lg disabled:opacity-30 hover:bg-emerald-700 active:scale-95 transition-all"
                 >
                   {isSaving ? 'Saving...' : `Deposit ₱${(amount || 0).toLocaleString()}`}
                 </button>

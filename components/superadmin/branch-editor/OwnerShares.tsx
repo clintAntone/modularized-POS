@@ -42,14 +42,14 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
             }
           }}
           disabled={isSaving}
-          className={`text-xs font-black uppercase tracking-widest transition-colors ${hasLevy ? 'text-rose-500 hover:text-rose-600' : 'text-indigo-600 hover:text-indigo-700'}`}
+          className={`text-xs font-semibold uppercase tracking-wide transition-colors ${hasLevy ? 'text-rose-500 hover:text-rose-600' : 'text-indigo-600 hover:text-indigo-700'}`}
         >
           {hasLevy ? '− Remove Levy' : '+ Enable Levy'}
         </button>
       </div>
 
       {hasLevy && groupLevy && (
-        <div className="bg-indigo-50 p-5 rounded-[28px] border border-indigo-100 space-y-4">
+        <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 space-y-4">
           <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest leading-relaxed">
             This percentage is deducted from the adjusted ROI first, before distributing to owners.
           </p>
@@ -102,9 +102,9 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
         </button>
       </div>
 
-      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
         {owners.length === 0 ? (
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center py-4 italic">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center py-4 italic">
             No owners defined for this branch.
           </p>
         ) : (
@@ -143,7 +143,7 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
 
         {owners.length > 0 && (
           <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               {hasLevy ? `Total (of ${100 - (groupLevy?.percentage || 0)}% post-levy)` : 'Total Allocation'}
             </span>
             <span className={`text-xs font-black ${totalPercentage > 100 ? 'text-rose-500' : totalPercentage === 100 ? 'text-emerald-600' : 'text-slate-900'}`}>

@@ -38,7 +38,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
   const inputCls = 'w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[18px] font-semibold text-xs sm:text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner';
   const inputClsUpper = inputCls + ' uppercase font-bold';
-  const labelCls = 'text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block';
+  const labelCls = 'text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide ml-1 mb-1 block';
 
   const handleSave = () => {
     const fn = firstName.trim().toUpperCase();
@@ -100,7 +100,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
             {/* Employee ID */}
             <div className="flex-1 min-w-0">
-              <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</p>
+              <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Employee ID</p>
               {empId ? (
                 <button
                   type="button"
@@ -108,7 +108,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
                   className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-3 hover:border-emerald-400 transition-all active:scale-[0.98] text-left"
                 >
                   <p className="text-xs sm:text-sm font-black text-slate-700 tracking-wider font-mono flex-1 min-w-0 break-all">{empId}</p>
-                  <span className="shrink-0 text-xs sm:text-xs font-black uppercase tracking-widest text-slate-400">
+                  <span className="shrink-0 text-xs sm:text-xs font-semibold uppercase tracking-wide text-slate-400">
                     {empIdCopied ? '✓ Copied' : 'Copy'}
                   </span>
                 </button>
@@ -248,7 +248,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-[20px] sm:rounded-[28px] uppercase tracking-widest text-xs sm:text-xs shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-xl sm:rounded-2xl uppercase tracking-widest text-xs sm:text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
           >
             {isSaving
               ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />

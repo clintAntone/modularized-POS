@@ -251,7 +251,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
           <p className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-none mb-1 transition-colors ${isActive ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
             {item.label}
           </p>
-          <p className="text-xs sm:text-xs font-bold uppercase tracking-widest text-slate-400 truncate">
+          <p className="text-xs sm:text-xs font-medium uppercase tracking-wide text-slate-400 truncate">
             {item.desc}
           </p>
         </div>
@@ -334,7 +334,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
       ) : (
         /* MOBILE NAV */
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4">
-          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-[32px] shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
+          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-2xl shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
             {visibleTabs.map(item => {
               const isActive = activeTab === item.id;
               return (
@@ -396,7 +396,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
           onClick={() => { playSound('click'); setShowMoreModal(false); }}
         >
           <div
-            className={`bg-white w-full max-w-3xl ${UI_THEME.radius.modal} shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden`}
+            className={`bg-white w-full max-w-3xl ${UI_THEME.radius.modal} shadow-xl flex flex-col max-h-[90dvh] overflow-hidden`}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -447,7 +447,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                 return (
                   <section key={cat} className="space-y-2.5">
                     <div className="flex items-center gap-3">
-                      <span className={`text-xs font-black uppercase tracking-widest shrink-0 ${catColor[cat] ?? 'text-slate-400'}`}>{cat}</span>
+                      <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${catColor[cat] ?? 'text-slate-400'}`}>{cat}</span>
                       <div className="h-px bg-slate-100 flex-1" />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">

@@ -97,7 +97,7 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                             net.toLocaleString().length > 7 ? 'text-base lg:text-lg' :
                             'text-xl lg:text-2xl'
                         }`}>{net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}</span>
-                        <span className="text-xs font-bold uppercase tracking-widest mt-1.5 text-slate-300 whitespace-nowrap">Finalized ROI</span>
+                        <span className="text-xs font-medium uppercase tracking-wide mt-1.5 text-slate-300 whitespace-nowrap">Finalized ROI</span>
                     </div>
                 </div>
             </div>
@@ -111,13 +111,13 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 {/* Header */}
                 <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black text-emerald-600 uppercase tracking-[0.3em] mb-0.5 truncate">{branchName}</p>
+                        <p className="text-xs font-black text-emerald-600 uppercase tracking-wide mb-0.5 truncate">{branchName}</p>
                         <h3 className="text-[17px] font-black text-slate-900 uppercase tracking-tight leading-none">{label}</h3>
-                        <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${isBackfill ? 'text-amber-500' : 'text-slate-400'}`}>
+                        <p className={`text-xs font-medium uppercase tracking-wide mt-1 ${isBackfill ? 'text-amber-500' : 'text-slate-400'}`}>
                             {isBackfill ? '✦ Backfilled Report' : sublabel}
                         </p>
                     </div>
-                    <span className={`shrink-0 mt-0.5 px-2.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest ${
+                    <span className={`shrink-0 mt-0.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide ${
                         isPositive
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-rose-50 text-rose-600 border border-rose-200'
@@ -129,7 +129,7 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 {/* 3-column metrics — colored tiles */}
                 <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
                     <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Gross</p>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Gross</p>
                         <p className="text-xs font-black text-slate-900 tabular-nums leading-none">₱{gross.toLocaleString()}</p>
                     </div>
                     <div className="bg-amber-50/60 rounded-xl px-3 py-2.5">
@@ -143,16 +143,16 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 </div>
 
                 {/* Floating dark footer */}
-                <div className="flex items-center justify-between px-4 py-3.5 bg-slate-900 mx-2 mb-2 rounded-2xl">
+                <div className="flex items-center justify-between px-4 py-3.5 bg-slate-50 border border-slate-200 mx-2 mb-2 rounded-xl">
                     <div>
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-0.5">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
                             {isLegacy ? 'Rent & Bills' : 'Vault Deposit'}
                         </p>
-                        <p className="text-sm font-black text-indigo-400 tabular-nums">₱{vaultColValue.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-indigo-600 tabular-nums">₱{vaultColValue.toLocaleString()}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-0.5">Net ROI</p>
-                        <p className={`font-black tabular-nums leading-none text-xl ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Net ROI</p>
+                        <p className={`font-black tabular-nums leading-none text-xl ${isPositive ? 'text-emerald-600' : 'text-rose-500'}`}>
                             {net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}
                         </p>
                     </div>

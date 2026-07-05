@@ -10,17 +10,25 @@ interface POSHeaderProps {
 
 export const POSHeader: React.FC<POSHeaderProps> = ({ mode, setMode }) => {
     return (
-        <div className="flex justify-center mb-4">
-            <div className="bg-slate-100 p-1.5 rounded-[22px] flex items-center shadow-inner border border-slate-200/50 w-full max-w-sm">
-                <button 
+        <div className="flex justify-center mb-6">
+            <div className="bg-slate-100 p-1 rounded-2xl flex items-center w-full max-w-xs">
+                <button
                     onClick={() => { setMode('CREATE'); playSound('click'); }}
-                    className={`flex-1 py-3 px-4 rounded-[18px] text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode !== 'CORRECTIONS' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 min-h-[44px] py-2.5 px-5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                        mode !== 'CORRECTIONS'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                    }`}
                 >
                     Registry
                 </button>
-                <button 
+                <button
                     onClick={() => { setMode('CORRECTIONS'); playSound('click'); }}
-                    className={`flex-1 py-3 px-4 rounded-[18px] text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'CORRECTIONS' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 min-h-[44px] py-2.5 px-5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                        mode === 'CORRECTIONS'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                    }`}
                 >
                     Corrections
                 </button>

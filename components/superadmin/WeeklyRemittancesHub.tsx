@@ -811,7 +811,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in duration-300">
-        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-200 shadow-sm flex items-center gap-4">
+        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-slate-200/60 rounded-2xl animate-pulse shrink-0" />
           <div className="space-y-2 flex-1">
             <div className="h-4 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
@@ -819,7 +819,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           </div>
         </div>
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-[24px] border border-slate-100 p-5 space-y-3">
+          <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="h-4 bg-slate-200/60 rounded-lg animate-pulse w-1/3" />
               <div className="h-7 bg-slate-200/60 rounded-xl animate-pulse w-20" />
@@ -838,7 +838,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       {/* ── Single Remit Confirmation Modal ── */}
       {remitConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setRemitConfirm(null)}>
-          <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-7 pt-7 pb-5">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center mb-4">
                 <CheckCircle className="w-6 h-6 text-emerald-600" />
@@ -850,13 +850,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <p className="text-xs text-slate-400 mt-2">This will record the remittance as approved. You can still reject it afterward if needed.</p>
             </div>
             <div className="px-7 pb-7 flex gap-3 justify-end">
-              <button onClick={() => setRemitConfirm(null)} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">
+              <button onClick={() => setRemitConfirm(null)} className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-900 transition-all">
                 Cancel
               </button>
               <button
                 onClick={() => { handleReview(remitConfirm.submissionId, remitConfirm.branchId, remitConfirm.periodLabel, 'approved'); setRemitConfirm(null); }}
                 disabled={isReviewing}
-                className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" /> Confirm Remitted
               </button>
@@ -869,7 +869,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       {/* ── Unmark Remitted Confirmation Modal ── */}
       {unmarkConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setUnmarkConfirm(null)}>
-          <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-7 pt-7 pb-5">
               <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
                 <XCircle className="w-6 h-6 text-amber-600" />
@@ -889,13 +889,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               )}
             </div>
             <div className="px-7 pb-7 flex gap-3 justify-end">
-              <button onClick={() => setUnmarkConfirm(null)} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">
+              <button onClick={() => setUnmarkConfirm(null)} className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-900 transition-all">
                 Cancel
               </button>
               <button
                 onClick={() => handleUnmarkRemitted(unmarkConfirm.submissionId)}
                 disabled={isReviewing}
-                className="px-7 py-3 bg-amber-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                className="px-7 py-3 bg-amber-500 text-white rounded-2xl text-xs font-semibold uppercase tracking-wide hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
                 <XCircle className="w-4 h-4" /> Unmark Remitted
               </button>
@@ -908,7 +908,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       {/* ── Mark All Confirmation Modal ── */}
       {markAllConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setMarkAllConfirm(false)}>
-          <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-7 pt-7 pb-5">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center mb-4">
                 <CheckCircle className="w-6 h-6 text-emerald-600" />
@@ -920,13 +920,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <p className="text-xs text-slate-400 mt-2">This action applies to all branches currently visible in the pending list.</p>
             </div>
             <div className="px-7 pb-7 flex gap-3 justify-end">
-              <button onClick={() => setMarkAllConfirm(false)} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">
+              <button onClick={() => setMarkAllConfirm(false)} className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-900 transition-all">
                 Cancel
               </button>
               <button
                 onClick={handleMarkAllRemitted}
                 disabled={isReviewing}
-                className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" /> Confirm All
               </button>
@@ -937,7 +937,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       )}
 
       {/* ── Header ── */}
-      <div className="bg-white px-5 py-4 rounded-[28px] border border-slate-200 shadow-sm">
+      <div className="bg-white px-5 py-4 rounded-2xl border border-slate-200 shadow-sm">
         {/* Title row */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
@@ -947,7 +947,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Weekly Remittances</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Owner Distributions & Validation</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Owner Distributions & Validation</p>
           </div>
           {!activeBranchId && (
             <button
@@ -967,7 +967,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <button
                 key={v}
                 onClick={() => { setMainView(v); playSound('click'); }}
-                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${mainView === v ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 {v === 'remittances' ? 'Remittances' : 'Deductions'}
               </button>
@@ -1023,9 +1023,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         return (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Filters panel */}
-            <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm px-5 py-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Filters</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Filters</p>
                 {activeFilterCount > 0 && (
                   <button onClick={clearAllFilters} className="text-xs font-black text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-colors">
                     Clear all ({activeFilterCount})
@@ -1041,7 +1041,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     value={deductionSearch}
                     onChange={e => setDeductionSearch(e.target.value)}
                     placeholder="Type to search..."
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:border-slate-400 transition-all ${deductionSearch ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500 focus:bg-white'}`}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionSearch ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500 focus:bg-white'}`}
                   />
                 </div>
                 {/* Branch */}
@@ -1050,7 +1050,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <select
                     value={deductionBranchFilter}
                     onChange={e => setDeductionBranchFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:border-slate-400 transition-all ${deductionBranchFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionBranchFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                   >
                     <option value="">All Branches</option>
                     {branches.filter(b => allDeductions.some(a => a.branchId === b.id)).map(b => (
@@ -1064,7 +1064,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <select
                     value={deductionOwnerFilter}
                     onChange={e => setDeductionOwnerFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:border-slate-400 transition-all ${deductionOwnerFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionOwnerFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                   >
                     <option value="">All Owners</option>
                     {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
@@ -1076,7 +1076,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <select
                     value={deductionAddedByFilter}
                     onChange={e => setDeductionAddedByFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:border-slate-400 transition-all ${deductionAddedByFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionAddedByFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                   >
                     <option value="">All</option>
                     {uniqueAddedBy.map(o => <option key={o} value={o}>{o}</option>)}
@@ -1110,27 +1110,27 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 <p className="text-base font-black text-rose-600 tabular-nums">{fmt(Math.abs(totalDeducted))}</p>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2.5">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Entries</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-0.5">Entries</p>
                 <p className="text-base font-black text-slate-700 tabular-nums">{filtered.length}</p>
               </div>
             </div>
 
             {filtered.length === 0 ? (
-              <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center">
+              <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
                 <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No deductions found</p>
               </div>
             ) : (
-              <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 {/* Desktop table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Branch</th>
-                        <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Period</th>
-                        <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Description</th>
-                        <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Deducted From</th>
-                        <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                        <th className="px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</th>
+                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Period</th>
+                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Description</th>
+                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Deducted From</th>
+                        <th className="px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Amount</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -1151,7 +1151,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <td className="px-4 py-3">
                               {adj.targetOwner
                                 ? <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{adj.targetOwner}</span>
-                                : <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">All Owners</span>
+                                : <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">All Owners</span>
                               }
                             </td>
                             <td className="px-5 py-3 text-right">
@@ -1172,9 +1172,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       <div key={adj.id} className="px-5 py-4 flex items-center justify-between gap-4">
                         <div className="min-w-0">
                           <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{branch?.name?.replace('BRANCH - ', '') || adj.branchId}</p>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{adj.periodLabel}</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{adj.periodLabel}</p>
                           <p className="text-xs font-semibold text-slate-500 uppercase mt-0.5">{adj.description}</p>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">
                             From: <span className="text-slate-600">{adj.targetOwner || 'All Owners'}</span>
                           </p>
                         </div>
@@ -1221,8 +1221,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         return (
         <div className="space-y-4">
           {/* Filters panel */}
-          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm px-4 py-3 space-y-2">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Filters</p>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 space-y-2">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Filters</p>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
               {/* Cutoff */}
               <div className="space-y-1">
@@ -1230,7 +1230,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 <div ref={periodDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setPeriodDropdownOpen(o => !o); playSound('click'); }}
-                    className={`h-10 flex items-center justify-between gap-2 px-3.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all outline-none w-full ${
+                    className={`h-10 flex items-center justify-between gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none w-full ${
                       periodDropdownOpen
                         ? 'bg-white border-indigo-500 ring-4 ring-indigo-500/10 text-slate-900'
                         : selectedPeriods.length > 0 ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-500'
@@ -1245,14 +1245,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     </div>
                   </button>
                   {periodDropdownOpen && (
-                    <div className="absolute z-[200] top-[calc(100%+6px)] left-0 w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+                    <div className="absolute z-[200] top-[calc(100%+6px)] left-0 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
                       <div className="max-h-72 overflow-y-auto overscroll-contain">
                         <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 border-b border-slate-100 group">
                           <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${selectedPeriods.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 group-hover:border-indigo-400'}`}>
                             {selectedPeriods.length === 0 && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
                           </span>
                           <input type="checkbox" checked={selectedPeriods.length === 0} onChange={() => setSelectedPeriods([])} className="sr-only" />
-                          <span className={`text-xs font-black uppercase tracking-widest ${selectedPeriods.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Cutoffs</span>
+                          <span className={`text-xs font-semibold uppercase tracking-wide ${selectedPeriods.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Cutoffs</span>
                         </label>
                         {cutoffTabs.map(tab => {
                           const key = String(tab.day);
@@ -1265,7 +1265,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               </span>
                               <input type="checkbox" checked={checked} onChange={toggle} className="sr-only" />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-black uppercase tracking-widest ${checked ? 'text-slate-900' : 'text-slate-500'}`}>{tab.label}</p>
+                                <p className={`text-xs font-semibold uppercase tracking-wide ${checked ? 'text-slate-900' : 'text-slate-500'}`}>{tab.label}</p>
                                 <span className="text-xs font-bold text-slate-400">{tab.count} week{tab.count !== 1 ? 's' : ''}</span>
                               </div>
                             </label>
@@ -1274,7 +1274,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       </div>
                       {selectedPeriods.length > 0 && (
                         <div className="border-t border-slate-100 px-4 py-2">
-                          <button onClick={() => { setSelectedPeriods([]); playSound('click'); }} className="text-xs font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors">Clear selection</button>
+                          <button onClick={() => { setSelectedPeriods([]); playSound('click'); }} className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors">Clear selection</button>
                         </div>
                       )}
                     </div>
@@ -1287,7 +1287,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 <div ref={branchDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setBranchDropdownOpen(o => !o); playSound('click'); }}
-                    className={`h-10 flex items-center justify-between gap-2 px-3.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all outline-none w-full ${
+                    className={`h-10 flex items-center justify-between gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none w-full ${
                       branchDropdownOpen
                         ? 'bg-white border-indigo-500 ring-4 ring-indigo-500/10 text-slate-900'
                         : effectiveBranchIds.length > 0 ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-500'
@@ -1309,7 +1309,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     </div>
                   </button>
                   {branchDropdownOpen && (
-                    <div className="absolute z-[200] top-[calc(100%+6px)] left-0 w-full min-w-[220px] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+                    <div className="absolute z-[200] top-[calc(100%+6px)] left-0 w-full min-w-[220px] bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
                       <div className="p-2 border-b border-slate-100">
                         <input
                           autoFocus
@@ -1328,7 +1328,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${effectiveBranchIds.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
                               {effectiveBranchIds.length === 0 && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
                             </span>
-                            <span className={`text-xs font-black uppercase tracking-widest ${effectiveBranchIds.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Branches</span>
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${effectiveBranchIds.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Branches</span>
                           </button>
                         )}
                         {branches.filter(b => !branchSearch || b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
@@ -1342,7 +1342,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
                                 {selected && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
                               </span>
-                              <span className={`text-xs font-black uppercase tracking-widest truncate ${selected ? 'text-slate-900' : 'text-slate-500'}`}>
+                              <span className={`text-xs font-semibold uppercase tracking-wide truncate ${selected ? 'text-slate-900' : 'text-slate-500'}`}>
                                 {b.name.replace(/\s*BRANCH\s*/i, '').trim()}
                               </span>
                             </button>
@@ -1357,12 +1357,12 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <div className="space-y-1">
                 <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Status</p>
                 <div className="flex gap-1.5">
-                  <button onClick={() => { setLastWeekOnly(v => !v); setLastWeekSubmittedOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${lastWeekOnly ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  <button onClick={() => { setLastWeekOnly(v => !v); setLastWeekSubmittedOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${lastWeekOnly ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lastWeekOnly ? 'bg-white' : 'bg-rose-400'}`} />
                     Pending
                     {lastWeekUnremittedIds.size > 0 && <span className={`text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 ${lastWeekOnly ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'}`}>{lastWeekUnremittedIds.size}</span>}
                   </button>
-                  <button onClick={() => { setLastWeekSubmittedOnly(v => !v); setLastWeekOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${lastWeekSubmittedOnly ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  <button onClick={() => { setLastWeekSubmittedOnly(v => !v); setLastWeekOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${lastWeekSubmittedOnly ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lastWeekSubmittedOnly ? 'bg-white' : 'bg-blue-400'}`} />
                     Remitted
                     {lastWeekSubmittedIds.size > 0 && <span className={`text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 ${lastWeekSubmittedOnly ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'}`}>{lastWeekSubmittedIds.size}</span>}
@@ -1373,16 +1373,16 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           </div>
 
           {/* Desktop table */}
-          <div className="hidden lg:block bg-white rounded-[28px] border border-slate-100 overflow-hidden">
+          <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th onClick={() => toggleSort('branch')} className="text-left px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Branch<SortIcon k="branch" /></th>
-                  <th onClick={() => toggleSort('pending')} className="text-center px-3 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Status<SortIcon k="pending" /></th>
-                  <th onClick={() => toggleSort('gross')} className="text-right px-3 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Gross<SortIcon k="gross" /></th>
-                  <th onClick={() => toggleSort('salary')} className="text-right px-3 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Salary<SortIcon k="salary" /></th>
-                  <th onClick={() => toggleSort('expenses')} className="text-right px-3 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Expenses<SortIcon k="expenses" /></th>
-                  <th onClick={() => toggleSort('roi')} className="text-right px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 select-none">Latest ROI<SortIcon k="roi" /></th>
+                  <th onClick={() => toggleSort('branch')} className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Branch<SortIcon k="branch" /></th>
+                  <th onClick={() => toggleSort('pending')} className="text-center px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Status<SortIcon k="pending" /></th>
+                  <th onClick={() => toggleSort('gross')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Gross<SortIcon k="gross" /></th>
+                  <th onClick={() => toggleSort('salary')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Salary<SortIcon k="salary" /></th>
+                  <th onClick={() => toggleSort('expenses')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Expenses<SortIcon k="expenses" /></th>
+                  <th onClick={() => toggleSort('roi')} className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Latest ROI<SortIcon k="roi" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -1410,7 +1410,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     <td className="text-right px-3 py-3.5 text-xs font-bold text-rose-500 tabular-nums">{fmt(b.latestExpenses)}</td>
                     <td className="text-right px-6 py-3.5">
                       <span className={`text-xs font-black tabular-nums block ${b.latestPeriodRoi < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{fmt(b.latestPeriodRoi)}</span>
-                      {b.latestPeriodLabel && <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{b.latestPeriodLabel}</span>}
+                      {b.latestPeriodLabel && <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{b.latestPeriodLabel}</span>}
                     </td>
                   </tr>
                 ))}
@@ -1418,13 +1418,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             </table>
             {sorted.length === 0 && (
               <div className="p-16 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No branches found</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
               </div>
             )}
           </div>
 
           {/* Mobile list */}
-          <div className="lg:hidden bg-white rounded-[24px] border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+          <div className="lg:hidden bg-white rounded-2xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
             {filtered.map(b => (
               <button
                 key={b.branchId}
@@ -1443,14 +1443,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 </div>
                 <div className="text-right shrink-0">
                   <span className={`text-xs font-black tabular-nums block ${b.latestPeriodRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(b.latestPeriodRoi)}</span>
-                  {b.latestPeriodLabel && <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{b.latestPeriodLabel}</span>}
+                  {b.latestPeriodLabel && <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{b.latestPeriodLabel}</span>}
                 </div>
                 <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
             ))}
             {filtered.length === 0 && (
               <div className="p-12 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No branches found</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
               </div>
             )}
           </div>
@@ -1462,7 +1462,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       {activeBranchId && (
         <>
         {/* Back + Branch Name header */}
-        <div className="bg-white rounded-[28px] border border-slate-100 px-4 py-3 flex items-center gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => { setActiveBranchId(null); setSelectedBranchIds([]); playSound('click'); }}
             className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0"
@@ -1475,7 +1475,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none truncate">
               {branches.find(b => b.id === activeBranchId)?.name?.replace(/\s*BRANCH\s*/i, '').trim() || 'Branch'}
             </p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Weekly Remittances</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Weekly Remittances</p>
           </div>
           <button
             onClick={handleExportPDF}
@@ -1489,7 +1489,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
       {/* ── Quick Process Strip — only on branch list view ── */}
       {!activeBranchId && mainView === 'remittances' && quickProcessItems.length > 0 && (
-        <div className="bg-white rounded-[28px] border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-amber-400" />
@@ -1501,7 +1501,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               <button
                 onClick={() => setMarkAllConfirm(true)}
                 disabled={isReviewing}
-                className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
               >
                 <CheckCircle className="w-3 h-3" /> Mark All Remitted
               </button>
@@ -1514,11 +1514,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">
                     {report.branchName.replace('BRANCH - ', '')}
                   </p>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{report.branchLabel || group.label}</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{report.branchLabel || group.label}</p>
                 </div>
                 <div className="shrink-0 text-right w-28">
                   {itemRoi <= 0
-                    ? <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Nothing to remit</span>
+                    ? <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Nothing to remit</span>
                     : <span className="text-sm font-black tabular-nums text-slate-900">{fmt(itemRoi)}</span>
                   }
                 </div>
@@ -1526,7 +1526,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   <button
                     onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })}
                     disabled={isReviewing}
-                    className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
+                    className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
                   >
                     <CheckCircle className="w-3 h-3" /> Remitted
                   </button>
@@ -1539,9 +1539,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
       {/* ── Empty ── */}
       {displayGroups.length === 0 ? (
-        <div className="bg-white p-20 rounded-[40px] border border-slate-100 text-center space-y-4">
+        <div className="bg-white p-20 rounded-3xl border border-slate-100 text-center space-y-4">
           <div className="text-6xl opacity-20">📭</div>
-          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No weekly reports found for remittance.</p>
+          <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No weekly reports found for remittance.</p>
         </div>
       ) : (
         activeBranchId ? (
@@ -1562,7 +1562,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const cardId = `branch-card-${report.branchId}-${group.label.replace(/[\s,/]/g, '-')}`;
 
                   return (
-                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-[28px] shadow-sm overflow-hidden border ${
+                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
                       sub?.status === 'approved'  ? 'border-emerald-300' :
                       sub?.status === 'rejected'  ? 'border-rose-300' :
                       'border-slate-100'
@@ -1581,7 +1581,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               ? (report.branchLabel || group.label)
                               : report.branchName.replace('BRANCH - ', '')}
                           </p>
-                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">
                             {report.reportIds.length} day{report.reportIds.length !== 1 ? 's' : ''} aggregated
                           </p>
                         </div>
@@ -1654,8 +1654,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {/* ── For Verification ribbon (legacy status) ── */}
                       {sub?.status === 'for_verification' && !isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5 px-6 py-2 bg-amber-50 border-b border-amber-200">
-                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
-                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
+                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
                         </div>
                       )}
 
@@ -1685,8 +1685,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               {isOpen && sorted.length > 0 && (
                                 <div className="mb-1 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
                                   <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{sorted.length} daily reports</span>
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{fmt(report.grossSales)} total</span>
+                                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{sorted.length} daily reports</span>
+                                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{fmt(report.grossSales)} total</span>
                                   </div>
                                   <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
                                     {sorted.map((r, i) => {
@@ -1747,7 +1747,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         {report.owners.length > 0 && (
                           <>
                             <div className="border-t-2 border-dashed border-slate-200 my-2" />
-                            <div className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] py-1">
+                            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                               Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                             </div>
                             {report.owners.map((owner: any, oIdx: number) => {
@@ -1767,7 +1767,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               <>
                                 <div className="border-t border-dotted border-slate-200 my-1" />
                                 <div className="flex justify-between py-1">
-                                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Total</span>
+                                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</span>
                                   <span className="font-black text-sm tabular-nums text-slate-800">
                                     {fmt(report.owners.reduce((s: number, o: any) => {
                                       const ot = ownerAdj.filter(a => a.targetOwner === o.name).reduce((sum, a) => sum + a.amount, 0);
@@ -1786,7 +1786,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         {/* Adjustments */}
                         <div className="border-t-2 border-dashed border-slate-200 my-2" />
                         <div className="space-y-1.5">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Adjustments</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
 
                           {rowAdj.map(adj => (
                             <div
@@ -1846,7 +1846,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <div className={`border rounded-2xl p-4 space-y-2.5 ${isVaultDeposit ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                               <div className="flex items-center gap-2">
                                 {adjFormMode === 'add' ? <Plus className="w-3.5 h-3.5 text-slate-500 shrink-0" /> : <Minus className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
-                                <span className={`text-xs font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
+                                <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
                                   {adjFormMode === 'add'
                                     ? adjTargetOwner ? `Add to ${adjTargetOwner}` : 'Add to ROI'
                                     : isVaultDeposit ? 'Deposit to Vault' : adjTargetOwner ? `Deduct from ${adjTargetOwner}` : 'Deduct from ROI'}
@@ -1870,7 +1870,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                     }}
                                     className="w-3.5 h-3.5 accent-emerald-600 shrink-0"
                                   />
-                                  <span className={`text-xs font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                  <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
                                     Deposit to Vault
                                   </span>
                                 </label>
@@ -1925,14 +1925,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               <div className="grid grid-cols-2 gap-2">
                                 <button
                                   onClick={() => { setAdjFormKey(null); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); setIsVaultDeposit(false); }}
-                                  className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest"
+                                  className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide"
                                 >
                                   Cancel
                                 </button>
                                 <button
                                   onClick={() => handleAddAdjustment(report.branchId, group.label, adjustedRoi)}
                                   disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
-                                  className={`h-10 text-white rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
+                                  className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
                                 >
                                   {isSavingAdj ? '…' : isVaultDeposit ? 'Deposit' : 'Save'}
                                 </button>

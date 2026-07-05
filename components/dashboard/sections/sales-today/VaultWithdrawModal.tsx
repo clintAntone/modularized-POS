@@ -43,7 +43,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
       <div className="relative h-full overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-4 py-8">
 
-          <div className="relative bg-white rounded-[40px] w-full max-w-md shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-3xl w-full max-w-md shadow-xl flex flex-col animate-in zoom-in-95 duration-200">
 
             {/* Header */}
             <div className="px-8 pt-8 pb-6 rounded-t-[40px] bg-amber-50/70">
@@ -67,7 +67,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Available</span>
                 <span className="text-xs font-black text-amber-700 tabular-nums">₱{vaultBalance.toLocaleString()}</span>
               </div>
             </div>
@@ -82,12 +82,12 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
 
               {/* Reason */}
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Reason</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Reason</label>
                 <input
                   type="text"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-sm uppercase outline-none transition-all shadow-inner focus:border-amber-400 focus:bg-white"
+                  className="w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-sm uppercase outline-none transition-all shadow-inner focus:border-amber-400 focus:bg-white"
                   placeholder="E.G. EMERGENCY SUPPLIES..."
                   autoFocus
                 />
@@ -96,7 +96,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
               {/* Amount */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between ml-1">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Amount (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Amount (₱)</label>
                   <span className="text-xs font-bold text-slate-400 uppercase">Max: ₱{vaultBalance.toLocaleString()}</span>
                 </div>
                 <div className="relative">
@@ -104,7 +104,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
                     type="number"
                     value={amount || ''}
                     onChange={e => setAmount(Number(e.target.value))}
-                    className="w-full p-4 pr-20 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-lg outline-none transition-all shadow-inner focus:border-amber-400 focus:bg-white"
+                    className="w-full p-4 pr-20 bg-white border border-slate-200 rounded-xl font-semibold text-lg outline-none transition-all shadow-inner focus:border-amber-400 focus:bg-white"
                     placeholder="0"
                     min="0"
                     max={vaultBalance}
@@ -112,7 +112,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
                   <button
                     type="button"
                     onClick={() => { setAmount(vaultBalance); playSound('click'); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-amber-500 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all active:scale-95"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-amber-600 transition-all active:scale-95"
                   >
                     All
                   </button>
@@ -127,7 +127,7 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
               {/* After-withdrawal preview */}
               {amount > 0 && amount <= vaultBalance && (
                 <div className="bg-amber-50 rounded-2xl px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vault after withdrawal</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Vault after withdrawal</span>
                   <span className="text-sm font-black text-amber-900 tabular-nums">₱{afterBalance.toLocaleString()}</span>
                 </div>
               )}
@@ -136,14 +136,14 @@ export const VaultWithdrawModal: React.FC<VaultWithdrawModalProps> = ({
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                  className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleWithdraw}
                   disabled={!canSave || isSaving}
-                  className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-30 hover:bg-amber-600 active:scale-95 transition-all"
+                  className="flex-1 py-3.5 rounded-xl bg-amber-500 text-white text-xs font-semibold uppercase tracking-wide shadow-lg disabled:opacity-30 hover:bg-amber-600 active:scale-95 transition-all"
                 >
                   {isSaving ? 'Saving...' : `Withdraw ₱${(amount || 0).toLocaleString()}`}
                 </button>

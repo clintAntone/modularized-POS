@@ -63,7 +63,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search personnel..."
-              className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder:text-slate-300"
+              className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
             />
           </div>
 
@@ -106,7 +106,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
               );
             }) : (
               <div className="py-8 text-center opacity-40">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No personnel found</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">No personnel found</p>
               </div>
             )}
           </div>

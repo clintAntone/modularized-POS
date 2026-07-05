@@ -101,7 +101,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
   if (step === 'success') {
     return (
       <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
-        <div className="p-8 bg-emerald-50 rounded-[28px] border-2 border-emerald-100 text-center space-y-4 animate-in zoom-in">
+        <div className="p-8 bg-emerald-50 rounded-2xl border-2 border-emerald-100 text-center space-y-4 animate-in zoom-in">
           <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center text-white mx-auto shadow-lg">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4"><path d="M5 13l4 4L19 7"/></svg>
           </div>
@@ -169,7 +169,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       {step === 'otp' && (
         <div className="space-y-4">
           <div className="p-4 bg-slate-50 rounded-2xl text-center space-y-1">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">OTP sent to</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">OTP sent to</p>
             <p className="text-sm font-black text-slate-700">{maskedEmail}</p>
             {countdown > 0
               ? <p className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">Expires in {countdownStr}</p>
@@ -186,7 +186,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
               maxLength={6}
               inputMode="numeric"
               autoFocus
-              className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-2xl tracking-[0.4em] outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tabular-nums"
+              className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-2xl tracking-wide outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tabular-nums"
             />
           </div>
           <button
@@ -212,7 +212,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
         <div className="space-y-4">
           <div className="flex justify-between items-center ml-1">
             <label className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">New Security PIN</label>
-            <button type="button" onClick={() => setShowPin(v => !v)} className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            <button type="button" onClick={() => setShowPin(v => !v)} className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               {showPin ? 'Hide' : 'Show'}
             </button>
           </div>
@@ -224,7 +224,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
             maxLength={6}
             inputMode="numeric"
             autoFocus
-            className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-2xl tracking-[0.4em] outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tabular-nums"
+            className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-2xl tracking-wide outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tabular-nums"
           />
           <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest ml-1">Confirm New PIN</label>
           <input
@@ -234,7 +234,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
             placeholder="_ _ _ _ _ _"
             maxLength={6}
             inputMode="numeric"
-            className={`w-full p-5 bg-slate-50 border-2 rounded-xl font-black text-2xl tracking-[0.4em] outline-none transition-all shadow-inner text-center tabular-nums ${
+            className={`w-full p-5 bg-slate-50 border-2 rounded-xl font-black text-2xl tracking-wide outline-none transition-all shadow-inner text-center tabular-nums ${
               confirmPin.length === 6
                 ? confirmPin === newPin ? 'border-emerald-400 bg-emerald-50' : 'border-rose-400 bg-rose-50'
                 : 'border-transparent focus:border-emerald-500 focus:bg-white'

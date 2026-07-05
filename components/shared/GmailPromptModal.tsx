@@ -41,7 +41,7 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
 
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[36px] w-full max-w-sm shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+      <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
         <div className="p-8 space-y-6">
           {/* Icon */}
           <div className="flex items-center gap-4">
@@ -65,7 +65,7 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
           </p>
 
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Gmail Address</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Gmail Address</label>
             <input
               type="email"
               value={email}
@@ -95,7 +95,7 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
             {!required && (
               <button
                 onClick={onSkip}
-                className="w-full text-xs font-black text-slate-400 uppercase tracking-widest py-3 active:text-slate-600 transition-colors"
+                className="w-full text-xs font-medium text-slate-400 uppercase tracking-wide py-3 active:text-slate-600 transition-colors"
               >
                 Skip for now
               </button>

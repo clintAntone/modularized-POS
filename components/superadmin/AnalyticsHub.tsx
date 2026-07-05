@@ -71,7 +71,7 @@ const BranchDropdown: React.FC<{
   const tc = colorTheme === 'indigo' ? 'border-indigo-500 text-indigo-600' : 'border-emerald-500 text-emerald-600';
   return (
     <div className="relative flex-1" ref={ref}>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">{label}</p>
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 ml-1">{label}</p>
       <button
         onClick={() => { playSound('click'); setOpen(!open); }}
         className={`w-full flex items-center justify-between px-4 py-3.5 bg-white rounded-2xl border transition-all ${open ? `${tc} shadow-lg ring-4 ring-current/5` : 'border-slate-100 hover:border-slate-300 shadow-sm'}`}
@@ -87,14 +87,14 @@ const BranchDropdown: React.FC<{
         <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7"/></svg>
       </button>
       {open && (
-        <div className="absolute z-[120] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 duration-150">
+        <div className="absolute z-[120] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 animate-in zoom-in-95 duration-150">
           <div className="max-h-56 overflow-y-auto">
             {options.map(b => (
               <button
                 key={b.id}
                 disabled={b.id === excludeId}
                 onClick={() => { onSelect(b.id); setOpen(false); playSound('click'); }}
-                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all mb-0.5 flex items-center justify-between ${
+                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all mb-0.5 flex items-center justify-between ${
                   value === b.id
                     ? colorTheme === 'indigo' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'
                     : b.id === excludeId ? 'opacity-20 cursor-not-allowed text-slate-400'
@@ -428,17 +428,17 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     <div className="space-y-4 md:space-y-5 pb-32">
 
       {/* ── Header + Mode Tabs ─────────────────────────────── */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-white p-4 md:p-6 rounded-[24px] border border-slate-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
         <div>
           <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 10 Performers</h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mt-0.5">Network Analytical Ledger</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
         </div>
         <div className="bg-slate-100 p-1 rounded-xl flex gap-0.5">
           {([['chart','Ranking'],['heatmap','Heatmap'],['vs','VS Mode']] as [HubMode, string][]).map(([m, lbl]) => (
             <button
               key={m}
               onClick={() => { setMode(m); playSound('click'); }}
-              className={`flex-1 py-2.5 px-3 md:px-5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${mode === m ? 'bg-white text-slate-900 shadow-md border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 py-2.5 px-3 md:px-5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mode === m ? 'bg-white text-slate-900 shadow-md border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
             >
               {lbl}
             </button>
@@ -453,7 +453,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
 
           {/* ── Monthly Top 10 ─────────────────────────────── */}
-          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-4 md:p-6">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div>
@@ -462,8 +462,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Monthly Top 10</h3>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 ml-7">
-                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Score = (Gross + Perf. ROI) ÷ 2</span>
-                  <span className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">excludes vault & bills</span>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score = (Gross + Perf. ROI) ÷ 2</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">excludes vault & bills</span>
                 </div>
               </div>
               {/* Custom month/year picker */}
@@ -483,7 +483,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 </button>
 
                 {top10PickerOpen && (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-[200] bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 w-56 animate-in zoom-in-95 fade-in duration-150 origin-top-left">
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-[200] bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-56 animate-in zoom-in-95 fade-in duration-150 origin-top-left">
                     {/* Year row */}
                     <div className="flex items-center gap-1 mb-2.5">
                       {availableYears.map(y => (
@@ -556,7 +556,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           className="w-full flex items-center gap-3 py-1 group"
                         >
                           <div className="flex-1 h-px bg-slate-100" />
-                          <span className="flex items-center gap-1.5 text-xs font-black text-slate-400 uppercase tracking-widest shrink-0 group-hover:text-slate-600 transition-colors">
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0 group-hover:text-slate-600 transition-colors">
                             {showOtherBranches ? 'Hide' : `Show ${top10Data.length - 10} More`}
                             <svg className={`w-3 h-3 transition-transform ${showOtherBranches ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
@@ -581,7 +581,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                 {d.shortName}
                               </p>
                               {d.isMerged && (
-                                <span className="shrink-0 text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 leading-none">
+                                <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 leading-none">
                                   Combined
                                 </span>
                               )}
@@ -616,7 +616,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       ══════════════════════════════════════════════════════ */}
       {mode === 'heatmap' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-white p-4 md:p-8 rounded-[24px] border border-slate-100 shadow-sm">
+          <div className="bg-white p-4 md:p-8 rounded-2xl border border-slate-100 shadow-sm">
 
             {/* Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
@@ -640,7 +640,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 </button>
 
                 {heatPickerOpen && (
-                  <div className="absolute left-0 top-[calc(100%+10px)] z-[200] bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 w-60 animate-in zoom-in-95 fade-in duration-150 origin-top-left">
+                  <div className="absolute left-0 top-[calc(100%+10px)] z-[200] bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-60 animate-in zoom-in-95 fade-in duration-150 origin-top-left">
                     <div className="flex items-center gap-1 mb-2.5 flex-wrap">
                       {availableYears.map(y => (
                         <button
@@ -683,11 +683,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${scopeOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 {scopeOpen && (
-                  <div className="absolute z-[110] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 duration-150">
+                  <div className="absolute z-[110] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 animate-in zoom-in-95 duration-150">
                     <div className="max-h-64 overflow-y-auto">
                       <button
                         onClick={() => { setHeatBranch('all'); setScopeOpen(false); playSound('click'); }}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest mb-0.5 ${heatBranch === 'all' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wide mb-0.5 ${heatBranch === 'all' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
                       >
                         Full Network
                       </button>
@@ -696,7 +696,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                         <button
                           key={b.id}
                           onClick={() => { setHeatBranch(b.id); setScopeOpen(false); playSound('click'); }}
-                          className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest mb-0.5 flex items-center justify-between ${heatBranch === b.id ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                          className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wide mb-0.5 flex items-center justify-between ${heatBranch === b.id ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
                         >
                           <span className="truncate">{b.name.replace(/BRANCH\s*-\s*/i, '')}</span>
                           {heatBranch === b.id && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>}
@@ -754,11 +754,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                         <p className="text-lg font-black text-emerald-700 tabular-nums leading-tight">₱{totalGrossG.toLocaleString()}</p>
                       </div>
                       <div className={`border rounded-2xl px-4 py-3 ${totalNetG >= 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-rose-50 border-rose-100'}`}>
-                        <p className={`text-xs font-black uppercase tracking-widest mb-1 ${totalNetG >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Month Perf. ROI</p>
+                        <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${totalNetG >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Month Perf. ROI</p>
                         <p className={`text-lg font-black tabular-nums leading-tight ${totalNetG >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>₱{totalNetG.toLocaleString()}</p>
                       </div>
                       <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Days Reported</p>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Days Reported</p>
                         <p className="text-lg font-black text-slate-700 tabular-nums leading-tight">{daysReportedG} <span className="text-sm font-bold text-slate-300">/ {daysInMonth}</span></p>
                       </div>
                     </div>
@@ -915,11 +915,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                       <p className="text-lg font-black text-emerald-700 tabular-nums leading-tight">₱{totalGross.toLocaleString()}</p>
                     </div>
                     <div className={`border rounded-2xl px-4 py-3 ${totalNet >= 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-rose-50 border-rose-100'}`}>
-                      <p className={`text-xs font-black uppercase tracking-widest mb-1 ${totalNet >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Month ROI</p>
+                      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${totalNet >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Month ROI</p>
                       <p className={`text-lg font-black tabular-nums leading-tight ${totalNet >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>₱{totalNet.toLocaleString()}</p>
                     </div>
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Days Reported</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Days Reported</p>
                       <p className="text-lg font-black text-slate-700 tabular-nums leading-tight">{daysReported} <span className="text-sm font-bold text-slate-300">/ {daysInMonth}</span></p>
                     </div>
                   </div>
@@ -1035,7 +1035,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
                             </svg>
-                            <span className="text-xs font-black uppercase tracking-widest">Zoom</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide">Zoom</span>
                           </button>
                           {renderChart(320)}
                         </div>
@@ -1047,14 +1047,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             onClick={() => setChartExpanded(false)}
                           >
                             <div
-                              className="bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+                              className="bg-white rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200"
                               onClick={e => e.stopPropagation()}
                             >
                               {/* Modal header */}
                               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                                 <div>
                                   <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{MONTHS[heatMonth]} {heatYear}</p>
-                                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{heatBranchName}</p>
+                                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{heatBranchName}</p>
                                 </div>
                                 <button
                                   onClick={() => setChartExpanded(false)}
@@ -1075,11 +1075,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                               <div className="flex items-center gap-5 px-4 py-3 border-t border-slate-50">
                                 <div className="flex items-center gap-1.5">
                                   <div className="w-4 h-[2.5px] bg-emerald-500 rounded-full"/>
-                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Gross Sales</span>
+                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Gross Sales</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#6366f1" strokeWidth="2" strokeDasharray="4,3"/></svg>
-                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Perf. ROI</span>
+                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Perf. ROI</span>
                                 </div>
                               </div>
                             </div>
@@ -1094,11 +1094,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                     <div className="flex items-center gap-5">
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-[3px] bg-emerald-500 rounded-full"/>
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Gross Sales</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Gross Sales</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <svg width="20" height="4" className="shrink-0"><line x1="0" y1="2" x2="20" y2="2" stroke="#6366f1" strokeWidth="2.5" strokeDasharray="5,3.5"/></svg>
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Perf. ROI</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Perf. ROI</span>
                       </div>
                       {activeDay && <p className="text-xs font-black text-slate-300 uppercase tracking-widest">· Click a day to inspect</p>}
                       {!activeDay && <p className="text-xs font-black text-slate-300 uppercase tracking-widest">· Click chart to inspect a day</p>}
@@ -1106,7 +1106,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                     {activeDay && dailyStats[activeDay] ? (
                       <div className="flex items-stretch gap-0 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                         <div className="px-5 py-3 border-r border-slate-100">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">{new Date(activeDay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">{new Date(activeDay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                           <p className="text-sm font-black text-slate-500 tabular-nums">Day Detail</p>
                         </div>
                         <div className="px-5 py-3 border-r border-slate-100">
@@ -1114,7 +1114,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           <p className="text-sm font-black text-emerald-600 tabular-nums">₱{dailyStats[activeDay].gross.toLocaleString()}</p>
                         </div>
                         <div className="px-5 py-3">
-                          <p className={`text-xs font-black uppercase tracking-widest mb-0.5 ${dailyStats[activeDay].net >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Perf. ROI</p>
+                          <p className={`text-xs font-semibold uppercase tracking-wide mb-0.5 ${dailyStats[activeDay].net >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>Perf. ROI</p>
                           <p className={`text-sm font-black tabular-nums ${dailyStats[activeDay].net >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>₱{dailyStats[activeDay].net.toLocaleString()}</p>
                         </div>
                         <button
@@ -1146,18 +1146,18 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
           </div>
 
           {comparisonData ? (
-            <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
               {/* Headers */}
               <div className="flex divide-x divide-white/10 relative">
                 <div className="flex-1 p-5 md:p-7 text-center bg-indigo-600 text-white">
-                  <p className="text-xs font-black uppercase tracking-widest mb-1 opacity-60">Branch A</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1 opacity-60">Branch A</p>
                   <h4 className="text-xs md:text-sm font-black truncate px-2">{comparisonData.a.name}</h4>
                 </div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
                   <div className="w-9 h-9 md:w-11 md:h-11 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-xs md:text-xs shadow-xl border-2 border-white">VS</div>
                 </div>
                 <div className="flex-1 p-5 md:p-7 text-center bg-emerald-600 text-white">
-                  <p className="text-xs font-black uppercase tracking-widest mb-1 opacity-60">Branch B</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1 opacity-60">Branch B</p>
                   <h4 className="text-xs md:text-sm font-black truncate px-2">{comparisonData.b.name}</h4>
                 </div>
               </div>
@@ -1177,7 +1177,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   return (
                     <div key={key} className="space-y-2">
                       <div className="flex justify-between items-center px-1">
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</span>
                         <div className="flex gap-1.5">
                           {aWin && <span className="bg-indigo-50 text-indigo-700 text-[6px] font-black uppercase px-2 py-0.5 rounded-full">A LEADS</span>}
                           {bWin && <span className="bg-emerald-50 text-emerald-700 text-[6px] font-black uppercase px-2 py-0.5 rounded-full">B LEADS</span>}
@@ -1202,13 +1202,13 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
               </div>
 
               <div className="px-6 py-4 bg-slate-900 text-center">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-[0.4em]">All-time comparative data</p>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-wide">All-time comparative data</p>
               </div>
             </div>
           ) : (
-            <div className="py-24 text-center bg-white rounded-[24px] border-4 border-dashed border-slate-100 flex flex-col items-center gap-4">
+            <div className="py-24 text-center bg-white rounded-2xl border-4 border-dashed border-slate-100 flex flex-col items-center gap-4">
               <div className="text-5xl">⚔️</div>
-              <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">Select Two Branches to Begin</p>
+              <p className="text-xs font-black text-slate-300 uppercase tracking-wide">Select Two Branches to Begin</p>
             </div>
           )}
         </div>

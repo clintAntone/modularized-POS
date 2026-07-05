@@ -196,7 +196,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
             onClick={handleBackdropClick}
         >
             {toast && (
-                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-xl animate-in slide-in-from-top-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-slate-200 flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
                     {toast.message}
                 </div>
@@ -204,8 +204,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
             <div
                 ref={sidebarRef}
-                className="bg-white w-full max-w-lg flex flex-col shadow-2xl relative
-                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-[28px] lg:rounded-none lg:h-full lg:max-h-full lg:max-w-xl lg:border-l lg:border-slate-100
+                className="bg-white w-full max-w-lg flex flex-col shadow-xl relative
+                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-2xl lg:rounded-none lg:h-full lg:max-h-full lg:max-w-xl lg:border-l lg:border-slate-100
                   animate-in slide-in-from-bottom-4 lg:slide-in-from-right lg:slide-in-from-bottom-0 duration-300 lg:duration-500"
             >
                 <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-[28px] lg:rounded-t-none">
@@ -223,7 +223,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         onClick={handleManualClose}
                         className="group flex items-center gap-2 p-3 bg-slate-50 hover:bg-rose-600 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-inner"
                     >
-                        <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest ml-1">Close Editor</span>
+                        <span className="hidden sm:inline text-xs font-medium uppercase tracking-wide ml-1">Close Editor</span>
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -236,9 +236,9 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                             <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">📝</div>
                             <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Branch Identity</h4>
                         </div>
-                        <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Official Name</label>
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Official Name</label>
                                 <input
                                     type="text"
                                     value={localBranch.name}

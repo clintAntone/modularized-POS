@@ -371,7 +371,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         {/* Missing report modal */}
         {showMissingModal && ReactDOM.createPortal(
           <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowMissingModal(false)}>
-            <div className="bg-white rounded-[28px] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 pt-6 pb-4 border-b border-slate-100">
                 <div className="flex items-start justify-between gap-4">
@@ -398,7 +398,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate leading-none">{b.name}</p>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
                         {b.manager ? `MGR: ${b.manager}` : 'No manager assigned'}
                         {b.openingTime ? ` · Opens ${b.openingTime}` : ''}
                       </p>
@@ -411,13 +411,13 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
                 <button
                   onClick={() => { setComplianceFilter('uncompliant'); setShowMissingModal(false); playSound('click'); }}
-                  className="flex-1 h-10 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-amber-600 active:scale-95 transition-all"
+                  className="flex-1 h-10 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-amber-600 active:scale-95 transition-all"
                 >
                   Filter to These Branches
                 </button>
                 <button
                   onClick={() => setShowMissingModal(false)}
-                  className="h-10 px-5 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  className="h-10 px-5 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all"
                 >
                   Close
                 </button>
@@ -429,11 +429,11 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
         {showDownloadConfirm && ReactDOM.createPortal(
           <div className="fixed inset-0 z-[9999] bg-slate-950/95 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowDownloadConfirm(false)}>
-            <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 space-y-6 animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-8 space-y-6 animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-inner">📄</div>
               <div className="text-center space-y-2">
                 <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Confirm Export</h4>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
                   Generate and download the network sales report for <span className="text-slate-900">{formattedDisplayDate}</span>?
                 </p>
               </div>
@@ -486,7 +486,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     <span className="text-xs font-black text-emerald-800 uppercase tracking-widest">LIVE</span>
                   </div>
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   Last Sync: {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </p>
               </div>
@@ -504,13 +504,13 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                   placeholder="SEARCH BRANCH NAME..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-5 bg-slate-50 border border-slate-200 rounded-[20px] md:rounded-[24px] text-xs md:text-sm font-bold uppercase tracking-widest focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
+                  className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
               />
             </div>
 
             <button
               onClick={() => { setIsFiltersOpen(!isFiltersOpen); playSound('click'); }}
-              className={`flex items-center gap-2 px-4 py-2.5 md:py-5 rounded-xl md:rounded-[24px] border transition-all text-xs font-black uppercase tracking-widest shrink-0 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+              className={`flex items-center gap-2 px-4 py-2.5 md:py-5 rounded-xl md:rounded-2xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
             >
               <svg className={`w-4 h-4 transition-transform duration-300 ${isFiltersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
               <span className="hidden sm:inline">{isFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
@@ -523,7 +523,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
               {/* — Primary: Date navigator (full-width accent) — */}
               <div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Target Date</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 ml-1">Target Date</p>
                 <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner h-12 max-w-sm">
                   <button
                     onClick={() => handleDateShift(-1)}
@@ -558,7 +558,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                   {/* Live Status */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Live Status</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Live Status</p>
                     <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
                       {(['all', 'live', 'closed'] as const).map((val) => (
                         <button key={val} onClick={() => { setLiveFilter(val); playSound('click'); }}
@@ -571,7 +571,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
                   {/* Compliance Status */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Report Status</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Report Status</p>
                     <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
                       {(['all', 'compliant', 'uncompliant'] as const).map((val) => (
                         <button key={val} onClick={() => { setComplianceFilter(val); playSound('click'); }}
@@ -584,7 +584,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
                   {/* Manager Status */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Manager</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Manager</p>
                     <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
                       {(['all', 'has_manager', 'no_manager'] as const).map((val) => (
                         <button key={val} onClick={() => { setManagerFilter(val); playSound('click'); }}
@@ -597,7 +597,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
                   {/* Sort By */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Sort By</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Sort By</p>
                     <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
                       {(['gross', 'net', 'sessions', 'name'] as SortKey[]).map((key) => (
                         <button key={key} onClick={() => handleSortChange(key)}
@@ -657,7 +657,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                   )}
                   <button
                     onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setManagerFilter('all'); setMissedDaysThreshold(null); playSound('click'); }}
-                    className="text-xs font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors px-2"
+                    className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors px-2"
                   >
                     Clear all
                   </button>
@@ -686,7 +686,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
             </div>
             <button
               onClick={() => { setShowMissingModal(true); playSound('click'); }}
-              className="shrink-0 h-8 px-3 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-widest hover:bg-amber-700 active:scale-95 transition-all"
+              className="shrink-0 h-8 px-3 rounded-xl bg-amber-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-amber-700 active:scale-95 transition-all"
             >
               Show
             </button>
@@ -707,7 +707,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
           <button
               onClick={() => setShowDownloadConfirm(true)}
-              className="h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-2.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0"
+              className="h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             <span className="hidden sm:inline">Export PDF</span>
@@ -815,7 +815,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     <td colSpan={8} className="py-32 text-center">
                       <div className="flex flex-col items-center gap-4 opacity-20">
                         <div className="text-6xl">🏢</div>
-                        <p className="text-sm font-bold uppercase tracking-[0.4em]">No matching terminals in registry</p>
+                        <p className="text-sm font-bold uppercase tracking-wide">No matching terminals in registry</p>
                       </div>
                     </td>
                   </tr>
@@ -828,7 +828,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         {/* MOBILE CARD VIEW */}
         <div className="md:hidden flex items-center gap-3 px-3">
           <div className="flex-1 h-px bg-slate-200"></div>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Branch Sales Reports</span>
+          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">Branch Sales Reports</span>
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden px-3">
@@ -845,7 +845,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                   {isToday && (
                     <div className="flex items-center gap-1.5 mt-1">
                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className={`text-xs font-bold uppercase tracking-widest ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Offline'}</span>
+                      <span className={`text-xs font-medium uppercase tracking-wide ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Offline'}</span>
                     </div>
                   )}
                 </div>
@@ -859,22 +859,22 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               {/* Metric tiles */}
               <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
                 <div className="bg-slate-50 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Gross</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Gross</p>
                   <p className="text-xs font-black text-slate-900 tabular-nums mt-0.5 truncate">₱{b.gross.toLocaleString()}</p>
                 </div>
                 <div className="bg-amber-50/70 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-amber-500">Payroll</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-500">Payroll</p>
                   <p className="text-xs font-black text-amber-600 tabular-nums mt-0.5 truncate">₱{b.staffPay.toLocaleString()}</p>
                 </div>
                 <div className="bg-rose-50/70 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-rose-400">Expenses</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-rose-400">Expenses</p>
                   <p className="text-xs font-black text-rose-500 tabular-nums mt-0.5 truncate">₱{b.operational.toLocaleString()}</p>
                 </div>
               </div>
 
               {/* Floating ROI footer */}
-              <div className={`mx-2 mb-2 rounded-2xl flex items-center justify-between px-4 py-3 ${b.net >= 0 ? 'bg-slate-900' : 'bg-rose-900'}`}>
-                <span className={`text-xs font-bold uppercase tracking-widest ${b.net >= 0 ? 'text-white/40' : 'text-rose-300/60'}`}>ROI</span>
+              <div className={`mx-2 mb-2 rounded-xl flex items-center justify-between px-4 py-3 ${b.net >= 0 ? 'bg-slate-800' : 'bg-rose-900'}`}>
+                <span className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-slate-400' : 'text-rose-300/60'}`}>ROI</span>
                 <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
                   {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
                 </p>
@@ -914,7 +914,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl z-50">
                   <div className="px-4 py-3 border-b border-slate-100">
                     <p className="text-xs font-black text-amber-700 uppercase tracking-widest leading-none">Late to Open</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Branches not yet opened today</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Branches not yet opened today</p>
                   </div>
                   <div className="divide-y divide-slate-50 max-h-[50vh] overflow-y-auto">
                     {lateToOpenBranches.map(b => (
@@ -926,7 +926,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-black text-slate-800 uppercase truncate leading-none">{b.name}</p>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
                             {b.openingTime ? `Since ${b.openingTime}` : 'Not opened today'}
                           </p>
                         </div>

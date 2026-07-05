@@ -79,7 +79,7 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
       <div className="px-4 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-10">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-tighter leading-none mb-3">Monthly Archive</h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.4em]">Finalized Monthly Audit Reports</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Finalized Monthly Audit Reports</p>
         </div>
         <div className="flex items-center gap-4 bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm">
            <div className="relative">
@@ -95,15 +95,15 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
           <div 
             key={m.scope} 
             onClick={handleMonthClick}
-            className={`group bg-white rounded-[40px] border transition-all duration-500 hover:shadow-2xl cursor-pointer active:scale-[0.98] flex flex-col overflow-hidden ${m.isCurrent ? 'border-emerald-500/30 ring-4 ring-emerald-500/5' : 'border-slate-100 hover:border-slate-300'}`}
+            className={`group bg-white rounded-3xl border transition-all duration-500 hover:shadow-xl cursor-pointer active:scale-[0.98] flex flex-col overflow-hidden ${m.isCurrent ? 'border-emerald-500/30 ring-4 ring-emerald-500/5' : 'border-slate-100 hover:border-slate-300'}`}
           >
             <div className={`p-8 flex justify-between items-start transition-colors duration-500 ${m.isCurrent ? 'bg-[#064E3B]' : 'bg-[#0F172A]'}`}>
               <div className="space-y-1">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border ${m.isCurrent ? 'bg-emerald-400 text-emerald-950 border-emerald-300' : 'bg-white/10 text-white border-white/10'}`}>
+                  <div className={`px-3 py-1 rounded-lg text-xs font-medium uppercase tracking-wide border ${m.isCurrent ? 'bg-emerald-400 text-emerald-950 border-emerald-300' : 'bg-white/10 text-white border-white/10'}`}>
                     {m.label}
                   </div>
-                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-[0.2em]">{m.finalizedDays} Finalized Logs</span>
+                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">{m.finalizedDays} Finalized Logs</span>
                 </div>
                 <h3 className="text-xl font-bold text-white uppercase tracking-widest leading-none">{m.scope}</h3>
               </div>
@@ -143,15 +143,15 @@ export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesRep
             </div>
 
             <div className="px-10 pb-10">
-              <div className={`p-6 rounded-[28px] flex items-center justify-between transition-all duration-500 shadow-xl group-hover:translate-y-[-4px] ${m.net >= 0 ? 'bg-[#0F172A] group-hover:bg-[#1e293b]' : 'bg-rose-50 border border-rose-100'}`}>
+              <div className={`p-6 rounded-2xl flex items-center justify-between transition-all duration-500 shadow-xl group-hover:translate-y-[-4px] ${m.net >= 0 ? 'bg-[#0F172A] group-hover:bg-[#1e293b]' : 'bg-rose-50 border border-rose-100'}`}>
                 <div className="space-y-1">
-                  <p className={`text-xs font-bold uppercase tracking-[0.3em] ${m.net >= 0 ? 'text-slate-400' : 'text-rose-400'}`}>Net ROI Archive</p>
+                  <p className={`text-xs font-bold uppercase tracking-wide ${m.net >= 0 ? 'text-slate-400' : 'text-rose-400'}`}>Net ROI Archive</p>
                   <p className={`text-2xl font-bold tracking-tighter leading-none ${m.net >= 0 ? 'text-emerald-400' : 'text-rose-600'}`}>
                     {m.net < 0 ? '−' : ''}₱{Math.abs(m.net).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                   <span className={`text-xs font-bold uppercase tracking-widest ${m.net >= 0 ? 'text-white/40' : 'text-rose-400'}`}>View Details</span>
+                   <span className={`text-xs font-medium uppercase tracking-wide ${m.net >= 0 ? 'text-white/40' : 'text-rose-400'}`}>View Details</span>
                    <div className={`p-3 rounded-2xl transition-all duration-500 group-hover:rotate-12 ${m.net >= 0 ? 'bg-white/10 text-white' : 'bg-rose-100 text-rose-600'}`}>
                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                    </div>

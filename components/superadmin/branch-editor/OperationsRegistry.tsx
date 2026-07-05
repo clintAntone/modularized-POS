@@ -44,7 +44,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
   return (
     <section className="space-y-5 animate-in slide-in-from-bottom-2 duration-500">
       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Operations & Authentication Registry</h4>
-      <div className="bg-slate-50/50 p-6 rounded-[32px] border border-slate-100 space-y-6 shadow-inner">
+      <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-6 shadow-inner">
         
         {/* PRIMARY MANAGER */}
         <div className="space-y-2">
@@ -75,7 +75,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
               }}
             />
           ) : (
-            <div className="p-6 bg-amber-50 border-2 border-dashed border-amber-200 rounded-[24px] flex flex-col items-center text-center gap-3 animate-pulse">
+            <div className="p-6 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl flex flex-col items-center text-center gap-3 animate-pulse">
               <span className="text-2xl opacity-60">⚠️</span>
               <p className="text-xs font-bold text-amber-700 uppercase tracking-widest leading-relaxed max-w-[200px]">
                 No active personnel registered. Branch cannot open without an assigned manager or relief delegate.
@@ -109,7 +109,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
               playSound('click');
               onUpdate({ isOpen: !isOpen });
             }}
-            className={`px-6 sm:px-8 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest border-2 transition-all active:scale-95 shrink-0 ${isOpen ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'} ${isManagerUnassigned ? 'cursor-not-allowed border-dashed opacity-50' : ''}`}
+            className={`px-6 sm:px-8 py-2.5 rounded-xl text-xs font-medium uppercase tracking-wide border-2 transition-all active:scale-95 shrink-0 ${isOpen ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'} ${isManagerUnassigned ? 'cursor-not-allowed border-dashed opacity-50' : ''}`}
           >
             {isOpen ? 'OPEN' : 'CLOSED'}
           </button>

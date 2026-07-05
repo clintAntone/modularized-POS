@@ -31,8 +31,8 @@ export const ServiceCatalogMatrix: React.FC<ServiceCatalogMatrixProps> = ({ serv
             <p className="text-sm font-black text-slate-900 tabular-nums shrink-0">₱{Number(srv.price).toLocaleString()}</p>
           </div>
         )) : (
-          <div className="py-16 text-center bg-slate-50/50 rounded-[40px] border-4 border-dashed border-slate-100 opacity-40">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] px-10 leading-relaxed">No services currently attached.</p>
+          <div className="py-16 text-center bg-slate-50/50 rounded-3xl border-4 border-dashed border-slate-100 opacity-40">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide px-10 leading-relaxed">No services currently attached.</p>
           </div>
         )}
       </div>

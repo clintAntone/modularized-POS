@@ -62,7 +62,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               className="h-8 px-3 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors group"
             >
               <span className="text-xs font-black text-slate-700 tabular-nums">{itemsPerPage}</span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">/ page</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider hidden sm:inline">/ page</span>
               <svg
                 className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"
@@ -89,7 +89,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                       }`}
                     >
                       <span>{n}</span>
-                      <span className={`text-xs font-bold uppercase tracking-widest ${itemsPerPage === n ? 'text-slate-400' : 'text-slate-300'}`}>
+                      <span className={`text-xs font-medium uppercase tracking-wide ${itemsPerPage === n ? 'text-slate-400' : 'text-slate-300'}`}>
                         per page
                       </span>
                     </button>
@@ -163,7 +163,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </div>
       ) : (
         <div className="flex items-center justify-end ml-auto shrink-0">
-          <span className="text-xs sm:text-xs font-black text-slate-300 uppercase tracking-[0.2em] italic">
+          <span className="text-xs sm:text-xs font-black text-slate-300 uppercase tracking-wider italic">
             All pages displayed
           </span>
         </div>

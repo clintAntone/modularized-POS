@@ -388,13 +388,13 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
       {/* TRANSACTION DETAIL MODAL */}
       {selectedTxDetail && (
         <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
-          <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} overflow-hidden flex flex-col max-h-[90vh] shadow-2xl`}>
+          <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} overflow-hidden flex flex-col max-h-[90vh] shadow-xl`}>
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white">📖</div>
                 <div>
-                  <h4 className="text-sm font-bold uppercase tracking-widest">Transaction Audit</h4>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">{selectedTxDetail.id.slice(-8).toUpperCase()}</p>
+                  <h4 className="text-sm font-medium uppercase tracking-wide">Transaction Audit</h4>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{selectedTxDetail.id.slice(-8).toUpperCase()}</p>
                 </div>
               </div>
               <button onClick={() => setSelectedTxDetail(null)} className="p-2 text-white/40 hover:text-white transition-colors">
@@ -403,16 +403,16 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
             </div>
             <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar bg-white">
               <div className="space-y-1 text-center">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Client Name</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Client Name</p>
                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{selectedTxDetail.clientName}</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest pt-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide pt-2">
                   {(() => {
                     const localDate = new Date(selectedTxDetail.timestamp.replace(/(\+00:00|Z)$/, ""));
                     return localDate.toLocaleString("en-PH", { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                   })()}
                 </p>
               </div>
-              <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                 <div className="flex justify-between items-center text-sm">
                   <span className="font-bold text-slate-400 uppercase tracking-tight">Base Price</span>
                   <span className="font-bold text-slate-900">₱{selectedTxDetail.basePrice.toLocaleString()}</span>
@@ -434,7 +434,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                 </div>
               </div>
               <div className="space-y-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-2">Breakdown</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-2">Breakdown</p>
                 <div className="grid grid-cols-1 gap-2">
                   <div className="p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase">Service(s)</span>
@@ -462,7 +462,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
           <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner text-3xl">🗑️</div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Purge Old Logs?</h4>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed mb-10">
               Permanently deletes all audit logs older than 6 days. This cannot be undone.
             </p>
             <div className="flex flex-col gap-3">
@@ -487,10 +487,10 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
         {/* Header row */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xl shadow-inner border border-white/10">🛡️</div>
+            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xl shadow-inner border border-slate-200">🛡️</div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none">Audit Registry</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-2">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5 flex items-center gap-2">
                 {logsLoading
                   ? <><span className="w-2.5 h-2.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin inline-block" /> Loading…</>
                   : <>Global Activity & Security Log · {auditLogs.length.toLocaleString()} entries</>
@@ -501,7 +501,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => { setShowPurgeConfirm(true); playSound('click'); }}
-              className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all active:scale-95"
+              className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all active:scale-95"
               title="Purge logs older than 6 days"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -509,7 +509,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
             </button>
             <button
               onClick={() => window.print()}
-              className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-white border border-slate-200 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+              className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-white border border-slate-200 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               <span className="hidden sm:inline">Print</span>
@@ -528,12 +528,12 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
               placeholder="Search descriptions, performers, types..."
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest focus:bg-white focus:border-slate-400 focus:ring-4 focus:ring-slate-400/5 transition-all outline-none shadow-inner placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium uppercase tracking-wide focus:bg-white focus:border-slate-400 focus:ring-4 focus:ring-slate-400/5 transition-all outline-none shadow-inner placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal"
             />
           </div>
           <button
             onClick={() => { setIsFiltersOpen(!isFiltersOpen); playSound('click'); }}
-            className={`h-10 px-4 rounded-xl border transition-all text-xs font-black uppercase tracking-widest shrink-0 flex items-center gap-2 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-700'}`}
+            className={`h-10 px-4 rounded-xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 flex items-center gap-2 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-700'}`}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M3 4h18M7 8h10M11 12h4" strokeLinecap="round" /></svg>
             <span className="hidden sm:inline">Filters</span>
@@ -545,15 +545,15 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
         {isFiltersOpen && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="space-y-1.5">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Branch</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Branch</p>
               <BranchCheckboxDropdown branches={branches} selectedIds={selectedBranchIds} onChange={setSelectedBranchIds} className="w-full" />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between ml-1">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Date</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date</p>
                 <button
                   onClick={() => { setAllDates(!allDates); setCurrentPage(1); playSound('click'); }}
-                  className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-lg transition-all ${allDates ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                  className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg transition-all ${allDates ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                 >
                   {allDates ? 'All Dates ✓' : 'All Dates'}
                 </button>
@@ -583,7 +583,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
               <button
                 key={type}
                 onClick={() => { setEntityFilter(type); setCurrentPage(1); playSound('click'); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all active:scale-95 ${
                   isActive
                     ? 'bg-slate-900 text-white border-slate-900 shadow-md'
                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
@@ -605,19 +605,19 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
           {/* Stat strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col gap-1">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Events</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Events</p>
               <p className="text-3xl font-black text-slate-900 tabular-nums leading-none">{filteredLogs.length}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{allDates ? 'All time' : selectedDate}</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">{allDates ? 'All time' : selectedDate}</p>
             </div>
             <div className={`rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-1 ${deleteCount > 0 ? 'bg-rose-50 border-rose-100' : 'bg-white border-slate-100'}`}>
-              <p className={`text-xs font-black uppercase tracking-widest ${deleteCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>Deletions</p>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${deleteCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>Deletions</p>
               <p className={`text-3xl font-black tabular-nums leading-none ${deleteCount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{deleteCount}</p>
-              <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${deleteCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>{deleteCount > 0 ? 'Review recommended' : 'None detected'}</p>
+              <p className={`text-xs font-medium uppercase tracking-wide mt-1 ${deleteCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>{deleteCount > 0 ? 'Review recommended' : 'None detected'}</p>
             </div>
             <div className={`rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-1 ${securityFlags.length > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-100'}`}>
-              <p className={`text-xs font-black uppercase tracking-widest ${securityFlags.length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>Security Flags</p>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${securityFlags.length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>Security Flags</p>
               <p className={`text-3xl font-black tabular-nums leading-none ${securityFlags.length > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{securityFlags.length}</p>
-              <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${securityFlags.length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+              <p className={`text-xs font-medium uppercase tracking-wide mt-1 ${securityFlags.length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
                 {securityFlags.filter(f => f.severity === 'HIGH').length > 0
                   ? `${securityFlags.filter(f => f.severity === 'HIGH').length} high priority`
                   : securityFlags.length > 0 ? 'Review suggested' : 'All clear'}
@@ -633,7 +633,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                   <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                   <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Security Concerns</p>
                 </div>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{securityFlags.length} flag{securityFlags.length > 1 ? 's' : ''}</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{securityFlags.length} flag{securityFlags.length > 1 ? 's' : ''}</span>
               </div>
               <div className="divide-y divide-slate-50">
                 {securityFlags.map(flag => {
@@ -647,13 +647,13 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                       <div className={`w-1 self-stretch rounded-full shrink-0 ${severityStyle.bar}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                          <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${severityStyle.badge}`}>
+                          <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${severityStyle.badge}`}>
                             {flag.severity}
                           </span>
                           <span className="text-xs font-black text-white bg-slate-700 px-2 py-0.5 rounded-md uppercase tracking-widest">
                             {flag.branchName}
                           </span>
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                             {new Date(flag.latestTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -673,7 +673,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
               <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-lg shrink-0">✅</div>
               <div>
                 <p className="text-xs font-black text-slate-700 uppercase tracking-tight">No security concerns detected</p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">All activity within normal parameters for this period</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">All activity within normal parameters for this period</p>
               </div>
             </div>
           )}
@@ -714,10 +714,10 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${activityColor}`}>
+                      <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${activityColor}`}>
                         {log.activityType}
                       </span>
-                      <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${entityColor}`}>
+                      <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${entityColor}`}>
                         {log.entityType}
                       </span>
                       <span className="text-xs font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-widest">
@@ -744,7 +744,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                 <div className="flex items-center gap-3 shrink-0 ml-12 sm:ml-0">
                   {log.amount ? (
                     <div className="text-right">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Value</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Value</p>
                       <p className="text-sm font-black text-slate-900 tabular-nums">₱{log.amount.toLocaleString()}</p>
                     </div>
                   ) : null}
@@ -757,9 +757,9 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
               </div>
             );
           }) : (
-            <div className="py-32 text-center bg-white rounded-[32px] border-2 border-dashed border-slate-100 flex flex-col items-center gap-4 opacity-40">
+            <div className="py-32 text-center bg-white rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center gap-4 opacity-40">
               <div className="text-6xl grayscale opacity-30">🛡️</div>
-              <p className="text-xs font-bold uppercase tracking-[0.4em] text-slate-400">No logs found</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">No logs found</p>
             </div>
           )}
         </div>
@@ -768,8 +768,8 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
       {/* PRINT VIEW */}
       <div className="hidden print:block space-y-8">
         <div className="border-b-2 border-slate-900 pb-4">
-          <h1 className="text-3xl font-black uppercase tracking-tighter">Network Audit Registry</h1>
-          <div className="flex justify-between mt-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+          <h1 className="text-2xl font-bold">Network Audit Registry</h1>
+          <div className="flex justify-between mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">
             <p>Generated: {new Date().toLocaleString()}</p>
             <p>Branch: {selectedBranchName}</p>
             <p>Date: {allDates ? 'All Dates' : selectedDate}</p>
@@ -778,11 +778,11 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-300">
-              <th className="py-3 text-xs font-black uppercase tracking-widest text-slate-400">Timestamp</th>
-              <th className="py-3 text-xs font-black uppercase tracking-widest text-slate-400">Activity</th>
-              <th className="py-3 text-xs font-black uppercase tracking-widest text-slate-400">Branch</th>
-              <th className="py-3 text-xs font-black uppercase tracking-widest text-slate-400">Performer</th>
-              <th className="py-3 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Value</th>
+              <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Timestamp</th>
+              <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</th>
+              <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Branch</th>
+              <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Performer</th>
+              <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Value</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -793,7 +793,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                 </td>
                 <td className="py-4">
                   <p className="font-bold text-slate-900 uppercase text-xs">{log.description}</p>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{log.activityType} | {log.entityType}</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{log.activityType} | {log.entityType}</p>
                 </td>
                 <td className="py-4 text-xs font-bold uppercase">{branches.find(b => b.id === log.branchId)?.name || 'CENTRAL'}</td>
                 <td className="py-4 text-xs font-bold uppercase">{log.performerName || 'SYSTEM CORE'}</td>

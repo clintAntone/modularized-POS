@@ -652,7 +652,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         <div className="flex flex-row items-center gap-4 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               Showing {Math.min(visibleCount, sortedData.length).toLocaleString()} of {sortedData.length.toLocaleString()} reports
             </p>
           </div>
@@ -660,7 +660,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           <button
             onClick={() => handleExportPDF()}
             disabled={isExporting || sortedData.length === 0}
-            className={`flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
+            className={`flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isExporting ? (
               <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -673,12 +673,12 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         {showPrintConfirm && (
           <div className="fixed inset-0 z-[6000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[32px] w-full max-w-md p-10 text-center border border-slate-100 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl w-full max-w-md p-10 text-center border border-slate-100 shadow-xl animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               </div>
               <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
                 Generate a consolidated PDF summary of all {sortedData.length} filtered reports?
               </p>
               <div className="flex flex-col gap-4 mt-10">
@@ -701,7 +701,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         <div className="md:hidden flex items-center gap-3 px-1">
           <div className="flex-1 h-px bg-slate-200"></div>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Reports</span>
+          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">Reports</span>
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
@@ -781,7 +781,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl z-50">
                   <div className="px-4 py-3 border-b border-slate-100">
                     <p className="text-xs font-black text-rose-700 uppercase tracking-widest leading-none">Missing Reports</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Within current weekly cycle</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Within current weekly cycle</p>
                   </div>
                   <div className="divide-y divide-slate-50 max-h-[50vh] overflow-y-auto">
                     {missingBranches.map(({ branch: b, missingDates }) => (

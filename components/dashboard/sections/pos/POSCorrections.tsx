@@ -19,7 +19,7 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
             <div className="flex items-center justify-between gap-3 px-1 shrink-0">
                 <div>
                     <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-none">Recent Sessions</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Select a record to modify</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Select a record to modify</p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-2xl shrink-0">
                     <span className="text-sm font-black text-emerald-700 tabular-nums leading-none">{transactions.length}</span>
@@ -55,7 +55,7 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-1.5 text-slate-400">
                                                 <Clock className="w-3 h-3" />
-                                                <span className="text-xs font-black uppercase tracking-widest">{time}</span>
+                                                <span className="text-xs font-semibold uppercase tracking-wide">{time}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 {t.paymentStatus === 'PENDING' && (
@@ -101,7 +101,7 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         <div className="py-3 px-2 text-center border-r border-slate-100">
                                             <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <Tag className="w-2.5 h-2.5 text-slate-400" />
-                                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Deducted</p>
+                                                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Deducted</p>
                                             </div>
                                             <p className={`text-sm font-black tabular-nums leading-none ${deduction > 0 ? 'text-rose-500' : 'text-slate-200'}`}>
                                                 {deduction > 0 ? `-₱${deduction.toLocaleString()}` : '—'}
@@ -110,7 +110,7 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         <div className="py-3 px-2 text-center border-r border-slate-100">
                                             <div className="flex items-center justify-center gap-1 mb-1.5">
                                                 <Banknote className="w-2.5 h-2.5 text-slate-400" />
-                                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Staff Pay</p>
+                                                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Staff Pay</p>
                                             </div>
                                             <p className={`text-sm font-black tabular-nums leading-none ${staffPay > 0 ? 'text-indigo-500' : 'text-slate-200'}`}>
                                                 {staffPay > 0 ? `-₱${staffPay.toLocaleString()}` : '—'}

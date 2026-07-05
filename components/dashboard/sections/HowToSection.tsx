@@ -24,7 +24,7 @@ interface Guide {
 // ─── Shared visual primitives ────────────────────────────────────────────────
 
 const Phone = ({ children }: { children: React.ReactNode }) => (
-  <div className="relative mx-auto w-[220px] h-[380px] bg-slate-900 rounded-[36px] shadow-2xl border-4 border-slate-700 overflow-hidden flex flex-col">
+  <div className="relative mx-auto w-[220px] h-[380px] bg-slate-900 rounded-3xl shadow-xl border-4 border-slate-700 overflow-hidden flex flex-col">
     {/* Status bar */}
     <div className="h-6 bg-slate-800 flex items-center justify-center shrink-0">
       <div className="w-16 h-1.5 bg-slate-600 rounded-full" />
@@ -45,7 +45,7 @@ const NavBar = ({ active }: { active: string }) => {
       {tabs.map(t => (
         <div key={t.id} className={`flex flex-col items-center gap-0.5 px-2 ${active === t.id ? 'text-emerald-400' : 'text-slate-500'}`}>
           {t.icon}
-          <span className="text-xs font-bold uppercase tracking-widest">{t.label}</span>
+          <span className="text-xs font-medium uppercase tracking-wide">{t.label}</span>
           {active === t.id && <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />}
         </div>
       ))}
@@ -112,7 +112,7 @@ const InlineNavBar = ({ active, arrowAt }: { active: string; arrowAt?: string })
         {tabs.map(t => (
           <div key={t.id} className={`flex flex-col items-center gap-0.5 px-2 ${active === t.id ? 'text-emerald-400' : 'text-slate-500'}`}>
             <div className="w-4 h-4 rounded bg-current opacity-60" />
-            <span className="text-xs font-bold uppercase tracking-widest">{t.label}</span>
+            <span className="text-xs font-medium uppercase tracking-wide">{t.label}</span>
             {active === t.id && <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />}
           </div>
         ))}
@@ -124,7 +124,7 @@ const InlineNavBar = ({ active, arrowAt }: { active: string; arrowAt?: string })
 const VisualOpenBranch = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Status</div>
+      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch Status</div>
       <div className="bg-slate-700 rounded-2xl px-4 py-3 flex items-center justify-between">
         <div>
           <p className="text-xs text-slate-400 uppercase">Status</p>
@@ -194,7 +194,7 @@ const VisualStaffNav = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Staff tab in the bottom bar</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center px-4">Tap the Staff tab in the bottom bar</p>
       </div>
       <InlineNavBar active="staff" arrowAt="staff" />
     </div>
@@ -378,7 +378,7 @@ const VisualExpenseSave = () => (
           {['POS', 'Sales', 'Staff', 'More'].map((t, i) => (
             <div key={t} className={`flex flex-col items-center gap-0.5 px-2 ${i === 1 ? 'text-emerald-400' : 'text-slate-500'}`}>
               <div className="w-4 h-4 rounded bg-current opacity-60" />
-              <span className="text-xs font-bold uppercase tracking-widest">{t}</span>
+              <span className="text-xs font-medium uppercase tracking-wide">{t}</span>
             </div>
           ))}
         </div>
@@ -465,7 +465,7 @@ const VisualReportNav = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Sales tab to see today's summary</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center px-4">Tap the Sales tab to see today's summary</p>
       </div>
       <InlineNavBar active="sales" arrowAt="sales" />
     </div>
@@ -490,7 +490,7 @@ const VisualVaultDepositButton = () => (
           <p className="text-xs font-bold text-emerald-600">₱ 300</p>
         </div>
         <div className="pt-2 space-y-2">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Vault</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide px-1">Vault</p>
           <div className="flex justify-center">
             <Arrow dir="down" className="w-4 h-4 text-indigo-400" />
           </div>
@@ -638,7 +638,7 @@ const VisualWithdrawCategory = () => (
 const VisualVaultConcept = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch Vault</div>
       <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -675,7 +675,7 @@ const VisualVaultConcept = () => (
 const VisualVaultDailyShare = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Daily Share</div>
+      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Daily Share</div>
       <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="text-center">
@@ -709,7 +709,7 @@ const VisualVaultDailyShare = () => (
 const VisualVaultReady = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch Vault</div>
       <div className="bg-emerald-900/40 border border-emerald-500/40 rounded-2xl p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div>
@@ -754,7 +754,7 @@ const VisualRestoreStaffPlus = () => (
           <div className="w-2 h-2 rounded-full bg-emerald-400" />
         </div>
         <div className="flex items-center justify-between pt-1 px-1">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">1 staff hidden</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">1 staff hidden</p>
           <div className="flex items-center gap-1">
             <Arrow dir="right" className="w-3 h-3 text-emerald-400" />
             <Highlight>
@@ -1050,13 +1050,13 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
       <div className="flex items-center justify-between px-4 pt-6 pb-4 shrink-0">
         <button
           onClick={onClose}
-          className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white active:scale-95 transition-all"
+          className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-white active:scale-95 transition-all"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
 
         <div className="text-center">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{guide.title}</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{guide.title}</p>
           <div className="flex items-center gap-1.5 justify-center mt-1.5">
             {guide.steps.map((_, i) => (
               <div
@@ -1134,7 +1134,7 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
       <div className="max-w-3xl mx-auto space-y-8 pb-32 px-2">
         <div className="text-center space-y-2 pt-4">
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Network Blueprint</h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">HilotCenter Core — Superadmin Reference</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">HilotCenter Core — Superadmin Reference</p>
         </div>
         {[
           { title: 'Branch Deployment', desc: 'Register a new branch in the Branches tab. It initializes with a 6-digit PIN and stays Offline until a manager completes the profile handshake.' },
@@ -1164,7 +1164,7 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
           <span className="text-xs font-black uppercase tracking-[0.35em] text-emerald-600">Interactive Guides</span>
         </div>
         <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">How-To Guides</h2>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tap a guide to start a step-by-step walkthrough</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Tap a guide to start a step-by-step walkthrough</p>
       </div>
 
       {/* Guide grid */}
@@ -1197,11 +1197,11 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
 
       {/* Footer tip */}
       <div className="bg-slate-900 rounded-2xl p-5 flex items-start gap-4">
-        <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p className="text-xs font-black text-white uppercase tracking-widest">Need help?</p>
+          <p className="text-xs font-semibold text-slate-700">Need help?</p>
           <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Contact the Superadmin if you cannot clock in, if a session fails to save, or if you need a record corrected.</p>
         </div>
       </div>

@@ -487,9 +487,9 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   if (!currentGroup) {
     return (
       <div className="pb-20">
-        <div className="bg-white p-20 rounded-[40px] border border-slate-100 text-center space-y-4">
+        <div className="bg-white p-20 rounded-3xl border border-slate-100 text-center space-y-4">
           <div className="text-5xl opacity-20">📭</div>
-          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No weekly reports found.</p>
+          <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No weekly reports found.</p>
         </div>
       </div>
     );
@@ -524,7 +524,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       {/* ── Overdue remittance reminder popup ── */}
       {!loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
         <div className="fixed bottom-6 right-4 z-[999] w-[calc(100vw-2rem)] max-w-xs animate-in slide-in-from-right-4 fade-in duration-300">
-          <div className="bg-white border border-amber-200 rounded-[24px] shadow-2xl overflow-hidden">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-3 bg-amber-50 px-4 py-3 border-b border-amber-100">
               <div className="flex items-center gap-2.5">
@@ -557,7 +557,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 return (
                   <div key={g.key} className="flex items-center justify-between gap-2">
                     <span className="text-xs font-black text-slate-700 uppercase tracking-tight truncate">{g.label}</span>
-                    <span className={`shrink-0 text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${
+                    <span className={`shrink-0 text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg ${
                       sub?.status === 'submitted' ? 'bg-blue-50 text-blue-600' :
                       sub?.status === 'validated' ? 'bg-indigo-50 text-indigo-600' :
                       'bg-rose-50 text-rose-500'
@@ -568,7 +568,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 );
               })}
               {overdueGroups.length > 5 && (
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">+{overdueGroups.length - 5} more</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">+{overdueGroups.length - 5} more</p>
               )}
             </div>
 
@@ -587,7 +587,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         <div ref={periodDropdownRef} className="relative flex items-center gap-2">
           <button
             onClick={() => { setPeriodDropdownOpen(o => !o); playSound('click'); }}
-            className={`flex-1 h-10 flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all outline-none bg-white ${
+            className={`flex-1 h-10 flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none bg-white ${
               periodDropdownOpen
                 ? 'border-slate-400 ring-4 ring-slate-500/10 text-slate-900'
                 : 'border-slate-200 hover:border-slate-300 text-slate-600'
@@ -610,7 +610,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </button>
 
           {periodDropdownOpen && (
-            <div className="absolute z-[200] top-[calc(100%+4px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+            <div className="absolute z-[200] top-[calc(100%+4px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
               <div className="max-h-60 overflow-y-auto overscroll-contain">
                 {allGroupsWithCurrent.map((g, i) => {
                   const isSelected = g.key === currentGroup?.key;
@@ -638,7 +638,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                             </svg>
                           )}
                         </span>
-                        <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
+                        <span className={`text-xs font-semibold uppercase tracking-wide ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
                           {g.label}
                         </span>
                       </div>
@@ -655,7 +655,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       )}
 
       {/* Main card */}
-      <div className={`bg-white rounded-[28px] shadow-sm overflow-hidden border ${
+      <div className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
         submission?.status === 'approved' ? 'border-emerald-300' : 'border-slate-100'
       }`}>
 
@@ -665,7 +665,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         }`}>
           <div>
             <p className="font-black text-slate-900 uppercase tracking-tight text-sm leading-none">{currentGroup.label}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">
               {agg.reportCount} day{agg.reportCount !== 1 ? 's' : ''} aggregated
             </p>
           </div>
@@ -732,8 +732,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {grossBreakdownOpen && currentGroup.reports.length > 0 && (
               <div className="mb-1 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{currentGroup.reports.length} daily reports</span>
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{fmt(agg.grossSales)} total</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{currentGroup.reports.length} daily reports</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{fmt(agg.grossSales)} total</span>
                 </div>
                 <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
                   {currentGroup.reports.map(r => {
@@ -792,7 +792,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {!isDelegate && owners.length > 0 && (
               <>
                 <div className="border-t-2 border-dashed border-slate-200 my-2" />
-                <div className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] py-1">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                   Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                 </div>
                 {owners.map((owner: any, oIdx: number) => {
@@ -818,7 +818,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
           {/* RIGHT — Adjustments */}
           <div className="px-5 py-5 space-y-1.5 flex flex-col">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Adjustments</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
 
             {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
               <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
@@ -865,7 +865,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 {adjNotYet ? (
                   <div className="flex items-center gap-1.5">
                     <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Available after period ends</span>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Available after period ends</span>
                   </div>
                 ) : adjLocked ? (
                   <div className="flex items-center gap-1.5">
@@ -899,7 +899,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               <div className={`border rounded-2xl p-4 space-y-2.5 mt-2 ${isVaultDeposit ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="flex items-center gap-2">
                   {adjFormMode === 'add' ? <Plus className="w-3.5 h-3.5 text-slate-500 shrink-0" /> : <Minus className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
-                  <span className={`text-xs font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
                     {adjFormMode === 'add' ? 'Add to ROI' : isVaultDeposit ? 'Deposit to Vault' : 'Deduct from ROI'}
                   </span>
                 </div>
@@ -917,7 +917,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                       }}
                       className="w-3.5 h-3.5 accent-emerald-600 shrink-0"
                     />
-                    <span className={`text-xs font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
                       Deposit to Vault
                     </span>
                   </label>
@@ -969,14 +969,14 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => { setAdjFormKey(null); setAdjError(null); setIsVaultDeposit(false); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); }}
-                    className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
+                    className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleAddAdjustment(currentGroup.label, adjustedRoi)}
                     disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
-                    className={`h-10 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
+                    className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
                   >
                     {isSavingAdj ? '…' : isVaultDeposit ? 'Deposit' : 'Save'}
                   </button>

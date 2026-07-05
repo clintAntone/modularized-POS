@@ -11,10 +11,10 @@ import { invalidateGlobalSessions, logAudit } from '../../lib/audit';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Section: React.FC<{ title?: string; subtitle?: string; accent?: string; children: React.ReactNode }> = ({ title, subtitle, accent = 'text-slate-400', children }) => (
-  <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
     {title && (
       <div className="px-5 pt-5 pb-3 border-b border-slate-50">
-        <p className={`text-xs font-black uppercase tracking-[0.15em] ${accent}`}>{title}</p>
+        <p className={`text-xs font-black uppercase tracking-wide ${accent}`}>{title}</p>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
     )}
@@ -94,7 +94,7 @@ const PinInput: React.FC<PinInputProps> = ({ label, hint, hintColor, value, onCh
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
         {hint && <p className={`text-xs font-bold ${hintColor ?? 'text-slate-400'}`}>{hint}</p>}
       </div>
       <div className="flex gap-2" onPaste={handlePaste}>
@@ -117,7 +117,7 @@ const PinInput: React.FC<PinInputProps> = ({ label, hint, hintColor, value, onCh
                   ? state === 'match'    ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
                   : state === 'mismatch' ? 'bg-rose-50 border-rose-400 text-rose-600'
                   : 'bg-slate-900 border-slate-900 text-white'
-                  : 'bg-slate-50 border-slate-200 hover:border-slate-300 focus:border-emerald-400 focus:bg-white text-slate-900'
+                  : 'bg-slate-50 border-slate-200 hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-slate-900'
                 }`}
             />
           );
@@ -290,7 +290,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
               <button
                 onClick={handleUpdatePin}
                 disabled={pinStatus === 'saving' || !pinMatch}
-                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0"
+                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0"
               >
                 {pinStatus === 'saving'
                   ? <><div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Saving…</>
@@ -305,10 +305,10 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           <Row label="Daily Audit Reset" desc="Branch auto-close time (Manila timezone)">
             <div className="flex items-center gap-2">
               <input type="time" value={localAuditTime} onChange={e => setLocalAuditTime(e.target.value)}
-                className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
+                className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all" />
               <button onClick={() => handleUpdate('auto_refresh_daily_audit', localAuditTime)}
                 disabled={isSaving === 'auto_refresh_daily_audit'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                 {isSaving === 'auto_refresh_daily_audit' ? '…' : 'Save'}
               </button>
             </div>
@@ -333,19 +333,19 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 type="datetime-local"
                 value={localMaintenanceEnd}
                 onChange={e => setLocalMaintenanceEnd(e.target.value)}
-                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
+                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all min-w-0"
               />
               <button
                 onClick={() => handleUpdate('maintenance_end_date', localMaintenanceEnd ? localMaintenanceEnd.replace('T', ' ').slice(0, 16) : '')}
                 disabled={isSaving === 'maintenance_end_date'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0">
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0">
                 {isSaving === 'maintenance_end_date' ? '…' : 'Set'}
               </button>
               {localMaintenanceEnd && (
                 <button
                   onClick={() => { setLocalMaintenanceEnd(''); handleUpdate('maintenance_end_date', ''); }}
                   disabled={isSaving === 'maintenance_end_date'}
-                  className="h-9 px-3 rounded-xl bg-slate-100 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-500 active:scale-95 transition-all disabled:opacity-40 shrink-0">
+                  className="h-9 px-3 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-rose-50 hover:text-rose-500 active:scale-95 transition-all disabled:opacity-40 shrink-0">
                   Clear
                 </button>
               )}
@@ -371,12 +371,12 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 value={localHrEmail}
                 onChange={e => setLocalHrEmail(e.target.value)}
                 placeholder="hr@example.com"
-                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
+                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all min-w-0"
               />
               <button
                 onClick={() => handleUpdate('hr_email', localHrEmail.trim())}
                 disabled={isSaving === 'hr_email'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0"
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0"
               >
                 {isSaving === 'hr_email' ? '…' : 'Save'}
               </button>
@@ -397,7 +397,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 <p className="text-xs text-slate-400 mt-1">Displayed in the header and login screen</p>
               </div>
               <input value={localAppName} onChange={e => setLocalAppName(e.target.value)}
-                className="w-40 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+                className="w-40 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all shrink-0" />
             </div>
             <div className="flex items-center gap-4">
               <div className="flex-1 min-w-0">
@@ -405,7 +405,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 <p className="text-xs text-slate-400 mt-1">Version string shown in the app footer</p>
               </div>
               <input value={localVersion} onChange={e => setLocalVersion(e.target.value)}
-                className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+                className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all shrink-0" />
             </div>
             <div className="flex items-center justify-between pt-1">
               <p className="text-xs text-slate-400 italic">
@@ -413,7 +413,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
               </p>
               <button onClick={handleSaveBranding}
                 disabled={isSaving === 'app_name' || isSaving === 'version'}
-                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                 Save
               </button>
             </div>
@@ -456,7 +456,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
             <button
               onClick={() => setShowConfirm(true)}
               disabled={isForceLoggingOut}
-              className="h-9 px-4 rounded-xl bg-white border border-rose-200 text-rose-600 text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0"
+              className="h-9 px-4 rounded-xl bg-white border border-rose-200 text-rose-600 text-xs font-semibold uppercase tracking-wide hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0"
             >
               {isForceLoggingOut
                 ? <div className="w-3 h-3 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin" />
@@ -470,7 +470,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
       {/* Force logout confirm dialog */}
       {showConfirm && (
         <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-200">
             <div>
               <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">Confirm Action</p>
               <p className="text-base font-black text-slate-900 uppercase tracking-tight">Force Logout All?</p>
@@ -480,11 +480,11 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowConfirm(false)}
-                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                 Cancel
               </button>
               <button onClick={doForceLogout}
-                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all">
+                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-700 active:scale-95 transition-all">
                 Confirm
               </button>
             </div>

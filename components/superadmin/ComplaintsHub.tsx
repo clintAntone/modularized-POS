@@ -344,28 +344,28 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
     <div className="space-y-5">
       {/* Header */}
       {/* Dark header card */}
-      <div className="bg-slate-900 rounded-[24px] px-5 py-5 space-y-4">
+      <div className="bg-white border border-slate-100 rounded-2xl px-5 py-5 shadow-sm space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-            <Flag className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
+          <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0">
+            <Flag className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-black uppercase tracking-tight text-white leading-none">Complaints</h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Employee Incident Reports</p>
+            <h2 className="text-sm font-bold text-slate-900 leading-none">Complaints</h2>
+            <p className="text-xs font-medium text-slate-400 mt-0.5">Employee Incident Reports</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white/5 rounded-2xl px-4 py-3">
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Total</p>
-            <p className="text-2xl font-black text-white tabular-nums leading-none">{complaints.length}</p>
+          <div className="bg-slate-50 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Total</p>
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{complaints.length}</p>
           </div>
-          <div className={`rounded-2xl px-4 py-3 ${pendingCount > 0 ? 'bg-rose-500/15' : 'bg-white/5'}`}>
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Pending</p>
-            <p className={`text-2xl font-black tabular-nums leading-none ${pendingCount > 0 ? 'text-rose-400' : 'text-white'}`}>{pendingCount}</p>
+          <div className={`rounded-xl px-4 py-3 ${pendingCount > 0 ? 'bg-rose-50 border border-rose-100' : 'bg-slate-50'}`}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Pending</p>
+            <p className={`text-2xl font-black tabular-nums leading-none ${pendingCount > 0 ? 'text-rose-500' : 'text-slate-900'}`}>{pendingCount}</p>
           </div>
-          <div className="bg-white/5 rounded-2xl px-4 py-3">
-            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Resolved</p>
-            <p className="text-2xl font-black text-emerald-400 tabular-nums leading-none">
+          <div className="bg-slate-50 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Resolved</p>
+            <p className="text-2xl font-black text-emerald-600 tabular-nums leading-none">
               {complaints.filter(c => c.status === 'ACKNOWLEDGED').length}
             </p>
           </div>
@@ -395,7 +395,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                 filter === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -442,7 +442,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                       )}
                     </div>
                   </div>
-                  <span className="shrink-0 text-xs font-black text-slate-400 uppercase tracking-widest">
+                  <span className="shrink-0 text-xs font-medium text-slate-400 uppercase tracking-wide">
                     {group.length} {group.length === 1 ? 'report' : 'reports'}
                   </span>
                 </div>
@@ -481,14 +481,14 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                               </span>
                             )}
                           </div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate mt-0.5">
                             <span className="text-slate-500 font-black">{formatComplaintNo(c.id)}</span> · {getBranchName(c.branchId)} · {filedDate}
                           </p>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
                           {filter !== c.status && (
-                            <span className={`text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${STATUS_STYLE[c.status]}`}>
+                            <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-lg border ${STATUS_STYLE[c.status]}`}>
                               {c.status === 'ACKNOWLEDGED' ? 'Done' : c.status === 'DISMISSED' ? 'Dismissed' : 'Pending'}
                             </span>
                           )}
@@ -508,7 +508,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
           <div ref={sentinelRef} className="h-1" />
           {hasMore && (
             <div className="py-4 flex justify-center">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wide">
                 <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
                 Loading more...
               </div>
@@ -533,24 +533,24 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         return (
           <div className="fixed inset-0 z-[2900] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200"
             onClick={() => setViewComplaint(null)}>
-            <div className="bg-white rounded-t-[28px] sm:rounded-[28px] w-full sm:max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[88vh]"
+            <div className="bg-white rounded-t-[28px] sm:rounded-2xl w-full sm:max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[88vh]"
               onClick={e => e.stopPropagation()}>
 
               {/* Dark header */}
-              <div className="bg-slate-900 px-6 pt-6 pb-5 shrink-0">
+              <div className="bg-white border-b border-slate-100 px-6 pt-6 pb-5 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Employee Complaint · <span className="text-slate-400">{formatComplaintNo(c.id)}</span></p>
-                    <h3 className="text-[17px] font-black text-white uppercase tracking-tight leading-none truncate">{c.employeeName}</h3>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Employee Complaint · <span className="text-slate-400">{formatComplaintNo(c.id)}</span></p>
+                    <h3 className="text-[17px] font-bold text-slate-900 leading-none truncate">{c.employeeName}</h3>
                     {employeeActive === false && (
                       <span className="inline-block mt-1.5 text-xs font-black text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-md uppercase tracking-widest">Suspended</span>
                     )}
                   </div>
                   <button
                     onClick={() => setViewComplaint(null)}
-                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center shrink-0 transition-all mt-0.5"
+                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center shrink-0 transition-all mt-0.5"
                   >
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -558,17 +558,17 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
 
                 {/* Badges row */}
                 <div className="flex items-center gap-2 flex-wrap mt-3">
-                  <span className={`text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-xl border ${
+                  <span className={`text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-xl border ${
                     c.status === 'PENDING' ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
                     c.status === 'ACKNOWLEDGED' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' :
                     'bg-slate-500/15 border-slate-500/30 text-slate-400'
                   }`}>
                     {c.status === 'ACKNOWLEDGED' ? 'Acknowledged' : c.status === 'DISMISSED' ? 'Dismissed' : 'Pending'}
                   </span>
-                  <span className={`text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-xl border ${REPORT_COLOR[c.reportType] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-xl border ${REPORT_COLOR[c.reportType] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                     {REPORT_LABEL[c.reportType] || c.reportType}
                   </span>
-                  <span className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-xl bg-white/10 border border-white/10 text-slate-400">
+                  <span className="text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-xl bg-white/10 border border-slate-200 text-slate-400">
                     {ordinal(offenseNum)} offense
                   </span>
                 </div>
@@ -580,32 +580,32 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 {/* Meta grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-2xl px-4 py-3">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Incident Date</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Incident Date</p>
                     <p className="text-xs font-bold text-slate-800">{c.incidentDate || '—'}{c.incidentTime ? ` · ${c.incidentTime}` : ''}</p>
                   </div>
                   <div className="bg-slate-50 rounded-2xl px-4 py-3">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Filed</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Filed</p>
                     <p className="text-xs font-bold text-slate-800">{filedDate}</p>
                   </div>
                   <div className="bg-slate-50 rounded-2xl px-4 py-3">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Branch</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Branch</p>
                     <p className="text-xs font-bold text-slate-800 truncate">{getBranchName(c.branchId)}</p>
                   </div>
                   <div className="bg-slate-50 rounded-2xl px-4 py-3">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Filed By</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Filed By</p>
                     <p className="text-xs font-bold text-slate-800 truncate">{c.filedByName || '—'}</p>
                   </div>
                 </div>
 
                 {c.witnesses && (
                   <div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Witnesses</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Witnesses</p>
                     <p className="text-xs font-semibold text-slate-700 bg-slate-50 rounded-2xl px-4 py-3">{c.witnesses}</p>
                   </div>
                 )}
 
                 <div>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Description</p>
                   <p className="text-xs font-semibold text-slate-700 leading-relaxed bg-slate-50 rounded-2xl px-4 py-3">{c.description || '—'}</p>
                 </div>
 
@@ -651,14 +651,14 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                       <button
                         disabled={isCurrentlyProcessing}
                         onClick={() => setDismissConfirmId(c.id)}
-                        className="h-12 rounded-2xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40"
+                        className="h-12 rounded-2xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40"
                       >
                         Dismiss
                       </button>
                       <button
                         disabled={isCurrentlyProcessing}
                         onClick={() => openReview(c)}
-                        className="h-12 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-40"
+                        className="h-12 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-40"
                       >
                         Acknowledge
                       </button>
@@ -677,7 +677,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                       <button
                         disabled={isCurrentlyProcessing}
                         onClick={() => setReopenConfirmId(c.id)}
-                        className="flex-1 h-12 rounded-2xl border-2 border-amber-200 bg-amber-50 text-amber-700 text-xs font-black uppercase tracking-widest hover:bg-amber-100 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                        className="flex-1 h-12 rounded-2xl border-2 border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold uppercase tracking-wide hover:bg-amber-100 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -696,20 +696,20 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
       {/* Review modal */}
       {reviewState && (
         <div className="fixed inset-0 z-[3000] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-[28px] sm:rounded-[28px] w-full sm:max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-t-[28px] sm:rounded-2xl w-full sm:max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
 
             {/* Dark header */}
-            <div className="bg-slate-900 px-6 pt-6 pb-5 shrink-0">
+            <div className="bg-white border-b border-slate-100 px-6 pt-6 pb-5 shrink-0">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Review Complaint</p>
-                  <h3 className="text-[17px] font-black text-white uppercase tracking-tight leading-none">{reviewState.complaint.employeeName}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Review Complaint</p>
+                  <h3 className="text-[17px] font-bold text-slate-900 leading-none">{reviewState.complaint.employeeName}</h3>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">
                     {REPORT_LABEL[reviewState.complaint.reportType] || reviewState.complaint.reportType}
                   </p>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2 mt-1">
-                  <span className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border ${
+                  <span className={`text-xs font-semibold uppercase tracking-wide px-3 py-1.5 rounded-xl border ${
                     reviewState.offenseNumber === 1 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' :
                     reviewState.offenseNumber === 2 ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
                     reviewState.offenseNumber === 3 ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
@@ -727,7 +727,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 <svg className={`w-3 h-3 shrink-0 ${reviewState.offenseNumber === 1 ? 'text-emerald-400' : 'text-amber-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className={`text-xs font-black uppercase tracking-widest ${reviewState.offenseNumber === 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wide ${reviewState.offenseNumber === 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
                   {reviewState.offenseNumber === 1
                     ? 'First offense — choose an action below'
                     : `${ordinal(reviewState.offenseNumber)} offense · ${ACTION_LABEL_MAP[reviewState.suggestedAction]} recommended`
@@ -741,7 +741,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
 
               {/* Action Taken */}
               <div className="space-y-2">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Action Taken</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Action Taken</p>
 
                 {/* Administrative row */}
                 <div className="grid grid-cols-2 gap-2">
@@ -825,7 +825,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
               {/* Judgment */}
               <div>
                 <div className="flex items-baseline gap-1.5 mb-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Judgment</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Judgment</label>
                   <span className="text-xs font-bold text-slate-300">optional</span>
                 </div>
                 <textarea
@@ -840,7 +840,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
               {/* Resolution */}
               <div>
                 <div className="flex items-baseline gap-1.5 mb-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Resolution</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Resolution</label>
                   <span className="text-xs font-bold text-slate-300">optional · visible to branch manager</span>
                 </div>
                 <textarea
@@ -857,13 +857,13 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
             <div className="border-t border-slate-100 px-5 py-4 grid grid-cols-2 gap-3 shrink-0">
               <button
                 onClick={() => { setReviewState(null); playSound('click'); }}
-                className="h-12 rounded-2xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                className="h-12 rounded-2xl border-2 border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => setReviewConfirm(true)}
-                className="h-12 rounded-2xl text-white text-xs font-black uppercase tracking-widest active:scale-95 transition-all bg-slate-900 hover:bg-slate-800"
+                className="h-12 rounded-2xl text-white text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all bg-slate-900 hover:bg-slate-800"
               >
                 Review & Resolve
               </button>
@@ -877,7 +877,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         const c = complaints.find(x => x.id === dismissConfirmId);
         return (
           <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <div className="p-7 text-center space-y-4">
                 <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
                   <svg className="w-7 h-7 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -892,13 +892,13 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
                     onClick={() => setDismissConfirmId(null)}
-                    className="h-11 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                    className="h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleDismiss(dismissConfirmId)}
-                    className="h-11 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all"
+                    className="h-11 rounded-2xl bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-700 active:scale-95 transition-all"
                   >
                     Dismiss
                   </button>
@@ -914,7 +914,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         const c = complaints.find(x => x.id === reopenConfirmId);
         return (
           <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <div className="p-7 text-center space-y-4">
                 <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto">
                   <svg className="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -929,13 +929,13 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
                     onClick={() => setReopenConfirmId(null)}
-                    className="h-11 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                    className="h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleReopen(reopenConfirmId)}
-                    className="h-11 rounded-2xl bg-amber-500 text-white text-xs font-black uppercase tracking-widest hover:bg-amber-600 active:scale-95 transition-all"
+                    className="h-11 rounded-2xl bg-amber-500 text-white text-xs font-semibold uppercase tracking-wide hover:bg-amber-600 active:scale-95 transition-all"
                   >
                     Reopen
                   </button>
@@ -951,7 +951,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         const c = complaints.find(x => x.id === deleteConfirmId);
         return (
           <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <div className="p-7 text-center space-y-4">
                 <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto">
                   <svg className="w-7 h-7 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -966,13 +966,13 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
                     onClick={() => setDeleteConfirmId(null)}
-                    className="h-11 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                    className="h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleDelete(deleteConfirmId)}
-                    className="h-11 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all"
+                    className="h-11 rounded-2xl bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-700 active:scale-95 transition-all"
                   >
                     Delete
                   </button>
@@ -986,7 +986,7 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
       {/* Review confirmation */}
       {reviewConfirm && reviewState && (
         <div className="fixed inset-0 z-[3100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[28px] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-7 text-center space-y-4">
               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto">
                 <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1006,13 +1006,13 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <button
                   onClick={() => setReviewConfirm(false)}
-                  className="h-11 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                  className="h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => { setReviewConfirm(false); handleReview('ACKNOWLEDGED'); }}
-                  className="h-11 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all"
+                  className="h-11 rounded-2xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all"
                 >
                   Confirm
                 </button>
