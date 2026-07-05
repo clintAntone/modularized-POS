@@ -154,7 +154,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             className={`flex flex-col gap-2 ${flipped ? 'hidden sm:flex' : 'flex'} sm:h-full sm:cursor-default cursor-pointer`}
             onClick={() => setFlipped(true)}
           >
-            <p className="hidden sm:block text-[8px] font-black text-white/30 uppercase tracking-widest text-center">Front</p>
+            <p className="hidden sm:block text-xs font-black text-white/30 uppercase tracking-widest text-center">Front</p>
 
         {/* ID Card — fixed portrait badge */}
         <div ref={cardRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
@@ -175,11 +175,11 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
                 <div className="flex items-center gap-2">
                   <img src={icon} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow-sm" />
                   <div>
-                    <p className="text-[10px] font-black text-white uppercase tracking-[0.18em] leading-none">{APP_NAME}</p>
-                    <p className="text-[7px] font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
+                    <p className="text-xs font-black text-white uppercase tracking-[0.18em] leading-none">{APP_NAME}</p>
+                    <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
                   </div>
                 </div>
-                <div className={`px-2 py-1 rounded-full text-[7px] font-black uppercase tracking-widest border ${employee.isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+                <div className={`px-2 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${employee.isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
                   {employee.isActive ? 'Active' : 'Inactive'}
                 </div>
               </div>
@@ -207,7 +207,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Primary role badge (e.g. MANAGER) */}
             {roles.includes('MANAGER') && (
               <div className="mb-2">
-                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white shadow-sm">
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-indigo-600 text-white shadow-sm">
                   Manager
                 </span>
               </div>
@@ -241,7 +241,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
                   };
                   const pc = pillColors[role] ?? 'bg-slate-100 text-slate-600 border-slate-200';
                   return (
-                    <span key={role} className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${pc}`}>
+                    <span key={role} className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${pc}`}>
                       {role}
                     </span>
                   );
@@ -257,22 +257,22 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Detail rows */}
             <div className="w-full space-y-3 mb-5">
               <div className="flex items-start gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0 pt-0.5">ID No.</p>
-                <p className="text-[10px] font-black text-slate-900 font-mono tracking-wider leading-tight break-all">{empId?.toUpperCase()}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-14 shrink-0 pt-0.5">ID No.</p>
+                <p className="text-xs font-black text-slate-900 font-mono tracking-wider leading-tight break-all">{empId?.toUpperCase()}</p>
               </div>
               <div className="flex items-center gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Issued</p>
-                <p className="text-[10px] font-black text-slate-800">{createdAt}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">Issued</p>
+                <p className="text-xs font-black text-slate-800">{createdAt}</p>
               </div>
             </div>
 
             {/* Assigned branches */}
             {assignedBranches.length > 0 && (
               <div className="w-full mb-4">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Assigned Branches</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Assigned Branches</p>
                 <div className="flex flex-wrap gap-1">
                   {assignedBranches.map((b, i) => (
-                    <span key={i} className={`text-[8px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md leading-tight ${b.id === employee.branchId ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                    <span key={i} className={`text-xs font-black uppercase tracking-wide px-2 py-0.5 rounded-md leading-tight ${b.id === employee.branchId ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
                       {b.name}
                     </span>
                   ))}
@@ -289,12 +289,12 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
                   return <rect key={i} x={x} y="0" width={w} height="36" fill={i % 7 === 0 ? '#94a3b8' : '#1e293b'} />;
                 })}
               </svg>
-              <p className="text-center text-[8px] font-mono text-slate-400 tracking-widest mt-1.5">{(empId || '').toUpperCase().replace(/-/g, ' ')}</p>
+              <p className="text-center text-xs font-mono text-slate-400 tracking-widest mt-1.5">{(empId || '').toUpperCase().replace(/-/g, ' ')}</p>
             </div>
 
             {/* Footer */}
             <div className="mt-auto w-full pt-3 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -311,7 +311,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             className={`flex flex-col gap-2 ${!flipped ? 'hidden sm:flex' : 'flex'} sm:h-full sm:cursor-default cursor-pointer`}
             onClick={() => setFlipped(false)}
           >
-            <p className="hidden sm:block text-[8px] font-black text-white/30 uppercase tracking-widest text-center">Back</p>
+            <p className="hidden sm:block text-xs font-black text-white/30 uppercase tracking-widest text-center">Back</p>
 
         {/* ── Back Card ── */}
         <div ref={backRef} className="w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col sm:h-full" style={{ border: '1.5px solid #e2e8f0', minHeight: '580px', maxHeight: '580px' }}>
@@ -324,8 +324,8 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             <div className="relative z-10 flex items-center gap-2">
               <img src={icon} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow-sm" />
               <div>
-                <p className="text-[10px] font-black text-white uppercase tracking-[0.18em] leading-none">{APP_NAME}</p>
-                <p className="text-[7px] font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
+                <p className="text-xs font-black text-white uppercase tracking-[0.18em] leading-none">{APP_NAME}</p>
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-0.5">Company ID</p>
               </div>
             </div>
           </div>
@@ -334,7 +334,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           <div className="bg-white px-6 pt-4 pb-6 flex flex-col gap-3 flex-1">
 
             {/* Certification text */}
-            <p className="text-[9px] text-slate-500 text-center leading-relaxed">
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
               This certifies that the bearer whose name and photograph appear hereon is an authorized employee of{' '}
               <span className="font-black text-slate-800">{APP_NAME}</span>.
             </p>
@@ -344,20 +344,20 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Detail rows */}
             <div className="space-y-2">
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Name</p>
-                <p className="text-[10px] font-black text-slate-900 leading-tight">{fullNameFormatted}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Name</p>
+                <p className="text-xs font-black text-slate-900 leading-tight">{fullNameFormatted}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">ID No.</p>
-                <p className="text-[10px] font-black text-slate-900 font-mono tracking-wider">{(empId || '').toUpperCase()}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">ID No.</p>
+                <p className="text-xs font-black text-slate-900 font-mono tracking-wider">{(empId || '').toUpperCase()}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Branch</p>
-                <p className="text-[10px] font-black text-slate-900">{homeBranch?.name || '—'}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Branch</p>
+                <p className="text-xs font-black text-slate-900">{homeBranch?.name || '—'}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Contact</p>
-                <p className="text-[10px] font-black text-slate-900">{employee.details?.contactNumber || '—'}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">Contact</p>
+                <p className="text-xs font-black text-slate-900">{employee.details?.contactNumber || '—'}</p>
               </div>
             </div>
 
@@ -365,22 +365,22 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
 
             {/* Emergency contact */}
             <div className="space-y-2">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">In Case of Emergency</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">In Case of Emergency</p>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Name</p>
-                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactName || '—'}</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Name</p>
+                <p className="text-xs font-black text-slate-900">{employee.details?.emergencyContactName || '—'}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Relationship</p>
-                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactRelationship || '—'}</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Relationship</p>
+                <p className="text-xs font-black text-slate-900">{employee.details?.emergencyContactRelationship || '—'}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Number</p>
-                <p className="text-[10px] font-black text-slate-900">{employee.details?.emergencyContactNumber || '—'}</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Number</p>
+                <p className="text-xs font-black text-slate-900">{employee.details?.emergencyContactNumber || '—'}</p>
               </div>
               <div className="flex gap-3">
-                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Address</p>
-                <p className="text-[10px] font-black text-slate-900 leading-tight">{employee.details?.emergencyContactAddress || '—'}</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest w-16 shrink-0">Address</p>
+                <p className="text-xs font-black text-slate-900 leading-tight">{employee.details?.emergencyContactAddress || '—'}</p>
               </div>
             </div>
 
@@ -403,13 +403,13 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* If found */}
             <div className="text-center">
               <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest mb-1">If found, please return to:</p>
-              <p className="text-[9px] font-black text-slate-800 uppercase tracking-wide">{APP_NAME}</p>
-              <p className="text-[7px] text-slate-500 mt-0.5">{homeBranch?.name || '—'}</p>
+              <p className="text-xs font-black text-slate-800 uppercase tracking-wide">{APP_NAME}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{homeBranch?.name || '—'}</p>
             </div>
 
             {/* Footer — mt-auto pins it to the bottom */}
             <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Company ID</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -427,7 +427,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           <button
             onClick={handleDownloadPDF}
             disabled={isDownloading}
-            className="flex-1 flex items-center justify-center gap-2 h-11 bg-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 h-11 bg-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
           >
             {isDownloading ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -440,7 +440,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
           </button>
           <button
             onClick={onClose}
-            className="flex-1 h-11 bg-slate-900 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white hover:bg-slate-800 transition-all active:scale-95"
+            className="flex-1 h-11 bg-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest text-white hover:bg-slate-800 transition-all active:scale-95"
           >
             Close
           </button>

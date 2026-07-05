@@ -31,21 +31,21 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
       <div className="space-y-4">
         <div>
           <div className="flex items-baseline gap-2">
-            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
             {totalCount !== undefined && (
-              <span className="text-[10px] font-bold text-slate-400">({totalCount})</span>
+              <span className="text-xs font-bold text-slate-400">({totalCount})</span>
             )}
           </div>
-          <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Lists of clients today</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Lists of clients today</p>
         </div>
 
         <div
             className={`bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden print:overflow-visible`}>
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto no-scrollbar print:overflow-visible">
-            <table className="w-full text-left text-[12px] min-w-[900px] print:min-w-0">
+            <table className="w-full text-left text-xs min-w-[900px] print:min-w-0">
               <thead>
-              <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-widest border-b bg-slate-50/30">
+              <tr className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b bg-slate-50/30">
                 <th className="px-8 py-5">Time</th>
                 <th className="px-8 py-5">Client</th>
                 <th className="px-8 py-5">Service</th>
@@ -70,7 +70,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                 return (
                     <tr key={t.id} className="hover:bg-slate-50/20 transition-colors group">
                       {/* TIME: Standardized to medium slate */}
-                      <td className="px-8 py-5 font-medium text-slate-400 uppercase tracking-tighter tabular-nums text-[11px]">
+                      <td className="px-8 py-5 font-medium text-slate-400 uppercase tracking-tighter tabular-nums text-xs">
                         {new Intl.DateTimeFormat('en-US', {
                           timeZone: 'Asia/Manila',
                           hour: '2-digit',
@@ -80,12 +80,12 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                       </td>
 
                       {/* CLIENT: Standardized to bold slate-900 */}
-                      <td className="px-8 py-5 font-bold text-slate-600 text-[11px] uppercase tracking-tight">
+                      <td className="px-8 py-5 font-bold text-slate-600 text-xs uppercase tracking-tight">
                         {t.clientName}
                       </td>
 
                       {/* SERVICE: with per-service price */}
-                      <td className="px-8 py-5 font-bold text-slate-600 uppercase tracking-tight text-[11px] max-w-[240px] break-words leading-tight">
+                      <td className="px-8 py-5 font-bold text-slate-600 uppercase tracking-tight text-xs max-w-[240px] break-words leading-tight">
                         <div className="flex flex-col gap-1.5">
                           {getServiceItems(t).map((srv, idx) => (
                             <div key={idx} className="flex items-center justify-between gap-3">
@@ -101,15 +101,15 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                         </div>
                       </td>
 
-                      <td className="px-8 py-5 text-right tabular-nums text-[12px] whitespace-nowrap">
+                      <td className="px-8 py-5 text-right tabular-nums text-xs whitespace-nowrap">
                         <span className="text-slate-900 font-semibold">₱{(Number(t.basePrice) || 0).toLocaleString()}</span>
                         {totalDeduction > 0 && (
-                            <span className="text-rose-600 ml-1 text-[10px]">−₱{totalDeduction.toLocaleString()}</span>
+                            <span className="text-rose-600 ml-1 text-xs">−₱{totalDeduction.toLocaleString()}</span>
                         )}
                       </td>
 
                       {/* TOTAL: Primary identifier style */}
-                      <td className="px-8 py-5 font-bold text-slate-900 text-[13px] text-right tabular-nums tracking-tighter">
+                      <td className="px-8 py-5 font-bold text-slate-900 text-sm text-right tabular-nums tracking-tighter">
                         ₱{netTotal.toLocaleString()}
                       </td>
 
@@ -117,12 +117,12 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                       <td className="px-8 py-5">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border leading-none uppercase ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-md border leading-none uppercase ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                               {t.paymentMethod === 'GCASH' ? '📱 GCash' : '💵 Cash'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`text-[8px] font-bold uppercase tracking-widest ${isPaid ? 'text-emerald-500' : 'text-amber-500 animate-pulse'}`}>
+                            <span className={`text-xs font-bold uppercase tracking-widest ${isPaid ? 'text-emerald-500' : 'text-amber-500 animate-pulse'}`}>
                               {isPaid ? '● Paid' : '○ Pending'}
                             </span>
                           </div>
@@ -134,22 +134,22 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                         <div className="flex flex-col gap-1.5">
                           {t.therapistName && t.therapistName.trim() && (
                               <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md border border-emerald-100 leading-none uppercase shrink-0">T:</span>
-                                <span className="text-[11px] px-1.5 py-0.5 leading-none uppercase">₱{therapistComm.toLocaleString()}</span>
-                                <span className="font-bold text-slate-600 text-[11px] uppercase tracking-tight truncate max-w-[120px]">{t.therapistName}</span>
+                                <span className="text-xs font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md border border-emerald-100 leading-none uppercase shrink-0">T:</span>
+                                <span className="text-xs px-1.5 py-0.5 leading-none uppercase">₱{therapistComm.toLocaleString()}</span>
+                                <span className="font-bold text-slate-600 text-xs uppercase tracking-tight truncate max-w-[120px]">{t.therapistName}</span>
                               </div>
                           )}
                           {t.bonesetterName && t.bonesetterName.trim() && (
                               <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md border border-indigo-100 leading-none uppercase shrink-0">B: </span>
-                                <span className="text-[11px] px-1.5 py-0.5 leading-none uppercase">₱{bonesetterComm.toLocaleString()}</span>
-                                <span className="font-bold text-slate-600 text-[11px] uppercase tracking-tight truncate max-w-[120px]">{t.bonesetterName}</span>
+                                <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md border border-indigo-100 leading-none uppercase shrink-0">B: </span>
+                                <span className="text-xs px-1.5 py-0.5 leading-none uppercase">₱{bonesetterComm.toLocaleString()}</span>
+                                <span className="font-bold text-slate-600 text-xs uppercase tracking-tight truncate max-w-[120px]">{t.bonesetterName}</span>
                               </div>
                           )}
                           {sessionDeduction > 0 && (
                               <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-md border border-rose-100 leading-none uppercase shrink-0">D: </span>
-                                <span className="text-[11px] px-1.5 py-0.5 leading-none uppercase text-rose-600 font-bold">-₱{sessionDeduction.toLocaleString()}</span>
+                                <span className="text-xs font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-md border border-rose-100 leading-none uppercase shrink-0">D: </span>
+                                <span className="text-xs px-1.5 py-0.5 leading-none uppercase text-rose-600 font-bold">-₱{sessionDeduction.toLocaleString()}</span>
                               </div>
                           )}
                         </div>
@@ -197,12 +197,12 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                   <div className="p-5 space-y-4">
                     {/* Top row: time + payment */}
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{time}</span>
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{time}</span>
                       <div className="flex items-center gap-1.5">
                         {!isPaid && (
-                          <span className="text-[8px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-lg uppercase tracking-widest animate-pulse">Pending</span>
+                          <span className="text-xs font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-lg uppercase tracking-widest animate-pulse">Pending</span>
                         )}
-                        <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                        <span className={`text-xs font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                           {t.paymentMethod === 'GCASH' ? 'GCash' : 'Cash'}
                         </span>
                       </div>
@@ -214,7 +214,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                       <div className="text-right shrink-0">
                         <p className="font-black text-slate-900 text-[22px] tabular-nums tracking-tighter leading-none">₱{netTotal.toLocaleString()}</p>
                         {totalDeduction > 0 && (
-                          <p className="text-[9px] font-bold text-slate-300 line-through tabular-nums mt-0.5">₱{(Number(t.basePrice) || 0).toLocaleString()}</p>
+                          <p className="text-xs font-bold text-slate-300 line-through tabular-nums mt-0.5">₱{(Number(t.basePrice) || 0).toLocaleString()}</p>
                         )}
                       </div>
                     </div>
@@ -223,9 +223,9 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                     <div className="flex flex-wrap gap-1.5">
                       {getServiceItems(t).map((srv, idx) => (
                         <div key={idx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-xl">
-                          <span className="text-[9px] font-black text-slate-700 uppercase tracking-tight">{srv.name}</span>
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{srv.name}</span>
                           {srv.price !== null && (
-                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">₱{srv.price.toLocaleString()}</span>
+                            <span className="text-xs font-bold text-slate-400 tabular-nums">₱{srv.price.toLocaleString()}</span>
                           )}
                         </div>
                       ))}
@@ -236,16 +236,16 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                       <div className="flex gap-4 pt-3 border-t border-slate-100">
                         {t.therapistName && (
                           <div className="flex-1 min-w-0">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Therapist</p>
-                            <p className="text-[13px] font-black text-slate-900 uppercase truncate leading-tight">{t.therapistName}</p>
-                            <p className="text-[12px] font-black text-emerald-600 tabular-nums mt-0.5">₱{therapistComm.toLocaleString()}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Therapist</p>
+                            <p className="text-sm font-black text-slate-900 uppercase truncate leading-tight">{t.therapistName}</p>
+                            <p className="text-xs font-black text-emerald-600 tabular-nums mt-0.5">₱{therapistComm.toLocaleString()}</p>
                           </div>
                         )}
                         {t.bonesetterName && (
                           <div className="flex-1 min-w-0">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Bonesetter</p>
-                            <p className="text-[13px] font-black text-slate-900 uppercase truncate leading-tight">{t.bonesetterName}</p>
-                            <p className="text-[12px] font-black text-indigo-600 tabular-nums mt-0.5">₱{bonesetterComm.toLocaleString()}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Bonesetter</p>
+                            <p className="text-sm font-black text-slate-900 uppercase truncate leading-tight">{t.bonesetterName}</p>
+                            <p className="text-xs font-black text-indigo-600 tabular-nums mt-0.5">₱{bonesetterComm.toLocaleString()}</p>
                           </div>
                         )}
                       </div>
@@ -256,12 +256,12 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                   <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
                     <div className="flex items-center gap-1.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <span className={`text-xs font-black uppercase tracking-widest ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {isPaid ? 'Paid' : 'Pending'}
                       </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Net ROI</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Net ROI</p>
                       <p className="text-[15px] font-black text-slate-900 tabular-nums tracking-tighter leading-none">₱{netRoi.toLocaleString()}</p>
                     </div>
                   </div>
@@ -269,7 +269,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
               );
             }) : (
               <div className="py-20 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">No sessions recorded</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">No sessions recorded</p>
               </div>
             )}
           </div>

@@ -68,7 +68,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                             {/* Catalog Header */}
                             <div className="flex items-center gap-3 px-2">
                                 <div className="h-px flex-1 bg-slate-200" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                <span className="text-xs font-black uppercase tracking-widest text-emerald-600">
                                     {group.name}
                                 </span>
                                 <div className="h-px flex-1 bg-slate-200" />
@@ -97,12 +97,12 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                                                         isSelected ? 'text-white decoration-white/30' : 'text-slate-900 decoration-slate-300 group-hover:text-emerald-700 group-hover:decoration-emerald-300'
                                                     }`}>{s.name}</p>
                                                     {isLoyaltyMode && !isSelected && (
-                                                        <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest border border-emerald-100">Reward</span>
+                                                        <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest border border-emerald-100">Reward</span>
                                                     )}
                                                 </div>
 
                                                 <div className="flex items-center justify-between mt-2">
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                                    <span className={`text-xs font-bold uppercase tracking-widest ${
                                                         isSelected ? 'text-white/60' : 'text-slate-400'
                                                     }`}>{s.duration} MINS</span>
 
@@ -128,7 +128,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                     <p className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none mb-3">
                         No Services Found
                     </p>
-                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest max-w-[280px] mx-auto leading-relaxed">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest max-w-[280px] mx-auto leading-relaxed">
                         This node has no catalog subscription attached. Please contact the <span className="text-emerald-600">Network Administrator</span> to synchronize service units.
                     </p>
                 </div>

@@ -24,7 +24,7 @@ const RoleBadge = ({ role, centered = false }: { role: string, centered?: boolea
   return (
     <div className={`flex flex-wrap gap-1 ${centered ? 'justify-center' : ''}`}>
       {roles.map(r => (
-        <span key={r} className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${styles[r] || styles.TRAINEE}`}>
+        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest border ${styles[r] || styles.TRAINEE}`}>
           {r}
         </span>
       ))}
@@ -218,7 +218,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
              </svg>
           </div>
           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Profile Setup</h2>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-3">
+          <p className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] mt-3">
             {isRelief ? 'Relief Authorization' : 'Node Initialization'} • {branch?.name}
           </p>
         </div>
@@ -226,13 +226,13 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-6">
             <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
                     {isRelief ? 'Verified Relief Manager' : 'Verified Node Manager'}
                 </label>
                 {isSyncingIdentity ? (
                   <div className="w-full p-6 bg-slate-50 rounded-[24px] flex items-center justify-center gap-3">
                     <div className="w-4 h-4 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Verifying Registry...</span>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Verifying Registry...</span>
                   </div>
                 ) : identifiedManager ? (
                   <div className="space-y-3">
@@ -243,8 +243,8 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                               {isRelief ? '👤' : '👑'}
                           </div>
                           <div className="overflow-hidden">
-                             <p className="font-black text-white uppercase text-[13px] tracking-tight truncate">{identifiedManager.name}</p>
-                             <p className={`text-[8px] font-black uppercase tracking-widest ${isRelief ? 'text-indigo-400' : 'text-emerald-400'}`}>Identity Confirmed</p>
+                             <p className="font-black text-white uppercase text-sm tracking-tight truncate">{identifiedManager.name}</p>
+                             <p className={`text-xs font-black uppercase tracking-widest ${isRelief ? 'text-indigo-400' : 'text-emerald-400'}`}>Identity Confirmed</p>
                           </div>
                        </div>
                        <svg className={`w-5 h-5 shrink-0 ${isRelief ? 'text-indigo-500' : 'text-emerald-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
@@ -252,7 +252,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                     <button 
                       type="button" 
                       onClick={() => fetchIdentifiedManager(true)}
-                      className="w-full py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
+                      className="w-full py-2 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="3"/></svg>
                       Sync Identity
@@ -261,11 +261,11 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                 ) : (
                   <div className="p-6 bg-rose-50 border border-rose-100 rounded-[24px] text-center space-y-4">
                     <div className="text-2xl">⚠️</div>
-                    <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-relaxed">{error || 'Registry Link Broken'}</p>
+                    <p className="text-xs font-black text-rose-600 uppercase tracking-widest leading-relaxed">{error || 'Registry Link Broken'}</p>
                     <button 
                       type="button" 
                       onClick={() => fetchIdentifiedManager(true)}
-                      className="px-6 py-2 bg-rose-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                      className="px-6 py-2 bg-rose-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
                     >
                       Retry Sync
                     </button>
@@ -277,13 +277,13 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                     <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs shrink-0">✅</div>
                     <div className="flex-1">
-                        <p className="text-[10px] font-black text-emerald-900 uppercase tracking-tight">Existing Account Detected</p>
-                        <p className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">You can use your current credentials for this node.</p>
+                        <p className="text-xs font-black text-emerald-900 uppercase tracking-tight">Existing Account Detected</p>
+                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">You can use your current credentials for this node.</p>
                     </div>
                     <button 
                         type="button"
                         onClick={() => setUseExistingAccount(!useExistingAccount)}
-                        className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${useExistingAccount ? 'bg-emerald-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${useExistingAccount ? 'bg-emerald-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
                     >
                         {useExistingAccount ? 'LINKED' : 'USE NEW'}
                     </button>
@@ -291,7 +291,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
             )}
 
             <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Personal Username</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Personal Username</label>
                 <input 
                     type="text"
                     required
@@ -301,13 +301,13 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                     placeholder="CHOOSE A UNIQUE ID"
                     className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-[24px] font-black text-xs uppercase outline-none focus:border-emerald-500 shadow-inner placeholder:text-slate-300 disabled:opacity-50"
                 />
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
             </div>
 
             {!useExistingAccount && (
                 <div className="grid grid-cols-1 gap-4 animate-in slide-in-from-top-2">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New 6-Digit PIN</label>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">New 6-Digit PIN</label>
                       <input 
                         type="password"
                         maxLength={6}
@@ -321,7 +321,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm PIN</label>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Confirm PIN</label>
                       <input 
                         type="password"
                         maxLength={6}
@@ -340,7 +340,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
 
           {error && identifiedManager && (
             <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
-              <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{error}</p>
+              <p className="text-xs font-black text-rose-600 uppercase tracking-widest">{error}</p>
             </div>
           )}
 
@@ -348,18 +348,18 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
             <button 
               type="submit" 
               disabled={isSaving || !identifiedManager || username.length < 2 || (!useExistingAccount && newPin.length < 6)}
-              className={`w-full text-white font-black py-6 rounded-[28px] shadow-2xl active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-[11px] disabled:opacity-30 flex items-center justify-center gap-3 ${isRelief ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-emerald-700'}`}
+              className={`w-full text-white font-black py-6 rounded-[28px] shadow-2xl active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-xs disabled:opacity-30 flex items-center justify-center gap-3 ${isRelief ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-emerald-700'}`}
             >
               {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : useExistingAccount ? 'Confirm & Link Node' : 'Commit Identity Link'}
             </button>
             
             {onCancel && (
-              <button type="button" onClick={onCancel} className="text-[9px] font-black text-slate-400 uppercase tracking-widest py-2 hover:text-slate-600 transition-colors">Abort & Exit</button>
+              <button type="button" onClick={onCancel} className="text-xs font-black text-slate-400 uppercase tracking-widest py-2 hover:text-slate-600 transition-colors">Abort & Exit</button>
             )}
           </div>
         </form>
         
-        <p className="text-[8px] text-center font-bold text-slate-300 uppercase tracking-[0.3em] mt-12">Mainframe Identity Verified v4.5</p>
+        <p className="text-xs text-center font-bold text-slate-300 uppercase tracking-[0.3em] mt-12">Mainframe Identity Verified v4.5</p>
       </div>
     </div>
   );

@@ -54,12 +54,12 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[80px] rounded-full"></div>
             <div className="space-y-8 relative z-10">
                 <div className="space-y-1">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Sales Yield</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Sales Yield</p>
                     <h4 className="text-5xl font-bold tracking-tighter text-emerald-400 tabular-nums">₱{totalCalculated.toLocaleString()}</h4>
                     <div className="flex flex-col gap-1 mt-2">
-                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest">Gross: ₱{currentBasePrice.toLocaleString()}</p>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Gross: ₱{currentBasePrice.toLocaleString()}</p>
                         {loyaltyServices.length > 0 && (
-                            <p className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest flex items-center gap-1">
+                            <p className="text-xs font-bold text-emerald-500/80 uppercase tracking-widest flex items-center gap-1">
                                 <span className="w-1 h-1 bg-emerald-500 rounded-full"></span>
                                 {loyaltyServices.length} Loyalty Reward(s) Included (Free)
                             </p>
@@ -71,9 +71,9 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">PWD / Senior</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">PWD / Senior</span>
                                 {props.formData.is_pwd_senior && currentBasePrice > 0 && (
-                                    <span className="text-[10px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <span className="text-xs font-bold text-emerald-500 animate-in fade-in slide-in-from-left-2 duration-300">
                                         − ₱{pwdDiscount.toLocaleString()} Applied
                                     </span>
                                 )}
@@ -99,8 +99,8 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                         {/* Manual Discount */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-center px-1">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Manual Discount (₱)</label>
-                                {manualDiscount > 0 && <button onClick={() => props.setFormData({...props.formData, discount: 0})} className="text-[8px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-300">Clear</button>}
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Manual Discount (₱)</label>
+                                {manualDiscount > 0 && <button onClick={() => props.setFormData({...props.formData, discount: 0})} className="text-xs font-bold text-rose-400 uppercase tracking-widest hover:text-rose-300">Clear</button>}
                             </div>
                             <input
                                 type="number"
@@ -119,7 +119,7 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                                 placeholder="0"
                             />
                             {isDiscountInvalid && (
-                                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <p className="text-xs font-bold text-rose-400 uppercase tracking-widest px-1 animate-in fade-in slide-in-from-top-1 duration-200">
                                     Max discount is ₱{maxDiscount.toLocaleString()}
                                 </p>
                             )}
@@ -127,11 +127,11 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                     </div>
 
                     <div className="space-y-3 pt-4">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Settlement Method</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Settlement Method</label>
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => { playSound('click'); props.setFormData({...props.formData, payment_method: 'CASH'}); }}
-                                className={`py-6 rounded-3xl text-[11px] font-black uppercase tracking-widest transition-all border flex flex-col items-center justify-center gap-2 relative ${props.formData.payment_method === 'CASH' ? 'bg-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                                className={`py-6 rounded-3xl text-xs font-black uppercase tracking-widest transition-all border flex flex-col items-center justify-center gap-2 relative ${props.formData.payment_method === 'CASH' ? 'bg-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
                             >
                                 {props.formData.payment_method === 'CASH' && (
                                     <div className="absolute top-3 right-3 bg-emerald-500 rounded-full p-1 shadow-lg animate-in zoom-in duration-300">
@@ -143,7 +143,7 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                             </button>
                             <button
                                 onClick={() => { playSound('click'); props.setFormData({...props.formData, payment_method: 'GCASH'}); }}
-                                className={`py-6 rounded-3xl text-[11px] font-black uppercase tracking-widest transition-all border flex flex-col items-center justify-center gap-2 relative ${props.formData.payment_method === 'GCASH' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg ring-2 ring-emerald-400/20' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                                className={`py-6 rounded-3xl text-xs font-black uppercase tracking-widest transition-all border flex flex-col items-center justify-center gap-2 relative ${props.formData.payment_method === 'GCASH' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg ring-2 ring-emerald-400/20' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
                             >
                                 {props.formData.payment_method === 'GCASH' && (
                                     <div className="absolute top-3 right-3 bg-white rounded-full p-1 shadow-lg animate-in zoom-in duration-300">
@@ -168,7 +168,7 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                 </button>
                 <button
                     onClick={props.onAbort}
-                    className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest py-2 hover:text-slate-300 transition-colors"
+                    className="w-full text-slate-500 text-xs font-bold uppercase tracking-widest py-2 hover:text-slate-300 transition-colors"
                 >
                     {props.mode === 'EDITING' ? 'Discard Changes' : 'Reset Entry Form'}
                 </button>

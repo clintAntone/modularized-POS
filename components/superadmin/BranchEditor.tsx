@@ -196,7 +196,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
             onClick={handleBackdropClick}
         >
             {toast && (
-                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-4 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
                     {toast.message}
                 </div>
@@ -215,7 +215,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                             <h2 className="text-[15px] sm:text-lg font-bold text-slate-900 uppercase tracking-tighter leading-none truncate max-w-[150px] sm:max-w-[250px]">
                                 {localBranch.name || 'New Branch'}
                             </h2>
-                            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-1">Branch Calibration</p>
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mt-1">Branch Calibration</p>
                         </div>
                     </div>
 
@@ -223,7 +223,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         onClick={handleManualClose}
                         className="group flex items-center gap-2 p-3 bg-slate-50 hover:bg-rose-600 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-inner"
                     >
-                        <span className="hidden sm:inline text-[9px] font-bold uppercase tracking-widest ml-1">Close Editor</span>
+                        <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest ml-1">Close Editor</span>
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -234,11 +234,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <section className="space-y-4">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">📝</div>
-                            <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Branch Identity</h4>
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Branch Identity</h4>
                         </div>
                         <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Official Name</label>
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Official Name</label>
                                 <input
                                     type="text"
                                     value={localBranch.name}
@@ -297,8 +297,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     {onToggleFaceId && (
                       <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center justify-between gap-4">
                         <div>
-                          <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Face ID Recognition</p>
-                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Face ID Recognition</p>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
                             {localFaceIdDisabled ? 'Disabled — staff will use manual time-in' : 'Enabled — staff with enrolled faces use face scan'}
                           </p>
                         </div>

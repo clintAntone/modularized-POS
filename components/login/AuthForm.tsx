@@ -36,7 +36,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-lg">👤</div>
           <div className="text-left">
-            <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest leading-none">Relief Manager</p>
+            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest leading-none">Relief Manager</p>
             <p className="text-sm font-bold text-indigo-900 uppercase tracking-tight mt-1">{(reliefEmployee || tempManagerIdentity)?.name}</p>
           </div>
         </div>
@@ -45,7 +45,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
       {/* USERNAME FIELD */}
       {showUsername && (
         <div className="space-y-1.5">
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest ml-1">
             {usernameLabel}
           </label>
           <input
@@ -53,19 +53,19 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             value={username}
             onChange={(e) => setUsername(isSetupAccountMode ? e.target.value : e.target.value.toLowerCase())}
             placeholder={usernamePlaceholder}
-            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 text-[12px] rounded-xl font-bold uppercase outline-none focus:border-slate-400 focus:bg-white transition-all text-center tracking-widest text-slate-800"
+            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 text-xs rounded-xl font-bold uppercase outline-none focus:border-slate-400 focus:bg-white transition-all text-center tracking-widest text-slate-800"
             disabled={isAuthenticating}
             autoFocus
           />
           {isReliefMode && reliefStep === 'setup' && (
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mt-2">Only letters, numbers, and underscores allowed. No spaces.</p>
           )}
         </div>
       )}
 
       {/* PIN FIELD */}
       <div className="space-y-1.5">
-        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">
+        <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest ml-1">
           {pinLabel}
         </label>
         <input
@@ -84,7 +84,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
       {/* CONFIRM PIN FIELD (Relief Setup) */}
       {isReliefMode && reliefStep === 'setup' && setConfirmPin && (
         <div className="space-y-1.5 animate-in slide-in-from-top-2">
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest ml-1">
             Confirm New Security PIN
           </label>
           <input 

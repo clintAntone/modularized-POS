@@ -113,13 +113,13 @@ export const BranchReportsTab: React.FC<BranchReportsTabProps> = ({
           {loadingOlder && (
             <>
               <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Loading older reports…</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading older reports…</span>
             </>
           )}
         </div>
       )}
       {allLoaded && olderReports.length > 0 && (
-        <p className="text-center text-[9px] font-bold text-slate-300 uppercase tracking-widest pb-4">All historical reports loaded</p>
+        <p className="text-center text-xs font-bold text-slate-300 uppercase tracking-widest pb-4">All historical reports loaded</p>
       )}
     </div>
   );

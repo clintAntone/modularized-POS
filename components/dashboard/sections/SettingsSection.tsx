@@ -28,7 +28,7 @@ type SettingsTab = 'operations' | 'access' | 'security';
 
 // ── Shared field/section primitives ─────────────────────────────────────────
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">
+  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">
     {children}
   </label>
 );
@@ -45,7 +45,7 @@ const CardHeader = ({ icon, title, badge }: { icon: React.ReactNode; title: stri
       <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
         {icon}
       </div>
-      <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{title}</span>
+      <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{title}</span>
     </div>
     {badge}
   </div>
@@ -69,20 +69,20 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ title, description, confirm
           <AlertTriangle className={`w-5 h-5 ${danger ? 'text-rose-500' : 'text-amber-500'}`} strokeWidth={2.5} />
         </div>
         <div>
-          <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{title}</p>
-          <p className="text-[10px] text-slate-500 leading-relaxed">{description}</p>
+          <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{title}</p>
+          <p className="text-xs text-slate-500 leading-relaxed">{description}</p>
         </div>
       </div>
       <div className="flex gap-3">
         <button
           onClick={onCancel}
-          className="flex-1 h-10 rounded-2xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all"
+          className="flex-1 h-10 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all"
         >
           Cancel
         </button>
         <button
           onClick={onConfirm}
-          className={`flex-1 h-10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white active:scale-95 transition-all ${danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-900 hover:bg-emerald-600'}`}
+          className={`flex-1 h-10 rounded-2xl text-xs font-black uppercase tracking-widest text-white active:scale-95 transition-all ${danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-900 hover:bg-emerald-600'}`}
         >
           {confirmLabel}
         </button>
@@ -449,7 +449,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
         </div>
         <div>
           <h2 className="text-base font-black text-slate-900 uppercase tracking-tighter leading-none">{isRelief ? 'My Account' : 'Terminal Admin'}</h2>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
             {branch.name.replace('BRANCH - ', '')}
           </p>
         </div>
@@ -461,7 +461,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); playSound('click'); setError(''); setSuccess(''); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
           >
             {tab.icon}
             <span className="hidden sm:inline">{tab.label}</span>
@@ -473,13 +473,13 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       {success && (
         <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-2xl animate-in slide-in-from-top-2">
           <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">{success}</p>
+          <p className="text-xs font-bold text-emerald-700 uppercase tracking-widest">{success}</p>
         </div>
       )}
       {error && (
         <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 px-4 py-3 rounded-2xl animate-in slide-in-from-top-2">
           <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" strokeWidth={2.5} />
-          <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest leading-relaxed">{error}</p>
+          <p className="text-xs font-bold text-rose-600 uppercase tracking-widest leading-relaxed">{error}</p>
         </div>
       )}
 
@@ -493,7 +493,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           {!branchIsClosed && (
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 px-4 py-3 rounded-2xl">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" strokeWidth={2.5} />
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest leading-relaxed">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-widest leading-relaxed">
                 Close the branch before changing operational settings.
               </p>
             </div>
@@ -541,8 +541,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <div className="p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[12px] font-bold text-slate-800">Clock-in via Face ID</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-xs font-bold text-slate-800">Clock-in via Face ID</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
                     {localFaceIdEnabled
                       ? 'Employees must scan their face to clock in'
                       : 'Face recognition is disabled — manual clock-in only'}
@@ -563,7 +563,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           <button
             onClick={handleBranchSettingsSubmit}
             disabled={isSavingOperational || !branchIsClosed}
-            className={`w-full h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-md active:scale-95 transition-all ${!branchIsClosed ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
+            className={`w-full h-12 rounded-2xl font-black text-xs uppercase tracking-widest shadow-md active:scale-95 transition-all ${!branchIsClosed ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
           >
             {isSavingOperational ? 'Saving…' : 'Save Branch Settings'}
           </button>
@@ -594,27 +594,27 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                 <p className="text-lg font-black text-white uppercase tracking-tight leading-none truncate">
                   {currentEmployee?.name || user.username || '—'}
                 </p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                   {branch.name.replace(/BRANCH\s*-\s*/i, '')}
                 </p>
               </div>
-              <span className="text-[8px] font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-lg uppercase tracking-widest shrink-0">Active</span>
+              <span className="text-xs font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-lg uppercase tracking-widest shrink-0">Active</span>
             </div>
             {/* Stats strip */}
             <div className="grid grid-cols-3 border-t border-white/5">
               <div className="px-4 py-3 text-center border-r border-white/5">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Role</p>
-                <p className="text-[11px] font-black text-white mt-0.5 truncate">
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Role</p>
+                <p className="text-xs font-black text-white mt-0.5 truncate">
                   {(currentEmployee?.role || 'MANAGER').replace(/_/g, ' ')}
                 </p>
               </div>
               <div className="px-4 py-3 text-center border-r border-white/5">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Username</p>
-                <p className="text-[11px] font-black text-white mt-0.5 truncate">{user.username || '—'}</p>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Username</p>
+                <p className="text-xs font-black text-white mt-0.5 truncate">{user.username || '—'}</p>
               </div>
               <div className="px-4 py-3 text-center">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Recovery</p>
-                <p className={`text-[11px] font-black mt-0.5 ${employeeGmail ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Recovery</p>
+                <p className={`text-xs font-black mt-0.5 ${employeeGmail ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {employeeGmail ? 'Set' : 'Not set'}
                 </p>
               </div>
@@ -633,7 +633,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <User className="w-4 h-4 text-slate-500" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Username</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Username</p>
                   <p className="text-sm font-bold text-slate-900 mt-0.5">{user.username || '—'}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -641,8 +641,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             ) : (
               <form onSubmit={handleSaveUsername} className="p-5 space-y-4 animate-in slide-in-from-top-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Change Username</p>
-                  <button type="button" onClick={() => setEditingSection(null)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cancel</button>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Change Username</p>
+                  <button type="button" onClick={() => setEditingSection(null)} className="text-xs font-black text-slate-400 uppercase tracking-widest">Cancel</button>
                 </div>
                 <input
                   type="text"
@@ -652,8 +652,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   placeholder="your_username"
                   className="w-full px-4 py-3 bg-slate-50 rounded-2xl font-bold text-sm text-slate-900 outline-none border-2 border-transparent focus:border-emerald-500 focus:bg-white transition-all"
                 />
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Letters, numbers, underscores only.</p>
-                <button type="submit" disabled={isSaving} className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Letters, numbers, underscores only.</p>
+                <button type="submit" disabled={isSaving} className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                   {isSaving ? 'Saving…' : 'Save Username'}
                 </button>
               </form>
@@ -672,22 +672,22 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 </div>
                 <div className="flex-1 text-left min-w-0">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Recovery Email</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Recovery Email</p>
                   {employeeGmail
                     ? <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{employeeGmail}</p>
                     : <p className="text-sm font-bold text-rose-400 mt-0.5">Not set</p>
                   }
                 </div>
                 {employeeGmail
-                  ? <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg uppercase tracking-widest shrink-0">Set</span>
+                  ? <span className="text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg uppercase tracking-widest shrink-0">Set</span>
                   : <ChevronRight className="w-4 h-4 text-slate-300" />
                 }
               </button>
             ) : (
               <form onSubmit={handleSaveGmail} className="p-5 space-y-4 animate-in slide-in-from-top-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Recovery Email</p>
-                  <button type="button" onClick={() => setEditingSection(null)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cancel</button>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Recovery Email</p>
+                  <button type="button" onClick={() => setEditingSection(null)} className="text-xs font-black text-slate-400 uppercase tracking-widest">Cancel</button>
                 </div>
                 <input
                   type="email"
@@ -701,8 +701,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                       : gmailInput ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-transparent focus:border-emerald-500 focus:bg-white'
                   }`}
                 />
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Used for PIN self-recovery via OTP</p>
-                <button type="submit" disabled={isSaving} className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Used for PIN self-recovery via OTP</p>
+                <button type="submit" disabled={isSaving} className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                   {isSaving ? 'Saving…' : 'Save Email'}
                 </button>
               </form>
@@ -721,7 +721,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <Shield className="w-4 h-4 text-slate-500" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Security PIN</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Security PIN</p>
                   <p className="text-sm font-bold text-slate-900 mt-0.5">••••••</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -729,8 +729,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             ) : (
               <div className="p-5 space-y-4 animate-in slide-in-from-top-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Change PIN</p>
-                  <button type="button" onClick={() => { setEditingSection(null); setNewPin(''); setConfirmPin(''); setOtpStep('idle'); setOtpValue(''); }} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cancel</button>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Change PIN</p>
+                  <button type="button" onClick={() => { setEditingSection(null); setNewPin(''); setConfirmPin(''); setOtpStep('idle'); setOtpValue(''); }} className="text-xs font-black text-slate-400 uppercase tracking-widest">Cancel</button>
                 </div>
 
                 {/* Step 1 — Verify identity via OTP (only if Gmail on file) */}
@@ -738,16 +738,16 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <div className="space-y-3">
                     {/* Step indicator */}
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black shrink-0">1</div>
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Verify your identity</p>
+                      <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-black shrink-0">1</div>
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Verify your identity</p>
                     </div>
 
                     {otpStep === 'idle' && (
                       <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
                         <svg className="w-8 h-8 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold text-slate-700">We'll send a code to</p>
-                          <p className="text-[11px] font-black text-slate-900 truncate">{employeeGmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c)}</p>
+                          <p className="text-xs font-bold text-slate-700">We'll send a code to</p>
+                          <p className="text-xs font-black text-slate-900 truncate">{employeeGmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c)}</p>
                         </div>
                       </div>
                     )}
@@ -755,8 +755,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     {(otpStep === 'sending' || otpStep === 'awaiting') && (
                       <div className="space-y-3 animate-in fade-in">
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-bold text-slate-600">Code sent to {otpMaskedEmail}</p>
-                          <button type="button" onClick={() => { setOtpStep('idle'); setOtpValue(''); setOtpError(''); }} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Resend</button>
+                          <p className="text-xs font-bold text-slate-600">Code sent to {otpMaskedEmail}</p>
+                          <button type="button" onClick={() => { setOtpStep('idle'); setOtpValue(''); setOtpError(''); }} className="text-xs font-black text-slate-400 uppercase tracking-widest">Resend</button>
                         </div>
                         <input
                           type="text"
@@ -768,7 +768,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                           autoFocus
                           className="w-full px-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-2xl tracking-[0.5em] text-center outline-none focus:border-emerald-500 focus:bg-white transition-all tabular-nums"
                         />
-                        {otpError && <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest text-center">{otpError}</p>}
+                        {otpError && <p className="text-xs font-black text-rose-600 uppercase tracking-widest text-center">{otpError}</p>}
                       </div>
                     )}
 
@@ -776,7 +776,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                       type="button"
                       onClick={otpStep === 'idle' ? handleRequestOtp : handleVerifyOtp}
                       disabled={otpLoading || (otpStep === 'awaiting' && otpValue.length !== 6)}
-                      className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                      className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                     >
                       {otpLoading
                         ? <><div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Sending…</>
@@ -793,21 +793,21 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                         <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
                           <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
                         </div>
-                        <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Identity verified — set your new PIN</p>
+                        <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Identity verified — set your new PIN</p>
                       </div>
                     )}
 
                     {employeeGmail && (
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black shrink-0">2</div>
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Set your new PIN</p>
+                        <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-black shrink-0">2</div>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Set your new PIN</p>
                       </div>
                     )}
 
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <FieldLabel>New 6-Digit PIN</FieldLabel>
-                        <button type="button" onClick={() => setShowPin(v => !v)} className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{showPin ? 'Hide' : 'Show'}</button>
+                        <button type="button" onClick={() => setShowPin(v => !v)} className="text-xs font-black text-slate-400 uppercase tracking-widest">{showPin ? 'Hide' : 'Show'}</button>
                       </div>
                       <input
                         type={showPin ? 'text' : 'password'}
@@ -849,7 +849,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                           }`}
                         />
                         {confirmPin.length === 6 && confirmPin !== newPin && (
-                          <p className="mt-1.5 text-[8px] font-black text-rose-500 uppercase tracking-widest">PINs do not match</p>
+                          <p className="mt-1.5 text-xs font-black text-rose-500 uppercase tracking-widest">PINs do not match</p>
                         )}
                       </div>
                     )}
@@ -857,7 +857,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     <button
                       type="submit"
                       disabled={isSaving || newPin.length !== 6 || confirmPin !== newPin}
-                      className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                      className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                     >
                       {isSaving ? <><div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />Saving…</> : 'Save New PIN'}
                     </button>
@@ -879,7 +879,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Personal Details</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Personal Details</p>
                   <p className="text-sm font-bold text-slate-900 mt-0.5">{currentEmployee.name || '—'}</p>
                 </div>
                 <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${editingSection === 'details' ? 'rotate-90' : ''}`} />
@@ -898,8 +898,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                       { label: 'Contact Number', value: currentEmployee.details?.contactNumber },
                     ].map(({ label, value }) => (
                       <div key={label} className="bg-slate-50 rounded-2xl p-3">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-                        <p className="text-[11px] font-bold text-slate-900 truncate">{value || <span className="text-slate-300">—</span>}</p>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                        <p className="text-xs font-bold text-slate-900 truncate">{value || <span className="text-slate-300">—</span>}</p>
                       </div>
                     ))}
                   </div>
@@ -907,15 +907,15 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   {/* Address */}
                   {currentEmployee.details?.address && (
                     <div className="bg-slate-50 rounded-2xl p-3">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Address</p>
-                      <p className="text-[11px] font-bold text-slate-900">{currentEmployee.details.address}</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Address</p>
+                      <p className="text-xs font-bold text-slate-900">{currentEmployee.details.address}</p>
                     </div>
                   )}
 
                   {/* Emergency Contact */}
                   {currentEmployee.details?.emergencyContactName && (
                     <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Emergency Contact</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Emergency Contact</p>
                       <div className="grid grid-cols-2 gap-3">
                         {[
                           { label: 'Name', value: currentEmployee.details.emergencyContactName },
@@ -924,8 +924,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                           { label: 'Address', value: currentEmployee.details.emergencyContactAddress },
                         ].filter(f => f.value).map(({ label, value }) => (
                           <div key={label} className="bg-slate-50 rounded-2xl p-3">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-                            <p className="text-[11px] font-bold text-slate-900 truncate">{value}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                            <p className="text-xs font-bold text-slate-900 truncate">{value}</p>
                           </div>
                         ))}
                       </div>
@@ -935,14 +935,14 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   {/* Social */}
                   {currentEmployee.details?.facebookLink && (
                     <div className="bg-slate-50 rounded-2xl p-3">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Facebook</p>
-                      <p className="text-[11px] font-bold text-slate-900 truncate">{currentEmployee.details.facebookLink}</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Facebook</p>
+                      <p className="text-xs font-bold text-slate-900 truncate">{currentEmployee.details.facebookLink}</p>
                     </div>
                   )}
 
                   {/* No details fallback */}
                   {!currentEmployee.details && (
-                    <p className="text-[10px] text-slate-400 text-center py-4">No personal details on file. Contact your administrator to update your profile.</p>
+                    <p className="text-xs text-slate-400 text-center py-4">No personal details on file. Contact your administrator to update your profile.</p>
                   )}
                 </div>
               )}
@@ -964,7 +964,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
               badge={
                 <div className="flex items-center gap-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${branch.tempManager ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`} />
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{branch.tempManager ? 'Link Active' : 'No Delegate'}</span>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{branch.tempManager ? 'Link Active' : 'No Delegate'}</span>
                 </div>
               }
             />
@@ -972,7 +972,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <div className="p-5 space-y-4">
               {/* Security status pill */}
               <div className="flex justify-center">
-                <span className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${branch.isPinChanged ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border ${branch.isPinChanged ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                   {branch.isPinChanged ? '🔒 Secured' : '⚠ Setup Mode'}
                 </span>
               </div>
@@ -986,19 +986,19 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     </div>
                     <div>
                       <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{branch.tempManager}</p>
-                      <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-0.5">Authorized Relief</p>
+                      <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mt-0.5">Authorized Relief</p>
                     </div>
                   </div>
 
                   {/* Generated PIN display */}
                   {generatedPin && (
                     <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl animate-in zoom-in space-y-2">
-                      <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest text-center">New Setup Key</p>
+                      <p className="text-xs font-black text-amber-600 uppercase tracking-widest text-center">New Setup Key</p>
                       <p className="text-3xl font-black text-amber-700 tracking-[0.35em] tabular-nums text-center">{generatedPin}</p>
-                      <p className="text-[7px] font-bold text-amber-500 uppercase tracking-widest text-center leading-relaxed">Share with delegate. They must use this for first login.</p>
+                      <p className="text-xs font-bold text-amber-500 uppercase tracking-widest text-center leading-relaxed">Share with delegate. They must use this for first login.</p>
                       <button
                         onClick={() => { navigator.clipboard.writeText(generatedPin); playSound('success'); showFeedback('Copied to clipboard', 'success'); }}
-                        className="w-full text-[9px] font-bold text-amber-700 uppercase tracking-widest hover:underline"
+                        className="w-full text-xs font-bold text-amber-700 uppercase tracking-widest hover:underline"
                       >
                         Copy to Clipboard
                       </button>
@@ -1009,7 +1009,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                     <button
                       onClick={handleResetBranchPin}
                       disabled={isResettingPin}
-                      className="w-full h-11 rounded-2xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest shadow-md hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40"
+                      className="w-full h-11 rounded-2xl bg-slate-900 text-white font-black text-xs uppercase tracking-widest shadow-md hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40"
                     >
                       {isResettingPin ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : '🔑'}
                       {isResettingPin ? 'Regenerating…' : 'Reset Delegate Setup Key'}
@@ -1019,7 +1019,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   <button
                     onClick={() => handleSetRelief('')}
                     disabled={isSyncingRelief}
-                    className="w-full h-11 rounded-2xl bg-white border border-rose-200 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all active:scale-95 disabled:opacity-40"
+                    className="w-full h-11 rounded-2xl bg-white border border-rose-200 text-rose-500 font-black text-xs uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all active:scale-95 disabled:opacity-40"
                   >
                     {isSyncingRelief ? 'Revoking…' : 'Terminate Relief Access'}
                   </button>
@@ -1027,12 +1027,12 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
               ) : (
                 <div className="flex flex-col items-center gap-4 py-4">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-300 flex items-center justify-center text-2xl">∅</div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center leading-relaxed max-w-[200px]">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center leading-relaxed max-w-[200px]">
                     No relief manager designated for this terminal.
                   </p>
                   <button
                     onClick={() => { playSound('click'); setShowReliefSelector(true); }}
-                    className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-md hover:bg-indigo-600 active:scale-95 transition-all"
+                    className="w-full h-11 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-md hover:bg-indigo-600 active:scale-95 transition-all"
                   >
                     Designate Relief Personnel
                   </button>
@@ -1066,20 +1066,20 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                       {getInitials(emp.name)}
                     </div>
                     <div className="text-left">
-                      <p className="font-black text-slate-900 uppercase text-[11px] truncate">{emp.name}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                      <p className="font-black text-slate-900 uppercase text-xs truncate">{emp.name}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-500 transition-all" strokeWidth={3} />
                 </button>
               )) : (
                 <div className="py-16 text-center opacity-30">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">No available staff found</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No available staff found</p>
                 </div>
               )}
             </div>
             <div className="p-5 bg-slate-50 border-t border-slate-100">
-              <p className="text-[8px] font-bold text-slate-400 uppercase text-center leading-relaxed">
+              <p className="text-xs font-bold text-slate-400 uppercase text-center leading-relaxed">
                 The selected delegate can access this terminal using their own PIN. All actions are logged.
               </p>
             </div>

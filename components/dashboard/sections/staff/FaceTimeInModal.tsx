@@ -309,16 +309,16 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 {!isNative && (
                     <div className="flex items-center gap-2 mx-6 mt-4 px-4 py-2 shrink-0 bg-amber-500/10 border border-amber-400/20 rounded-2xl">
                         <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest">Turn up your screen brightness for best results</p>
+                        <p className="text-xs font-bold text-amber-400 uppercase tracking-widest">Turn up your screen brightness for best results</p>
                     </div>
                 )}
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 pt-3 pb-2 shrink-0">
                     <div>
-                        <h3 className="text-[13px] font-black text-white uppercase tracking-tight">Face Time-In</h3>
-                        {targetEmployee && <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-0.5 truncate">{targetEmployee.name}</p>}
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Look at the camera</p>
+                        <h3 className="text-sm font-black text-white uppercase tracking-tight">Face Time-In</h3>
+                        {targetEmployee && <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mt-0.5 truncate">{targetEmployee.name}</p>}
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Look at the camera</p>
                     </div>
                     <button onClick={() => { stopCamera(); onClose(); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">
                         <X className="w-4 h-4" />
@@ -374,7 +374,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                                 <CheckCircle className="w-20 h-20 text-emerald-400" strokeWidth={1.5} />
                                 <p className="text-emerald-300 font-black text-[15px] uppercase tracking-widest">Welcome,</p>
                                 <p className="text-white font-black text-[28px] uppercase tracking-tight leading-none text-center">{matchedEmp.name.split(' ')[0]}</p>
-                                <p className="text-emerald-400 text-[11px] font-black uppercase tracking-widest">{matchConfidence}% match</p>
+                                <p className="text-emerald-400 text-xs font-black uppercase tracking-widest">{matchConfidence}% match</p>
                             </div>
                         )}
 
@@ -382,7 +382,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                         {status === 'loading' && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 bg-slate-900/80">
                                 <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
-                                <p className="text-[11px] font-black text-white uppercase tracking-widest text-center">
+                                <p className="text-xs font-black text-white uppercase tracking-widest text-center">
                                     {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
                                 <div className="w-full space-y-1">
@@ -392,7 +392,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                                             style={{ width: `${dlProgress}%` }}
                                         />
                                     </div>
-                                    <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
+                                    <p className="text-xs font-black text-amber-400 text-center tabular-nums">
                                         {dlProgress >= 100 ? 'Preparing AI engine…' : `${dlProgress}% — one-time download`}
                                     </p>
                                 </div>
@@ -403,9 +403,9 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
 
                 {/* Status */}
                 <div className="px-6 pb-2 text-center shrink-0">
-                    <p className={`text-[11px] font-black uppercase tracking-widest ${statusColor[status]} transition-colors`}>{statusMsg}</p>
+                    <p className={`text-xs font-black uppercase tracking-widest ${statusColor[status]} transition-colors`}>{statusMsg}</p>
                     {empDescriptors.length === 0 && status !== 'loading' && (
-                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">No employees have face data enrolled yet</p>
+                        <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mt-1">No employees have face data enrolled yet</p>
                     )}
                 </div>
 
@@ -414,7 +414,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     {canRetryLoad ? (
                         <button
                             onClick={loadModelsAndStart}
-                            className="w-full flex items-center justify-center gap-2 bg-rose-500 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 hover:bg-rose-600"
+                            className="w-full flex items-center justify-center gap-2 bg-rose-500 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all active:scale-95 hover:bg-rose-600"
                         >
                             <Loader className="w-4 h-4" />
                             Retry Loading
@@ -422,7 +422,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     ) : canRetryCamera ? (
                         <button
                             onClick={startCamera}
-                            className="w-full flex items-center justify-center gap-2 bg-amber-500 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 hover:bg-amber-600"
+                            className="w-full flex items-center justify-center gap-2 bg-amber-500 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all active:scale-95 hover:bg-amber-600"
                         >
                             <Camera className="w-4 h-4" />
                             Retry Camera
@@ -431,7 +431,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                         <button
                             onClick={scan}
                             disabled={!canScan}
-                            className="w-full flex items-center justify-center gap-2 bg-white text-slate-900 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-emerald-500 hover:text-white"
+                            className="w-full flex items-center justify-center gap-2 bg-white text-slate-900 font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-emerald-500 hover:text-white"
                         >
                             <Camera className="w-4 h-4" />
                             {status === 'scanning' ? 'Scanning...' : 'Scan Face'}
@@ -444,7 +444,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     <div className="px-6 pb-5 text-center shrink-0">
                         <button
                             onClick={() => { stopCamera(); onClose(); onManualOverride(); }}
-                            className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
+                            className="text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
                         >
                             Camera not working? Use manual time-in
                         </button>

@@ -979,11 +979,11 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{branch.name}</h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Daily Operational Ledger</p>
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Daily Operational Ledger</p>
             </div>
             <div className="text-right">
               <p className="text-xl font-bold uppercase tracking-tight text-slate-900">{new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(todayStr + 'T12:00:00'))}</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Generated: {new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(getTrueDate())}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Generated: {new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(getTrueDate())}</p>
             </div>
           </div>
         </div>
@@ -1001,7 +1001,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                   )}
                 </div>
                 <div className="w-px h-2.5 bg-slate-200"></div>
-                <span className={`text-[8px] font-black uppercase tracking-widest tabular-nums ${connStatus === 'offline' ? 'text-rose-700' : 'text-emerald-700'}`}>
+                <span className={`text-xs font-black uppercase tracking-widest tabular-nums ${connStatus === 'offline' ? 'text-rose-700' : 'text-emerald-700'}`}>
                   {connStatus === 'offline' 
                     ? `OFFLINE: ${pendingSyncCount} PENDING RELAY` 
                     : autoSyncStatus === 'saving' 
@@ -1018,7 +1018,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 onClick={() => { playSound('click'); onForceSync(); }}
                 disabled={autoSyncStatus === 'saving'}
                 title="Force sync report to database"
-                className={`flex items-center gap-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all shadow-sm active:scale-95 ${autoSyncStatus === 'saving' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex items-center gap-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all shadow-sm active:scale-95 ${autoSyncStatus === 'saving' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <svg className={`w-3 h-3 ${autoSyncStatus === 'saving' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1029,7 +1029,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           <button
               onClick={() => handleExportPDF()}
               disabled={isExporting}
-              className={`flex items-center gap-1.5 px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex items-center gap-1.5 px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isExporting ? (
                 <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin"></div>
@@ -1043,7 +1043,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
         <div className="space-y-6 print:hidden">
           {toast && (
-              <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-black text-[11px] uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+              <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-black text-xs uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
                 {toast.message}
               </div>
@@ -1056,21 +1056,21 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Remove Record?</h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                   Permanently delete {expenseToDelete.name} (₱{expenseToDelete.amount.toLocaleString()}) from the registry? This cannot be undone.
                 </p>
                 <div className="flex flex-col gap-4 mt-10">
                   <button
                     onClick={handleFinalDeleteExpense}
                     disabled={isDeleting}
-                    className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                    className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
                     {isDeleting ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Delete Record'}
                   </button>
                   <button
                     onClick={() => setExpenseToDelete(null)}
                     disabled={isDeleting}
-                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                   >
                     Cancel
                   </button>
@@ -1087,21 +1087,21 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" /></svg>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Reverse Deposit?</h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                   Remove this ₱{vaultDepositToDelete.amount.toLocaleString()} vault deposit{vaultDepositToDelete.timestamp ? ` from ${new Date(vaultDepositToDelete.timestamp.replace(' ', 'T')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : ''}? The amount will be deducted back from the vault balance.
                 </p>
                 <div className="flex flex-col gap-4 mt-10">
                   <button
                     onClick={handleFinalDeleteVaultDeposit}
                     disabled={isDeletingVaultDeposit}
-                    className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                    className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
                     {isDeletingVaultDeposit ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Reverse Deposit'}
                   </button>
                   <button
                     onClick={() => setVaultDepositToDelete(null)}
                     disabled={isDeletingVaultDeposit}
-                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                   >
                     Cancel
                   </button>
@@ -1118,22 +1118,22 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 16l-6-6m6 6l6-6" /></svg>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Reverse Vault Usage?</h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                   This will remove the <span className="text-slate-700">{vaultWithdrawalToDelete.expenseName}</span> expense and restore ₱{vaultWithdrawalToDelete.amount.toLocaleString()} to the vault fund.
                 </p>
-                <p className="text-[9px] font-semibold text-amber-500 uppercase tracking-widest mt-3">The paired expense record will also be deleted and ROI will be restored.</p>
+                <p className="text-xs font-semibold text-amber-500 uppercase tracking-widest mt-3">The paired expense record will also be deleted and ROI will be restored.</p>
                 <div className="flex flex-col gap-4 mt-10">
                   <button
                     onClick={handleFinalDeleteVaultWithdrawal}
                     disabled={isDeletingVaultWithdrawal}
-                    className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                    className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
                     {isDeletingVaultWithdrawal ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Reverse Vault Usage'}
                   </button>
                   <button
                     onClick={() => setVaultWithdrawalToDelete(null)}
                     disabled={isDeletingVaultWithdrawal}
-                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                   >
                     Cancel
                   </button>
@@ -1187,18 +1187,18 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                     <>
                       {/* Header */}
                       <div className="bg-indigo-50 px-5 pt-5 pb-4">
-                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Vault Deposit</p>
+                        <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Vault Deposit</p>
                         <p className="text-base font-black text-slate-900 uppercase tracking-tight leading-none">{branch.name}</p>
 
                         {/* Current fund + target */}
                         <div className="mt-3 flex items-end justify-between">
                           <div>
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Current Fund</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Fund</p>
                             <p className="text-xl font-black text-indigo-700 tabular-nums leading-none">₱{currentBalance.toLocaleString()}</p>
                           </div>
                           {target > 0 && (
                             <div className="text-right">
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Target</p>
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Target</p>
                               <p className="text-sm font-black text-slate-500 tabular-nums leading-none">₱{target.toLocaleString()}</p>
                             </div>
                           )}
@@ -1210,7 +1210,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                             <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
                               <div className="h-full bg-indigo-400 rounded-full transition-all duration-500" style={{ width: `${currentPct}%` }} />
                             </div>
-                            <p className="text-[8px] font-bold text-indigo-300 uppercase tracking-widest mt-1">{currentPct}% of target</p>
+                            <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mt-1">{currentPct}% of target</p>
                           </div>
                         )}
 
@@ -1218,16 +1218,16 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                         <div className="mt-3 bg-white/60 rounded-2xl border border-indigo-100 overflow-hidden">
                           <div className="divide-y divide-indigo-50">
                             <div className="flex items-center justify-between px-3 py-1.5">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Current Balance</span>
-                              <span className="text-[10px] font-black text-slate-600 tabular-nums">₱{currentBalance.toLocaleString()}</span>
+                              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Balance</span>
+                              <span className="text-xs font-black text-slate-600 tabular-nums">₱{currentBalance.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center justify-between px-3 py-1.5">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Depositing</span>
-                              <span className="text-[10px] font-black text-indigo-500 tabular-nums">+₱{depositAmt.toLocaleString()}</span>
+                              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Depositing</span>
+                              <span className="text-xs font-black text-indigo-500 tabular-nums">+₱{depositAmt.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/60">
-                              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Expected Total</span>
-                              <span className="text-[11px] font-black text-indigo-700 tabular-nums">₱{(currentBalance + depositAmt).toLocaleString()}</span>
+                              <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">Expected Total</span>
+                              <span className="text-xs font-black text-indigo-700 tabular-nums">₱{(currentBalance + depositAmt).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -1242,8 +1242,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                             </svg>
                             <div>
-                              <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Deposit Not Available</p>
-                              <p className="text-[9px] font-semibold text-rose-400 mt-0.5 leading-relaxed">Today's ROI is ₱{metrics.net.toLocaleString()} — there is nothing to deposit into the vault.</p>
+                              <p className="text-xs font-black text-rose-600 uppercase tracking-widest">Deposit Not Available</p>
+                              <p className="text-xs font-semibold text-rose-400 mt-0.5 leading-relaxed">Today's ROI is ₱{metrics.net.toLocaleString()} — there is nothing to deposit into the vault.</p>
                             </div>
                           </div>
                         ) : (
@@ -1258,8 +1258,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                                 {vaultDepositRemitAll && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className={`text-[11px] font-black uppercase tracking-widest leading-none ${vaultDepositRemitAll ? 'text-indigo-900' : 'text-slate-600'}`}>Deposit full ROI</p>
-                                <p className={`text-[9px] font-bold tabular-nums mt-0.5 ${vaultDepositRemitAll ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                <p className={`text-xs font-black uppercase tracking-widest leading-none ${vaultDepositRemitAll ? 'text-indigo-900' : 'text-slate-600'}`}>Deposit full ROI</p>
+                                <p className={`text-xs font-bold tabular-nums mt-0.5 ${vaultDepositRemitAll ? 'text-indigo-400' : 'text-slate-400'}`}>
                                   ₱{remitAllAmt.toLocaleString()}
                                   {spaceInTarget !== Infinity && spaceInTarget < netRoi && <span className="ml-1 text-amber-500">(capped by target)</span>}
                                 </p>
@@ -1280,8 +1280,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                               return (
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between px-1">
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Custom Amount</label>
-                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Max ₱{maxDeposit.toLocaleString()}</span>
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Custom Amount</label>
+                                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Max ₱{maxDeposit.toLocaleString()}</span>
                                   </div>
                                   <div className="relative">
                                     <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-base font-black pointer-events-none ${isInvalid ? 'text-rose-300' : 'text-slate-300'}`}>₱</span>
@@ -1302,7 +1302,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                                     />
                                   </div>
                                   {validationMsg && (
-                                    <p className="text-[9px] font-bold text-rose-500 px-1 leading-snug">{validationMsg}</p>
+                                    <p className="text-xs font-bold text-rose-500 px-1 leading-snug">{validationMsg}</p>
                                   )}
                                 </div>
                               );
@@ -1314,12 +1314,12 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <button
                             onClick={() => { setShowVaultDepositPrompt(false); setVaultDepositInput(''); }}
-                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-xs bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
                           >Cancel</button>
                           <button
                             onClick={handleVaultDepositPromptSubmit}
                             disabled={netRoi <= 0 || depositAmt <= 0 || depositAmt > maxDeposit || isSubmittingVaultDeposit}
-                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="py-3 rounded-2xl font-black uppercase tracking-widest text-xs bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                           >{isSubmittingVaultDeposit ? 'Saving...' : `Deposit ₱${depositAmt.toLocaleString()}`}</button>
                         </div>
                       </div>
@@ -1338,19 +1338,19 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2-0 01-2-2V5a2 2-0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2-0 01-2 2z" /></svg>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                   Generate and download the daily operational ledger for {branch.name}?
                 </p>
                 <div className="flex flex-col gap-4 mt-10">
                   <button
                     onClick={() => handleExportPDF(true)}
-                    className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                    className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
                     Confirm Export
                   </button>
                   <button
                     onClick={() => setShowPDFConfirm(false)}
-                    className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                    className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                   >
                     Cancel
                   </button>
@@ -1418,8 +1418,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         <div className="hidden print:block space-y-8">
           {/* KPI SUMMARY TABLE */}
           <div className="space-y-2">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Financial Summary</h4>
-            <table className="w-full border-collapse border border-slate-200 text-[11px]">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Summary</h4>
+            <table className="w-full border-collapse border border-slate-200 text-xs">
               <thead>
               <tr className="bg-slate-50">
                 <th className="border border-slate-200 px-4 py-2 text-left uppercase tracking-widest">Metric</th>
@@ -1432,25 +1432,25 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 <td className="border border-slate-200 px-4 py-2 text-right font-bold tabular-nums">₱{metrics.gross.toLocaleString()}</td>
               </tr>
               <tr>
-                <td className="border border-slate-200 px-4 py-2 text-[9px] uppercase text-slate-500 pl-8 italic">  - Cash Payments</td>
-                <td className="border border-slate-200 px-4 py-2 text-right text-[9px] tabular-nums text-slate-500 italic">₱{metrics.cashTotal.toLocaleString()}</td>
+                <td className="border border-slate-200 px-4 py-2 text-xs uppercase text-slate-500 pl-8 italic">  - Cash Payments</td>
+                <td className="border border-slate-200 px-4 py-2 text-right text-xs tabular-nums text-slate-500 italic">₱{metrics.cashTotal.toLocaleString()}</td>
               </tr>
               <tr>
-                <td className="border border-slate-200 px-4 py-2 text-[9px] uppercase text-slate-500 pl-8 italic">  - GCash Payments</td>
-                <td className="border border-slate-200 px-4 py-2 text-right text-[9px] tabular-nums text-slate-500 italic">₱{metrics.gcashTotal.toLocaleString()}</td>
+                <td className="border border-slate-200 px-4 py-2 text-xs uppercase text-slate-500 pl-8 italic">  - GCash Payments</td>
+                <td className="border border-slate-200 px-4 py-2 text-right text-xs tabular-nums text-slate-500 italic">₱{metrics.gcashTotal.toLocaleString()}</td>
               </tr>
               <tr>
                 <td className="border border-slate-200 px-4 py-2 font-bold uppercase text-rose-600">Expenses</td>
                 <td className="border border-slate-200 px-4 py-2 text-right tabular-nums text-slate-400">—</td>
               </tr>
               <tr>
-                <td className="border border-slate-200 px-4 py-2 text-[9px] uppercase text-slate-500 pl-8 italic">  Operational</td>
-                <td className="border border-slate-200 px-4 py-2 text-right text-[9px] tabular-nums text-slate-500 italic">₱{metrics.operationalExp.toLocaleString()}</td>
+                <td className="border border-slate-200 px-4 py-2 text-xs uppercase text-slate-500 pl-8 italic">  Operational</td>
+                <td className="border border-slate-200 px-4 py-2 text-right text-xs tabular-nums text-slate-500 italic">₱{metrics.operationalExp.toLocaleString()}</td>
               </tr>
               {metrics.vaultProvision > 0 && (
               <tr>
-                <td className="border border-slate-200 px-4 py-2 text-[9px] uppercase text-slate-500 pl-8 italic">  Vault Deposit</td>
-                <td className="border border-slate-200 px-4 py-2 text-right text-[9px] tabular-nums text-slate-500 italic">₱{metrics.vaultProvision.toLocaleString()}</td>
+                <td className="border border-slate-200 px-4 py-2 text-xs uppercase text-slate-500 pl-8 italic">  Vault Deposit</td>
+                <td className="border border-slate-200 px-4 py-2 text-right text-xs tabular-nums text-slate-500 italic">₱{metrics.vaultProvision.toLocaleString()}</td>
               </tr>
               )}
               <tr>
@@ -1473,8 +1473,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
           {/* SESSION LOGS TABLE */}
           <div className="space-y-2">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Session Logs</h4>
-            <table className="w-full border-collapse border border-slate-200 text-[9px]">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Session Logs</h4>
+            <table className="w-full border-collapse border border-slate-200 text-xs">
               <thead>
               <tr className="bg-slate-50 font-bold uppercase tracking-widest">
                 <th className="border border-slate-200 px-2 py-1.5 text-left">Time</th>
@@ -1501,10 +1501,10 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                       <td className="border border-slate-200 px-2 py-1.5 font-bold uppercase">{t.clientName}</td>
                       <td className="border border-slate-200 px-2 py-1.5 uppercase leading-tight">{t.serviceName}</td>
                       <td className="border border-slate-200 px-2 py-1.5 text-right tabular-nums">₱{netTotal.toLocaleString()}</td>
-                      <td className="border border-slate-200 px-2 py-1.5 uppercase text-[8px]">
+                      <td className="border border-slate-200 px-2 py-1.5 uppercase text-xs">
                         {t.paymentMethod === 'GCASH' ? 'GCASH' : (t.paymentMethod || 'CASH')} ({t.paymentStatus || 'PAID'})
                       </td>
-                      <td className="border border-slate-200 px-2 py-1.5 uppercase text-[8px]">
+                      <td className="border border-slate-200 px-2 py-1.5 uppercase text-xs">
                         {t.therapistName && <div>T: {t.therapistName} (₱{therapistComm})</div>}
                         {t.bonesetterName && <div>B: {t.bonesetterName} (₱{bonesetterComm})</div>}
                       </td>
@@ -1518,8 +1518,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
           {/* STAFF PERFORMANCE TABLE */}
           <div className="space-y-2">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Staff Performance Matrix</h4>
-            <table className="w-full border-collapse border border-slate-200 text-[10px]">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Staff Performance Matrix</h4>
+            <table className="w-full border-collapse border border-slate-200 text-xs">
               <thead>
               <tr className="bg-slate-50 font-bold uppercase tracking-widest">
                 <th className="border border-slate-200 px-3 py-2 text-left">Employee</th>
@@ -1543,8 +1543,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                     <tr key={name}>
                       <td className="border border-slate-200 px-3 py-2 font-bold uppercase">
                         {name}
-                        {isReliever && <span className="ml-1 text-[7px] text-purple-600 font-black">(RELIEVER)</span>}
-                        {isHalfDay && <span className="ml-1 text-[7px] text-amber-600 font-black">(HALF DAY)</span>}
+                        {isReliever && <span className="ml-1 text-xs text-purple-600 font-black">(RELIEVER)</span>}
+                        {isHalfDay && <span className="ml-1 text-xs text-amber-600 font-black">(HALF DAY)</span>}
                       </td>
                       <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">{data.count}</td>
                       <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">₱{(data.commission + data.allowance).toLocaleString()}</td>
@@ -1562,8 +1562,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           {/* OPERATIONAL EXPENSES TABLE */}
           <div className={`${exps.some(e => e.category === 'PROVISION') ? 'grid grid-cols-2 gap-8' : ''}`}>
             <div className="space-y-2">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Operational Outflows</h4>
-              <table className="w-full border-collapse border border-slate-200 text-[9px]">
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Operational Outflows</h4>
+              <table className="w-full border-collapse border border-slate-200 text-xs">
                 <thead>
                 <tr className="bg-slate-50 font-bold uppercase tracking-widest">
                   <th className="border border-slate-200 px-2 py-1.5 text-left">Expense</th>
@@ -1584,8 +1584,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             {/* Legacy rent & bills provision — only on old reports */}
             {exps.some(e => e.category === 'PROVISION') && (
               <div className="space-y-2">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Rent & Bills</h4>
-                <table className="w-full border-collapse border border-slate-200 text-[9px]">
+                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Rent & Bills</h4>
+                <table className="w-full border-collapse border border-slate-200 text-xs">
                   <thead>
                   <tr className="bg-slate-50 font-bold uppercase tracking-widest">
                     <th className="border border-slate-200 px-2 py-1.5 text-left">Provision</th>

@@ -231,7 +231,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
           {item.id === 'requests' && pendingRequestsCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-white items-center justify-center text-[8px] font-black text-white leading-none">
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-white items-center justify-center text-xs font-black text-white leading-none">
                 {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
               </span>
             </span>
@@ -239,7 +239,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
           {item.id === 'complaints' && pendingComplaintsCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-60" />
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-500 border border-white items-center justify-center text-[8px] font-black text-white leading-none">
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-500 border border-white items-center justify-center text-xs font-black text-white leading-none">
                 {pendingComplaintsCount > 9 ? '9+' : pendingComplaintsCount}
               </span>
             </span>
@@ -248,10 +248,10 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
 
         {/* Label + desc */}
         <div className="min-w-0">
-          <p className={`text-[12px] sm:text-[13px] font-black uppercase tracking-tight leading-none mb-1 transition-colors ${isActive ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
+          <p className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-none mb-1 transition-colors ${isActive ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
             {item.label}
           </p>
-          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">
+          <p className="text-xs sm:text-xs font-bold uppercase tracking-widest text-slate-400 truncate">
             {item.desc}
           </p>
         </div>
@@ -264,8 +264,8 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
   return (
     <>
       {windowWidth >= 640 ? (
-        <nav className={`bg-slate-800 border-b border-white/5 no-print ${isSticky ? 'sticky top-[72px] sm:top-20' : ''} z-[900] shadow-lg w-full`}>
-          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-14 relative`}>
+        <nav className={`bg-white border-b border-slate-100 no-print ${isSticky ? 'sticky top-14 sm:top-16' : ''} z-[900] w-full`}>
+          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-12 relative`}>
             {/* Hidden measurement div */}
             <div
               ref={measureRef}
@@ -278,7 +278,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   key={item.id}
                   data-tab-measure="1"
                   tabIndex={-1}
-                  className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase shrink-0 rounded-xl"
+                  className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-xs lg:text-xs uppercase shrink-0 rounded-xl"
                 >
                   <div>{item.icon}</div>
                   <span className="tracking-widest whitespace-nowrap">{item.label}</span>
@@ -287,45 +287,33 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
               <button
                 data-more-measure="1"
                 tabIndex={-1}
-                className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase shrink-0 rounded-xl mr-2"
+                className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-xs lg:text-xs uppercase shrink-0 rounded-xl mr-2"
               >
                 {Icons.more}
                 <span className="tracking-widest whitespace-nowrap">More</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+            <div className="flex items-center gap-0.5 min-w-0">
               {visibleTabs.map(item => {
                 const isActive = activeTab === item.id;
                 return (
                   <button
                     key={item.id}
                     onClick={() => handleTabClick(item.id)}
-                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                    className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
                   >
-                    <div className={`transition-all duration-200 ${isActive ? 'scale-110 text-emerald-400' : 'group-hover:text-emerald-300'}`}>{item.icon}</div>
-                    <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${isActive ? 'opacity-100' : ''}`}>
-                      {item.label}
-                    </span>
+                    <div className={`transition-all duration-150 ${isActive ? 'text-emerald-600' : ''}`}>{item.icon}</div>
+                    <span className="whitespace-nowrap">{item.label}</span>
                     {item.id === 'employees' && resetRequestCount > 0 && (
-                      <div className="absolute -top-1 -right-1 flex items-center justify-center">
-                        <span className="relative flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 border border-white"></span>
-                        </span>
-                      </div>
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                     )}
                     {item.id === 'requests' && pendingRequestsCount > 0 && (
-                      <div className="absolute -top-1 -right-1 flex items-center justify-center z-10">
-                        <span className="relative flex h-4 w-4">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
-                          <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-white items-center justify-center text-[8px] font-black text-white leading-none">
-                            {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
-                          </span>
-                        </span>
-                      </div>
+                      <span className="flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-amber-500 text-white text-xs font-bold leading-none">
+                        {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                      </span>
                     )}
-                    {isActive && <div className="absolute -bottom-1 left-4 right-4 h-[2px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>}
+                    {isActive && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-500 rounded-full"></div>}
                   </button>
                 );
               })}
@@ -333,13 +321,11 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
               {overflowTabs.length > 0 && (
                 <button
                   onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                  className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl mr-2 ${isMoreActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg mr-2 ${isMoreActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
                 >
-                  <div className={`transition-all duration-200 ${isMoreActive ? 'scale-110 text-emerald-400' : 'group-hover:text-emerald-300'}`}>{Icons.more}</div>
-                  <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${isMoreActive ? 'opacity-100' : ''}`}>
-                    More
-                  </span>
-                  {isMoreActive && <div className="absolute -bottom-1 left-4 right-4 h-[2px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>}
+                  <div>{Icons.more}</div>
+                  <span className="whitespace-nowrap">More</span>
+                  {isMoreActive && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-500 rounded-full"></div>}
                 </button>
               )}
             </div>
@@ -371,14 +357,14 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                       <div className="absolute -top-1 right-1 flex items-center justify-center">
                         <span className="relative flex h-4 w-4">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60"></span>
-                          <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-slate-800 items-center justify-center text-[8px] font-black text-white leading-none">
+                          <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-slate-800 items-center justify-center text-xs font-black text-white leading-none">
                             {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
                           </span>
                         </span>
                       </div>
                     )}
                   </div>
-                  <span className={`text-[8px] font-bold uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{item.label}</span>
+                  <span className={`text-xs font-bold uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{item.label}</span>
                   {isActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10b981]"></div>}
                 </button>
               );
@@ -395,7 +381,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
                   )}
                 </div>
-                <span className={`text-[8px] font-bold uppercase tracking-tight ${isMoreActive ? 'text-white' : 'text-slate-300'}`}>More</span>
+                <span className={`text-xs font-bold uppercase tracking-tight ${isMoreActive ? 'text-white' : 'text-slate-300'}`}>More</span>
                 {isMoreActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10b981]"></div>}
               </button>
             )}
@@ -435,7 +421,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5 shrink-0">
                       <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                      <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Favorites</span>
+                      <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Favorites</span>
                     </div>
                     <div className="h-px bg-amber-100 flex-1" />
                   </div>
@@ -461,7 +447,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                 return (
                   <section key={cat} className="space-y-2.5">
                     <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-black uppercase tracking-widest shrink-0 ${catColor[cat] ?? 'text-slate-400'}`}>{cat}</span>
+                      <span className={`text-xs font-black uppercase tracking-widest shrink-0 ${catColor[cat] ?? 'text-slate-400'}`}>{cat}</span>
                       <div className="h-px bg-slate-100 flex-1" />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">

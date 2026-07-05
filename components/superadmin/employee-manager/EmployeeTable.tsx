@@ -61,33 +61,33 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                       </div>
                       <div className="min-w-0">
                         {empId && (
-                          <p className="text-[8px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
+                          <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
                         )}
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-bold text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{emp.name || 'UNNAMED'}</p>
                         </div>
                         {emp.requestReset && (
-                            <span className="text-[8px] font-bold bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse mt-1.5 inline-block">Reset Requested</span>
+                            <span className="text-xs font-bold bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse mt-1.5 inline-block">Reset Requested</span>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-5" onClick={() => onEdit?.(emp)}>
                     {homeBranch
-                      ? <span title={homeBranch.name} className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter bg-emerald-50 text-emerald-700 border-emerald-200 max-w-[140px] truncate inline-block">{homeBranch.name}</span>
-                      : <span className="text-[10px] font-semibold text-slate-300 italic">—</span>}
+                      ? <span title={homeBranch.name} className="text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-tighter bg-emerald-50 text-emerald-700 border-emerald-200 max-w-[140px] truncate inline-block">{homeBranch.name}</span>
+                      : <span className="text-xs font-semibold text-slate-300 italic">—</span>}
                   </td>
                   <td className="px-4 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex flex-wrap gap-1.5">
                       {relieverBranches.length > 0 ? relieverBranches.map((b, i) => (
-                        <span key={i} title={b.name} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter flex items-center gap-1 max-w-[140px] truncate
+                        <span key={i} title={b.name} className={`text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-tighter flex items-center gap-1 max-w-[140px] truncate
                           ${b.manager?.toUpperCase() === empNameUpper
                             ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
                             : 'bg-violet-50 text-violet-700 border-violet-200'}`}>
                           {b.manager?.toUpperCase() === empNameUpper && <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>}
                           <span className="truncate">{b.name}</span>
                         </span>
-                      )) : <span className="text-[10px] font-semibold text-slate-300">—</span>}
+                      )) : <span className="text-xs font-semibold text-slate-300">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
@@ -98,20 +98,20 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
                       {emp.onLeave ? (
                         <>
                           <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-500">On Leave</span>
+                          <span className="text-xs font-bold uppercase tracking-widest text-purple-500">On Leave</span>
                         </>
                       ) : (
                         <>
                           <div className={`w-1.5 h-1.5 rounded-full ${emp.isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-300'}`} />
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
+                          <span className={`text-xs font-bold uppercase tracking-widest ${emp.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{emp.isActive ? 'Active' : 'Off'}</span>
                         </>
                       )}
                     </div>
                   </td>
                   <td className="px-4 py-5 text-center" onClick={() => onEdit?.(emp)}>
                     {position === 'manager'
-                      ? <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Manager</span>
-                      : <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Regular</span>
+                      ? <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">Manager</span>
+                      : <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Regular</span>
                     }
                   </td>
                   <td className="px-8 py-5 text-right">

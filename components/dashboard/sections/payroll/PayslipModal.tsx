@@ -157,20 +157,20 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
           <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-emerald-500/10 pointer-events-none" />
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div className="space-y-0.5 min-w-0">
-              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.3em]">Official Earnings Statement</p>
+              <p className="text-xs font-black text-emerald-500 uppercase tracking-[0.3em]">Official Earnings Statement</p>
               <h2 className="text-lg font-black text-white uppercase tracking-tight truncate">{data.name}</h2>
               {data.formattedEmpId && (
-                <p className="text-[9px] font-bold text-slate-500 font-mono">{data.formattedEmpId}</p>
+                <p className="text-xs font-bold text-slate-500 font-mono">{data.formattedEmpId}</p>
               )}
-              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pt-0.5">{data.branchName} · {data.period}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest pt-0.5">{data.branchName} · {data.period}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Net Pay</p>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Net Pay</p>
               <p className="text-2xl font-black text-emerald-400 tabular-nums leading-tight">₱{data.netPay.toLocaleString()}</p>
               {data.isSettled && (
                 <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Settled</span>
+                  <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">Settled</span>
                 </span>
               )}
             </div>
@@ -182,34 +182,34 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
 
           {/* Earnings breakdown */}
           <div className="px-6 pt-4 pb-2 space-y-0.5">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Earnings Breakdown</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Earnings Breakdown</p>
 
             <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <p className="text-[11px] font-bold text-slate-500">Commission</p>
-              <p className="text-[13px] font-black text-slate-900 tabular-nums">₱{data.commission.toLocaleString()}</p>
+              <p className="text-xs font-bold text-slate-500">Commission</p>
+              <p className="text-sm font-black text-slate-900 tabular-nums">₱{data.commission.toLocaleString()}</p>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <p className="text-[11px] font-bold text-slate-500">Allowance</p>
-              <p className="text-[13px] font-black text-slate-900 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+              <p className="text-xs font-bold text-slate-500">Allowance</p>
+              <p className="text-sm font-black text-slate-900 tabular-nums">₱{data.allowance.toLocaleString()}</p>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <p className={`text-[11px] font-bold ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>OT Pay</p>
-              <p className={`text-[13px] font-black tabular-nums ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{data.ot > 0 ? `+₱${data.ot.toLocaleString()}` : '₱0'}</p>
+              <p className={`text-xs font-bold ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>OT Pay</p>
+              <p className={`text-sm font-black tabular-nums ${data.ot > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{data.ot > 0 ? `+₱${data.ot.toLocaleString()}` : '₱0'}</p>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <p className={`text-[11px] font-bold ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>Late Deduction</p>
-              <p className={`text-[13px] font-black tabular-nums ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{data.late > 0 ? `−₱${data.late.toLocaleString()}` : '₱0'}</p>
+              <p className={`text-xs font-bold ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>Late Deduction</p>
+              <p className={`text-sm font-black tabular-nums ${data.late > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{data.late > 0 ? `−₱${data.late.toLocaleString()}` : '₱0'}</p>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <p className={`text-[11px] font-bold ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>Cash Advance</p>
-              <p className={`text-[13px] font-black tabular-nums ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>{data.advance > 0 ? `−₱${data.advance.toLocaleString()}` : '₱0'}</p>
+              <p className={`text-xs font-bold ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>Cash Advance</p>
+              <p className={`text-sm font-black tabular-nums ${data.advance > 0 ? 'text-indigo-500' : 'text-slate-400'}`}>{data.advance > 0 ? `−₱${data.advance.toLocaleString()}` : '₱0'}</p>
             </div>
 
             {/* Net total row */}
             <div className="flex items-center justify-between pt-2.5 pb-1">
               <div className="flex items-center gap-2">
-                <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Net Payout</p>
-                <span className="text-[9px] font-bold text-slate-400">{data.sessions} session{data.sessions !== 1 ? 's' : ''}</span>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Net Payout</p>
+                <span className="text-xs font-bold text-slate-400">{data.sessions} session{data.sessions !== 1 ? 's' : ''}</span>
               </div>
               <p className="text-[18px] font-black text-emerald-600 tabular-nums">₱{data.netPay.toLocaleString()}</p>
             </div>
@@ -218,17 +218,17 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
           {/* Daily breakdown */}
           {sorted.length > 0 && (
             <div className="px-6 pt-3 pb-5 space-y-2">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Daily Records</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Daily Records</p>
               <div className="rounded-2xl border border-slate-100 overflow-hidden">
                 {/* Header: Date | Allw | Comm | Late | OT | CA | Net */}
                 <div className="grid grid-cols-[52px_repeat(6,minmax(0,1fr))] sm:grid-cols-[80px_repeat(6,minmax(0,1fr))] bg-slate-900 px-3 py-2.5">
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Date</p>
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Allw.</p>
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Comm.</p>
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">Late</p>
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">OT</p>
-                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest text-right">CA</p>
-                  <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest text-right">Net</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Date</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-right">Allw.</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-right">Comm.</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-right">Late</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-right">OT</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-right">CA</p>
+                  <p className="text-xs font-black text-emerald-500 uppercase tracking-widest text-right">Net</p>
                 </div>
                 {sorted.map((day, i) => {
                   const [y, m, d] = day.date.split('-').map(Number);
@@ -237,16 +237,16 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
                   const fullLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
                   return (
                     <div key={day.date} className={`grid grid-cols-[52px_repeat(6,minmax(0,1fr))] sm:grid-cols-[80px_repeat(6,minmax(0,1fr))] px-3 py-2.5 border-t border-slate-50 ${i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                      <p className="text-[9px] font-bold text-slate-600 uppercase leading-tight">
+                      <p className="text-xs font-bold text-slate-600 uppercase leading-tight">
                         <span className="sm:hidden">{shortLabel}</span>
                         <span className="hidden sm:inline">{fullLabel}</span>
                       </p>
-                      <p className="text-[9px] font-bold text-slate-900 tabular-nums text-right">₱{day.allowance.toLocaleString()}</p>
-                      <p className="text-[9px] font-bold text-slate-900 tabular-nums text-right">₱{day.commission.toLocaleString()}</p>
-                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.late > 0 ? 'text-rose-500' : 'text-slate-300'}`}>{day.late > 0 ? `−₱${day.late.toLocaleString()}` : '—'}</p>
-                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.ot > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>{day.ot > 0 ? `+₱${day.ot.toLocaleString()}` : '—'}</p>
-                      <p className={`text-[9px] font-bold tabular-nums text-right ${day.advance > 0 ? 'text-indigo-500' : 'text-slate-300'}`}>{day.advance > 0 ? `−₱${day.advance.toLocaleString()}` : '—'}</p>
-                      <p className="text-[9px] font-black text-slate-900 tabular-nums text-right">₱{day.net.toLocaleString()}</p>
+                      <p className="text-xs font-bold text-slate-900 tabular-nums text-right">₱{day.allowance.toLocaleString()}</p>
+                      <p className="text-xs font-bold text-slate-900 tabular-nums text-right">₱{day.commission.toLocaleString()}</p>
+                      <p className={`text-xs font-bold tabular-nums text-right ${day.late > 0 ? 'text-rose-500' : 'text-slate-300'}`}>{day.late > 0 ? `−₱${day.late.toLocaleString()}` : '—'}</p>
+                      <p className={`text-xs font-bold tabular-nums text-right ${day.ot > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>{day.ot > 0 ? `+₱${day.ot.toLocaleString()}` : '—'}</p>
+                      <p className={`text-xs font-bold tabular-nums text-right ${day.advance > 0 ? 'text-indigo-500' : 'text-slate-300'}`}>{day.advance > 0 ? `−₱${day.advance.toLocaleString()}` : '—'}</p>
+                      <p className="text-xs font-black text-slate-900 tabular-nums text-right">₱{day.net.toLocaleString()}</p>
                     </div>
                   );
                 })}
@@ -259,14 +259,14 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({ data, onClose }) => 
         <div className="bg-white px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
           <button
             onClick={handleExportPDF}
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="2.5" /></svg>
             Save PDF
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
           >
             Close
           </button>

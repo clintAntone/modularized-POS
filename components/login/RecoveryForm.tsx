@@ -106,9 +106,9 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4"><path d="M5 13l4 4L19 7"/></svg>
           </div>
           <p className="text-sm font-black text-emerald-800 uppercase tracking-tight">PIN Reset Successful</p>
-          <p className="text-[9px] font-semibold text-emerald-600 uppercase tracking-widest">You can now log in with your new PIN.</p>
+          <p className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">You can now log in with your new PIN.</p>
         </div>
-        <button onClick={onCancel} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all">
+        <button onClick={onCancel} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">
           Back to Login
         </button>
       </div>
@@ -121,7 +121,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       <div className="flex items-center gap-2 justify-center">
         {(['username', 'otp', 'pin'] as Step[]).map((s, i) => (
           <React.Fragment key={s}>
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black transition-all ${
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-all ${
               step === s ? 'bg-emerald-600 text-white' :
               (['username', 'otp', 'pin'] as Step[]).indexOf(step) > i ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-400'
             }`}>{i + 1}</div>
@@ -131,7 +131,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-center text-[9px] font-black uppercase border border-rose-100 animate-in slide-in-from-top-2">
+        <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-center text-xs font-black uppercase border border-rose-100 animate-in slide-in-from-top-2">
           {error}
         </div>
       )}
@@ -140,28 +140,28 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       {step === 'username' && (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest ml-1">Your Username</label>
+            <label className="text-xs font-semibold text-emerald-600 uppercase tracking-widest ml-1">Your Username</label>
             <input
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value.toLowerCase())}
               placeholder="ENTER USERNAME"
               autoFocus
-              className="w-full p-4 bg-slate-50 border-2 border-transparent text-[11px] rounded-xl font-bold uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tracking-widest"
+              className="w-full p-4 bg-slate-50 border-2 border-transparent text-xs rounded-xl font-bold uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tracking-widest"
             />
           </div>
-          <p className="text-[9px] text-slate-400 font-semibold text-center uppercase tracking-widest">
+          <p className="text-xs text-slate-400 font-semibold text-center uppercase tracking-widest">
             A one-time password will be sent to your registered email
           </p>
           <button
             onClick={handleRequestOTP}
             disabled={loading || !username.trim()}
-            className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
           >
             {loading ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : null}
             Send OTP
           </button>
-          <button onClick={onCancel} className="w-full text-[9px] font-semibold text-slate-400 uppercase tracking-widest py-2">Cancel</button>
+          <button onClick={onCancel} className="w-full text-xs font-semibold text-slate-400 uppercase tracking-widest py-2">Cancel</button>
         </div>
       )}
 
@@ -169,15 +169,15 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       {step === 'otp' && (
         <div className="space-y-4">
           <div className="p-4 bg-slate-50 rounded-2xl text-center space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">OTP sent to</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">OTP sent to</p>
             <p className="text-sm font-black text-slate-700">{maskedEmail}</p>
             {countdown > 0
-              ? <p className="text-[9px] font-semibold text-emerald-600 uppercase tracking-widest">Expires in {countdownStr}</p>
-              : <p className="text-[9px] font-semibold text-rose-500 uppercase tracking-widest">OTP expired</p>
+              ? <p className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">Expires in {countdownStr}</p>
+              : <p className="text-xs font-semibold text-rose-500 uppercase tracking-widest">OTP expired</p>
             }
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest ml-1">One-Time Password</label>
+            <label className="text-xs font-semibold text-emerald-600 uppercase tracking-widest ml-1">One-Time Password</label>
             <input
               type="text"
               value={otp}
@@ -192,7 +192,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
           <button
             onClick={handleVerifyOTP}
             disabled={loading || otp.length !== 6}
-            className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
           >
             {loading ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : null}
             Verify OTP
@@ -200,7 +200,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
           <button
             onClick={handleResend}
             disabled={loading || countdown > 0}
-            className="w-full text-[9px] font-semibold text-slate-400 uppercase tracking-widest py-1 disabled:opacity-30"
+            className="w-full text-xs font-semibold text-slate-400 uppercase tracking-widest py-1 disabled:opacity-30"
           >
             {countdown > 0 ? `Resend available in ${countdownStr}` : 'Resend OTP'}
           </button>
@@ -211,8 +211,8 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
       {step === 'pin' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center ml-1">
-            <label className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest">New Security PIN</label>
-            <button type="button" onClick={() => setShowPin(v => !v)} className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+            <label className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">New Security PIN</label>
+            <button type="button" onClick={() => setShowPin(v => !v)} className="text-xs font-black text-slate-400 uppercase tracking-widest">
               {showPin ? 'Hide' : 'Show'}
             </button>
           </div>
@@ -226,7 +226,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
             autoFocus
             className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-2xl tracking-[0.4em] outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner text-center tabular-nums"
           />
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest ml-1">Confirm New PIN</label>
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest ml-1">Confirm New PIN</label>
           <input
             type={showPin ? 'text' : 'password'}
             value={confirmPin}
@@ -243,7 +243,7 @@ export const RecoveryForm: React.FC<RecoveryFormProps> = ({ onCancel }) => {
           <button
             onClick={handleResetPin}
             disabled={loading || newPin.length !== 6 || confirmPin !== newPin}
-            className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[10px] shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
+            className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
           >
             {loading ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : null}
             Set New PIN

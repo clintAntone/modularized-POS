@@ -31,8 +31,8 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
               </svg>
             </div>
             <div>
-              <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.25em]">Security Alert</p>
-              <p className="text-[10px] font-black text-white leading-tight">
+              <p className="text-xs font-black text-rose-400 uppercase tracking-[0.25em]">Security Alert</p>
+              <p className="text-xs font-black text-white leading-tight">
                 {flags.length} suspicious {flags.length === 1 ? 'activity' : 'activities'} detected
               </p>
             </div>
@@ -40,7 +40,7 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
           <div className="flex items-center gap-2">
             <button
               onClick={onViewAudit}
-              className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-white font-black text-[9px] uppercase tracking-widest rounded-xl transition-all active:scale-95"
+              className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95"
             >
               View Audit
             </button>
@@ -59,9 +59,9 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
             <div key={flag.id} className="flex items-start gap-3 px-4 py-3 group">
               <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1.5 shrink-0 animate-pulse" />
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black text-white uppercase tracking-wide leading-tight">{flag.title}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5 leading-snug line-clamp-2">{flag.detail}</p>
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{flag.branchName}</p>
+                <p className="text-xs font-black text-white uppercase tracking-wide leading-tight">{flag.title}</p>
+                <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{flag.detail}</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{flag.branchName}</p>
               </div>
               <button
                 onClick={() => onDismiss(flag.id)}

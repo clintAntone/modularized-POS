@@ -402,7 +402,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                   {confirmMeta.icon}
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{confirmMeta.label}</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{confirmMeta.label}</p>
                   <p className="text-base font-black text-slate-900 uppercase tracking-tight leading-tight">{confirmBranch?.name ?? confirmState.request.branchId}</p>
                 </div>
               </div>
@@ -428,7 +428,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
             {/* Admin comment */}
             <div className="px-7 pb-4">
-              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">
                 Comment for manager <span className="text-slate-300 normal-case font-medium">(optional)</span>
               </label>
               <textarea
@@ -436,7 +436,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                 placeholder="Leave a note visible to the manager..."
                 value={adminComment}
                 onChange={e => setAdminComment(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none resize-none transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none resize-none transition-all"
               />
             </div>
 
@@ -444,7 +444,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             <div className="px-7 pb-7 flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmState(null); setAdminComment(''); }}
-                className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
+                className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
               >
                 Cancel
               </button>
@@ -452,7 +452,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                 <button
                   onClick={() => handleAction(confirmState.request, 'REJECT')}
                   disabled={!!isProcessing}
-                  className="px-7 py-3 bg-rose-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+                  className="px-7 py-3 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   Reject Request
                 </button>
@@ -460,7 +460,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                 <button
                   onClick={() => handleAction(confirmState.request, 'APPROVE')}
                   disabled={!!isProcessing}
-                  className="px-7 py-3 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
+                  className="px-7 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {confirmState.hasConflict ? 'Overwrite & Approve' : 'Approve Request'}
                 </button>
@@ -483,19 +483,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Delete Request?</h3>
-                <p className="text-[11px] font-bold text-slate-500 leading-relaxed">This will permanently remove the request. This action cannot be undone.</p>
+                <p className="text-xs font-bold text-slate-500 leading-relaxed">This will permanently remove the request. This action cannot be undone.</p>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={() => setDeleteConfirmId(null)}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteRequest}
                   disabled={!!isProcessing}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   Delete
@@ -513,7 +513,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
             Approval Workflows
           </h2>
-          <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-1">
+          <p className="text-xs sm:text-xs font-medium text-slate-500 mt-1">
             Manage pending backfill and security requests
           </p>
         </div>
@@ -533,13 +533,13 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                   filter === key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 {label}
                 {count > 0 && (
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-black leading-none ${
                     filter === key
                       ? 'bg-white/20 text-white'
                       : key === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
@@ -602,8 +602,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       {meta.icon}
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{meta.label}</span>
-                      <p className="text-[10px] font-medium text-slate-400 mt-0.5 truncate">
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{meta.label}</span>
+                      <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">
                         {branch?.name || 'Unknown Branch'}
                       </p>
                     </div>
@@ -636,7 +636,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         </svg>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Target Date</p>
+                        <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">Target Date</p>
                         <p className="text-sm font-black text-indigo-900">{formattedTargetDate}</p>
                       </div>
                     </div>
@@ -695,34 +695,34 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       <div className="rounded-2xl border border-slate-100 overflow-hidden">
                         {/* Column headers */}
                         <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100">
-                          <div className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Metric</div>
-                          <div className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right border-l border-slate-100">
+                          <div className="px-4 py-2.5 text-xs font-black text-slate-400 uppercase tracking-widest">Metric</div>
+                          <div className="px-4 py-2.5 text-xs font-black text-slate-400 uppercase tracking-widest text-right border-l border-slate-100">
                             {prior ? 'Before' : '—'}
                           </div>
-                          <div className="px-4 py-2.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100">After</div>
+                          <div className="px-4 py-2.5 text-xs font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100">After</div>
                         </div>
                         {rows.map(({ label, before, after, roiColor }) => {
                           const changed = before !== null && before !== after;
                           const delta = before !== null ? after - before : null;
                           return (
                             <div key={label} className={`grid grid-cols-3 border-b border-slate-50 last:border-0 ${changed ? 'bg-amber-50/40' : ''}`}>
-                              <div className="px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest">{label}</div>
+                              <div className="px-4 py-3 text-xs font-black text-slate-600 uppercase tracking-widest">{label}</div>
                               <div className="px-4 py-3 text-right border-l border-slate-100">
                                 {before !== null
-                                  ? <span className={`text-[13px] font-black tabular-nums ${changed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{fmt(before)}</span>
-                                  : <span className="text-[11px] text-slate-300">—</span>
+                                  ? <span className={`text-sm font-black tabular-nums ${changed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{fmt(before)}</span>
+                                  : <span className="text-xs text-slate-300">—</span>
                                 }
                               </div>
                               <div className="px-4 py-3 text-right border-l border-slate-100 flex flex-col items-end gap-0.5">
                                 {!changed && before !== null ? (
-                                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">No Changes</span>
+                                  <span className="text-xs font-black text-slate-300 uppercase tracking-widest">No Changes</span>
                                 ) : (
                                   <>
-                                    <span className={`text-[13px] font-black tabular-nums ${
+                                    <span className={`text-sm font-black tabular-nums ${
                                       roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900'
                                     }`}>{fmt(after)}</span>
                                     {delta !== null && changed && (
-                                      <span className={`text-[9px] font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                      <span className={`text-xs font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                         {delta > 0 ? '+' : ''}{fmt(delta)}
                                       </span>
                                     )}
@@ -769,7 +769,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                     <div className="flex items-center gap-2">
                                       <p className="text-xs font-black text-slate-900 uppercase truncate">{s.name}</p>
                                       {s.isHalfDay && (
-                                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-amber-500 text-white rounded-md text-[8px] font-black uppercase tracking-widest">
+                                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-amber-500 text-white rounded-md text-xs font-black uppercase tracking-widest">
                                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
                                           ½ Day
                                         </span>
@@ -782,12 +782,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                         { k: 'OT', v: s.otPay },
                                         { k: 'Allow', v: s.allowance },
                                       ].filter(x => x.v > 0).map(x => (
-                                        <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[9px] font-bold">
+                                        <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-xs font-bold">
                                           {x.k} ₱{x.v.toLocaleString()}
                                         </span>
                                       ))}
                                       {s.lateDeduction > 0 && (
-                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded text-[9px] font-bold">
+                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded text-xs font-bold">
                                           −Late ₱{s.lateDeduction.toLocaleString()}
                                         </span>
                                       )}
@@ -795,7 +795,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                     {fieldDeltas.length > 0 && (
                                       <div className="flex flex-wrap gap-1 mt-1.5">
                                         {fieldDeltas.map(x => (
-                                          <span key={x.k} className={`px-1.5 py-0.5 rounded text-[9px] font-black ${x.d > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                                          <span key={x.k} className={`px-1.5 py-0.5 rounded text-xs font-black ${x.d > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
                                             {x.k} {x.d > 0 ? '+' : ''}₱{Math.abs(x.d).toLocaleString()}
                                           </span>
                                         ))}
@@ -805,7 +805,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                   <div className="flex flex-col items-end shrink-0 gap-0.5">
                                     <span className="text-sm font-black text-slate-900 tabular-nums">{fmt(total)}</span>
                                     {hasChange && (
-                                      <span className={`text-[9px] font-black tabular-nums ${delta! > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                      <span className={`text-xs font-black tabular-nums ${delta! > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                         {delta! > 0 ? '+' : ''}{fmt(delta!)}
                                       </span>
                                     )}
@@ -821,7 +821,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       {/* Manager notes */}
                       {request.data.notes && (
                         <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Manager's Justification</p>
+                          <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Manager's Justification</p>
                           <p className="text-sm text-slate-700 font-medium italic leading-relaxed">"{request.data.notes}"</p>
                         </div>
                       )}
@@ -850,7 +850,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         };
                         const m = reasonMeta[request.data.reasonType];
                         return m ? (
-                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
                         ) : null;
                       })()}
                       {request.data.reason && (
@@ -862,7 +862,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         return (
                           <div className="flex items-center gap-2 pt-1">
                             <div className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No Changes — Employee is already inactive</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No Changes — Employee is already inactive</p>
                           </div>
                         );
                       })()}
@@ -872,16 +872,16 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">New Employee Request</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="col-span-2 bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Full Name</p>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Full Name</p>
                           <p className="text-sm font-black text-slate-900 uppercase">{request.data.name}</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Role</p>
-                          <p className="text-[11px] font-black text-indigo-700 uppercase">{(request.data.role || '').replace(',', ' + ')}</p>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Role</p>
+                          <p className="text-xs font-black text-indigo-700 uppercase">{(request.data.role || '').replace(',', ' + ')}</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Daily Allowance</p>
-                          <p className="text-[11px] font-black text-slate-900 tabular-nums">{fmt(request.data.allowance)}</p>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Daily Allowance</p>
+                          <p className="text-xs font-black text-slate-900 tabular-nums">{fmt(request.data.allowance)}</p>
                         </div>
                       </div>
                       {(() => {
@@ -889,7 +889,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         return branch ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-indigo-100">
                             <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <p className="text-[10px] font-black text-indigo-700 uppercase">{branch.name.replace('BRANCH - ', '')}</p>
+                            <p className="text-xs font-black text-indigo-700 uppercase">{branch.name.replace('BRANCH - ', '')}</p>
                           </div>
                         ) : null;
                       })()}
@@ -899,25 +899,25 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       <div className="grid grid-cols-2 gap-3">
                         {request.data.amount != null && (
                           <div className="rounded-2xl p-4 bg-slate-900 border border-white/5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Amount</p>
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Amount</p>
                             <p className="text-base font-black tabular-nums text-emerald-400">{fmt(request.data.amount)}</p>
                           </div>
                         )}
                         {request.data.service && (
                           <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Service</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Service</p>
                             <p className="text-sm font-black text-slate-900 uppercase truncate">{request.data.service}</p>
                           </div>
                         )}
                         {request.data.quantity != null && (
                           <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quantity</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Quantity</p>
                             <p className="text-sm font-black text-slate-900">{request.data.quantity}</p>
                           </div>
                         )}
                         {request.data.discount != null && request.data.discount > 0 && (
                           <div className="rounded-2xl p-4 bg-rose-50 border border-rose-100">
-                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1.5">Discount</p>
+                            <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1.5">Discount</p>
                             <p className="text-sm font-black text-rose-700">{fmt(request.data.discount)}</p>
                           </div>
                         )}
@@ -932,7 +932,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       )}
                       {request.data.notes && (
                         <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                          <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
                           <p className="text-sm text-slate-700 font-medium italic">"{request.data.notes}"</p>
                         </div>
                       )}
@@ -946,7 +946,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                               <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                             </div>
                             <div>
-                              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Employee</p>
+                              <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">Employee</p>
                               <p className="text-sm font-black text-indigo-900 uppercase">
                                 {employees.find(e => e.id === request.data.employeeId)?.name || request.data.employeeId}
                               </p>
@@ -955,32 +955,32 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         )}
                         {request.data.clockIn && (
                           <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock In</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock In</p>
                             <p className="text-sm font-black text-slate-900 tabular-nums">{request.data.clockIn}</p>
                           </div>
                         )}
                         {request.data.clockOut && (
                           <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock Out</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Clock Out</p>
                             <p className="text-sm font-black text-slate-900 tabular-nums">{request.data.clockOut}</p>
                           </div>
                         )}
                         {request.data.isHalfDay != null && (
                           <div className={`rounded-2xl p-4 border ${request.data.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ${request.data.isHalfDay ? 'text-amber-500' : 'text-slate-400'}`}>Day Type</p>
+                            <p className={`text-xs font-black uppercase tracking-widest mb-1.5 ${request.data.isHalfDay ? 'text-amber-500' : 'text-slate-400'}`}>Day Type</p>
                             <p className={`text-sm font-black ${request.data.isHalfDay ? 'text-amber-700' : 'text-slate-900'}`}>{request.data.isHalfDay ? 'Half Day' : 'Full Day'}</p>
                           </div>
                         )}
                         {request.data.overtimeHours != null && request.data.overtimeHours > 0 && (
                           <div className="rounded-2xl p-4 bg-emerald-50 border border-emerald-100">
-                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">Overtime</p>
+                            <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1.5">Overtime</p>
                             <p className="text-sm font-black text-emerald-900">{request.data.overtimeHours}h</p>
                           </div>
                         )}
                       </div>
                       {request.data.notes && (
                         <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                          <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Notes</p>
                           <p className="text-sm text-slate-700 font-medium italic">"{request.data.notes}"</p>
                         </div>
                       )}
@@ -1004,19 +1004,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         };
                         const m = leaveMeta[request.data.leaveType];
                         return m ? (
-                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${m.cls}`}>{m.label}</span>
                         ) : null;
                       })()}
                       <div className="grid grid-cols-2 gap-2">
                         {request.data.startDate && (
                           <div className="bg-white rounded-xl p-3 border border-purple-100">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Start Date</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Start Date</p>
                             <p className="text-sm font-black text-slate-900">{request.data.startDate}</p>
                           </div>
                         )}
                         {request.data.endDate && (
                           <div className="bg-white rounded-xl p-3 border border-purple-100">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">End Date</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">End Date</p>
                             <p className="text-sm font-black text-slate-900">{request.data.endDate}</p>
                           </div>
                         )}
@@ -1046,14 +1046,14 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                     <button
                       onClick={() => triggerConfirm(request, 'REJECT')}
                       disabled={!!isProcessing}
-                      className="flex-1 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all disabled:opacity-50"
+                      className="flex-1 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-all disabled:opacity-50"
                     >
                       Reject
                     </button>
                     <button
                       onClick={() => triggerConfirm(request, 'APPROVE')}
                       disabled={!!isProcessing}
-                      className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isProcessing === request.id
                         ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />

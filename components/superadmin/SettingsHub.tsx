@@ -14,8 +14,8 @@ const Section: React.FC<{ title?: string; subtitle?: string; accent?: string; ch
   <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
     {title && (
       <div className="px-5 pt-5 pb-3 border-b border-slate-50">
-        <p className={`text-[8px] font-black uppercase tracking-[0.15em] ${accent}`}>{title}</p>
-        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        <p className={`text-xs font-black uppercase tracking-[0.15em] ${accent}`}>{title}</p>
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
     )}
     <div className="divide-y divide-slate-50">
@@ -27,8 +27,8 @@ const Section: React.FC<{ title?: string; subtitle?: string; accent?: string; ch
 const Row: React.FC<{ label: string; desc?: string; children: React.ReactNode }> = ({ label, desc, children }) => (
   <div className="flex items-center gap-4 px-5 py-4">
     <div className="flex-1 min-w-0">
-      <p className="text-[12px] font-bold text-slate-800 leading-none">{label}</p>
-      {desc && <p className="text-[10px] text-slate-400 mt-1 leading-snug">{desc}</p>}
+      <p className="text-xs font-bold text-slate-800 leading-none">{label}</p>
+      {desc && <p className="text-xs text-slate-400 mt-1 leading-snug">{desc}</p>}
     </div>
     <div className="shrink-0">{children}</div>
   </div>
@@ -94,8 +94,8 @@ const PinInput: React.FC<PinInputProps> = ({ label, hint, hintColor, value, onCh
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        {hint && <p className={`text-[10px] font-bold ${hintColor ?? 'text-slate-400'}`}>{hint}</p>}
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        {hint && <p className={`text-xs font-bold ${hintColor ?? 'text-slate-400'}`}>{hint}</p>}
       </div>
       <div className="flex gap-2" onPaste={handlePaste}>
         {Array.from({ length: 6 }).map((_, i) => {
@@ -283,14 +283,14 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
               hintColor={pinMatch ? 'text-emerald-500' : 'text-rose-500'}
             />
             <div className="flex items-center justify-between gap-3">
-              <div className="text-[11px]">
+              <div className="text-xs">
                 {pinStatus === 'success' && <span className="text-emerald-600 font-bold">✓ PIN updated.</span>}
                 {pinStatus === 'error'   && <span className="text-rose-500">Ensure both PINs are 6 digits and match.</span>}
               </div>
               <button
                 onClick={handleUpdatePin}
                 disabled={pinStatus === 'saving' || !pinMatch}
-                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0"
+                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0"
               >
                 {pinStatus === 'saving'
                   ? <><div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Saving…</>
@@ -305,10 +305,10 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           <Row label="Daily Audit Reset" desc="Branch auto-close time (Manila timezone)">
             <div className="flex items-center gap-2">
               <input type="time" value={localAuditTime} onChange={e => setLocalAuditTime(e.target.value)}
-                className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
+                className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all" />
               <button onClick={() => handleUpdate('auto_refresh_daily_audit', localAuditTime)}
                 disabled={isSaving === 'auto_refresh_daily_audit'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                 {isSaving === 'auto_refresh_daily_audit' ? '…' : 'Save'}
               </button>
             </div>
@@ -325,27 +325,27 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           </Row>
           <div className="px-5 py-4 border-t border-slate-50 space-y-2">
             <div>
-              <p className="text-[12px] font-bold text-slate-800 leading-none">End Date / Countdown</p>
-              <p className="text-[10px] text-slate-400 mt-1">Optional — countdown on the maintenance page</p>
+              <p className="text-xs font-bold text-slate-800 leading-none">End Date / Countdown</p>
+              <p className="text-xs text-slate-400 mt-1">Optional — countdown on the maintenance page</p>
             </div>
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="datetime-local"
                 value={localMaintenanceEnd}
                 onChange={e => setLocalMaintenanceEnd(e.target.value)}
-                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
+                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
               />
               <button
                 onClick={() => handleUpdate('maintenance_end_date', localMaintenanceEnd ? localMaintenanceEnd.replace('T', ' ').slice(0, 16) : '')}
                 disabled={isSaving === 'maintenance_end_date'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0">
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0">
                 {isSaving === 'maintenance_end_date' ? '…' : 'Set'}
               </button>
               {localMaintenanceEnd && (
                 <button
                   onClick={() => { setLocalMaintenanceEnd(''); handleUpdate('maintenance_end_date', ''); }}
                   disabled={isSaving === 'maintenance_end_date'}
-                  className="h-9 px-3 rounded-xl bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-500 active:scale-95 transition-all disabled:opacity-40 shrink-0">
+                  className="h-9 px-3 rounded-xl bg-slate-100 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-500 active:scale-95 transition-all disabled:opacity-40 shrink-0">
                   Clear
                 </button>
               )}
@@ -362,8 +362,8 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           </Row>
           <div className="px-5 py-4 border-t border-slate-50 space-y-2">
             <div>
-              <p className="text-[12px] font-bold text-slate-800 leading-none">HR Email</p>
-              <p className="text-[10px] text-slate-400 mt-1">Notified every time a complaint is filed</p>
+              <p className="text-xs font-bold text-slate-800 leading-none">HR Email</p>
+              <p className="text-xs text-slate-400 mt-1">Notified every time a complaint is filed</p>
             </div>
             <div className="flex items-center gap-2 pt-1">
               <input
@@ -371,12 +371,12 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 value={localHrEmail}
                 onChange={e => setLocalHrEmail(e.target.value)}
                 placeholder="hr@example.com"
-                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
+                className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all min-w-0"
               />
               <button
                 onClick={() => handleUpdate('hr_email', localHrEmail.trim())}
                 disabled={isSaving === 'hr_email'}
-                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0"
+                className="h-9 px-4 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 shrink-0"
               >
                 {isSaving === 'hr_email' ? '…' : 'Save'}
               </button>
@@ -393,27 +393,27 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold text-slate-800 leading-none">App Name</p>
-                <p className="text-[10px] text-slate-400 mt-1">Displayed in the header and login screen</p>
+                <p className="text-xs font-bold text-slate-800 leading-none">App Name</p>
+                <p className="text-xs text-slate-400 mt-1">Displayed in the header and login screen</p>
               </div>
               <input value={localAppName} onChange={e => setLocalAppName(e.target.value)}
-                className="w-40 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+                className="w-40 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
             </div>
             <div className="flex items-center gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold text-slate-800 leading-none">Build Version</p>
-                <p className="text-[10px] text-slate-400 mt-1">Version string shown in the app footer</p>
+                <p className="text-xs font-bold text-slate-800 leading-none">Build Version</p>
+                <p className="text-xs text-slate-400 mt-1">Version string shown in the app footer</p>
               </div>
               <input value={localVersion} onChange={e => setLocalVersion(e.target.value)}
-                className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
+                className="w-24 h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-400 focus:bg-white transition-all shrink-0" />
             </div>
             <div className="flex items-center justify-between pt-1">
-              <p className="text-[10px] text-slate-400 italic">
+              <p className="text-xs text-slate-400 italic">
                 {brandingSaved ? <span className="text-emerald-500 font-bold not-italic">✓ Saved.</span> : 'Applies instantly across connected branches.'}
               </p>
               <button onClick={handleSaveBranding}
                 disabled={isSaving === 'app_name' || isSaving === 'version'}
-                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
+                className="h-9 px-5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40">
                 Save
               </button>
             </div>
@@ -421,8 +421,8 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
           {/* Right: Font picker */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-[12px] font-bold text-slate-800">Font Family</p>
-              <p className="text-[10px] text-slate-400">Active: <span className="font-bold text-slate-600">{get('font_family', 'Outfit')}</span></p>
+              <p className="text-xs font-bold text-slate-800">Font Family</p>
+              <p className="text-xs text-slate-400">Active: <span className="font-bold text-slate-600">{get('font_family', 'Outfit')}</span></p>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               {FONT_OPTIONS.map(font => {
@@ -430,7 +430,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
                 return (
                   <button key={font.value} onClick={() => handleUpdate('font_family', font.value)}
                     className={`py-2 px-2 rounded-xl border-2 text-center transition-all ${active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200 hover:bg-white'}`}>
-                    <span className="text-[9px] font-bold block truncate" style={{ fontFamily: font.value }}>{font.name}</span>
+                    <span className="text-xs font-bold block truncate" style={{ fontFamily: font.value }}>{font.name}</span>
                   </button>
                 );
               })}
@@ -444,8 +444,8 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
         <div className="px-5 py-4">
           <div className="flex items-center gap-4 bg-rose-50 rounded-2xl px-4 py-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-black text-slate-800 leading-none">Force Logout All</p>
-              <p className="text-[10px] text-slate-500 mt-1">
+              <p className="text-xs font-black text-slate-800 leading-none">Force Logout All</p>
+              <p className="text-xs text-slate-500 mt-1">
                 {forceLogoutStatus === 'success'
                   ? <span className="text-emerald-600 font-bold">Signal broadcasted — all sessions terminated.</span>
                   : forceLogoutStatus === 'error'
@@ -456,7 +456,7 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
             <button
               onClick={() => setShowConfirm(true)}
               disabled={isForceLoggingOut}
-              className="h-9 px-4 rounded-xl bg-white border border-rose-200 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0"
+              className="h-9 px-4 rounded-xl bg-white border border-rose-200 text-rose-600 text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0"
             >
               {isForceLoggingOut
                 ? <div className="w-3 h-3 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin" />
@@ -472,19 +472,19 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
         <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-200">
             <div>
-              <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest mb-1">Confirm Action</p>
+              <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">Confirm Action</p>
               <p className="text-base font-black text-slate-900 uppercase tracking-tight">Force Logout All?</p>
-              <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 This will immediately terminate every active session across the entire network. All branches and portal users must re-authenticate. You will remain logged in.
               </p>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowConfirm(false)}
-                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
                 Cancel
               </button>
               <button onClick={doForceLogout}
-                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all">
+                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all">
                 Confirm
               </button>
             </div>

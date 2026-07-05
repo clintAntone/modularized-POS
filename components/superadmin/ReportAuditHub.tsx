@@ -80,11 +80,11 @@ const BranchPicker: React.FC<{
 
   return (
     <div className="space-y-1" ref={ref}>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Branch</p>
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch</p>
       <div className="relative">
         <button
           onClick={() => { setOpen(o => !o); setQuery(''); }}
-          className={`w-full flex items-center justify-between px-3 py-2 text-[11px] border rounded-xl outline-none transition-all bg-slate-50 hover:bg-white ${open ? 'border-slate-400 bg-white' : 'border-slate-200'}`}
+          className={`w-full flex items-center justify-between px-3 py-2 text-xs border rounded-xl outline-none transition-all bg-slate-50 hover:bg-white ${open ? 'border-slate-400 bg-white' : 'border-slate-200'}`}
         >
           <span className={selectedName ? 'text-slate-800 font-semibold truncate' : 'text-slate-400'}>
             {selectedName ?? 'All Branches'}
@@ -104,7 +104,7 @@ const BranchPicker: React.FC<{
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="Search branch..."
-                  className="w-full pl-7 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-lg outline-none focus:border-slate-400 bg-slate-50"
+                  className="w-full pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400 bg-slate-50"
                 />
               </div>
             </div>
@@ -112,7 +112,7 @@ const BranchPicker: React.FC<{
             <div className="max-h-52 overflow-y-auto">
               <button
                 onClick={() => { onChange(''); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-[11px] font-semibold transition-colors ${!value ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${!value ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 All Branches
               </button>
@@ -120,13 +120,13 @@ const BranchPicker: React.FC<{
                 <button
                   key={id}
                   onClick={() => { onChange(id); setOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-[11px] transition-colors ${value === id ? 'bg-slate-800 text-white font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${value === id ? 'bg-slate-800 text-white font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
                 >
                   {name}
                 </button>
               ))}
               {filtered.length === 0 && (
-                <p className="px-3 py-3 text-[11px] text-slate-400 text-center">No branches found</p>
+                <p className="px-3 py-3 text-xs text-slate-400 text-center">No branches found</p>
               )}
             </div>
           </div>
@@ -306,8 +306,8 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       {/* Header */}
       <div>
         <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase">Report Math Audit</h1>
-        <p className="text-[11px] text-slate-500 mt-0.5">
-          Checks if <code className="bg-slate-100 px-1 rounded text-[10px]">net_roi = gross_sales − salary − expenses − vault_provision</code> for every sales report.
+        <p className="text-xs text-slate-500 mt-0.5">
+          Checks if <code className="bg-slate-100 px-1 rounded text-xs">net_roi = gross_sales − salary − expenses − vault_provision</code> for every sales report.
         </p>
       </div>
 
@@ -317,7 +317,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
           <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
           </svg>
-          <span className="text-[12px] font-semibold text-amber-700">
+          <span className="text-xs font-semibold text-amber-700">
             {issueCount} report{issueCount !== 1 ? 's' : ''} with discrepancies across {rows.length} total reports.
           </span>
         </div>
@@ -328,17 +328,17 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
 
         {/* Diagnosis pills */}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diagnosis</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Diagnosis</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setDiagFilter('')}
-              className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wide transition-all ${diagFilter === '' ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${diagFilter === '' ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}
             >
               All · {rows.length}
             </button>
             <button
               onClick={() => setDiagFilter(diagFilter === 'NOT_OK' ? '' : 'NOT_OK')}
-              className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wide transition-all ${diagFilter === 'NOT_OK' ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-400'}`}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${diagFilter === 'NOT_OK' ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-400'}`}
             >
               Issues Only · {rows.filter(r => r.diagnosis !== 'OK' && r.diagnosis !== 'BACKFILL').length}
             </button>
@@ -346,7 +346,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
               <div key={d} className="relative group">
                 <button
                   onClick={() => setDiagFilter(diagFilter === d ? '' : d)}
-                  className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wide transition-all ${
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
                     diagFilter === d
                       ? diagColor(d) + ' ring-2 ring-offset-1 ring-current'
                       : (diagCounts[d] ?? 0) === 0
@@ -359,8 +359,8 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 </button>
                 {/* Tooltip */}
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <div className="bg-slate-900 text-white text-[10px] leading-relaxed rounded-xl px-3 py-2 shadow-xl">
-                    <p className="font-bold uppercase tracking-widest text-[9px] mb-1 opacity-60">{d}</p>
+                  <div className="bg-slate-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2 shadow-xl">
+                    <p className="font-bold uppercase tracking-widest text-xs mb-1 opacity-60">{d}</p>
                     <p>{DIAG_DESCRIPTIONS[d]}</p>
                   </div>
                   <div className="w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1" />
@@ -374,7 +374,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Search */}
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Search</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Search</p>
             <div className="relative">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input
@@ -382,7 +382,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Branch / Date / ID"
-                className="w-full pl-7 pr-3 py-2 text-[11px] border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
+                className="w-full pl-7 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
               />
             </div>
           </div>
@@ -396,23 +396,23 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
 
           {/* Date From */}
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date From</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date From</p>
             <input
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="w-full px-3 py-2 text-[11px] border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
             />
           </div>
 
           {/* Date To */}
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date To</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date To</p>
             <input
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="w-full px-3 py-2 text-[11px] border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-slate-400 bg-slate-50"
             />
           </div>
         </div>
@@ -420,21 +420,21 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
         {(branchFilter || diagFilter || dateFrom || dateTo || search) && (
           <button
             onClick={() => { setBranchFilter(''); setDiagFilter(''); setDateFrom(''); setDateTo(''); setSearch(''); }}
-            className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
+            className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
           >
             Clear all filters
           </button>
         )}
       </div>
 
-      <p className="text-[11px] text-slate-500">
+      <p className="text-xs text-slate-500">
         Showing <strong>{filtered.length}</strong> of <strong>{rows.length}</strong> reports
       </p>
 
       {/* Desktop table */}
       <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="text-left px-3 py-2.5 font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
@@ -464,7 +464,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
             <tbody className="divide-y divide-slate-50">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-slate-400 text-[12px]">No records match the current filters</td>
+                  <td colSpan={10} className="text-center py-12 text-slate-400 text-xs">No records match the current filters</td>
                 </tr>
               )}
               {filtered.map(row => (
@@ -475,7 +475,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                   <td className="px-3 py-2.5 text-right font-mono">
                     <span className="text-slate-700">{fmt(row.storedSalary)}</span>
                     {Math.abs(row.salaryDiff) >= 0.01 && (
-                      <div className="text-[9px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         computed <span className="font-bold text-slate-600">{fmt(row.computedSalary)}</span>
                         <span className={`ml-1 font-bold ${row.salaryDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
                           ({row.salaryDiff > 0 ? '+' : ''}{fmt(row.salaryDiff)})
@@ -486,7 +486,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                   <td className="px-3 py-2.5 text-right font-mono">
                     <span className="text-slate-700">{row.storedExpenses > 0 ? fmt(row.storedExpenses) : <span className="text-slate-300">—</span>}</span>
                     {Math.abs(row.expenseDiff) >= 0.01 && (
-                      <div className="text-[9px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         computed <span className="font-bold text-slate-600">{fmt(row.computedExpenses)}</span>
                         <span className={`ml-1 font-bold ${row.expenseDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
                           ({row.expenseDiff > 0 ? '+' : ''}{fmt(row.expenseDiff)})
@@ -496,7 +496,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-700">
                     {row.storedVault > 0 ? fmt(row.storedVault) : <span className="text-slate-300">—</span>}
-                    {row.vaultFromTransactions > 0 && Math.abs(row.vaultDiff) >= 0.01 && <span className={`ml-1 text-[9px] font-bold ${row.vaultDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>({row.vaultDiff > 0 ? '+' : ''}{fmt(row.vaultDiff)})</span>}
+                    {row.vaultFromTransactions > 0 && Math.abs(row.vaultDiff) >= 0.01 && <span className={`ml-1 text-xs font-bold ${row.vaultDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>({row.vaultDiff > 0 ? '+' : ''}{fmt(row.vaultDiff)})</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-700">{fmt(row.storedRoi)}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-700">{fmt(row.expectedRoi)}</td>
@@ -509,7 +509,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                     }
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-[9px] font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
                       {row.diagnosis}
                     </span>
                   </td>
@@ -523,20 +523,20 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       {/* Mobile cards */}
       <div className="lg:hidden space-y-2">
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-slate-400 text-[12px]">No records match the current filters</div>
+          <div className="text-center py-12 text-slate-400 text-xs">No records match the current filters</div>
         )}
         {filtered.map(row => (
           <div key={row.id} className={`bg-white rounded-2xl border p-4 shadow-sm ${row.diagnosis !== 'OK' ? 'border-rose-100' : 'border-slate-100'}`}>
             <div className="flex justify-between items-start mb-3">
               <div>
-                <p className="font-bold text-slate-800 text-[13px]">{row.branchName}</p>
-                <p className="font-mono text-[11px] text-slate-500">{row.reportDate}</p>
+                <p className="font-bold text-slate-800 text-sm">{row.branchName}</p>
+                <p className="font-mono text-xs text-slate-500">{row.reportDate}</p>
               </div>
-              <span className={`px-2.5 py-1 rounded-xl border text-[9px] font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
+              <span className={`px-2.5 py-1 rounded-xl border text-xs font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
                 {row.diagnosis}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Gross</span>
                 <span className="font-mono font-semibold text-slate-700">₱{fmt(row.grossSales)}</span>
@@ -557,7 +557,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 <div className="text-right font-mono">
                   <span className="text-slate-700">₱{fmt(row.storedSalary)}</span>
                   {Math.abs(row.salaryDiff) >= 0.01 && (
-                    <div className="text-[9px] text-slate-400">
+                    <div className="text-xs text-slate-400">
                       computed <span className="font-bold text-slate-600">{fmt(row.computedSalary)}</span>
                       <span className={`ml-1 font-bold ${row.salaryDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
                         ({row.salaryDiff > 0 ? '+' : ''}{fmt(row.salaryDiff)})
@@ -571,7 +571,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 <div className="text-right font-mono">
                   <span className="text-slate-700">{row.storedExpenses > 0 ? `₱${fmt(row.storedExpenses)}` : '—'}</span>
                   {Math.abs(row.expenseDiff) >= 0.01 && (
-                    <div className="text-[9px] text-slate-400">
+                    <div className="text-xs text-slate-400">
                       computed <span className="font-bold text-slate-600">{fmt(row.computedExpenses)}</span>
                       <span className={`ml-1 font-bold ${row.expenseDiff > 0 ? 'text-amber-500' : 'text-rose-500'}`}>
                         ({row.expenseDiff > 0 ? '+' : ''}{fmt(row.expenseDiff)})

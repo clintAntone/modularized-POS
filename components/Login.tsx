@@ -467,7 +467,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                       <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-tight">
                         {selectedBranch?.name}
                       </h2>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.25em] mt-1" style={{ color: 'rgba(167,243,208,0.7)' }}>
+                      <p className="text-xs font-bold uppercase tracking-[0.25em] mt-1" style={{ color: 'rgba(167,243,208,0.7)' }}>
                         {isSetupAccountMode ? 'Account Initialization' : isReliefMode ? `Relief · ${reliefStep.toUpperCase()}` : 'Identity Verification'}
                       </p>
                     </div>
@@ -479,7 +479,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                   {/* Stats overlap card */}
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl shadow-lg -mt-7 mb-6 px-5 py-3 relative z-10 flex items-center justify-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch Access</span>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Branch Access</span>
                   </div>
 
                   {isRecoveryMode ? (
@@ -508,7 +508,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
                       {error && (
                         <div className="px-4 py-3 bg-rose-50 border border-rose-100 rounded-2xl text-center animate-in slide-in-from-top-2">
-                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{error}</p>
+                          <p className="text-xs font-bold text-rose-500 uppercase tracking-widest">{error}</p>
                         </div>
                       )}
 
@@ -516,7 +516,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                         <button
                           onClick={(e) => checkAndLogin(e)}
                           disabled={isAuthenticating || pin.length < 6 || !!lockoutUntil}
-                          className={`w-full text-white font-black py-5 rounded-2xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-[11px] disabled:opacity-30 flex items-center justify-center gap-3 ${isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-slate-800'}`}
+                          className={`w-full text-white font-black py-5 rounded-2xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-xs disabled:opacity-30 flex items-center justify-center gap-3 ${isSetupAccountMode || (isReliefMode && reliefStep === 'setup') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-slate-800'}`}
                         >
                           {isAuthenticating
                             ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -529,19 +529,19 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                           <div className="flex flex-col gap-1">
                             {!isSetupAccountMode && !isReliefMode && selectedBranch?.tempManager && (
                               <button type="button" onClick={() => { setIsReliefMode(true); setReliefStep('pin'); setReliefEmployee(null); setError(''); setPin(''); setConfirmPin(''); setUsername(''); playSound('click'); }}
-                                className="w-full text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors py-2">
+                                className="w-full text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors py-2">
                                 Relief Manager? Create Account
                               </button>
                             )}
                             {!isSetupAccountMode && (
                               <button type="button" onClick={() => { setIsRecoveryMode(true); setError(''); setPin(''); playSound('click'); }}
-                                className="w-full text-[9px] font-bold text-slate-300 uppercase tracking-widest hover:text-slate-500 transition-colors py-1">
+                                className="w-full text-xs font-bold text-slate-300 uppercase tracking-widest hover:text-slate-500 transition-colors py-1">
                                 Forgot Credentials?
                               </button>
                             )}
                             {(isSetupAccountMode || isReliefMode) && (
                               <button type="button" onClick={() => { setIsSetupAccountMode(false); setIsReliefMode(false); setReliefStep('pin'); setReliefEmployee(null); setError(''); setPin(''); setConfirmPin(''); setUsername(''); playSound('click'); }}
-                                className="w-full text-[9px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors py-2">
+                                className="w-full text-xs font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors py-2">
                                 Back to Login
                               </button>
                             )}

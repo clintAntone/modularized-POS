@@ -51,11 +51,11 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
               </span>
             </div>
             <div>
-              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em]">Portal Access</p>
+              <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em]">Portal Access</p>
               <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight mt-0.5">{user.username}</h3>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Active Session</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Session</span>
               </div>
             </div>
           </div>
@@ -80,10 +80,10 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
               </svg>
             </div>
-            <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Username</p>
+            <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Username</p>
           </div>
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">New Username</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">New Username</label>
             <input
               type="text"
               value={form.username}
@@ -94,7 +94,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             />
           </div>
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm Username</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm Username</label>
             <div className="relative">
               <input
                 type="text"
@@ -133,12 +133,12 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
               </div>
-              <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Security PIN</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Security PIN</p>
             </div>
-            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Optional</span>
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Optional</span>
           </div>
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">New PIN</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">New PIN</label>
             <input
               type="password"
               inputMode="numeric"
@@ -150,7 +150,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             />
           </div>
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm PIN</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">Confirm PIN</label>
             <div className="relative">
               <input
                 type="password"
@@ -185,7 +185,7 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
-            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{error}</p>
+            <p className="text-xs font-black text-rose-600 uppercase tracking-widest">{error}</p>
           </div>
         )}
         {success && (
@@ -193,14 +193,14 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
             </svg>
-            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Credentials updated successfully.</p>
+            <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Credentials updated successfully.</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={saving || !form.username.trim()}
-          className="w-full h-13 py-3.5 bg-slate-900 hover:bg-emerald-600 text-white font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20"
+          className="w-full h-13 py-3.5 bg-slate-900 hover:bg-emerald-600 text-white font-black rounded-2xl text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20"
         >
           {saving
             ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -224,21 +224,21 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                 </svg>
               </div>
-              <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Your Access</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Your Access</p>
               {isReadOnly && (
-                <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[8px] font-black text-amber-600 uppercase tracking-widest">Read Only</span>
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-black text-amber-600 uppercase tracking-widest">Read Only</span>
               )}
             </div>
 
             {/* Branch scope */}
             <div className="mb-2">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Branch Scope</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Branch Scope</p>
               {scopedBranches === null ? (
-                <span className="text-[9px] font-bold text-emerald-600">All branches</span>
+                <span className="text-xs font-bold text-emerald-600">All branches</span>
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {scopedBranches.map(b => (
-                    <span key={b.id} className="px-2 py-0.5 rounded-lg bg-slate-100 text-[8px] font-black text-slate-600 uppercase tracking-wide">{b.name}</span>
+                    <span key={b.id} className="px-2 py-0.5 rounded-lg bg-slate-100 text-xs font-black text-slate-600 uppercase tracking-wide">{b.name}</span>
                   ))}
                 </div>
               )}
@@ -247,10 +247,10 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({
             {/* Permitted tabs */}
             {allowedTabs.length > 0 && (
               <div>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Permitted Tabs</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Permitted Tabs</p>
                 <div className="flex flex-wrap gap-1">
                   {allowedTabs.map(tab => (
-                    <span key={tab} className="px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-[8px] font-black text-indigo-600 uppercase tracking-wide">
+                    <span key={tab} className="px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-black text-indigo-600 uppercase tracking-wide">
                       {tab.replace(/_/g, ' ')}
                     </span>
                   ))}

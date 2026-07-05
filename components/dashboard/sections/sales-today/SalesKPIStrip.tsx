@@ -65,20 +65,20 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             {/* Gross Sales */}
             <div className={`col-span-1 md:col-span-2 bg-[#E6F9F1] p-4 sm:p-8 rounded-[32px] border border-emerald-100/50 flex flex-col justify-center gap-1 min-h-[80px] sm:min-h-[120px] relative overflow-hidden group transition-all hover:shadow-lg print:bg-white print:border-slate-200`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-emerald-300/30 transition-colors"></div>
-                <p className="text-[10px] sm:text-[12px] font-bold text-emerald-600 uppercase tracking-[0.2em] relative z-10">Gross Sales</p>
+                <p className="text-xs sm:text-xs font-bold text-emerald-600 uppercase tracking-[0.2em] relative z-10">Gross Sales</p>
                 <p className={`${getFontSize(gross)} font-black text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap relative z-10`}>
                     ₱{gross.toLocaleString()}
                 </p>
                 {(cashTotal > 0 || gcashTotal > 0) && (
                   <div className="flex gap-3 mt-2 relative z-10">
                     <div className="flex flex-col">
-                      <span className="text-[7px] font-black text-emerald-600/60 uppercase tracking-widest">Cash</span>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-slate-700 tabular-nums">₱{cashTotal.toLocaleString()}</span>
+                      <span className="text-xs font-black text-emerald-600/60 uppercase tracking-widest">Cash</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">₱{cashTotal.toLocaleString()}</span>
                     </div>
                     <div className="w-px h-6 bg-emerald-200/30 self-end"></div>
                     <div className="flex flex-col">
-                      <span className="text-[7px] font-black text-emerald-600/60 uppercase tracking-widest">GCash</span>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-slate-700 tabular-nums">₱{gcashTotal.toLocaleString()}</span>
+                      <span className="text-xs font-black text-emerald-600/60 uppercase tracking-widest">GCash</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">₱{gcashTotal.toLocaleString()}</span>
                     </div>
                   </div>
                 )}
@@ -86,7 +86,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
 
             {/* Expenses */}
             <div className="col-span-1 bg-[#FFF1F2] p-3 sm:p-6 rounded-[28px] border border-red-100/50 flex flex-col justify-center gap-1 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-red-600 uppercase tracking-widest">Expenses</p>
+                <p className="text-xs sm:text-xs font-bold text-red-600 uppercase tracking-widest">Expenses</p>
                 {/* Main number: what daily sales actually shouldered (ROI portion only) */}
                 <p className={`${getFontSize(Math.max(0, operationalExp - vaultCoveredExp))} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
                     ₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}
@@ -96,23 +96,23 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                     {/* Mobile toggle button */}
                     <button
                       onClick={() => setShowExpenseDetail(v => !v)}
-                      className="sm:hidden flex items-center gap-1 text-[9px] font-bold text-rose-400 uppercase tracking-widest mb-1"
+                      className="sm:hidden flex items-center gap-1 text-xs font-bold text-rose-400 uppercase tracking-widest mb-1"
                     >
                       <svg className={`w-3 h-3 transition-transform ${showExpenseDetail ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                       {showExpenseDetail ? 'Hide' : 'Breakdown'}
                     </button>
                     <div className={`space-y-1 border-t border-rose-200/60 pt-1.5 ${showExpenseDetail ? 'block' : 'hidden'} sm:block`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-semibold text-rose-400">ROI Expenses</span>
-                        <span className="text-[10px] font-bold text-rose-500 tabular-nums">₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}</span>
+                        <span className="text-xs font-semibold text-rose-400">ROI Expenses</span>
+                        <span className="text-xs font-bold text-rose-500 tabular-nums">₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-semibold text-amber-600">+ Vault Covered</span>
-                        <span className="text-[10px] font-bold text-amber-600 tabular-nums">₱{vaultCoveredExp.toLocaleString()}</span>
+                        <span className="text-xs font-semibold text-amber-600">+ Vault Covered</span>
+                        <span className="text-xs font-bold text-amber-600 tabular-nums">₱{vaultCoveredExp.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2 border-t border-rose-200/60 pt-1 mt-0.5">
-                        <span className="text-[9px] font-semibold text-slate-400">Total Exp</span>
-                        <span className="text-[10px] font-bold text-slate-500 tabular-nums">₱{operationalExp.toLocaleString()}</span>
+                        <span className="text-xs font-semibold text-slate-400">Total Exp</span>
+                        <span className="text-xs font-bold text-slate-500 tabular-nums">₱{operationalExp.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -121,13 +121,13 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
 
             {/* Staff Payroll */}
             <div className="col-span-1 bg-[#FFFBEB] p-3 sm:p-6 rounded-[28px] border border-amber-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-widest">Staff Payroll</p>
+                <p className="text-xs sm:text-xs font-bold text-amber-600 uppercase tracking-widest">Staff Payroll</p>
                 <div className="flex flex-col gap-0.5">
                     <p className={`${getFontSize(finalStaffPayTotal)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
                         ₱{finalStaffPayTotal.toLocaleString()}
                     </p>
                     <div className="flex flex-wrap items-center gap-1 opacity-60">
-                        <span className="text-[8px] sm:text-[10px] font-black text-amber-700 uppercase">
+                        <span className="text-xs sm:text-xs font-black text-amber-700 uppercase">
                            Net: ₱{netPayableCash.toLocaleString()}
                         </span>
                     </div>
@@ -141,23 +141,23 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                   <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" />
                   </svg>
-                  <p className="text-[9px] sm:text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Vault Deposit</p>
+                  <p className="text-xs sm:text-xs font-bold text-indigo-500 uppercase tracking-widest">Vault Deposit</p>
                 </div>
                 <p className={`${getFontSize(vaultDeposit)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
                   ₱{vaultDeposit.toLocaleString()}
                 </p>
-                <p className="text-[7px] font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Saved to vault fund</p>
+                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Saved to vault fund</p>
               </div>
             )}
 
             {/* Rent & Bills — legacy only */}
             {isLegacy && (
               <div className="col-span-2 md:col-span-1 bg-[#EEF2FF] p-3 sm:p-6 rounded-[28px] border border-indigo-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Rent & Bills</p>
+                <p className="text-xs sm:text-xs font-bold text-indigo-500 uppercase tracking-widest">Rent & Bills</p>
                 <p className={`${getFontSize(rentAndBillsTotal)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
                   ₱{rentAndBillsTotal.toLocaleString()}
                 </p>
-                <p className="text-[7px] font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Daily Provision</p>
+                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Daily Provision</p>
               </div>
             )}
 
@@ -165,8 +165,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             <div className={`${isLegacy ? 'col-span-2 md:col-span-3' : 'col-span-2'} p-4 sm:p-8 rounded-[32px] shadow-2xl flex flex-col justify-center gap-1 min-h-[80px] sm:min-h-[120px] relative overflow-hidden group transition-all duration-500 hover:scale-[1.01] print:bg-white print:border-slate-200 print:shadow-none ${net < 0 ? 'bg-rose-950' : 'bg-[#0F172A]'}`}>
                 <div className={`absolute top-0 right-0 w-48 h-48 blur-3xl rounded-full no-print ${net < 0 ? 'bg-rose-500/20' : 'bg-emerald-500/10'}`}></div>
                 <div className="flex justify-between items-start relative z-10">
-                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-400 uppercase tracking-[0.2em] print:text-slate-600">Net ROI</p>
-                    <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${net < 0 ? 'bg-rose-500/20 text-rose-400' : net === 0 ? 'bg-slate-500/20 text-slate-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-[0.2em] print:text-slate-600">Net ROI</p>
+                    <div className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${net < 0 ? 'bg-rose-500/20 text-rose-400' : net === 0 ? 'bg-slate-500/20 text-slate-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                         {net < 0 ? 'Deficit' : net === 0 ? 'Balanced' : 'Growth'}
                     </div>
                 </div>
@@ -186,8 +186,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest leading-none ${isVaultFull ? 'text-emerald-600' : 'text-slate-500'}`}>Vault Fund</p>
-                    <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isVaultFull ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    <p className={`text-xs sm:text-xs font-black uppercase tracking-widest leading-none ${isVaultFull ? 'text-emerald-600' : 'text-slate-500'}`}>Vault Fund</p>
+                    <span className={`text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isVaultFull ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       {isVaultFull ? '✓ Full' : `${vaultProgress}%`}
                     </span>
                   </div>
@@ -195,12 +195,12 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                     <div className="w-24 sm:w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all duration-500 ${isVaultFull ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${vaultProgress}%` }} />
                     </div>
-                    <p className={`text-[7px] font-bold uppercase tracking-widest tabular-nums whitespace-nowrap ${isVaultFull ? 'text-emerald-500' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-bold uppercase tracking-widest tabular-nums whitespace-nowrap ${isVaultFull ? 'text-emerald-500' : 'text-slate-400'}`}>
                       {isVaultFull ? 'Target reached' : `₱${(vaultTarget - vaultBalance).toLocaleString()} to go`}
                     </p>
                   </div>
                   {(vaultWithdrawal ?? 0) > 0 && (
-                    <p className="text-[7px] font-bold text-rose-500 uppercase tracking-widest tabular-nums mt-0.5">
+                    <p className="text-xs font-bold text-rose-500 uppercase tracking-widest tabular-nums mt-0.5">
                       −₱{(vaultWithdrawal ?? 0).toLocaleString()} used today
                     </p>
                   )}
@@ -210,7 +210,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
                 <p className={`${getFontSize(vaultBalance)} font-black tabular-nums whitespace-nowrap ${isVaultFull ? 'text-emerald-700' : 'text-slate-900'}`}>
                   ₱{vaultBalance.toLocaleString()}
                 </p>
-                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Savings Balance</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Savings Balance</p>
               </div>
             </div>
           )

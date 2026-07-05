@@ -31,8 +31,8 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
             {/* 1. AMOUNT */}
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em]">1. Settlement Amount</label>
-                {isOverBalance && <span className="text-[7px] font-bold text-rose-500 uppercase tracking-widest animate-pulse">⚠️ Insufficient Vault Balance</span>}
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">1. Settlement Amount</label>
+                {isOverBalance && <span className="text-xs font-bold text-rose-500 uppercase tracking-widest animate-pulse">⚠️ Insufficient Vault Balance</span>}
               </div>
               <div className="relative group">
                 <span className={`absolute left-5 top-1/2 -translate-y-1/2 text-xl font-bold transition-colors ${isOverBalance ? 'text-rose-500' : 'text-slate-200 group-focus-within:text-rose-600'}`}>₱</span>
@@ -51,7 +51,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
             {/* 2. RECIPIENT / PURPOSE */}
             <div className="space-y-3">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em]">2. Bill Category / Payee</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">2. Bill Category / Payee</label>
               </div>
 
               <div className="relative group">
@@ -89,7 +89,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                           className="px-4 py-3 text-left rounded-xl hover:bg-slate-50 transition-colors group"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider group-hover:text-emerald-600">{bill}</span>
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider group-hover:text-emerald-600">{bill}</span>
                             <svg className="w-3 h-3 text-slate-200 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                             </svg>
@@ -105,7 +105,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
             {/* 3. VERIFICATION */}
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em]">3. Receipt Evidence <span className="text-rose-500 font-black">(Required)</span></label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">3. Receipt Evidence <span className="text-rose-500 font-black">(Required)</span></label>
                 {file && (
                     <span className="text-[6px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                   Proof Attached
@@ -120,8 +120,8 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                         <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Receipt" />
                       </div>
                       <div className="text-left">
-                        <p className="text-[10px] font-bold uppercase tracking-tight text-emerald-900">Evidence Indexed</p>
-                        <p className="text-[8px] font-semibold text-emerald-600/60 uppercase tracking-widest">Ready for authorization</p>
+                        <p className="text-xs font-bold uppercase tracking-tight text-emerald-900">Evidence Indexed</p>
+                        <p className="text-xs font-semibold text-emerald-600/60 uppercase tracking-widest">Ready for authorization</p>
                       </div>
                     </div>
 
@@ -157,7 +157,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                           <circle cx="12" cy="13" r="3" />
                         </svg>
                       </div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-700">Take Photo</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-700">Take Photo</span>
                     </button>
 
                     <button
@@ -175,7 +175,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
                       </div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-700">Upload Image</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-700">Upload Image</span>
                     </button>
                   </div>
               )}
@@ -186,7 +186,7 @@ export const VaultWithdrawalForm: React.FC<VaultWithdrawalFormProps> = ({
               <button
                   type="submit"
                   disabled={isUploading || !canSubmit}
-                  className={`w-full font-bold py-5 rounded-[20px] uppercase tracking-[0.3em] text-[11px] shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${canSubmit ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                  className={`w-full font-bold py-5 rounded-[20px] uppercase tracking-[0.3em] text-xs shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${canSubmit ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
               >
                 {isUploading ? (
                     <>

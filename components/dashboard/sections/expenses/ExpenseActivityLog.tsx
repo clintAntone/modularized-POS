@@ -42,13 +42,13 @@ export const ExpenseActivityLog: React.FC<ExpenseActivityLogProps> = ({
                 )}
               </div>
               <div className="overflow-hidden">
-                <p className={`text-[13px] font-black uppercase truncate mb-1 transition-colors ${editingId === e.id ? 'text-emerald-800' : 'text-slate-900'}`}>{e.name}</p>
+                <p className={`text-sm font-black uppercase truncate mb-1 transition-colors ${editingId === e.id ? 'text-emerald-800' : 'text-slate-900'}`}>{e.name}</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest tabular-nums">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest tabular-nums">
                     {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border leading-none ${
+                  <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded border leading-none ${
                     e.category === 'PROVISION' 
                     ? 'text-indigo-600 bg-indigo-50 border-indigo-100' 
                     : 'text-rose-500 bg-rose-50 border-rose-100'
@@ -73,11 +73,11 @@ export const ExpenseActivityLog: React.FC<ExpenseActivityLogProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100">
-              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</th>
-              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Description</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Type</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -92,7 +92,7 @@ export const ExpenseActivityLog: React.FC<ExpenseActivityLogProps> = ({
                 className={`transition-colors ${e.category === 'PROVISION' || e.name.startsWith('RELIEVER PAYOUT:') ? 'cursor-default opacity-80' : 'hover:bg-slate-50/80 cursor-pointer group'} ${editingId === e.id ? 'bg-emerald-50/30' : ''}`}
               >
                 <td className="px-6 py-4">
-                  <p className="text-[11px] font-bold text-slate-900 tabular-nums">
+                  <p className="text-xs font-bold text-slate-900 tabular-nums">
                     {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </td>
@@ -107,11 +107,11 @@ export const ExpenseActivityLog: React.FC<ExpenseActivityLogProps> = ({
                         <FileText className="w-4 h-4" strokeWidth={2.5} />
                       )}
                     </div>
-                    <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate max-w-[150px]">{e.name}</p>
+                    <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate max-w-[150px]">{e.name}</p>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border leading-none ${
+                  <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded border leading-none ${
                     e.category === 'PROVISION' 
                     ? 'text-indigo-600 bg-indigo-50 border-indigo-100' 
                     : 'text-rose-500 bg-rose-50 border-rose-100'
@@ -161,8 +161,8 @@ const EmptyState = () => (
   <div className="py-12 text-center flex flex-col items-center justify-center space-y-4 opacity-40">
     <Inbox className="w-12 h-12 text-slate-300" strokeWidth={1.5} />
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Historical Registry Silent</p>
-      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">No expense outflows indexed for this session</p>
+      <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Historical Registry Silent</p>
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No expense outflows indexed for this session</p>
     </div>
   </div>
 );

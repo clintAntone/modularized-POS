@@ -1058,7 +1058,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   return (
     <>
       {toast && createPortal(
-        <div className="fixed bottom-6 right-6 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+        <div className="fixed bottom-6 right-6 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
           {toast.message}
         </div>,
@@ -1119,7 +1119,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
            </div>
            <div className="space-y-1">
              <p className="text-sm font-bold text-amber-900 uppercase tracking-tight">Personnel Initialization Required</p>
-             <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest leading-relaxed opacity-80">No therapists or specialists registered for this node. Use the button above to add staff before initializing POS operations.</p>
+             <p className="text-xs font-bold text-amber-700 uppercase tracking-widest leading-relaxed opacity-80">No therapists or specialists registered for this node. Use the button above to add staff before initializing POS operations.</p>
            </div>
         </div>
       )}
@@ -1130,7 +1130,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-[10px] font-semibold leading-relaxed">
+          <p className="text-xs font-semibold leading-relaxed">
             <span className="font-black uppercase tracking-widest">Reliever Staff:</span> Staff cards marked <span className="font-black">RELIEVER</span> are from another branch. If they have been transferred permanently, use the <span className="font-black">✕ remove button</span> on their card — do not request to disable them.
           </p>
         </div>
@@ -1174,7 +1174,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         }) : (
           <div className={`col-span-full py-40 text-center bg-white ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center gap-6 opacity-20`}>
              <Users className="w-20 h-20 text-slate-300" strokeWidth={1} />
-             <p className="text-[12px] font-bold text-slate-400 uppercase tracking-[0.5em]">No Personnel Record Found</p>
+             <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.5em]">No Personnel Record Found</p>
           </div>
         )}
       </div>
@@ -1190,8 +1190,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             </svg>
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-[11px] font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
+            <p className="text-xs font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
           </div>
           <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1228,25 +1228,25 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Remove Reliever</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Removes from this branch's staff list only</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Remove Reliever</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Removes from this branch's staff list only</p>
             </div>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reliever</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Reliever</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
-              <span className="text-[10px] font-black text-slate-700 uppercase">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">
                 {branches.find(b => b.id === removeRelieversEmployee.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}
               </span>
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-500 leading-relaxed mb-5">
+          <p className="text-xs text-slate-500 leading-relaxed mb-5">
             This removes <span className="font-black text-slate-700">{removeRelieversEmployee.name}</span> from this branch's authorized staff list. Their home branch record and payroll are not affected. You can re-enroll them later via "Enroll Reliever".
           </p>
 
@@ -1254,14 +1254,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isRemovingReliever}
               onClick={() => setRemoveRelieversEmployee(null)}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isRemovingReliever}
               onClick={handleConfirmRemoveReliever}
-              className="flex-1 h-10 rounded-xl bg-rose-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isRemovingReliever
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1286,31 +1286,31 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Place on Leave</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{leaveEmployee?.name}</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Place on Leave</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{leaveEmployee?.name}</p>
             </div>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{leaveEmployee.name}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{leaveEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
-              <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
             </div>
           </div>
 
           {/* Subtype: Leave or Suspended */}
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
           </div>
 
           {/* Leave type picker */}
           {(
             <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
               <div className="grid grid-cols-2 gap-2">
                 {(['VACATION', 'SICK', 'MATERNITY', 'PATERNITY', 'EMERGENCY'] as const).map(type => {
                   const lMeta: Record<string, { label: string; dot: string }> = {
@@ -1329,7 +1329,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-purple-400 bg-purple-50' : 'border-slate-100 hover:border-slate-200'}`}
                     >
                       <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSelected ? m.dot : 'bg-slate-200'}`} />
-                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{m.label}</span>
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{m.label}</span>
                     </button>
                   );
                 })}
@@ -1345,14 +1345,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             return (
               <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
-                  <input type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
+                  <input type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
                     End Date {endRequired ? <span className="text-rose-500">*</span> : <span className="font-bold normal-case opacity-60">(optional)</span>}
                   </label>
-                  <input type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} min={leaveStartDate} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                  <input type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} min={leaveStartDate} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
                 </div>
               </div>
             );
@@ -1360,12 +1360,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
           {/* Notes */}
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
-            <textarea value={leaveNotes} onChange={e => setLeaveNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={leaveNotes} onChange={e => setLeaveNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
-            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
               disabled={
                 isSubmittingLeave || !leaveType ||
@@ -1378,7 +1378,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 })()
               }
               onClick={handleSubmitLeaveRequest}
-              className="flex-1 h-10 rounded-xl bg-purple-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-purple-600 text-xs font-black uppercase tracking-widest text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Confirm Leave'}
             </button>
@@ -1400,24 +1400,24 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Disable Employee</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Permanent — Superadmin approval required</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Disable Employee</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Permanent — Superadmin approval required</p>
             </div>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{disableEmployee.name}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{disableEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
-              <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
             </div>
           </div>
 
           <div className="mb-4 space-y-3">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Reason <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Reason <span className="text-rose-500">*</span></label>
             {(['RESIGNED', 'TERMINATED'] as const).map(opt => {
               const dMeta = {
                 RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         dot: 'bg-slate-700' },
@@ -1431,8 +1431,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                     {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
                   </div>
                   <div className="flex-1">
-                    <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
-                    <p className="text-[9px] text-slate-400 font-semibold">{m.desc}</p>
+                    <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
+                    <p className="text-xs text-slate-400 font-semibold">{m.desc}</p>
                   </div>
                   <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
                 </label>
@@ -1441,24 +1441,24 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
             {disableReason === 'TERMINATED' && (
               <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                <label className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 block">Complaint Number <span className="text-rose-500">*</span></label>
-                <input type="text" value={complaintRef} onChange={e => setComplaintRef(e.target.value.toUpperCase())} placeholder="e.g. COMP-ABC123" className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-[11px] font-black text-slate-900 uppercase tracking-widest outline-none focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400" />
-                <p className="text-[8px] font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
+                <label className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1.5 block">Complaint Number <span className="text-rose-500">*</span></label>
+                <input type="text" value={complaintRef} onChange={e => setComplaintRef(e.target.value.toUpperCase())} placeholder="e.g. COMP-ABC123" className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400" />
+                <p className="text-xs font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
               </div>
             )}
           </div>
 
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
-            <textarea value={disableNotes} onChange={e => setDisableNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={disableNotes} onChange={e => setDisableNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
-            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
               disabled={isSubmittingDisable || !disableReason || (disableReason === 'TERMINATED' && !complaintRef.trim())}
               onClick={handleSubmitDisableRequest}
-              className="flex-1 h-10 rounded-xl bg-rose-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingDisable ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
             </button>
@@ -1479,16 +1479,16 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Return from Leave</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{returnEmployee.name}</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Return from Leave</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{returnEmployee.name}</p>
             </div>
           </div>
-          <p className="text-[12px] text-slate-600 mb-6 leading-relaxed">
+          <p className="text-xs text-slate-600 mb-6 leading-relaxed">
             Confirm that <span className="font-black text-slate-900">{returnEmployee.name}</span> is back and ready to resume work. This will clear their leave status immediately.
           </p>
           <div className="flex gap-3">
-            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
-            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[11px] font-black uppercase tracking-widest text-white active:scale-95 transition-all">Confirm Return</button>
+            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-black uppercase tracking-widest text-white active:scale-95 transition-all">Confirm Return</button>
           </div>
         </div>
       </div>
@@ -1505,8 +1505,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request New Staff</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request New Staff</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
             </div>
           </div>
 
@@ -1518,58 +1518,58 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Requesting New Staff</p>
-              <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">This form is for employees brand new to the network. Your request will be sent to the superadmin for review and approval before the employee is added.</p>
+              <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">Requesting New Staff</p>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">This form is for employees brand new to the network. Your request will be sent to the superadmin for review and approval before the employee is added.</p>
             </div>
           </div>
 
           <div className="space-y-3 mb-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">First Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">First Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpFirstName}
                   onChange={e => { setNewEmpFirstName(e.target.value); checkNewEmpName(e.target.value, newEmpMiddleName, newEmpLastName); }}
                   placeholder="e.g. JUAN"
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Last Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Last Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpLastName}
                   onChange={e => { setNewEmpLastName(e.target.value); checkNewEmpName(newEmpFirstName, newEmpMiddleName, e.target.value); }}
                   placeholder="e.g. DELA CRUZ"
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
                 />
               </div>
             </div>
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
               <input
                 value={newEmpMiddleName}
                 onChange={e => { setNewEmpMiddleName(e.target.value); checkNewEmpName(newEmpFirstName, e.target.value, newEmpLastName); }}
                 placeholder="e.g. SANTOS"
-                className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
               />
             </div>
 
             {newEmpBlockError && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
                 <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p className="text-[10px] font-bold text-rose-700">{newEmpBlockError}</p>
+                <p className="text-xs font-bold text-rose-700">{newEmpBlockError}</p>
               </div>
             )}
             {!newEmpBlockError && newEmpSimilarWarning && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
                 <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                <p className="text-[10px] font-bold text-amber-700">{newEmpSimilarWarning}</p>
+                <p className="text-xs font-bold text-amber-700">{newEmpSimilarWarning}</p>
               </div>
             )}
           </div>
 
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Role <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Role <span className="text-rose-500">*</span></label>
             <div className="flex flex-wrap gap-2">
               {(['THERAPIST', 'BONESETTER'] as const).map(r => {
                 const selected = newEmpRole.split(',').map(s => s.trim()).includes(r);
@@ -1582,7 +1582,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       const next = selected ? current.filter(x => x !== r) : [...current, r];
                       setNewEmpRole(next.join(','));
                     }}
-                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${
                       selected
                         ? r === 'THERAPIST'
                           ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
@@ -1595,21 +1595,21 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 );
               })}
             </div>
-            {!newEmpRole && <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Select at least one role.</p>}
+            {!newEmpRole && <p className="text-xs text-rose-500 font-bold mt-1.5 ml-1">Select at least one role.</p>}
           </div>
 
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
             <input
               type="number"
               min="1"
               value={newEmpAllowance}
               onChange={e => setNewEmpAllowance(e.target.value)}
               placeholder="e.g. 350"
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-[11px] font-semibold text-slate-700 outline-none transition-all bg-slate-50 ${newEmpAllowance && Number(newEmpAllowance) > 0 ? 'border-slate-200 focus:border-indigo-400' : 'border-rose-200 focus:border-rose-400'}`}
+              className={`w-full px-3 py-2.5 rounded-xl border-2 text-xs font-semibold text-slate-700 outline-none transition-all bg-slate-50 ${newEmpAllowance && Number(newEmpAllowance) > 0 ? 'border-slate-200 focus:border-indigo-400' : 'border-rose-200 focus:border-rose-400'}`}
             />
             {(!newEmpAllowance || Number(newEmpAllowance) <= 0) && (
-              <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Allowance must be greater than 0.</p>
+              <p className="text-xs text-rose-500 font-bold mt-1.5 ml-1">Allowance must be greater than 0.</p>
             )}
           </div>
 
@@ -1617,14 +1617,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isSubmittingNewEmp}
               onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isSubmittingNewEmp || !!newEmpBlockError || !newEmpFirstName.trim() || !newEmpLastName.trim() || !newEmpRole || !newEmpAllowance || Number(newEmpAllowance) <= 0}
               onClick={handleSubmitNewEmployeeRequest}
-              className="flex-1 h-10 rounded-xl bg-indigo-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingNewEmp
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1655,39 +1655,39 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 </svg>
               </div>
               <div>
-                <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Permanent Branch Transfer</p>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">This action changes payroll classification</p>
+                <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Permanent Branch Transfer</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">This action changes payroll classification</p>
               </div>
             </div>
 
             {/* What changes */}
             <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-                <span className="text-[11px] font-black text-slate-900 uppercase">{confirmPromoteEmployee.name}</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Employee</span>
+                <span className="text-xs font-black text-slate-900 uppercase">{confirmPromoteEmployee.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Previous Status</span>
-                <span className="text-[10px] font-black text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-lg">Reliever (Expenses)</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Previous Status</span>
+                <span className="text-xs font-black text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-lg">Reliever (Expenses)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">New Status</span>
-                <span className="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-lg">Regular (Payroll)</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">New Status</span>
+                <span className="text-xs font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-lg">Regular (Payroll)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
-                <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
+                <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 leading-relaxed mb-4">
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
               This cannot be undone from this screen. To revert, a superadmin must manually update the employee record.
               Type the employee's full name to confirm.
             </p>
 
             {/* Name confirmation input */}
             <div className="mb-4">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
                 Type <span className="text-slate-700">{confirmPromoteEmployee.name}</span> to confirm
               </label>
               <input
@@ -1696,7 +1696,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 onChange={e => setPromoteConfirmInput(e.target.value.toUpperCase())}
                 placeholder={confirmPromoteEmployee.name}
                 disabled={isPromoting}
-                className={`w-full h-11 px-4 rounded-xl border-2 text-[11px] font-black uppercase outline-none transition-all ${
+                className={`w-full h-11 px-4 rounded-xl border-2 text-xs font-black uppercase outline-none transition-all ${
                   inputMatch
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     : promoteConfirmInput.length > 0
@@ -1711,14 +1711,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               <button
                 disabled={isPromoting}
                 onClick={() => { setConfirmPromoteEmployee(null); setPromoteConfirmInput(''); }}
-                className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 disabled={!inputMatch || isPromoting}
                 onClick={handleConfirmPromotion}
-                className="flex-1 h-10 rounded-xl bg-emerald-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 h-10 rounded-xl bg-emerald-600 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isPromoting ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>

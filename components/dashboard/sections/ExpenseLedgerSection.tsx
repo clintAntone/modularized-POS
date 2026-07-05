@@ -27,14 +27,14 @@ function getManilaToday() {
 // Returns a MoM badge element (▲ +X% / ▼ -X% / — if no prev data)
 function MomBadge({ current, prev }: { current: number; prev: number }) {
   if (prev === 0 && current === 0) return null;
-  if (prev === 0) return <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">NEW</span>;
+  if (prev === 0) return <span className="text-xs font-black text-slate-400 uppercase tracking-widest">NEW</span>;
 
   const pct = Math.round(((current - prev) / prev) * 100);
-  if (pct === 0) return <span className="text-[8px] font-black text-slate-400">—</span>;
+  if (pct === 0) return <span className="text-xs font-black text-slate-400">—</span>;
 
   const up = pct > 0;
   return (
-    <span className={`text-[8px] font-black uppercase tracking-widest ${up ? 'text-rose-500' : 'text-emerald-600'}`}>
+    <span className={`text-xs font-black uppercase tracking-widest ${up ? 'text-rose-500' : 'text-emerald-600'}`}>
       {up ? '▲' : '▼'} {up ? '+' : ''}{pct}%
     </span>
   );
@@ -204,7 +204,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
             <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center text-2xl shadow-xl shrink-0">📒</div>
             <div>
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-none">{branch.name.replace('BRANCH - ', '')}</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-0.5">Expense Ledger</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mt-0.5">Expense Ledger</p>
             </div>
           </div>
 
@@ -217,7 +217,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
             <button onClick={goForward} disabled={isCurrentMonth} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
               <ChevronRight className="w-4 h-4" />
             </button>
-            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow ml-1">
+            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow ml-1">
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Export PDF</span>
             </button>
@@ -236,7 +236,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${cfg.dot}`}></span>
-                <p className={`text-[9px] font-black uppercase tracking-widest ${categoryFilter === cat ? cfg.text : 'text-slate-400'}`}>{cfg.label}</p>
+                <p className={`text-xs font-black uppercase tracking-widest ${categoryFilter === cat ? cfg.text : 'text-slate-400'}`}>{cfg.label}</p>
               </div>
               <MomBadge current={(totals as any)[cat]} prev={(prevTotals as any)[cat]} />
             </div>
@@ -247,11 +247,11 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
         ))}
         <div className="p-5 rounded-[24px] border-2 border-slate-200 bg-slate-50 text-left">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Period Total</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Period Total</p>
             <MomBadge current={totals.total} prev={prevTotals.total} />
           </div>
           <p className="text-xl font-black text-slate-900 tabular-nums">₱{totals.total.toLocaleString()}</p>
-          <p className="text-[9px] font-bold text-slate-400 mt-1">{periodItems.length} entries</p>
+          <p className="text-xs font-bold text-slate-400 mt-1">{periodItems.length} entries</p>
         </div>
       </div>
 
@@ -284,17 +284,17 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
 
         return (
           <div className="bg-white rounded-[24px] border border-slate-100 p-5 space-y-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period Highlights</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Period Highlights</p>
             <div className="space-y-3">
               {/* Biggest single expense */}
               {biggestItem && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Biggest Expense</p>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight truncate">{biggestItem.name}</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Biggest Expense</p>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{biggestItem.name}</p>
                   </div>
-                  <p className="text-[11px] font-black text-rose-600 tabular-nums shrink-0">₱{Number(biggestItem.amount || 0).toLocaleString()}</p>
+                  <p className="text-xs font-black text-rose-600 tabular-nums shrink-0">₱{Number(biggestItem.amount || 0).toLocaleString()}</p>
                 </div>
               )}
 
@@ -303,10 +303,10 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Most Frequent</p>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight truncate">{topName}</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Most Frequent</p>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{topName}</p>
                   </div>
-                  <p className="text-[11px] font-black text-amber-600 tabular-nums shrink-0">{topCount}x</p>
+                  <p className="text-xs font-black text-amber-600 tabular-nums shrink-0">{topCount}x</p>
                 </div>
               )}
 
@@ -315,9 +315,9 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${delta > 0 ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">vs Last Month</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">vs Last Month</p>
                   </div>
-                  <p className={`text-[11px] font-black tabular-nums shrink-0 ${delta > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  <p className={`text-xs font-black tabular-nums shrink-0 ${delta > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                     {delta > 0 ? '+' : '-'}₱{absDelta.toLocaleString()} {delta > 0 ? 'more' : 'less'}
                   </p>
                 </div>
@@ -335,7 +335,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="SEARCH NAME, AMOUNT...."
-            className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all shadow-sm placeholder:text-slate-300 text-slate-700"
+            className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-widest outline-none focus:border-emerald-500 transition-all shadow-sm placeholder:text-slate-300 text-slate-700"
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-300 transition-colors">
@@ -344,7 +344,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
           )}
         </div>
         {categoryFilter !== 'all' && (
-          <button onClick={() => { setCategoryFilter('all'); playSound('click'); }} className="flex items-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors">
+          <button onClick={() => { setCategoryFilter('all'); playSound('click'); }} className="flex items-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-colors">
             <X className="w-3 h-3" /> Clear Filter
           </button>
         )}
@@ -371,7 +371,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-slate-900 uppercase text-xs tracking-tight leading-snug">{item.name}</p>
-                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">{dateStr}</p>
+                      <p className="text-xs font-bold text-slate-400 mt-0.5">{dateStr}</p>
                     </div>
                     <p className={`font-black tabular-nums text-sm shrink-0 ${amtColor}`}>
                       ₱{Number(item.amount || 0).toLocaleString()}
@@ -379,17 +379,17 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                   </div>
                   <div className="flex items-center justify-between">
                     {cfg ? (
-                      <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest`}>
+                      <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-widest`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>
                         {cfg.label}
                       </span>
                     ) : (
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">{item.category}</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase">{item.category}</span>
                     )}
                     {item.receiptImage ? (
                       <button
                         onClick={() => { playSound('click'); setPreviewItem(item); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-black text-[9px] uppercase tracking-widest transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-black text-xs uppercase tracking-widest transition-colors"
                       >
                         <Receipt className="w-3 h-3" /> View Proof
                       </button>
@@ -399,7 +399,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
               );
             })}
             <div className="bg-slate-50 rounded-[20px] border border-slate-200 p-4 flex items-center justify-between">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{periodItems.length} entries</p>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{periodItems.length} entries</p>
               <p className="font-black text-slate-900 tabular-nums text-sm">₱{totals.total.toLocaleString()}</p>
             </div>
           </div>
@@ -410,11 +410,11 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-6 sm:px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-28">Date</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                    <th className="px-4 sm:px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                    <th className="px-4 sm:px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center w-16">Proof</th>
+                    <th className="px-6 sm:px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest w-28">Date</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Category</th>
+                    <th className="px-4 sm:px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                    <th className="px-4 sm:px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center w-16">Proof</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -425,18 +425,18 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                     });
                     return (
                       <tr key={item.id || i} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 sm:px-8 py-4 text-[10px] font-bold text-slate-400 whitespace-nowrap">{dateStr}</td>
+                        <td className="px-6 sm:px-8 py-4 text-xs font-bold text-slate-400 whitespace-nowrap">{dateStr}</td>
                         <td className="px-4 py-4">
                           <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{item.name}</p>
                         </td>
                         <td className="px-4 py-4">
                           {cfg ? (
-                            <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest`}>
+                            <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-widest`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>
                               {cfg.label}
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">{item.category}</span>
+                            <span className="text-xs font-bold text-slate-400 uppercase">{item.category}</span>
                           )}
                         </td>
                         <td className="px-4 sm:px-8 py-4 text-right">
@@ -464,7 +464,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50 border-t-2 border-slate-200">
-                    <td colSpan={3} className="px-6 sm:px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <td colSpan={3} className="px-6 sm:px-8 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">
                       {periodItems.length} entries
                     </td>
                     <td className="px-4 sm:px-8 py-4 text-right font-black text-slate-900 tabular-nums text-sm">
@@ -486,7 +486,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">{previewItem.name}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                   {CATEGORY_CONFIG[previewItem.category as keyof typeof CATEGORY_CONFIG]?.label || previewItem.category}
                   {' · '}
                   {new Date(previewItem.timestamp || previewItem.reportDate || '').toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' })}
@@ -501,7 +501,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
               <img src={previewItem.receiptImage} alt="Receipt" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
             </div>
 
-            <button onClick={() => setPreviewItem(null)} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow active:scale-95 transition-all">
+            <button onClick={() => setPreviewItem(null)} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow active:scale-95 transition-all">
               Close
             </button>
           </div>

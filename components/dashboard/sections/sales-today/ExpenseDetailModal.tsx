@@ -49,9 +49,9 @@ export const ExpenseDetailModal: React.FC<ExpenseDetailModalProps> = ({ expense,
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
           <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100 text-center">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Description</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Description</p>
             <p className="text-lg font-bold text-slate-900 uppercase tracking-tighter mb-4 leading-tight">{expense.name}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Amount</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Amount</p>
             <p className="text-2xl font-bold text-slate-900 tracking-tighter">₱{Number(expense.amount).toLocaleString()}</p>
           </div>
 
@@ -62,14 +62,14 @@ export const ExpenseDetailModal: React.FC<ExpenseDetailModalProps> = ({ expense,
           ) : (
             <div className="py-8 rounded-[24px] bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 opacity-40">
               <div className="text-3xl">📷</div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">No Receipt Captured</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">No Receipt Captured</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="p-4 bg-slate-50 border-t shrink-0">
-          <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all">Close</button>
+          <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">Close</button>
         </div>
       </div>
     </div>,

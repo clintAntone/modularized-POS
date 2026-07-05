@@ -84,8 +84,8 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                 <div className="bg-white p-5 md:p-7 rounded-[22px] shadow-sm border border-slate-200 space-y-6">
                     <div className="space-y-6">
                         <div className="flex items-center justify-between ml-2">
-                            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Customer Information</h3>
-                            {props.mode === 'EDITING' && <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-[8px] font-bold uppercase border border-amber-100 tracking-widest animate-pulse">Correction Active</span>}
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Customer Information</h3>
+                            {props.mode === 'EDITING' && <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-bold uppercase border border-amber-100 tracking-widest animate-pulse">Correction Active</span>}
                         </div>
 
                         <div className="relative">
@@ -139,7 +139,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                                 playSound('click');
                                             }}
                                             onMouseEnter={() => setHighlightedIndex(i)}
-                                            className={`w-full text-left px-5 py-3.5 text-[11px] font-black uppercase tracking-widest transition-colors flex items-center gap-3 ${i === highlightedIndex ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                                            className={`w-full text-left px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-3 ${i === highlightedIndex ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50'}`}
                                         >
                                             <svg className="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                             {name}
@@ -150,7 +150,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Transaction Note (Optional)</label>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-2">Transaction Note (Optional)</label>
                             <textarea
                                 value={props.formData.note}
                                 onChange={e => props.setFormData({...props.formData, note: e.target.value})}
@@ -163,11 +163,11 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                     {/* Tab Navigation */}
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
-                            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Service Selection</h3>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Service Selection</h3>
                             <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto">
                                 <button
                                     onClick={() => { setActiveTab('STANDARD'); playSound('click'); }}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <Zap className={`w-3 h-3 ${activeTab === 'STANDARD' ? 'fill-emerald-600' : ''}`} />
                                     Standard
@@ -175,7 +175,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                 </button>
                                 <button
                                     onClick={() => { setActiveTab('LOYALTY'); playSound('click'); }}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'LOYALTY' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'LOYALTY' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <Gift className={`w-3 h-3 ${activeTab === 'LOYALTY' ? 'fill-white' : ''}`} />
                                     Loyalty

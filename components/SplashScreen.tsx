@@ -85,34 +85,34 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
 
         <div className="text-center space-y-3">
-          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-600 animate-pulse">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600 animate-pulse">
             {message}
           </p>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
             {subMessage}
           </p>
           {elapsed >= 5 && diagState === 'idle' && (
-            <p className="text-[8px] text-slate-300 tabular-nums">{elapsed}s elapsed…</p>
+            <p className="text-xs text-slate-300 tabular-nums">{elapsed}s elapsed…</p>
           )}
         </div>
 
         {/* Diagnostic panel — appears after 8 s */}
         {elapsed >= 8 && (
           <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">
+            <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-center">
               {diagState === 'running' ? 'Checking connection…' : 'Taking longer than expected'}
             </p>
 
             {/* Status rows */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-widest">
                 <span>Internet</span>
                 <span className="flex items-center gap-1.5">
                   <StatusDot ok={internet} />
                   {internet === null ? 'Checking…' : internet ? 'Connected' : 'No connection'}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-widest">
                 <span>Server</span>
                 <span className="flex items-center gap-1.5">
                   <StatusDot ok={supabaseOk} />
@@ -123,7 +123,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
             {/* Detail message */}
             {diagDetail && (
-              <p className="text-[10px] text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
+              <p className="text-xs text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
                 {diagDetail}
               </p>
             )}
@@ -132,7 +132,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             {diagState === 'done' && (
               <div className="space-y-2 pt-1">
                 {!internet && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[10px] text-amber-800 leading-relaxed">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed">
                     <p className="font-black uppercase tracking-widest mb-1">Try this:</p>
                     <ol className="list-decimal list-inside space-y-1">
                       <li>Toggle airplane mode off and on</li>
@@ -142,7 +142,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   </div>
                 )}
                 {internet && supabaseOk === false && (
-                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[10px] text-rose-800 leading-relaxed space-y-2">
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 leading-relaxed space-y-2">
                     <p className="font-black uppercase tracking-widest">Most likely fix — Change DNS:</p>
                     <div className="space-y-1">
                       <p className="font-bold">Android (easiest — works on all networks):</p>
@@ -171,21 +171,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   </div>
                 )}
                 {internet && supabaseOk === true && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[10px] text-emerald-800 leading-relaxed">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 leading-relaxed">
                     Server is reachable. The app may be loading a large amount of data. Please wait a moment more or refresh.
                   </div>
                 )}
 
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all"
+                  className="w-full py-3 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-xl active:scale-95 transition-all"
                 >
                   Refresh App
                 </button>
                 <button
                   onClick={runDiagnostic}
                   disabled={diagState === 'running'}
-                  className="w-full py-2.5 bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all disabled:opacity-40"
+                  className="w-full py-2.5 bg-slate-100 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl active:scale-95 transition-all disabled:opacity-40"
                 >
                   Run Check Again
                 </button>

@@ -104,7 +104,7 @@ export const NetworkDiagnostic: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg p-3 font-mono text-[10px] text-green-400 max-h-40 overflow-y-auto">
+      <div className="bg-gray-900 rounded-lg p-3 font-mono text-xs text-green-400 max-h-40 overflow-y-auto">
         {status.details.map((d, i) => (
           <div key={i} className="mb-1">{d}</div>
         ))}

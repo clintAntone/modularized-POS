@@ -38,7 +38,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
   const inputCls = 'w-full p-3 sm:p-4 bg-slate-50 border-2 border-transparent rounded-[14px] sm:rounded-[18px] font-semibold text-xs sm:text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner';
   const inputClsUpper = inputCls + ' uppercase font-bold';
-  const labelCls = 'text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block';
+  const labelCls = 'text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block';
 
   const handleSave = () => {
     const fn = firstName.trim().toUpperCase();
@@ -56,7 +56,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
         <div className="flex justify-between items-center mb-4 sm:mb-6 shrink-0">
           <div className="min-w-0 flex-1">
             <h3 className="text-xl sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter leading-none truncate">{employee.name || 'UNNAMED'}</h3>
-            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-1">Personal Details</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mt-1">Personal Details</p>
           </div>
           <button type="button" onClick={onClose} className="ml-4 p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-2xl text-slate-300 hover:text-slate-900 transition-all active:scale-90 shadow-sm border border-slate-100 shrink-0">
             <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,20 +100,20 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
             {/* Employee ID */}
             <div className="flex-1 min-w-0">
-              <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</p>
+              <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</p>
               {empId ? (
                 <button
                   type="button"
                   onClick={() => { navigator.clipboard.writeText(empId); setEmpIdCopied(true); setTimeout(() => setEmpIdCopied(false), 2000); }}
                   className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-3 hover:border-emerald-400 transition-all active:scale-[0.98] text-left"
                 >
-                  <p className="text-[10px] sm:text-sm font-black text-slate-700 tracking-wider font-mono flex-1 min-w-0 break-all">{empId}</p>
-                  <span className="shrink-0 text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-xs sm:text-sm font-black text-slate-700 tracking-wider font-mono flex-1 min-w-0 break-all">{empId}</p>
+                  <span className="shrink-0 text-xs sm:text-xs font-black uppercase tracking-widest text-slate-400">
                     {empIdCopied ? '✓ Copied' : 'Copy'}
                   </span>
                 </button>
               ) : (
-                <p className="text-[9px] font-bold text-slate-300 italic">No ID yet</p>
+                <p className="text-xs font-bold text-slate-300 italic">No ID yet</p>
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => setProfileFile(e.target.files?.[0] || null)} />
@@ -121,7 +121,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
           {/* Name fields */}
           <div className="space-y-3">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em]">Name</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.25em]">Name</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>First Name</label>
@@ -153,7 +153,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
             </div>
             {displayName && displayName !== employee.name && (
               <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
-                <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest mb-0.5">New Display Name</p>
+                <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-0.5">New Display Name</p>
                 <p className="text-sm font-black text-amber-900 uppercase">{displayName}</p>
               </div>
             )}
@@ -161,7 +161,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
           {/* Personal info */}
           <div className="space-y-4 pt-2 border-t border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em]">Personal Information</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.25em]">Personal Information</p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -220,7 +220,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
 
           {/* Emergency contact */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em]">Emergency Contact</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.25em]">Emergency Contact</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Contact Person</label>
@@ -248,14 +248,14 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-[20px] sm:rounded-[28px] uppercase tracking-widest text-[10px] sm:text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full bg-slate-900 text-white font-black py-5 sm:py-6 rounded-[20px] sm:rounded-[28px] uppercase tracking-widest text-xs sm:text-xs shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
           >
             {isSaving
               ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               : 'Save Personal Details'
             }
           </button>
-          <button type="button" onClick={onClose} className="w-full py-3 text-slate-400 font-bold text-[9px] sm:text-[10px] uppercase tracking-widest text-center">Cancel</button>
+          <button type="button" onClick={onClose} className="w-full py-3 text-slate-400 font-bold text-xs sm:text-xs uppercase tracking-widest text-center">Cancel</button>
         </div>
       </div>
     </div>

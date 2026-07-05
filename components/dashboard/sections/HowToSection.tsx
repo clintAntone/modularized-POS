@@ -45,7 +45,7 @@ const NavBar = ({ active }: { active: string }) => {
       {tabs.map(t => (
         <div key={t.id} className={`flex flex-col items-center gap-0.5 px-2 ${active === t.id ? 'text-emerald-400' : 'text-slate-500'}`}>
           {t.icon}
-          <span className="text-[7px] font-bold uppercase tracking-widest">{t.label}</span>
+          <span className="text-xs font-bold uppercase tracking-widest">{t.label}</span>
           {active === t.id && <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />}
         </div>
       ))}
@@ -112,7 +112,7 @@ const InlineNavBar = ({ active, arrowAt }: { active: string; arrowAt?: string })
         {tabs.map(t => (
           <div key={t.id} className={`flex flex-col items-center gap-0.5 px-2 ${active === t.id ? 'text-emerald-400' : 'text-slate-500'}`}>
             <div className="w-4 h-4 rounded bg-current opacity-60" />
-            <span className="text-[7px] font-bold uppercase tracking-widest">{t.label}</span>
+            <span className="text-xs font-bold uppercase tracking-widest">{t.label}</span>
             {active === t.id && <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />}
           </div>
         ))}
@@ -124,10 +124,10 @@ const InlineNavBar = ({ active, arrowAt }: { active: string; arrowAt?: string })
 const VisualOpenBranch = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Branch Status</div>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Status</div>
       <div className="bg-slate-700 rounded-2xl px-4 py-3 flex items-center justify-between">
         <div>
-          <p className="text-[8px] text-slate-400 uppercase">Status</p>
+          <p className="text-xs text-slate-400 uppercase">Status</p>
           <p className="text-xs font-black text-rose-400 uppercase">● Offline</p>
         </div>
         {/* Arrow points right toward the Open button */}
@@ -135,7 +135,7 @@ const VisualOpenBranch = () => (
           <Arrow dir="right" className="w-4 h-4 text-emerald-400" />
           <Highlight>
             <div className="bg-emerald-500 rounded-xl px-3 py-1.5">
-              <p className="text-[8px] font-black text-white uppercase">Open</p>
+              <p className="text-xs font-black text-white uppercase">Open</p>
             </div>
           </Highlight>
         </div>
@@ -152,15 +152,15 @@ const VisualOpenConfirm = () => (
         <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto">
           <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
         </div>
-        <p className="text-[9px] font-black text-slate-900 uppercase text-center tracking-tight">Open Branch?</p>
-        <p className="text-[7px] text-slate-400 text-center leading-relaxed">This will start the business day and enable the POS.</p>
+        <p className="text-xs font-black text-slate-900 uppercase text-center tracking-tight">Open Branch?</p>
+        <p className="text-xs text-slate-400 text-center leading-relaxed">This will start the business day and enable the POS.</p>
         {/* Arrow above the confirm button pointing down at it */}
         <div className="flex justify-center pt-1">
           <Arrow dir="down" className="w-4 h-4 text-emerald-500" />
         </div>
         <Highlight>
           <div className="bg-slate-900 rounded-xl py-2 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Confirm Open</p>
+            <p className="text-xs font-black text-white uppercase">Confirm Open</p>
           </div>
         </Highlight>
       </div>
@@ -173,16 +173,16 @@ const VisualOpenDone = () => (
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-2 pb-2">
       <div className="bg-slate-700 rounded-2xl px-4 py-3 flex items-center justify-between">
         <div>
-          <p className="text-[8px] text-slate-400 uppercase">Status</p>
+          <p className="text-xs text-slate-400 uppercase">Status</p>
           <p className="text-xs font-black text-emerald-400 uppercase">● Online</p>
         </div>
         <div className="bg-slate-600 rounded-xl px-3 py-1.5">
-          <p className="text-[8px] font-black text-slate-300 uppercase">Close</p>
+          <p className="text-xs font-black text-slate-300 uppercase">Close</p>
         </div>
       </div>
       <div className="bg-emerald-900/30 border border-emerald-500/20 rounded-xl p-3">
-        <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Branch is now open!</p>
-        <p className="text-[7px] text-slate-400 mt-0.5">POS and staff features are now active.</p>
+        <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Branch is now open!</p>
+        <p className="text-xs text-slate-400 mt-0.5">POS and staff features are now active.</p>
       </div>
     </div>
     <InlineNavBar active="sales" />
@@ -194,7 +194,7 @@ const VisualStaffNav = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Staff tab in the bottom bar</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Staff tab in the bottom bar</p>
       </div>
       <InlineNavBar active="staff" arrowAt="staff" />
     </div>
@@ -205,32 +205,32 @@ const VisualStaffTab = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase tracking-tight">Staff on Duty</p>
+        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Staff on Duty</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         {/* First row highlighted */}
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100">
           <div>
-            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
-            <p className="text-[7px] text-slate-400">Therapist · Not clocked in</p>
+            <p className="text-xs font-black text-slate-900">JUAN D.</p>
+            <p className="text-xs text-slate-400">Therapist · Not clocked in</p>
           </div>
           {/* Arrow points right toward Clock In */}
           <div className="flex items-center gap-1.5">
             <Arrow dir="right" className="w-3 h-3 text-emerald-400" />
             <Highlight>
               <div className="bg-emerald-500 rounded-lg px-2 py-1">
-                <p className="text-[7px] font-black text-white uppercase">Clock In</p>
+                <p className="text-xs font-black text-white uppercase">Clock In</p>
               </div>
             </Highlight>
           </div>
         </div>
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-40">
           <div>
-            <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
-            <p className="text-[7px] text-slate-400">Therapist · Not clocked in</p>
+            <p className="text-xs font-black text-slate-900">MARIA S.</p>
+            <p className="text-xs text-slate-400">Therapist · Not clocked in</p>
           </div>
           <div className="bg-emerald-500 rounded-lg px-2 py-1">
-            <p className="text-[7px] font-black text-white uppercase">Clock In</p>
+            <p className="text-xs font-black text-white uppercase">Clock In</p>
           </div>
         </div>
       </div>
@@ -243,15 +243,15 @@ const VisualPOSTab = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Point of Sale</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Point of Sale</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         {/* First service highlighted */}
         <Highlight>
           <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100">
             <div>
-              <p className="text-[7px] font-black text-slate-900">HILOT BODY (60 min)</p>
-              <p className="text-[7px] text-emerald-600 font-bold">₱ 300</p>
+              <p className="text-xs font-black text-slate-900">HILOT BODY (60 min)</p>
+              <p className="text-xs text-emerald-600 font-bold">₱ 300</p>
             </div>
             <div className="w-5 h-5 rounded-full border-2 border-emerald-400 bg-emerald-50" />
           </div>
@@ -259,8 +259,8 @@ const VisualPOSTab = () => (
         {['HILOT HEAD (30 min)', 'COMBINATION'].map(s => (
           <div key={s} className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-40">
             <div>
-              <p className="text-[7px] font-black text-slate-900">{s}</p>
-              <p className="text-[7px] text-emerald-600 font-bold">₱ 300</p>
+              <p className="text-xs font-black text-slate-900">{s}</p>
+              <p className="text-xs text-emerald-600 font-bold">₱ 300</p>
             </div>
             <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
           </div>
@@ -275,17 +275,17 @@ const VisualPOSTherapist = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Select Therapist</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Select Therapist</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <Highlight>
           <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100">
-            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
+            <p className="text-xs font-black text-slate-900">JUAN D.</p>
             <div className="w-5 h-5 rounded-full border-2 border-emerald-400 bg-emerald-50" />
           </div>
         </Highlight>
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-40">
-          <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
+          <p className="text-xs font-black text-slate-900">MARIA S.</p>
           <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
         </div>
       </div>
@@ -298,16 +298,16 @@ const VisualPOSConfirm = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Summary</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Summary</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <div className="bg-white rounded-xl p-2.5 border border-slate-100 space-y-1">
-          <p className="text-[7px] text-slate-400 uppercase">Service</p>
-          <p className="text-[8px] font-black text-slate-900">HILOT BODY (60 min)</p>
-          <p className="text-[7px] text-slate-400 uppercase">Therapist</p>
-          <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
-          <p className="text-[7px] text-slate-400 uppercase">Total</p>
-          <p className="text-[10px] font-black text-emerald-600">₱ 300.00</p>
+          <p className="text-xs text-slate-400 uppercase">Service</p>
+          <p className="text-xs font-black text-slate-900">HILOT BODY (60 min)</p>
+          <p className="text-xs text-slate-400 uppercase">Therapist</p>
+          <p className="text-xs font-black text-slate-900">JUAN D.</p>
+          <p className="text-xs text-slate-400 uppercase">Total</p>
+          <p className="text-xs font-black text-emerald-600">₱ 300.00</p>
         </div>
         {/* Arrow above the confirm button pointing down at it */}
         <div className="flex justify-center">
@@ -315,7 +315,7 @@ const VisualPOSConfirm = () => (
         </div>
         <Highlight>
           <div className="bg-slate-900 rounded-xl py-2 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Confirm & Save</p>
+            <p className="text-xs font-black text-white uppercase">Confirm & Save</p>
           </div>
         </Highlight>
       </div>
@@ -328,13 +328,13 @@ const VisualExpenseForm = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Sales</p>
       </div>
       <div className="flex-1 p-2 space-y-1 overflow-hidden">
         {['HILOT BODY · JUAN D.', 'HILOT HEAD · MARIA S.'].map(s => (
           <div key={s} className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
-            <p className="text-[7px] text-slate-600">{s}</p>
-            <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+            <p className="text-xs text-slate-600">{s}</p>
+            <p className="text-xs font-bold text-emerald-600">₱ 300</p>
           </div>
         ))}
       </div>
@@ -345,11 +345,11 @@ const VisualExpenseForm = () => (
         </div>
         <Highlight>
           <div className="bg-rose-500 rounded-xl py-2 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Record Expense</p>
+            <p className="text-xs font-black text-white uppercase">Record Expense</p>
           </div>
         </Highlight>
         <div className="bg-slate-300 rounded-xl py-2 text-center opacity-40">
-          <p className="text-[8px] font-black text-slate-600 uppercase">Daily Deposit</p>
+          <p className="text-xs font-black text-slate-600 uppercase">Daily Deposit</p>
         </div>
       </div>
     </div>
@@ -364,13 +364,13 @@ const VisualExpenseSave = () => (
       {/* Background — Sales tab (dimmed behind modal) */}
       <div className="absolute inset-0 bg-slate-50">
         <div className="bg-white px-3 py-2 border-b border-slate-100">
-          <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+          <p className="text-xs font-black text-slate-900 uppercase">Sales</p>
         </div>
         <div className="p-2 space-y-1">
           {['HILOT BODY · JUAN D.', 'HILOT HEAD · MARIA S.'].map(s => (
             <div key={s} className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between">
-              <p className="text-[7px] text-slate-600">{s}</p>
-              <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+              <p className="text-xs text-slate-600">{s}</p>
+              <p className="text-xs font-bold text-emerald-600">₱ 300</p>
             </div>
           ))}
         </div>
@@ -378,7 +378,7 @@ const VisualExpenseSave = () => (
           {['POS', 'Sales', 'Staff', 'More'].map((t, i) => (
             <div key={t} className={`flex flex-col items-center gap-0.5 px-2 ${i === 1 ? 'text-emerald-400' : 'text-slate-500'}`}>
               <div className="w-4 h-4 rounded bg-current opacity-60" />
-              <span className="text-[7px] font-bold uppercase tracking-widest">{t}</span>
+              <span className="text-xs font-bold uppercase tracking-widest">{t}</span>
             </div>
           ))}
         </div>
@@ -388,10 +388,10 @@ const VisualExpenseSave = () => (
       {/* Bottom sheet modal on top */}
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-3 space-y-2 pb-4">
         <div className="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-1" />
-        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Record Expense</p>
+        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Record Expense</p>
         {['Description', 'Amount', 'Category'].map(f => (
           <div key={f}>
-            <p className="text-[7px] text-slate-400 uppercase mb-0.5">{f}</p>
+            <p className="text-xs text-slate-400 uppercase mb-0.5">{f}</p>
             <div className="h-4 bg-slate-50 rounded border border-slate-200" />
           </div>
         ))}
@@ -400,7 +400,7 @@ const VisualExpenseSave = () => (
         </div>
         <Highlight>
           <div className="bg-slate-900 rounded-xl py-1.5 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Save Expense</p>
+            <p className="text-xs font-black text-white uppercase">Save Expense</p>
           </div>
         </Highlight>
       </div>
@@ -413,17 +413,17 @@ const VisualRemittanceTab = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Remittance</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Remittance</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <div className="bg-white rounded-xl p-2.5 border border-slate-100 space-y-1">
-          <p className="text-[7px] text-slate-400 uppercase">Adjusted ROI</p>
-          <p className="text-[14px] font-black text-slate-900">₱ 4,200.00</p>
+          <p className="text-xs text-slate-400 uppercase">Adjusted ROI</p>
+          <p className="text-sm font-black text-slate-900">₱ 4,200.00</p>
           <div className="grid grid-cols-2 gap-1 pt-1">
             {['OWNER A 50%', 'OWNER B 50%'].map(o => (
               <div key={o} className="bg-slate-50 rounded-lg p-1.5">
                 <p className="text-[6px] text-slate-400">{o}</p>
-                <p className="text-[8px] font-black text-slate-700">₱ 2,100</p>
+                <p className="text-xs font-black text-slate-700">₱ 2,100</p>
               </div>
             ))}
           </div>
@@ -440,9 +440,9 @@ const VisualRemittanceSubmit = () => (
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="flex-1 p-2 space-y-1.5 pt-3">
         <div className="bg-white rounded-xl p-2.5 border border-slate-100 space-y-1.5 opacity-60">
-          <p className="text-[7px] font-bold text-slate-500 uppercase">Period</p>
+          <p className="text-xs font-bold text-slate-500 uppercase">Period</p>
           <div className="h-4 bg-slate-100 rounded w-2/3" />
-          <p className="text-[7px] font-bold text-slate-500 uppercase">Adjusted ROI</p>
+          <p className="text-xs font-bold text-slate-500 uppercase">Adjusted ROI</p>
           <div className="h-4 bg-slate-100 rounded w-1/2" />
         </div>
         {/* Arrow above submit button pointing down at it */}
@@ -451,7 +451,7 @@ const VisualRemittanceSubmit = () => (
         </div>
         <Highlight>
           <div className="bg-slate-900 rounded-xl py-3 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Submit Remittance</p>
+            <p className="text-xs font-black text-white uppercase">Submit Remittance</p>
           </div>
         </Highlight>
       </div>
@@ -465,7 +465,7 @@ const VisualReportNav = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Sales tab to see today's summary</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center px-4">Tap the Sales tab to see today's summary</p>
       </div>
       <InlineNavBar active="sales" arrowAt="sales" />
     </div>
@@ -478,26 +478,26 @@ const VisualVaultDepositButton = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Sales</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5 overflow-hidden">
         <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
-          <p className="text-[7px] text-slate-600">HILOT BODY · JUAN D.</p>
-          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+          <p className="text-xs text-slate-600">HILOT BODY · JUAN D.</p>
+          <p className="text-xs font-bold text-emerald-600">₱ 300</p>
         </div>
         <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
-          <p className="text-[7px] text-slate-600">HILOT HEAD · MARIA S.</p>
-          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+          <p className="text-xs text-slate-600">HILOT HEAD · MARIA S.</p>
+          <p className="text-xs font-bold text-emerald-600">₱ 300</p>
         </div>
         <div className="pt-2 space-y-2">
-          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-1">Vault</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Vault</p>
           <div className="flex justify-center">
             <Arrow dir="down" className="w-4 h-4 text-indigo-400" />
           </div>
           <Highlight>
             <div className="border-2 border-dashed border-indigo-300 bg-indigo-50/50 rounded-xl py-3 flex items-center justify-center gap-2">
               <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-              <p className="text-[8px] font-black text-indigo-600 uppercase">Deposit to Vault</p>
+              <p className="text-xs font-black text-indigo-600 uppercase">Deposit to Vault</p>
             </div>
           </Highlight>
         </div>
@@ -517,12 +517,12 @@ const VisualVaultDepositAmount = () => (
           <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center mx-auto">
             <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
           </div>
-          <p className="text-[9px] font-black text-slate-900 uppercase text-center tracking-tight">Deposit to Vault</p>
+          <p className="text-xs font-black text-slate-900 uppercase text-center tracking-tight">Deposit to Vault</p>
           <div>
-            <p className="text-[7px] text-slate-400 uppercase mb-1">Amount (₱)</p>
+            <p className="text-xs text-slate-400 uppercase mb-1">Amount (₱)</p>
             <Highlight>
               <div className="h-6 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center px-2">
-                <p className="text-[9px] font-black text-indigo-700">500</p>
+                <p className="text-xs font-black text-indigo-700">500</p>
               </div>
             </Highlight>
           </div>
@@ -531,7 +531,7 @@ const VisualVaultDepositAmount = () => (
           </div>
           <Highlight>
             <div className="bg-indigo-500 rounded-xl py-2 text-center">
-              <p className="text-[8px] font-black text-white uppercase">Confirm Deposit</p>
+              <p className="text-xs font-black text-white uppercase">Confirm Deposit</p>
             </div>
           </Highlight>
         </div>
@@ -544,17 +544,17 @@ const VisualVaultDepositDone = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Sales</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 space-y-0.5">
-          <p className="text-[7px] font-black text-indigo-600 uppercase tracking-widest">Vault Deposit</p>
-          <p className="text-[12px] font-black text-indigo-800">₱ 500.00</p>
+          <p className="text-xs font-black text-indigo-600 uppercase tracking-widest">Vault Deposit</p>
+          <p className="text-xs font-black text-indigo-800">₱ 500.00</p>
           <p className="text-[6px] text-indigo-400">Added to vault balance</p>
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center gap-2">
           <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
-          <p className="text-[7px] font-bold text-emerald-700">Vault balance updated successfully.</p>
+          <p className="text-xs font-bold text-emerald-700">Vault balance updated successfully.</p>
         </div>
       </div>
     </div>
@@ -568,12 +568,12 @@ const VisualWithdrawExpense = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Sales</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Sales</p>
       </div>
       <div className="flex-1 p-2 space-y-1 overflow-hidden">
         <div className="bg-white rounded-xl p-2 border border-slate-100 flex items-center justify-between opacity-50">
-          <p className="text-[7px] text-slate-600">HILOT BODY · JUAN D.</p>
-          <p className="text-[7px] font-bold text-emerald-600">₱ 300</p>
+          <p className="text-xs text-slate-600">HILOT BODY · JUAN D.</p>
+          <p className="text-xs font-bold text-emerald-600">₱ 300</p>
         </div>
       </div>
       <div className="px-2 pb-1 space-y-1.5">
@@ -582,7 +582,7 @@ const VisualWithdrawExpense = () => (
         </div>
         <Highlight>
           <div className="bg-rose-500 rounded-xl py-2 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Record Expense</p>
+            <p className="text-xs font-black text-white uppercase">Record Expense</p>
           </div>
         </Highlight>
       </div>
@@ -598,34 +598,34 @@ const VisualWithdrawCategory = () => (
       <div className="absolute inset-0 bg-black/60" />
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-3 space-y-2 pb-4">
         <div className="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-1" />
-        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Record Expense</p>
+        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Record Expense</p>
         <div>
-          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Description</p>
+          <p className="text-xs text-slate-400 uppercase mb-0.5">Description</p>
           <div className="h-4 bg-slate-50 rounded border border-slate-200 px-1.5 flex items-center">
-            <p className="text-[7px] text-slate-600">Emergency supply</p>
+            <p className="text-xs text-slate-600">Emergency supply</p>
           </div>
         </div>
         <div>
-          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Amount</p>
+          <p className="text-xs text-slate-400 uppercase mb-0.5">Amount</p>
           <div className="h-4 bg-slate-50 rounded border border-slate-200 px-1.5 flex items-center">
-            <p className="text-[7px] text-slate-600">₱ 800</p>
+            <p className="text-xs text-slate-600">₱ 800</p>
           </div>
         </div>
         <div>
-          <p className="text-[7px] text-slate-400 uppercase mb-0.5">Category</p>
+          <p className="text-xs text-slate-400 uppercase mb-0.5">Category</p>
           <div className="flex justify-center mb-0.5">
             <Arrow dir="down" className="w-3 h-3 text-amber-400" />
           </div>
           <Highlight>
             <div className="h-5 bg-amber-50 rounded border border-amber-300 px-1.5 flex items-center justify-between">
-              <p className="text-[7px] font-black text-amber-700">Vault Withdrawal</p>
+              <p className="text-xs font-black text-amber-700">Vault Withdrawal</p>
               <svg className="w-2.5 h-2.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7"/></svg>
             </div>
           </Highlight>
         </div>
         <Highlight>
           <div className="bg-slate-900 rounded-xl py-1.5 text-center">
-            <p className="text-[8px] font-black text-white uppercase">Save Expense</p>
+            <p className="text-xs font-black text-white uppercase">Save Expense</p>
           </div>
         </Highlight>
       </div>
@@ -638,15 +638,15 @@ const VisualWithdrawCategory = () => (
 const VisualVaultConcept = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
       <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Balance</p>
+            <p className="text-xs text-slate-400 uppercase tracking-widest">Balance</p>
             <p className="text-xl font-black text-white">₱9,500</p>
           </div>
           <div className="text-right">
-            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Target (Rent)</p>
+            <p className="text-xs text-slate-400 uppercase tracking-widest">Target (Rent)</p>
             <p className="text-sm font-black text-indigo-400">₱15,000</p>
           </div>
         </div>
@@ -663,7 +663,7 @@ const VisualVaultConcept = () => (
       <div className="bg-indigo-900/40 border border-indigo-500/20 rounded-xl p-3 flex items-center gap-2">
         <span className="text-base">🏦</span>
         <div>
-          <p className="text-[7px] font-black text-indigo-300 uppercase tracking-widest">Rent + WiFi Only</p>
+          <p className="text-xs font-black text-indigo-300 uppercase tracking-widest">Rent + WiFi Only</p>
           <p className="text-[6px] text-slate-400 mt-0.5">Fixed bills · fixed due date · save daily</p>
         </div>
       </div>
@@ -675,14 +675,14 @@ const VisualVaultConcept = () => (
 const VisualVaultDailyShare = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Daily Share</div>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Daily Share</div>
       <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="text-center">
             <p className="text-[6px] text-slate-400 uppercase">Monthly Bills</p>
             <p className="text-sm font-black text-white">₱15,000</p>
           </div>
-          <div className="text-[10px] text-slate-500 font-bold">÷ 30</div>
+          <div className="text-xs text-slate-500 font-bold">÷ 30</div>
           <div className="text-center">
             <p className="text-[6px] text-slate-400 uppercase">Per Day</p>
             <p className="text-sm font-black text-indigo-400">₱500</p>
@@ -698,7 +698,7 @@ const VisualVaultDailyShare = () => (
       <Highlight>
         <div className="border-2 border-dashed border-indigo-400 bg-indigo-900/30 rounded-xl py-3 flex items-center justify-center gap-2">
           <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-          <p className="text-[8px] font-black text-indigo-300 uppercase">Deposit ₱500 Today</p>
+          <p className="text-xs font-black text-indigo-300 uppercase">Deposit ₱500 Today</p>
         </div>
       </Highlight>
     </div>
@@ -709,15 +709,15 @@ const VisualVaultDailyShare = () => (
 const VisualVaultReady = () => (
   <Phone>
     <div className="bg-slate-900 h-full flex flex-col p-3 gap-3 pb-2">
-      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch Vault</div>
       <div className="bg-emerald-900/40 border border-emerald-500/40 rounded-2xl p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[7px] text-slate-400 uppercase tracking-widest">Balance</p>
+            <p className="text-xs text-slate-400 uppercase tracking-widest">Balance</p>
             <p className="text-xl font-black text-emerald-400">₱15,000</p>
           </div>
           <div className="bg-emerald-500 rounded-lg px-2 py-1">
-            <p className="text-[7px] font-black text-white uppercase">✓ Ready</p>
+            <p className="text-xs font-black text-white uppercase">✓ Ready</p>
           </div>
         </div>
         <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
@@ -728,7 +728,7 @@ const VisualVaultReady = () => (
       <div className="bg-slate-800 rounded-xl p-3 flex items-start gap-2">
         <svg className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <div>
-          <p className="text-[7px] font-black text-white uppercase">When rent is due</p>
+          <p className="text-xs font-black text-white uppercase">When rent is due</p>
           <p className="text-[6px] text-slate-400 mt-0.5">Record Expense → category: Vault Withdrawal. The vault pays for it.</p>
         </div>
       </div>
@@ -743,18 +743,18 @@ const VisualRestoreStaffPlus = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Staff Performance</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Staff Performance</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-50">
           <div>
-            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
-            <p className="text-[7px] text-slate-400">₱ 600 · 2 sessions</p>
+            <p className="text-xs font-black text-slate-900">JUAN D.</p>
+            <p className="text-xs text-slate-400">₱ 600 · 2 sessions</p>
           </div>
           <div className="w-2 h-2 rounded-full bg-emerald-400" />
         </div>
         <div className="flex items-center justify-between pt-1 px-1">
-          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">1 staff hidden</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">1 staff hidden</p>
           <div className="flex items-center gap-1">
             <Arrow dir="right" className="w-3 h-3 text-emerald-400" />
             <Highlight>
@@ -777,18 +777,18 @@ const VisualRestoreStaffSelect = () => (
       <div className="absolute inset-0 bg-black/60" />
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-3 space-y-2 pb-5">
         <div className="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-1" />
-        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Restore Hidden Staff</p>
+        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Restore Hidden Staff</p>
         <div className="flex justify-center mb-0.5">
           <Arrow dir="down" className="w-3 h-3 text-emerald-400" />
         </div>
         <Highlight>
           <div className="bg-white border border-slate-100 rounded-xl p-2.5 flex items-center justify-between">
             <div>
-              <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
-              <p className="text-[7px] text-slate-400">Therapist · Hidden from today</p>
+              <p className="text-xs font-black text-slate-900">MARIA S.</p>
+              <p className="text-xs text-slate-400">Therapist · Hidden from today</p>
             </div>
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
-              <p className="text-[7px] font-black text-emerald-600 uppercase">Restore</p>
+              <p className="text-xs font-black text-emerald-600 uppercase">Restore</p>
             </div>
           </div>
         </Highlight>
@@ -801,25 +801,25 @@ const VisualRestoreStaffDone = () => (
   <Phone>
     <div className="bg-slate-50 h-full flex flex-col pb-2">
       <div className="bg-white px-3 py-2 border-b border-slate-100">
-        <p className="text-[8px] font-black text-slate-900 uppercase">Staff Performance</p>
+        <p className="text-xs font-black text-slate-900 uppercase">Staff Performance</p>
       </div>
       <div className="flex-1 p-2 space-y-1.5">
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-slate-100 opacity-50">
           <div>
-            <p className="text-[8px] font-black text-slate-900">JUAN D.</p>
-            <p className="text-[7px] text-slate-400">₱ 600 · 2 sessions</p>
+            <p className="text-xs font-black text-slate-900">JUAN D.</p>
+            <p className="text-xs text-slate-400">₱ 600 · 2 sessions</p>
           </div>
         </div>
         <div className="bg-white rounded-xl p-2.5 flex items-center justify-between border border-emerald-200 ring-1 ring-emerald-300">
           <div>
-            <p className="text-[8px] font-black text-slate-900">MARIA S.</p>
-            <p className="text-[7px] text-emerald-600 font-bold">Restored · ₱ 0 today</p>
+            <p className="text-xs font-black text-slate-900">MARIA S.</p>
+            <p className="text-xs text-emerald-600 font-bold">Restored · ₱ 0 today</p>
           </div>
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 flex items-center gap-2">
           <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
-          <p className="text-[7px] font-bold text-emerald-700">Maria S. restored to today's roster.</p>
+          <p className="text-xs font-bold text-emerald-700">Maria S. restored to today's roster.</p>
         </div>
       </div>
     </div>
@@ -1056,7 +1056,7 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
         </button>
 
         <div className="text-center">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">{guide.title}</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{guide.title}</p>
           <div className="flex items-center gap-1.5 justify-center mt-1.5">
             {guide.steps.map((_, i) => (
               <div
@@ -1068,7 +1068,7 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
         </div>
 
         <div className="w-9 h-9 flex items-center justify-center">
-          <span className="text-[9px] font-black text-slate-500">{step + 1}/{total}</span>
+          <span className="text-xs font-black text-slate-500">{step + 1}/{total}</span>
         </div>
       </div>
 
@@ -1080,9 +1080,9 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
       {/* Instruction card */}
       <div className="px-4 pb-4 shrink-0">
         <div className="bg-white rounded-3xl p-5 space-y-2">
-          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Step {step + 1}</p>
+          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">Step {step + 1}</p>
           <h3 className="text-base font-black text-slate-900 uppercase tracking-tight leading-tight">{current.title}</h3>
-          <p className="text-[12px] text-slate-500 font-medium leading-relaxed">{current.instruction}</p>
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">{current.instruction}</p>
         </div>
 
         {/* Navigation */}
@@ -1090,7 +1090,7 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           <button
             onClick={() => setStep(s => Math.max(0, s - 1))}
             disabled={step === 0}
-            className="flex-1 h-12 rounded-2xl bg-white/10 border border-white/10 text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-20 active:scale-95 transition-all"
+            className="flex-1 h-12 rounded-2xl bg-white/10 border border-white/10 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-20 active:scale-95 transition-all"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M15 19l-7-7 7-7"/></svg>
             Back
@@ -1099,7 +1099,7 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           {step < total - 1 ? (
             <button
               onClick={() => setStep(s => s + 1)}
-              className="flex-[2] h-12 rounded-2xl bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/30"
+              className="flex-[2] h-12 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/30"
             >
               Next
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7"/></svg>
@@ -1107,7 +1107,7 @@ const GuideViewer = ({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           ) : (
             <button
               onClick={onClose}
-              className="flex-[2] h-12 rounded-2xl bg-slate-700 text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+              className="flex-[2] h-12 rounded-2xl bg-slate-700 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
               Done
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
@@ -1134,7 +1134,7 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
       <div className="max-w-3xl mx-auto space-y-8 pb-32 px-2">
         <div className="text-center space-y-2 pt-4">
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Network Blueprint</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">HilotCenter Core — Superadmin Reference</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">HilotCenter Core — Superadmin Reference</p>
         </div>
         {[
           { title: 'Branch Deployment', desc: 'Register a new branch in the Branches tab. It initializes with a 6-digit PIN and stays Offline until a manager completes the profile handshake.' },
@@ -1145,9 +1145,9 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
           { title: 'Audit & Security', desc: 'All edits, deletions, and logins are logged in the Audit tab with performer identity and timestamp. Use Force Logout from Branch Editor to remotely terminate sessions.' },
         ].map((item, i) => (
           <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5">
-            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">0{i + 1}</p>
+            <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">0{i + 1}</p>
             <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm mb-1.5">{item.title}</h3>
-            <p className="text-[12px] text-slate-500 leading-relaxed">{item.desc}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
           </div>
         ))}
       </div>
@@ -1161,10 +1161,10 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
       <div className="text-center space-y-2 pt-4">
         <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-100 px-4 py-1.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[8px] font-black uppercase tracking-[0.35em] text-emerald-600">Interactive Guides</span>
+          <span className="text-xs font-black uppercase tracking-[0.35em] text-emerald-600">Interactive Guides</span>
         </div>
         <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">How-To Guides</h2>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tap a guide to start a step-by-step walkthrough</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tap a guide to start a step-by-step walkthrough</p>
       </div>
 
       {/* Guide grid */}
@@ -1183,12 +1183,12 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
                 <p className="font-black text-slate-900 text-sm uppercase tracking-tight leading-tight">{guide.title}</p>
                 <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 5l7 7-7 7"/></svg>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{guide.description}</p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">{guide.description}</p>
               <div className="flex items-center gap-1 mt-2">
                 {guide.steps.map((_, i) => (
                   <div key={i} className="w-1 h-1 rounded-full bg-slate-200 group-hover:bg-emerald-300 transition-colors" />
                 ))}
-                <span className="text-[8px] font-bold text-slate-300 ml-1 uppercase tracking-widest">{guide.steps.length} step{guide.steps.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs font-bold text-slate-300 ml-1 uppercase tracking-widest">{guide.steps.length} step{guide.steps.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
           </button>
@@ -1201,8 +1201,8 @@ export const HowToSection: React.FC<HowToSectionProps> = ({ role }) => {
           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p className="text-[10px] font-black text-white uppercase tracking-widest">Need help?</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Contact the Superadmin if you cannot clock in, if a session fails to save, or if you need a record corrected.</p>
+          <p className="text-xs font-black text-white uppercase tracking-widest">Need help?</p>
+          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Contact the Superadmin if you cannot clock in, if a session fails to save, or if you need a record corrected.</p>
         </div>
       </div>
     </div>

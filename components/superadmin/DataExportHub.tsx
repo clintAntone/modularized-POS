@@ -239,7 +239,7 @@ export const DataExportHub: React.FC = () => {
               <h4 className="text-2xl font-bold text-white uppercase tracking-tighter">Archiving Mainframe</h4>
               <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl inline-flex items-center gap-3">
                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></div>
-                 <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{progress}</span>
+                 <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">{progress}</span>
               </div>
            </div>
         </div>
@@ -248,7 +248,7 @@ export const DataExportHub: React.FC = () => {
       <div className="bg-white p-6 sm:p-8 md:p-12 rounded-[32px] sm:rounded-[56px] border border-slate-100 shadow-sm space-y-8 sm:space-y-10">
         <div className="text-center space-y-2">
           <h3 className="text-xl sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter">Network Migration Hub</h3>
-          <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Global Registry Synchronization & Export</p>
+          <p className="text-xs sm:text-xs font-semibold text-slate-400 uppercase tracking-widest">Global Registry Synchronization & Export</p>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
@@ -260,8 +260,8 @@ export const DataExportHub: React.FC = () => {
             <div className="flex items-center gap-4 sm:gap-5">
                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-inner transition-all ${options.schema ? 'bg-emerald-600 text-white' : 'bg-white text-slate-300'}`}>🏗️</div>
                <div className="text-left">
-                  <p className="font-bold text-slate-900 uppercase text-[10px] sm:text-xs tracking-widest">Database Blueprints</p>
-                  <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Full Table Schema & RLS Policies</p>
+                  <p className="font-bold text-slate-900 uppercase text-xs sm:text-xs tracking-widest">Database Blueprints</p>
+                  <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Full Table Schema & RLS Policies</p>
                </div>
             </div>
             {options.schema && <svg className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 animate-in zoom-in" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
@@ -275,8 +275,8 @@ export const DataExportHub: React.FC = () => {
             <div className="flex items-center gap-4 sm:gap-5">
                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-inner transition-all ${options.storage ? 'bg-indigo-600 text-white' : 'bg-white text-slate-300'}`}>☁️</div>
                <div className="text-left">
-                  <p className="font-bold text-slate-900 uppercase text-[10px] sm:text-xs tracking-widest">Storage Assets</p>
-                  <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Buckets & Object Access Policies</p>
+                  <p className="font-bold text-slate-900 uppercase text-xs sm:text-xs tracking-widest">Storage Assets</p>
+                  <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Buckets & Object Access Policies</p>
                </div>
             </div>
             {options.storage && <svg className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 animate-in zoom-in" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
@@ -290,8 +290,8 @@ export const DataExportHub: React.FC = () => {
             <div className="flex items-center gap-4 sm:gap-5">
                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl shadow-inner transition-all ${options.fullData ? 'bg-emerald-600 text-white' : 'bg-white text-slate-300'}`}>🌌</div>
                <div className="text-left">
-                  <p className="font-bold text-slate-900 uppercase text-[10px] sm:text-xs tracking-widest">Registry Data Stream</p>
-                  <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Snapshot of All Historical Tables</p>
+                  <p className="font-bold text-slate-900 uppercase text-xs sm:text-xs tracking-widest">Registry Data Stream</p>
+                  <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Snapshot of All Historical Tables</p>
                </div>
             </div>
             {options.fullData && <svg className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 animate-in zoom-in" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
@@ -300,20 +300,20 @@ export const DataExportHub: React.FC = () => {
 
         <div className="pt-4 sm:pt-6 border-t border-slate-100 space-y-3 sm:space-y-4">
            <div className="flex items-center justify-between px-1">
-              <h4 className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dispatch Target</h4>
-              <button onClick={() => setTargetEmail('bobongplayer1921@gmail.com')} className="text-[8px] sm:text-[9px] font-bold text-emerald-600 uppercase hover:text-emerald-700 transition-colors">Fill Admin Relay</button>
+              <h4 className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Dispatch Target</h4>
+              <button onClick={() => setTargetEmail('bobongplayer1921@gmail.com')} className="text-xs sm:text-xs font-bold text-emerald-600 uppercase hover:text-emerald-700 transition-colors">Fill Admin Relay</button>
            </div>
            <input 
               value={targetEmail}
               onChange={e => setTargetEmail(e.target.value.toLowerCase())}
               placeholder="DESTINATION_ADDRESS@GMAIL.COM"
-              className="w-full px-5 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[24px] font-bold text-[11px] sm:text-sm uppercase outline-none focus:border-emerald-500 transition-all shadow-inner placeholder:text-slate-300"
+              className="w-full px-5 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[24px] font-bold text-xs sm:text-sm uppercase outline-none focus:border-emerald-500 transition-all shadow-inner placeholder:text-slate-300"
            />
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
-           <button onClick={handleDownload} className="py-4 sm:py-6 border-2 border-slate-200 rounded-[18px] sm:rounded-[28px] font-bold uppercase text-[10px] sm:text-[11px] tracking-widest hover:bg-slate-50 transition-all active:scale-[0.98]">Download Script</button>
-           <button onClick={handleEmailTransmit} className="py-4 sm:py-6 bg-slate-950 text-white rounded-[18px] sm:rounded-[28px] font-bold uppercase text-[10px] sm:text-[11px] tracking-widest shadow-xl hover:bg-emerald-700 transition-all active:scale-[0.98]">Relay Archive</button>
+           <button onClick={handleDownload} className="py-4 sm:py-6 border-2 border-slate-200 rounded-[18px] sm:rounded-[28px] font-bold uppercase text-xs sm:text-xs tracking-widest hover:bg-slate-50 transition-all active:scale-[0.98]">Download Script</button>
+           <button onClick={handleEmailTransmit} className="py-4 sm:py-6 bg-slate-950 text-white rounded-[18px] sm:rounded-[28px] font-bold uppercase text-xs sm:text-xs tracking-widest shadow-xl hover:bg-emerald-700 transition-all active:scale-[0.98]">Relay Archive</button>
         </div>
       </div>
     </div>

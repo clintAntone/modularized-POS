@@ -498,7 +498,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-xs uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
           {toast.message}
         </div>
@@ -510,7 +510,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
           <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">🏢</div>
           <div>
             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Bills Management</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Catalog · Branch Bills</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catalog · Branch Bills</p>
           </div>
         </div>
 
@@ -523,7 +523,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); playSound('click'); }}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               {tab.icon}
               <span>{tab.label}</span>
@@ -540,14 +540,14 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
           {/* Header row */}
           <div className="flex items-center justify-between px-1">
             <div>
-              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
                 {activeCatalog.length} active template{activeCatalog.length !== 1 ? 's' : ''}
               </h4>
             </div>
             {!isReadOnly && (
               <button
                 onClick={() => { playSound('click'); setEditingCatalog(null); setCatalogForm(emptyCatalogForm); setShowCatalogModal(true); }}
-                className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95"
+                className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 New Template
@@ -559,7 +559,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center space-y-3">
               <div className="text-5xl opacity-20">📋</div>
               <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No templates yet.</p>
-              <p className="text-[10px] font-bold text-slate-400 max-w-xs mx-auto">
+              <p className="text-xs font-bold text-slate-400 max-w-xs mx-auto">
                 Create bill templates here. Then assign them to branches — managers will set the actual price.
               </p>
             </div>
@@ -575,28 +575,28 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-black text-slate-900 uppercase text-sm tracking-tight leading-tight">{item.name}</p>
-                          {item.notes && <p className="text-[9px] font-bold text-slate-400 mt-1 normal-case">{item.notes}</p>}
+                          {item.notes && <p className="text-xs font-bold text-slate-400 mt-1 normal-case">{item.notes}</p>}
                         </div>
-                        <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shrink-0 ${item.category === 'AS_NEEDED' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                        <span className={`text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shrink-0 ${item.category === 'AS_NEEDED' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
                           {item.category === 'AS_NEEDED' ? 'As Needed' : 'Monthly'}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 flex-wrap">
                         <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Suggested</p>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Suggested</p>
                           <p className="font-black text-slate-900 tabular-nums text-sm">
                             {item.suggestedAmount > 0 ? `₱${item.suggestedAmount.toLocaleString()}` : <span className="text-slate-300">Variable</span>}
                           </p>
                         </div>
                         {item.dueDay && (
                           <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Due Day</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Due Day</p>
                             <p className="font-black text-slate-700 text-sm">{item.dueDay}{getOrdinal(item.dueDay)}</p>
                           </div>
                         )}
                         {assignedCount > 0 && (
                           <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Assigned</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Assigned</p>
                             <p className="font-black text-emerald-600 text-sm">{assignedCount} branch{assignedCount !== 1 ? 'es' : ''}</p>
                           </div>
                         )}
@@ -605,7 +605,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                         <div className="flex gap-2 pt-1">
                           <button
                             onClick={() => { playSound('click'); setAssigningCatalog(item); setAssignBranches(new Set()); }}
-                            className="flex-1 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all"
+                            className="flex-1 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all"
                           >
                             Assign
                           </button>
@@ -632,12 +632,12 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
               <table className="hidden sm:table w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Template Name</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Suggested Amount</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Due Day</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned</th>
-                    <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Template Name</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Category</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Suggested Amount</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Due Day</th>
+                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Assigned</th>
+                    <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -647,28 +647,28 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       <tr key={item.id} className="hover:bg-slate-50/60 transition-colors group">
                         <td className="px-8 py-4">
                           <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{item.name}</p>
-                          {item.notes && <p className="text-[9px] font-bold text-slate-400 mt-0.5 normal-case">{item.notes}</p>}
+                          {item.notes && <p className="text-xs font-bold text-slate-400 mt-0.5 normal-case">{item.notes}</p>}
                         </td>
                         <td className="px-4 py-4">
-                          <span className={`text-[9px] font-black uppercase tracking-widest ${item.category === 'AS_NEEDED' ? 'text-indigo-500' : 'text-slate-500'}`}>
+                          <span className={`text-xs font-black uppercase tracking-widest ${item.category === 'AS_NEEDED' ? 'text-indigo-500' : 'text-slate-500'}`}>
                             {item.category === 'AS_NEEDED' ? 'As Needed' : 'Monthly'}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-right font-black text-slate-900 tabular-nums text-xs">
                           {item.suggestedAmount > 0 ? `₱${item.suggestedAmount.toLocaleString()}` : <span className="text-slate-300 font-bold">Variable</span>}
                         </td>
-                        <td className="px-4 py-4 text-[10px] font-bold text-slate-500">
+                        <td className="px-4 py-4 text-xs font-bold text-slate-500">
                           {item.dueDay ? `${item.dueDay}${getOrdinal(item.dueDay)}` : <span className="text-slate-300">—</span>}
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${assignedCount > 0 ? 'bg-emerald-50 text-emerald-700' : 'text-slate-300'}`}>
+                          <span className={`text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg ${assignedCount > 0 ? 'bg-emerald-50 text-emerald-700' : 'text-slate-300'}`}>
                             {assignedCount > 0 ? `${assignedCount} branch${assignedCount !== 1 ? 'es' : ''}` : '—'}
                           </span>
                         </td>
                         <td className="px-8 py-4 text-right">
                           {!isReadOnly && (
                             <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => { playSound('click'); setAssigningCatalog(item); setAssignBranches(new Set()); }} className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors">Assign</button>
+                              <button onClick={() => { playSound('click'); setAssigningCatalog(item); setAssignBranches(new Set()); }} className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg font-black text-xs uppercase tracking-widest transition-colors">Assign</button>
                               <button onClick={() => { playSound('click'); setEditingCatalog(item); setCatalogForm({ name: item.name, category: item.category, suggestedAmount: item.suggestedAmount > 0 ? item.suggestedAmount.toString() : '', dueDay: item.dueDay?.toString() || '', notes: item.notes || '' }); setShowCatalogModal(true); }} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
                               <button onClick={() => { playSound('warning'); setArchivingCatalog(item); }} className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
@@ -682,7 +682,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
               {archivedCatalog.length > 0 && (
                 <div className="border-t border-slate-100 px-6 sm:px-8 py-4">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{archivedCatalog.length} archived template{archivedCatalog.length !== 1 ? 's' : ''} hidden</p>
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest">{archivedCatalog.length} archived template{archivedCatalog.length !== 1 ? 's' : ''} hidden</p>
                 </div>
               )}
             </div>
@@ -704,18 +704,18 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
               { label: 'Total Paid Amount', value: `₱${summary.totalPaidAmount.toLocaleString()}`, color: 'text-indigo-600' },
             ].map((card, i) => (
               <div key={i} className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
                 <p className={`text-2xl sm:text-3xl font-black tabular-nums ${card.color}`}>{card.value}</p>
               </div>
             ))}
           </div>
 
           <div className="flex items-center justify-between px-1">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Bills by Branch</h4>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Bills by Branch</h4>
             <select
               value={selectedPeriod}
               onChange={e => { setSelectedPeriod(e.target.value); playSound('click'); }}
-              className="bg-white border border-slate-200 text-[10px] font-black text-slate-600 uppercase outline-none rounded-xl px-3 py-2 cursor-pointer shadow-sm"
+              className="bg-white border border-slate-200 text-xs font-black text-slate-600 uppercase outline-none rounded-xl px-3 py-2 cursor-pointer shadow-sm"
             >
               {periodOptions.map(p => <option key={p} value={p}>{formatPeriod(p)}</option>)}
             </select>
@@ -741,15 +741,15 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       </div>
                       <div className="min-w-0">
                         <p className="font-black text-slate-900 uppercase text-sm tracking-tight leading-none truncate">{branch.name.replace('BRANCH - ', '')}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                           {hasBills ? `${billsWithStatus.length} bill${billsWithStatus.length !== 1 ? 's' : ''}` : 'No bills assigned'}
                         </p>
                       </div>
                       {hasBills && (
                         <div className="hidden sm:flex gap-2 flex-wrap ml-2">
-                          {paid > 0 && <span className="bg-emerald-50 text-emerald-700 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg">{paid} paid</span>}
-                          {overdue > 0 && <span className="bg-rose-50 text-rose-700 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg">{overdue} overdue</span>}
-                          {dueSoon > 0 && <span className="bg-amber-50 text-amber-700 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg">{dueSoon} due soon</span>}
+                          {paid > 0 && <span className="bg-emerald-50 text-emerald-700 text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg">{paid} paid</span>}
+                          {overdue > 0 && <span className="bg-rose-50 text-rose-700 text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg">{overdue} overdue</span>}
+                          {dueSoon > 0 && <span className="bg-amber-50 text-amber-700 text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg">{dueSoon} due soon</span>}
                         </div>
                       )}
                     </div>
@@ -757,7 +757,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       {!isReadOnly && (
                         <button
                           onClick={e => { e.stopPropagation(); handleOpenAddBill(branch.id); }}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-600 transition-all active:scale-95 shadow"
+                          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all active:scale-95 shadow"
                         >
                           <Plus className="w-3 h-3" /> Add
                         </button>
@@ -783,11 +783,11 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="font-black text-slate-900 uppercase text-sm tracking-tight">{bill.name}</p>
-                                    {bill.catalogId && <span className="bg-indigo-50 text-indigo-500 text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md">CATALOG</span>}
+                                    {bill.catalogId && <span className="bg-indigo-50 text-indigo-500 text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md">CATALOG</span>}
                                   </div>
-                                  {bill.notes && <p className="text-[9px] font-bold text-slate-400 mt-0.5 normal-case">{bill.notes}</p>}
+                                  {bill.notes && <p className="text-xs font-bold text-slate-400 mt-0.5 normal-case">{bill.notes}</p>}
                                 </div>
-                                <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap shrink-0`}>
+                                <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-widest whitespace-nowrap shrink-0`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>
                                   {cfg.label}
                                 </span>
@@ -795,18 +795,18 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                   <div>
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Amount</p>
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Amount</p>
                                     <p className="font-black text-slate-900 tabular-nums">{bill.amount > 0 ? `₱${bill.amount.toLocaleString()}` : <span className="text-slate-300">—</span>}</p>
                                   </div>
                                   {bill.dueDay && (
                                     <div>
-                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Due</p>
+                                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Due</p>
                                       <p className="font-black text-slate-600">{bill.dueDay}{getOrdinal(bill.dueDay)}</p>
                                     </div>
                                   )}
                                   {payment && (
                                     <div>
-                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Paid</p>
+                                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Paid</p>
                                       <p className="font-black text-emerald-600 tabular-nums">₱{payment.amountPaid.toLocaleString()}</p>
                                     </div>
                                   )}
@@ -827,11 +827,11 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50">
-                              <th className="px-8 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Bill</th>
-                              <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                              <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Due</th>
-                              <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                              <th className="px-8 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                              <th className="px-8 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Bill</th>
+                              <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                              <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Due</th>
+                              <th className="px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                              <th className="px-8 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-50">
@@ -843,16 +843,16 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                                   <td className="px-8 py-3">
                                     <div className="flex items-center gap-2">
                                       <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{bill.name}</p>
-                                      {bill.catalogId && <span className="bg-indigo-50 text-indigo-500 text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0">CATALOG</span>}
+                                      {bill.catalogId && <span className="bg-indigo-50 text-indigo-500 text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0">CATALOG</span>}
                                     </div>
-                                    {bill.notes && <p className="text-[9px] font-bold text-slate-400 mt-0.5 normal-case">{bill.notes}</p>}
+                                    {bill.notes && <p className="text-xs font-bold text-slate-400 mt-0.5 normal-case">{bill.notes}</p>}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-black text-slate-900 tabular-nums text-xs">{bill.amount > 0 ? `₱${bill.amount.toLocaleString()}` : <span className="text-slate-300 text-[9px]">—</span>}</td>
-                                  <td className="px-4 py-3 text-[10px] font-bold text-slate-500">{bill.dueDay ? `${bill.dueDay}${getOrdinal(bill.dueDay)}` : <span className="text-slate-300">—</span>}</td>
+                                  <td className="px-4 py-3 text-right font-black text-slate-900 tabular-nums text-xs">{bill.amount > 0 ? `₱${bill.amount.toLocaleString()}` : <span className="text-slate-300 text-xs">—</span>}</td>
+                                  <td className="px-4 py-3 text-xs font-bold text-slate-500">{bill.dueDay ? `${bill.dueDay}${getOrdinal(bill.dueDay)}` : <span className="text-slate-300">—</span>}</td>
                                   <td className="px-4 py-3 text-center">
                                     <div className="flex flex-col items-center gap-0.5">
-                                      <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>{cfg.label}</span>
-                                      {payment && <span className="text-[8px] font-bold text-emerald-600">₱{payment.amountPaid.toLocaleString()}</span>}
+                                      <span className={`${cfg.bg} ${cfg.text} flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black uppercase tracking-widest whitespace-nowrap`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>{cfg.label}</span>
+                                      {payment && <span className="text-xs font-bold text-emerald-600">₱{payment.amountPaid.toLocaleString()}</span>}
                                     </div>
                                   </td>
                                   <td className="px-8 py-3 text-right">
@@ -874,7 +874,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
                   {!isCollapsed && !hasBills && (
                     <div className="px-8 py-8 border-t border-slate-100 text-center">
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No bills assigned. Click Add to assign from catalog or create a custom bill.</p>
+                      <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No bills assigned. Click Add to assign from catalog or create a custom bill.</p>
                     </div>
                   )}
                 </div>
@@ -895,7 +895,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">{editingCatalog ? 'Edit Template' : 'New Bill Template'}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Global catalog — assign to branches after creating</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Global catalog — assign to branches after creating</p>
               </div>
               <button onClick={() => { setShowCatalogModal(false); setEditingCatalog(null); }} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
                 <X className="w-4 h-4" />
@@ -904,29 +904,29 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
             <form onSubmit={handleSaveCatalog} className="space-y-4">
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name</label>
                 <input
                   type="text" required
                   value={catalogForm.name}
                   onChange={e => setCatalogForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. RENT, ELECTRICITY, WATER, WIFI"
-                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[13px] uppercase outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-sm uppercase outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Category</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Category</label>
                   <select
                     value={catalogForm.category}
                     onChange={e => setCatalogForm(f => ({ ...f, category: e.target.value as 'MONTHLY' | 'AS_NEEDED' }))}
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-3 py-3 text-[11px] font-black uppercase tracking-widest text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-3 py-3 text-xs font-black uppercase tracking-widest text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
                   >
                     <option value="MONTHLY">Monthly</option>
                     <option value="AS_NEEDED">As Needed</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Suggested Amount</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Suggested Amount</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-slate-400 text-sm">₱</span>
                     <input
@@ -934,42 +934,42 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       value={catalogForm.suggestedAmount}
                       onChange={e => setCatalogForm(f => ({ ...f, suggestedAmount: e.target.value }))}
                       placeholder="0 if variable"
-                      className="w-full pl-7 pr-3 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[12px] outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                      className="w-full pl-7 pr-3 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-xs outline-none focus:border-indigo-500 focus:bg-white transition-all"
                     />
                   </div>
                 </div>
               </div>
               {catalogForm.category === 'MONTHLY' && (
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day of Month</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day of Month</label>
                   <input
                     type="number" min="1" max="31"
                     value={catalogForm.dueDay}
                     onChange={e => setCatalogForm(f => ({ ...f, dueDay: e.target.value }))}
                     placeholder="e.g. 15 for the 15th"
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[13px] outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-sm outline-none focus:border-indigo-500 focus:bg-white transition-all"
                   />
                 </div>
               )}
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notes (optional)</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Notes (optional)</label>
                 <input
                   type="text"
                   value={catalogForm.notes}
                   onChange={e => setCatalogForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="e.g. pay via GCash, contact landlord first"
-                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-slate-800 text-[11px] outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
               <div className="bg-indigo-50 rounded-2xl p-4">
-                <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest leading-relaxed">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest leading-relaxed">
                   💡 After saving, use the <strong>Assign</strong> button to push this template to specific branches. Branch managers will then set the actual price.
                 </p>
               </div>
               <button
                 type="submit"
                 disabled={isSubmitting || !catalogForm.name.trim()}
-                className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
+                className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
               >
                 {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : editingCatalog ? 'Save Changes' : 'Create Template'}
               </button>
@@ -985,28 +985,28 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Assign Bill</h4>
-                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">{assigningCatalog.name}</p>
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{assigningCatalog.name}</p>
               </div>
               <button onClick={() => setAssigningCatalog(null)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Suggested amount: <strong className="text-slate-900">{assigningCatalog.suggestedAmount > 0 ? `₱${assigningCatalog.suggestedAmount.toLocaleString()}` : 'Variable'}</strong> — branch managers will set the actual price.
             </p>
 
             <form onSubmit={handleAssignTobranches} className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Branches</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Select Branches</label>
                   <button
                     type="button"
                     onClick={() => {
                       if (assignBranches.size === branches.length) setAssignBranches(new Set());
                       else setAssignBranches(new Set(branches.map(b => b.id)));
                     }}
-                    className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800"
+                    className="text-xs font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800"
                   >
                     {assignBranches.size === branches.length ? 'Deselect All' : 'Select All'}
                   </button>
@@ -1028,8 +1028,8 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                           className="w-4 h-4 rounded text-indigo-600 border-slate-300"
                         />
                         <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{b.name.replace('BRANCH - ', '')}</span>
-                          {alreadyAssigned && <span className="ml-2 text-[8px] font-bold text-slate-400 uppercase">already assigned</span>}
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{b.name.replace('BRANCH - ', '')}</span>
+                          {alreadyAssigned && <span className="ml-2 text-xs font-bold text-slate-400 uppercase">already assigned</span>}
                         </div>
                       </label>
                     );
@@ -1039,7 +1039,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
               <button
                 type="submit"
                 disabled={isSubmitting || assignBranches.size === 0}
-                className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
+                className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
               >
                 {isSubmitting
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -1058,7 +1058,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Add Bill</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                   {branches.find(b => b.id === addBillTarget)?.name.replace('BRANCH - ', '') || 'Branch'}
                 </p>
               </div>
@@ -1076,7 +1076,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1">From Catalog</h5>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Assign one or more bills from the global catalog. Manager will set actual price.</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Assign one or more bills from the global catalog. Manager will set actual price.</p>
               </button>
 
               <button
@@ -1087,7 +1087,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                   <Plus className="w-5 h-5" />
                 </div>
                 <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1">Custom Bill</h5>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Create a one-off bill specific to this branch, not linked to the catalog.</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Create a one-off bill specific to this branch, not linked to the catalog.</p>
               </button>
             </div>
           </div>
@@ -1101,7 +1101,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Assign from Catalog</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                   {branches.find(b => b.id === catalogPickBranchId)?.name.replace('BRANCH - ', '') || 'Branch'}
                 </p>
               </div>
@@ -1112,10 +1112,10 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
             {activeCatalog.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No templates in catalog yet.</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No templates in catalog yet.</p>
                 <button
                   onClick={() => { setAddBillMode(null); setActiveTab('catalog'); setShowCatalogModal(true); }}
-                  className="mt-4 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                  className="mt-4 text-xs font-black text-indigo-600 uppercase tracking-widest hover:underline"
                 >
                   Create a template first →
                 </button>
@@ -1143,12 +1143,12 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{item.name}</p>
-                            <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${item.category === 'AS_NEEDED' ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-500'}`}>
+                            <span className={`text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${item.category === 'AS_NEEDED' ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-500'}`}>
                               {item.category === 'AS_NEEDED' ? 'As Needed' : 'Monthly'}
                             </span>
-                            {alreadyAssigned && <span className="text-[8px] font-bold text-slate-400 uppercase">already assigned</span>}
+                            {alreadyAssigned && <span className="text-xs font-bold text-slate-400 uppercase">already assigned</span>}
                           </div>
-                          <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                          <p className="text-xs font-bold text-slate-400 mt-0.5">
                             {item.suggestedAmount > 0 ? `Suggested: ₱${item.suggestedAmount.toLocaleString()}` : 'Variable price'}
                             {item.dueDay ? ` · Due ${item.dueDay}${getOrdinal(item.dueDay)}` : ''}
                           </p>
@@ -1161,7 +1161,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                 <button
                   type="submit"
                   disabled={isSubmitting || pickedCatalogItems.size === 0}
-                  className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
+                  className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-indigo-700"
                 >
                   {isSubmitting
                     ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -1181,7 +1181,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">{editingBill ? 'Edit Bill' : 'Custom Bill'}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                   {branches.find(b => b.id === addBillTarget)?.name.replace('BRANCH - ', '') || 'Branch'}
                   {editingBill?.catalogId && <span className="ml-2 text-indigo-500">· From Catalog</span>}
                 </p>
@@ -1193,29 +1193,29 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
 
             <form onSubmit={handleSaveBill} className="space-y-4">
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name</label>
                 <input
                   type="text" required
                   value={billForm.name}
                   onChange={e => setBillForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. RENT, ELECTRICITY"
-                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[13px] uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Category</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Category</label>
                   <select
                     value={billForm.category}
                     onChange={e => setBillForm(f => ({ ...f, category: e.target.value as 'MONTHLY' | 'AS_NEEDED' }))}
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-3 py-3 text-[11px] font-black uppercase tracking-widest text-slate-800 outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-3 py-3 text-xs font-black uppercase tracking-widest text-slate-800 outline-none focus:border-emerald-500 focus:bg-white transition-all"
                   >
                     <option value="MONTHLY">Monthly</option>
                     <option value="AS_NEEDED">As Needed</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Actual Amount</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Actual Amount</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-slate-400 text-sm">₱</span>
                     <input
@@ -1223,37 +1223,37 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                       value={billForm.amount}
                       onChange={e => setBillForm(f => ({ ...f, amount: e.target.value }))}
                       placeholder="0 if variable"
-                      className="w-full pl-7 pr-3 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[12px] outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                      className="w-full pl-7 pr-3 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all"
                     />
                   </div>
                 </div>
               </div>
               {billForm.category === 'MONTHLY' && (
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day of Month</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day of Month</label>
                   <input
                     type="number" min="1" max="31"
                     value={billForm.dueDay}
                     onChange={e => setBillForm(f => ({ ...f, dueDay: e.target.value }))}
                     placeholder="e.g. 15 for the 15th"
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-[13px] outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-black text-slate-800 text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all"
                   />
                 </div>
               )}
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notes (optional)</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Notes (optional)</label>
                 <input
                   type="text"
                   value={billForm.notes}
                   onChange={e => setBillForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="e.g. pay via GCash, contact landlord first"
-                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-slate-800 text-[11px] outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSubmitting || !billForm.name.trim()}
-                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-emerald-600"
+                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-3 hover:bg-emerald-600"
               >
                 {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : editingBill ? 'Save Changes' : 'Add Bill'}
               </button>
@@ -1268,15 +1268,15 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
           <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100 shadow-2xl`}>
             <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><AlertTriangle className="w-8 h-8" /></div>
             <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">Archive Template?</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
               <span className="text-slate-900">{archivingCatalog.name}</span> will be hidden from the catalog.<br />
               Existing branch bills will not be affected.
             </p>
             <div className="flex flex-col gap-3 mt-10">
-              <button onClick={handleArchiveCatalog} disabled={isSubmitting} className="w-full bg-amber-500 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button onClick={handleArchiveCatalog} disabled={isSubmitting} className="w-full bg-amber-500 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
                 {isSubmitting ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Archive Template'}
               </button>
-              <button onClick={() => setArchivingCatalog(null)} className="w-full text-slate-400 font-bold py-4 rounded-xl text-[11px] uppercase tracking-widest">Cancel</button>
+              <button onClick={() => setArchivingCatalog(null)} className="w-full text-slate-400 font-bold py-4 rounded-xl text-xs uppercase tracking-widest">Cancel</button>
             </div>
           </div>
         </div>
@@ -1288,16 +1288,16 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
           <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100 shadow-2xl`}>
             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><Trash2 className="w-8 h-8" /></div>
             <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">Remove Bill?</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
               Deactivate <span className="text-slate-900">{deletingBill.name}</span> for{' '}
               <span className="text-slate-900">{branches.find(b => b.id === deletingBill.branchId)?.name.replace('BRANCH - ', '')}</span>.<br />
               Payment history will be preserved.
             </p>
             <div className="flex flex-col gap-3 mt-10">
-              <button onClick={handleDeactivateBill} disabled={isSubmitting} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button onClick={handleDeactivateBill} disabled={isSubmitting} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
                 {isSubmitting ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Remove Bill'}
               </button>
-              <button onClick={() => setDeletingBill(null)} className="w-full text-slate-400 font-bold py-4 rounded-xl text-[11px] uppercase tracking-widest">Cancel</button>
+              <button onClick={() => setDeletingBill(null)} className="w-full text-slate-400 font-bold py-4 rounded-xl text-xs uppercase tracking-widest">Cancel</button>
             </div>
           </div>
         </div>

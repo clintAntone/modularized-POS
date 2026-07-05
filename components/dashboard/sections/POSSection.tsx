@@ -576,21 +576,21 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         </div>
                         <div className="space-y-2">
                             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Digital Payment Gateway</h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Awaiting Digital Settlement</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Awaiting Digital Settlement</p>
                         </div>
                         
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                             <div className="bg-white p-4 rounded-2xl shadow-inner inline-block mx-auto border border-slate-100">
                                 <QRCodeSVG value={paymongoLink.url} size={160} level="H" includeMargin={true} />
                             </div>
-                            <p className="text-[11px] font-bold text-slate-600 uppercase leading-relaxed">
+                            <p className="text-xs font-bold text-slate-600 uppercase leading-relaxed">
                                 Please ask the customer to scan the QR or use the link below to pay via GCash, Maya, or Cards.
                             </p>
                             <a 
                                 href={paymongoLink.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="block w-full bg-white border border-slate-200 p-4 rounded-xl text-emerald-600 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all truncate"
+                                className="block w-full bg-white border border-slate-200 p-4 rounded-xl text-emerald-600 font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all truncate"
                             >
                                 Open Payment Link
                             </a>
@@ -599,18 +599,18 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         <div className="flex flex-col gap-3">
                             <div className="flex items-center justify-center gap-2 py-2">
                                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Monitoring for payment...</span>
+                                <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Monitoring for payment...</span>
                             </div>
                             <button
                                 onClick={() => checkPaymentStatus(false)}
                                 disabled={isCheckingPayment}
-                                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                             >
                                 {isCheckingPayment ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Verify Payment'}
                             </button>
                             <button
                                 onClick={() => setPaymongoLink(null)}
-                                className="w-full text-slate-400 font-bold py-3 rounded-xl text-[10px] uppercase tracking-widest"
+                                className="w-full text-slate-400 font-bold py-3 rounded-xl text-xs uppercase tracking-widest"
                             >
                                 Close & Check Later
                             </button>
@@ -627,9 +627,9 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         </div>
                         <div className="space-y-2">
                             <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Payment Successful</h2>
-                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Digital Payment Successful</p>
+                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Digital Payment Successful</p>
                             <div className="pt-4">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Transaction has been committed to registry.</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Transaction has been committed to registry.</p>
                             </div>
                         </div>
                     </div>
@@ -646,7 +646,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                             </div>
                             <div>
                                 <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Saved!</h2>
-                                <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1">
+                                <p className="text-xs font-bold text-white/70 uppercase tracking-widest mt-1">
                                     {successDetails.isOffline ? 'Saved Locally · Sync Pending' : 'Cloud Registry Updated'}
                                 </p>
                             </div>
@@ -654,23 +654,23 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         {/* Details */}
                         <div className="p-6 space-y-3">
                             <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Client</span>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">Client</span>
                                 <span className="font-black text-slate-900 uppercase text-sm text-right truncate">{successDetails.clientName || 'WALK-IN'}</span>
                             </div>
                             <div className="flex items-start justify-between gap-3">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Service</span>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">Service</span>
                                 <span className="font-bold text-slate-600 text-xs text-right uppercase leading-tight">{successDetails.serviceName}</span>
                             </div>
                             <div className="h-px bg-slate-100"></div>
                             <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</span>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</span>
                                 <span className={`font-black text-2xl tabular-nums ${successDetails.isOffline ? 'text-amber-600' : 'text-emerald-600'}`}>
                                     ₱{successDetails.total.toLocaleString()}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Payment</span>
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${successDetails.paymentMethod === 'GCASH' ? 'text-blue-600' : 'text-slate-700'}`}>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Payment</span>
+                                <span className={`text-xs font-black uppercase tracking-widest ${successDetails.paymentMethod === 'GCASH' ? 'text-blue-600' : 'text-slate-700'}`}>
                                     {successDetails.paymentMethod}
                                 </span>
                             </div>
@@ -687,21 +687,21 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                             <Trash2 className="w-8 h-8" strokeWidth={3} />
                         </div>
                         <h4 className="text-2xl font-bold text-slate-900 mb-2 uppercase tracking-tighter">Scrub Session?</h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                             AUTHORIZED DATA SCRUB: Permanently remove the session for <span className="text-slate-900">{txToDelete.clientName}</span> from terminal registry? This action is irreversible.
                         </p>
                         <div className="flex flex-col gap-4 mt-10">
                             <button
                                 onClick={handleFinalDelete}
                                 disabled={isProcessing}
-                                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                             >
                                 {isProcessing ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Confirm Erasure'}
                             </button>
                             <button
                                 onClick={() => setTxToDelete(null)}
                                 disabled={isProcessing}
-                                className="w-full text-slate-400 font-bold py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                                className="w-full text-slate-400 font-bold py-4 rounded-xl text-xs uppercase tracking-widest"
                             >
                                 Cancel
                             </button>

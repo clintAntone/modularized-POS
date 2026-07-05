@@ -42,10 +42,10 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
             {value ? (selectedEmployee?.role.includes('MANAGER') ? '👑' : '👤') : '∅'}
           </div>
           <div className="text-left overflow-hidden">
-            <p className={`font-bold text-[12px] uppercase tracking-tight truncate ${value ? 'text-slate-900' : 'text-slate-300'}`}>
+            <p className={`font-bold text-xs uppercase tracking-tight truncate ${value ? 'text-slate-900' : 'text-slate-300'}`}>
               {value || 'Unassigned / Select Personnel...'}
             </p>
-            {value && <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest leading-none">Registered Manager</p>}
+            {value && <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none">Registered Manager</p>}
           </div>
         </div>
         <svg className={`w-4 h-4 text-slate-300 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180 text-emerald-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,7 +63,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search personnel..."
-              className="w-full px-3 py-2 text-[11px] font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder:text-slate-300"
+              className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder:text-slate-300"
             />
           </div>
 
@@ -73,7 +73,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all mb-1 ${!value ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 hover:text-rose-500'}`}
           >
             <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${!value ? 'bg-white/10' : 'bg-slate-50'}`}>∅</div>
-            <span className="font-bold text-[11px] uppercase tracking-widest">Unassigned</span>
+            <span className="font-bold text-xs uppercase tracking-widest">Unassigned</span>
           </button>
           
           <div className="h-px bg-slate-50 my-1 mx-3"></div>
@@ -93,8 +93,8 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
                        {emp.role.includes('MANAGER') ? '👑' : emp.role.includes('BONESETTER') ? '🦴' : '💆'}
                     </div>
                     <div className="text-left overflow-hidden">
-                      <p className="font-bold text-[11px] uppercase truncate tracking-tight">{emp.name}</p>
-                      <p className={`text-[8px] font-semibold uppercase tracking-widest leading-none mt-0.5 ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>
+                      <p className="font-bold text-xs uppercase truncate tracking-tight">{emp.name}</p>
+                      <p className={`text-xs font-semibold uppercase tracking-widest leading-none mt-0.5 ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>
                         {emp.role} {emp.branchId !== branchId ? '(Cross-Branch)' : ''}
                       </p>
                     </div>
@@ -106,7 +106,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
               );
             }) : (
               <div className="py-8 text-center opacity-40">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">No personnel found</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No personnel found</p>
               </div>
             )}
           </div>

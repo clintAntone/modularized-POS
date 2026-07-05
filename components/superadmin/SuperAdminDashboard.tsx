@@ -77,9 +77,9 @@ const LiveClock = memo(() => {
     return () => clearInterval(t);
   }, []);
   return (
-    <span className="text-[10px] sm:text-[11px] font-bold font-mono tabular-nums tracking-tighter text-slate-100">
+    <span className="text-xs font-semibold font-mono tabular-nums tracking-tight text-slate-500">
       {formatManilaDate(now, { day: '2-digit', month: 'short' })}
-      {' • '}
+      {' · '}
       {formatManilaTime(now)}
     </span>
   );
@@ -177,24 +177,24 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     <div className="bg-slate-50 min-h-screen flex flex-col">
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-[72px] sm:top-20 z-[1000] no-print">
-        <div className="bg-slate-900 text-white py-1 px-4 shadow-md">
-          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex justify-between items-center`}>
-            <div className="flex items-center gap-2">
+      <div className="sticky top-14 sm:top-16 z-[1000] no-print">
+        <div className="bg-white border-b border-slate-100 py-1 px-4">
+          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-10 flex justify-between items-center`}>
+            <div className="flex items-center gap-1.5">
               <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               <LiveClock />
             </div>
             {isPortalUser && (
               <button
                 onClick={openMyAccount}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors active:scale-95"
               >
-                <div className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-black text-white uppercase leading-none">{(user.username || '?').charAt(0)}</span>
+                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-emerald-700 uppercase leading-none">{(user.username || '?').charAt(0)}</span>
                 </div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">{user.username}</span>
+                <span className="text-xs font-semibold text-slate-600 hidden sm:block">{user.username}</span>
               </button>
             )}
           </div>
@@ -281,12 +281,12 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
-          <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Portal Access</span>
+          <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Portal Access</span>
           {isReadOnly && (
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[8px] font-black text-amber-400 uppercase tracking-widest">Read Only</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-black text-amber-400 uppercase tracking-widest">Read Only</span>
           )}
           {permissions?.branchIds && permissions.branchIds.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[8px] font-black text-indigo-300 uppercase tracking-widest">
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-xs font-black text-indigo-300 uppercase tracking-widest">
               {permissions.branchIds.length === 1
                 ? scopedBranches[0]?.name || '1 Branch'
                 : `${permissions.branchIds.length} Branches`}

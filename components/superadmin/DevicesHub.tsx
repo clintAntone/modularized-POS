@@ -72,7 +72,7 @@ const BrowserIcon = ({ browser }: { browser: string }) => {
     Edge: 'text-blue-600', Opera: 'text-red-500',
   };
   return (
-    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 ${colors[browser] || 'text-slate-500'}`}>
+    <span className={`text-xs font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 ${colors[browser] || 'text-slate-500'}`}>
       {browser}
     </span>
   );
@@ -212,7 +212,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
             placeholder="Search branch..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value.toUpperCase())}
-            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-xs uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
           />
         </div>
 
@@ -223,7 +223,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
             setDatePreset(e.target.value as DatePreset);
             setSelectedBranchId(null);
           }}
-          className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-[10px] uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
+          className="px-3 py-2.5 bg-slate-50 border-2 border-transparent rounded-xl font-black text-xs uppercase tracking-widest outline-none focus:border-slate-300 focus:bg-white transition-all"
         >
           <option value="today">Today</option>
           <option value="yesterday">Yesterday</option>
@@ -232,7 +232,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
         </select>
 
         {/* Count */}
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+        <span className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
           {visibleBranches.length} branch{visibleBranches.length !== 1 ? 'es' : ''}
         </span>
       </div>
@@ -242,18 +242,18 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
         <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
           <div className="text-5xl opacity-20 mb-4">📱</div>
           <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No branches found</p>
-          <p className="text-[10px] text-slate-300 mt-1">No devices seen for the selected period</p>
+          <p className="text-xs text-slate-300 mt-1">No devices seen for the selected period</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           {/* Desktop-only column header */}
           <div className="hidden md:flex items-center gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <p className="flex-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
+            <p className="flex-1 text-xs font-black text-slate-400 uppercase tracking-widest">Branch</p>
             {datePreset !== 'today' && (
-              <p className="w-24 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Period</p>
+              <p className="w-24 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Period</p>
             )}
-            <p className="w-24 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Today</p>
-            <p className="w-28 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+            <p className="w-24 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Today</p>
+            <p className="w-28 text-xs font-black text-slate-400 uppercase tracking-widest">Status</p>
             <div className="w-4" />
           </div>
 
@@ -270,24 +270,24 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
                     className={`w-full flex items-center gap-4 px-4 py-3.5 text-left transition-colors ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50/80'}`}
                   >
                     {/* Branch name */}
-                    <p className="flex-1 text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight truncate min-w-0">
+                    <p className="flex-1 text-xs font-black text-slate-900 uppercase tracking-tight leading-tight truncate min-w-0">
                       {branchName}
                     </p>
 
                     {/* Period count — desktop only */}
                     {datePreset !== 'today' && (
-                      <span className="hidden md:inline-flex w-20 justify-end text-[10px] font-black text-slate-400 tabular-nums shrink-0">
+                      <span className="hidden md:inline-flex w-20 justify-end text-xs font-black text-slate-400 tabular-nums shrink-0">
                         {periodCount}
                       </span>
                     )}
 
                     {/* Today count — desktop */}
-                    <span className={`hidden md:inline-flex w-20 justify-end text-[10px] font-black tabular-nums shrink-0 ${isMultiDevice ? 'text-rose-600' : 'text-slate-600'}`}>
+                    <span className={`hidden md:inline-flex w-20 justify-end text-xs font-black tabular-nums shrink-0 ${isMultiDevice ? 'text-rose-600' : 'text-slate-600'}`}>
                       {todayCount}
                     </span>
 
                     {/* Today count badge — mobile */}
-                    <span className={`md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black shrink-0 ${isMultiDevice ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black shrink-0 ${isMultiDevice ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
                       {isMultiDevice && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
                       {todayCount}
                     </span>
@@ -295,12 +295,12 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
                     {/* Status badge — desktop */}
                     <div className="hidden md:flex w-28 shrink-0">
                       {isMultiDevice ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-black bg-rose-600 text-white uppercase tracking-widest">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white uppercase tracking-widest">
                           <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse" />
                           Multi-device
                         </span>
                       ) : (
-                        <span className="text-[9px] font-bold text-slate-300">—</span>
+                        <span className="text-xs font-bold text-slate-300">—</span>
                       )}
                     </div>
 
@@ -315,7 +315,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
                     <div className="border-t border-slate-100 bg-slate-50/50">
                       {todayDevices.length === 0 ? (
                         <div className="px-5 py-6 text-center">
-                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No devices seen today</p>
+                          <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No devices seen today</p>
                         </div>
                       ) : (
                         <div className="divide-y divide-slate-100">
@@ -334,16 +334,16 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <BrowserIcon browser={device.browser} />
-                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">{device.os}</span>
+                                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{device.os}</span>
                                       {device.device_model && device.device_model !== 'Unknown' && (
-                                        <span className="text-[9px] font-bold text-slate-400">{device.device_model}</span>
+                                        <span className="text-xs font-bold text-slate-400">{device.device_model}</span>
                                       )}
                                     </div>
-                                    <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                    <p className="text-xs font-bold text-slate-400 mt-0.5">
                                       Last seen {formatRelativeTime(device.last_seen)}
                                     </p>
                                   </div>
-                                  <span className="shrink-0 px-2 py-1 bg-white border border-slate-100 text-slate-500 rounded-lg text-[9px] font-black tabular-nums">
+                                  <span className="shrink-0 px-2 py-1 bg-white border border-slate-100 text-slate-500 rounded-lg text-xs font-black tabular-nums">
                                     {device.session_count} session{device.session_count !== 1 ? 's' : ''}
                                   </span>
                                   <svg className={`w-3.5 h-3.5 shrink-0 text-slate-300 transition-transform duration-150 ${isDeviceOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -365,15 +365,15 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
                                         ...(device.location ? [{ label: 'Location', value: device.location }] : []),
                                       ].map(f => (
                                         <div key={f.label} className="bg-slate-50 rounded-xl p-3">
-                                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{f.label}</p>
-                                          <p className="text-[10px] font-black text-slate-800 leading-snug">{f.value}</p>
+                                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">{f.label}</p>
+                                          <p className="text-xs font-black text-slate-800 leading-snug">{f.value}</p>
                                         </div>
                                       ))}
                                     </div>
                                     {device.user_agent && (
                                       <div className="mt-2 bg-slate-50 rounded-xl p-3">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">User Agent</p>
-                                        <p className="text-[9px] font-mono text-slate-500 break-all leading-relaxed">{device.user_agent}</p>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">User Agent</p>
+                                        <p className="text-xs font-mono text-slate-500 break-all leading-relaxed">{device.user_agent}</p>
                                       </div>
                                     )}
                                   </div>

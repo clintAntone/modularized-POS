@@ -65,14 +65,14 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, category: 'OPERATIONAL', name: formData.name === 'RENT & BILLS PROVISION' ? '' : formData.name })}
-                  className={`flex-1 py-3 rounded-[18px] text-[9px] font-black uppercase tracking-widest transition-all ${formData.category === 'OPERATIONAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`flex-1 py-3 rounded-[18px] text-xs font-black uppercase tracking-widest transition-all ${formData.category === 'OPERATIONAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   Daily Expense
                 </button>
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, category: 'PROVISION', name: formData.name === '' ? 'RENT & BILLS PROVISION' : formData.name })}
-                  className={`flex-1 py-3 rounded-[18px] text-[9px] font-black uppercase tracking-widest transition-all ${formData.category === 'PROVISION' ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`flex-1 py-3 rounded-[18px] text-xs font-black uppercase tracking-widest transition-all ${formData.category === 'PROVISION' ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   Rent & Bills Deposit
                 </button>
@@ -83,7 +83,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {/* 1. AMOUNT (PRIMARY) */}
             {/* ===================== */}
             <div className="space-y-2 sm:space-y-3">
-              <label className="block text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
+              <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
                 1. {formData.category === 'PROVISION' ? 'Deposit' : 'Expense'} Value
               </label>
 
@@ -117,7 +117,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {/* ===================== */}
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
-                <label className="block text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
+                <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
                   2. Expense Label / Purpose
                 </label>
 
@@ -148,7 +148,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                             }}
                             className="px-4 py-3 text-left rounded-xl hover:bg-slate-50 transition-colors group flex items-center justify-between"
                           >
-                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider group-hover:text-emerald-600">{item}</span>
+                            <span className="text-xs font-black text-slate-600 uppercase tracking-wider group-hover:text-emerald-600">{item}</span>
                             <Check className="w-3 h-3 text-slate-200 group-hover:text-emerald-400" strokeWidth={3} />
                           </button>
                         ))}
@@ -165,12 +165,12 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex justify-between items-center ml-2">
-                  <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.28em]">
-                    3. Receipt Evidence <span className="text-[7px] sm:text-[8px] opacity-50 font-bold">(Optional)</span>
+                  <label className="text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em]">
+                    3. Receipt Evidence <span className="text-xs sm:text-xs opacity-50 font-bold">(Optional)</span>
                   </label>
 
                   {(file || existingImage) && (
-                      <span className="text-[7px] sm:text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      <span className="text-xs sm:text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                     Proof Attached
                   </span>
                   )}
@@ -188,10 +188,10 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                         </div>
 
                         <div className="text-left">
-                          <p className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-900">
+                          <p className="text-xs sm:text-xs font-black uppercase text-emerald-900">
                             Evidence Indexed
                           </p>
-                          <p className="text-[8px] sm:text-[9px] font-bold text-emerald-600/60 uppercase tracking-widest">
+                          <p className="text-xs sm:text-xs font-bold text-emerald-600/60 uppercase tracking-widest">
                             Ready for synchronization
                           </p>
                         </div>
@@ -224,7 +224,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                         <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-2xl flex items-center justify-center shadow-md border border-slate-100 text-slate-400 group-hover:text-emerald-500 transition-colors">
                           <Camera className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
                         </div>
-                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-700">
+                        <span className="text-xs sm:text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-emerald-700">
                       Take Photo
                     </span>
                       </button>
@@ -242,7 +242,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                         <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-2xl flex items-center justify-center shadow-md border border-slate-100 text-slate-400 group-hover:text-indigo-500 transition-colors">
                           <Upload className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
                         </div>
-                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-700">
+                        <span className="text-xs sm:text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-700">
                       Upload Image
                     </span>
                       </button>
@@ -266,7 +266,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
               <button
                   type="submit"
                   disabled={isUploading || !isFormValid}
-                  className={`w-full font-black py-5 sm:py-7 rounded-[22px] sm:rounded-[28px] uppercase tracking-[0.32em] text-[11px] sm:text-[12px] shadow-2xl transition-all flex items-center justify-center gap-3
+                  className={`w-full font-black py-5 sm:py-7 rounded-[22px] sm:rounded-[28px] uppercase tracking-[0.32em] text-xs sm:text-xs shadow-2xl transition-all flex items-center justify-center gap-3
                 ${
                       isFormValid
                           ? 'bg-slate-900 text-white hover:bg-emerald-600 active:scale-[0.98]'
@@ -287,7 +287,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                   <button
                       type="button"
                       onClick={onCancel}
-                      className="w-full py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-colors"
+                      className="w-full py-2 text-xs sm:text-xs font-black uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-colors"
                   >
                     Discard Entry
                   </button>
@@ -299,7 +299,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
         {/* FOOTNOTE */}
         <div className="flex items-center gap-2 sm:gap-3 px-5 sm:px-6 py-3 sm:py-4 bg-emerald-50/40 rounded-[22px] sm:rounded-[26px] border border-emerald-100">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <p className="text-[8px] sm:text-[9px] font-black text-emerald-800 uppercase tracking-wide">
+          <p className="text-xs sm:text-xs font-black text-emerald-800 uppercase tracking-wide">
             All recorded outflows are immutable after daily finalization.
           </p>
         </div>

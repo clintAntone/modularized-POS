@@ -78,9 +78,9 @@ const LiveClock = memo(() => {
     return () => clearInterval(t);
   }, []);
   return (
-    <span className="text-[10px] sm:text-[11px] font-bold font-mono tabular-nums tracking-tighter text-slate-100">
+    <span className="text-xs font-semibold font-mono tabular-nums tracking-tight text-slate-500">
       {formatManilaDate(now, { day: '2-digit', month: 'short' })}
-      {' • '}
+      {' · '}
       {formatManilaTime(now)}
     </span>
   );
@@ -331,48 +331,44 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       )}
 
       {/* ── Sticky header ────────────────────────────────────────────────────── */}
-      <div className="sticky top-[72px] sm:top-20 left-0 right-0 z-[60] no-print shadow-lg">
-        <div className="bg-slate-800 text-white">
-          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} py-1 flex flex-row justify-between items-center gap-2`}>
-            <div className="flex flex-row items-center gap-2 sm:gap-5 text-slate-500 overflow-hidden shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <Clock className="w-3 h-3 text-emerald-500" strokeWidth={3} />
-                <LiveClock />
-              </div>
+      <div className="sticky top-14 sm:top-16 left-0 right-0 z-[60] no-print bg-white border-b border-slate-100">
+        <div>
+          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-10 flex flex-row justify-between items-center gap-2`}>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />
+              <LiveClock />
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0" ref={dropdownRef}>
+            <div className="flex items-center gap-2 shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => { playSound('click'); setShowToggleConfirm(true); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all active:scale-[0.96] shadow-md ${props.branch.isOpen ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${props.branch.isOpen ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-600'}`}
               >
-                <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px] ${props.branch.isOpen ? 'bg-emerald-400 shadow-emerald-400 animate-pulse' : 'bg-rose-50 shadow-rose-500'}`} />
-                <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest ${props.branch.isOpen ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {props.branch.isOpen ? 'STATUS: OPEN' : 'STATUS: CLOSE'}
-                </span>
+                <div className={`w-1.5 h-1.5 rounded-full ${props.branch.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`} />
+                {props.branch.isOpen ? 'Open' : 'Closed'}
               </button>
 
               {managedNodes.length > 0 && (
                 <div className="relative">
                   <button
                     onClick={() => { setIsSwitchingOpen(!isSwitchingOpen); playSound('click'); }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all text-[8px] sm:text-[9px] font-bold uppercase tracking-widest active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-700 border-white/20 text-white' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
                   >
-                    <Store className="w-3.5 h-3.5" strokeWidth={3} />
+                    <Store className="w-3 h-3" strokeWidth={2.5} />
                     <span className="hidden sm:inline">Switch</span>
-                    <span className="bg-white/10 px-1 rounded-md ml-0.5">{managedNodes.length}</span>
+                    <span className={`text-xs font-black px-1 rounded ${isSwitchingOpen ? 'text-slate-300' : 'text-slate-500'}`}>{managedNodes.length}</span>
                   </button>
                   {isSwitchingOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-60 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
-                      <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest px-3 py-1 mb-1">Managed Nodes</p>
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
+                      <p className="text-xs font-semibold text-slate-400 px-3 py-1.5 mb-0.5">Managed Branches</p>
                       {managedNodes.map(n => (
                         <button
                           key={n.id}
                           onClick={() => { setPendingSwitchBranchId(n.id); setShowUnlockModal(true); setIsSwitchingOpen(false); playSound('click'); }}
-                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all flex items-center justify-between group"
+                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-between group"
                         >
-                          <p className="text-[10px] font-bold text-white uppercase truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
-                          <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-500 transition-colors" strokeWidth={3} />
+                          <p className="text-xs font-semibold text-slate-700 truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
+                          <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-500 transition-colors" strokeWidth={2.5} />
                         </button>
                       ))}
                     </div>

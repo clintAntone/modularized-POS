@@ -354,7 +354,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       {myRequests.length > 0 && (
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Submission History</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Submission History</span>
             <div className="h-px flex-1 bg-slate-100" />
           </div>
           <div className="space-y-2">
@@ -369,14 +369,14 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 <div key={req.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${statusStyle}`}>{statusLabel}</span>
-                      <span className="text-[9px] font-bold text-slate-500">{req.data?.reportDate}</span>
+                      <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${statusStyle}`}>{statusLabel}</span>
+                      <span className="text-xs font-bold text-slate-500">{req.data?.reportDate}</span>
                     </div>
                     {req.reviewNote && (
-                      <p className="text-[10px] font-medium text-slate-600 italic mt-1">"{req.reviewNote}"</p>
+                      <p className="text-xs font-medium text-slate-600 italic mt-1">"{req.reviewNote}"</p>
                     )}
                   </div>
-                  <span className="text-[8px] font-bold text-slate-400 shrink-0 tabular-nums">{new Date(req.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 tabular-nums">{new Date(req.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
                 </div>
               );
             })}
@@ -389,19 +389,19 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-base shadow-inner shrink-0">📝</div>
           <div>
-            <h2 className="text-[13px] font-black text-slate-900 uppercase tracking-tighter leading-none">Backfill Report</h2>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Submit historical data for approval</p>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none">Backfill Report</h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Submit historical data for approval</p>
           </div>
         </div>
         <div className="border-t border-slate-100 pt-3">
-          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Target Date</label>
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">Target Date</label>
           <input
             type="date"
             required
             max={yesterday}
             value={formData.date}
             onChange={e => setFormData({ ...formData, date: e.target.value })}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13px] font-black text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
           />
         </div>
       </div>
@@ -411,9 +411,9 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         {/* Gross Sales */}
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gross Sales</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Gross Sales</span>
             <div className="h-px flex-1 bg-slate-100"></div>
-            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Revenue</span>
+            <span className="text-xs font-black text-emerald-500 uppercase tracking-widest">Revenue</span>
           </div>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">₱</span>
@@ -431,10 +431,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         {/* Operational Expenses */}
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Operational Expenses</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Operational Expenses</span>
             <div className="h-px flex-1 bg-slate-100"></div>
             {totals.ops > 0 && (
-              <span className="text-[10px] font-black text-rose-500 tabular-nums">−₱{totals.ops.toLocaleString()}</span>
+              <span className="text-xs font-black text-rose-500 tabular-nums">−₱{totals.ops.toLocaleString()}</span>
             )}
           </div>
 
@@ -447,22 +447,22 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 const pay = p ? Math.max(0, (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0)) : 0;
                 return (
                   <div key={`rel_${emp.id}`} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-violet-50 border-violet-100">
-                    <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">Reliever</span>
-                    <span className="flex-1 text-[11px] font-bold text-violet-700 uppercase truncate">RELIEVER PAYOUT: {emp.name.toUpperCase()}</span>
-                    <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{pay.toLocaleString()}</span>
-                    <span className="text-[8px] font-bold text-violet-400 shrink-0 italic">auto</span>
+                    <span className="text-xs font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">Reliever</span>
+                    <span className="flex-1 text-xs font-bold text-violet-700 uppercase truncate">RELIEVER PAYOUT: {emp.name.toUpperCase()}</span>
+                    <span className="text-xs font-black text-rose-500 tabular-nums shrink-0">₱{pay.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-violet-400 shrink-0 italic">auto</span>
                   </div>
                 );
               })}
               {/* Manual expense entries */}
               {expenseItems.map((item, idx) => (
                 <div key={item.id || idx} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-slate-50 border-slate-100">
-                  <span className="flex-1 text-[11px] font-bold text-slate-700 uppercase truncate">{item.name}</span>
-                  <span className="text-[11px] font-black text-rose-500 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
+                  <span className="flex-1 text-xs font-bold text-slate-700 uppercase truncate">{item.name}</span>
+                  <span className="text-xs font-black text-rose-500 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
                   <button
                     type="button"
                     onClick={() => removeExpenseItem(idx)}
-                    className="w-5 h-5 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[10px] font-black transition-colors shrink-0"
+                    className="w-5 h-5 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-xs font-black transition-colors shrink-0"
                   >×</button>
                 </div>
               ))}
@@ -477,42 +477,42 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               value={newExpenseName}
               onChange={e => setNewExpenseName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpenseItem(); } }}
-              className="w-full sm:flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
+              className="w-full sm:flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
             />
             <div className="flex gap-2">
             <div className="relative flex-1 sm:w-28 sm:flex-none">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">₱</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">₱</span>
               <input
                 type="number"
                 placeholder="0"
                 value={newExpenseAmount}
                 onChange={e => setNewExpenseAmount(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpenseItem(); } }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-[11px] font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
               />
             </div>
             <button
               type="button"
               onClick={addExpenseItem}
               disabled={!newExpenseName.trim() || !newExpenseAmount}
-              className="px-3 py-2.5 bg-rose-500 text-white rounded-xl text-[11px] font-black hover:bg-rose-600 active:scale-95 transition-all disabled:opacity-30 shrink-0"
+              className="px-3 py-2.5 bg-rose-500 text-white rounded-xl text-xs font-black hover:bg-rose-600 active:scale-95 transition-all disabled:opacity-30 shrink-0"
             >Add</button>
             </div>
           </div>
           {expenseItems.length === 0 && (
-            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No expenses added yet</p>
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No expenses added yet</p>
           )}
         </div>
 
         {/* Rent & Bills Deposit (legacy) / Vault Deposit (vault-era) */}
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
               {isLegacy ? 'Rent & Bills Deposit' : 'Vault Deposit'}
             </span>
             <div className="h-px flex-1 bg-slate-100"></div>
             {totals.bills > 0 && (
-              <span className={`text-[10px] font-black tabular-nums ${isLegacy ? 'text-indigo-600' : 'text-emerald-600'}`}>
+              <span className={`text-xs font-black tabular-nums ${isLegacy ? 'text-indigo-600' : 'text-emerald-600'}`}>
                 ₱{totals.bills.toLocaleString()}
               </span>
             )}
@@ -522,12 +522,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             <div className="mb-3 space-y-1.5">
               {provisionItems.map((item, idx) => (
                 <div key={item.id || idx} className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isLegacy ? 'bg-indigo-50 border-indigo-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                  <span className={`flex-1 text-[11px] font-bold uppercase truncate ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>{item.name}</span>
-                  <span className={`text-[11px] font-black tabular-nums shrink-0 ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>₱{Number(item.amount).toLocaleString()}</span>
+                  <span className={`flex-1 text-xs font-bold uppercase truncate ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>{item.name}</span>
+                  <span className={`text-xs font-black tabular-nums shrink-0 ${isLegacy ? 'text-indigo-700' : 'text-emerald-700'}`}>₱{Number(item.amount).toLocaleString()}</span>
                   <button
                     type="button"
                     onClick={() => removeProvisionItem(idx)}
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors shrink-0 ${isLegacy ? 'bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600' : 'bg-emerald-100 text-emerald-400 hover:bg-emerald-200 hover:text-emerald-600'}`}
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black transition-colors shrink-0 ${isLegacy ? 'bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600' : 'bg-emerald-100 text-emerald-400 hover:bg-emerald-200 hover:text-emerald-600'}`}
                   >×</button>
                 </div>
               ))}
@@ -542,35 +542,35 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 disabled={depositAmount <= 0}
                 className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-40 group"
               >
-                <span className="text-[11px] font-black uppercase tracking-widest">+ Add Deposit</span>
+                <span className="text-xs font-black uppercase tracking-widest">+ Add Deposit</span>
                 {depositAmount > 0 && (
-                  <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black tabular-nums">
+                  <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-xs font-black tabular-nums">
                     ₱{depositAmount.toLocaleString()}
                   </span>
                 )}
               </button>
               {depositAmount <= 0 && (
-                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
               )}
             </>
           ) : (
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black">₱</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">₱</span>
                 <input
                   type="number"
                   placeholder="0"
                   value={newVaultDepositAmount}
                   onChange={e => setNewVaultDepositAmount(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVaultDepositItem(); } }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-[11px] font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
                 />
               </div>
               <button
                 type="button"
                 onClick={addVaultDepositItem}
                 disabled={!newVaultDepositAmount || Number(newVaultDepositAmount) <= 0}
-                className="px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-[11px] font-black hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-30 shrink-0"
+                className="px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-30 shrink-0"
               >Add</button>
             </div>
           )}
@@ -579,10 +579,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         {/* Staff Payroll */}
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Staff Payroll</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Staff Payroll</span>
             <div className="h-px flex-1 bg-slate-100"></div>
             {totals.staffPay > 0 && (
-              <span className="text-[10px] font-black text-amber-600 tabular-nums">−₱{totals.staffPay.toLocaleString()}</span>
+              <span className="text-xs font-black text-amber-600 tabular-nums">−₱{totals.staffPay.toLocaleString()}</span>
             )}
           </div>
 
@@ -598,7 +598,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   onChange={e => { setPersonnelSearch(e.target.value); setIsPersonnelOpen(true); }}
                   onFocus={() => setIsPersonnelOpen(true)}
                   onBlur={() => setTimeout(() => setIsPersonnelOpen(false), 150)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-[11px] font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
                 />
               </div>
             </div>
@@ -611,12 +611,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                     onMouseDown={() => handleAddStaff(emp)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-50 transition-colors text-left"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-black shrink-0">{emp.name[0]}</div>
+                    <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-black shrink-0">{emp.name[0]}</div>
                     <div>
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role} · {emp.branchId}</p>
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role} · {emp.branchId}</p>
                     </div>
-                    <span className="ml-auto text-[8px] font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-lg uppercase tracking-widest">RELIEVER</span>
+                    <span className="ml-auto text-xs font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-lg uppercase tracking-widest">RELIEVER</span>
                   </button>
                 ))}
               </div>
@@ -635,20 +635,20 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   {/* Card header */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-inherit">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">{emp.name}</p>
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-tight">{emp.name}</p>
                       {isReliever
-                        ? <span className="text-[7px] font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever · pay → expenses</span>
-                        : <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                        ? <span className="text-xs font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever · pay → expenses</span>
+                        : <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
                       }
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Pay</p>
-                      <p className={`text-[14px] font-black tabular-nums leading-tight ${isReliever ? 'text-violet-700' : total >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>₱{total.toLocaleString()}</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Net Pay</p>
+                      <p className={`text-sm font-black tabular-nums leading-tight ${isReliever ? 'text-violet-700' : total >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>₱{total.toLocaleString()}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => isReliever ? handleRemoveStaff(emp.id) : setExcludedStaffIds(prev => new Set([...prev, emp.id]))}
-                      className="w-7 h-7 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-[12px] font-black transition-colors shrink-0"
+                      className="w-7 h-7 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-xs font-black transition-colors shrink-0"
                     >×</button>
                   </div>
 
@@ -661,12 +661,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                         { field: 'late', label: 'Late Deduct.', isDeduction: true },
                       ].map(({ field, label, isDeduction }) => (
                         <div key={field} className="space-y-1">
-                          <label className={`text-[7px] font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
+                          <label className={`text-xs font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
                           <div className="relative">
-                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
+                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
                             <input
                               type="number" placeholder="0"
-                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-[11px] font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
                               value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
                               onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
                             />
@@ -680,12 +680,12 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                         { field: 'cashAdvance', label: 'Cash Advance', isDeduction: true },
                       ].map(({ field, label, isDeduction }) => (
                         <div key={field} className="space-y-1">
-                          <label className={`text-[7px] font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
+                          <label className={`text-xs font-black uppercase tracking-widest ml-0.5 ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
                           <div className="relative">
-                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
+                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
                             <input
                               type="number" placeholder="0"
-                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-[11px] font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
                               value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
                               onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
                             />
@@ -707,9 +707,9 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   >
                     <div className="flex items-center gap-2">
                       <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Half Day</span>
+                      <span className="text-xs font-black uppercase tracking-widest">Half Day</span>
                     </div>
-                    <span className={`text-[8px] font-black uppercase tracking-widest ${isHalfDay ? 'text-white/80' : 'text-slate-300'}`}>
+                    <span className={`text-xs font-black uppercase tracking-widest ${isHalfDay ? 'text-white/80' : 'text-slate-300'}`}>
                       {isHalfDay ? 'On — allowance halved' : 'Tap to mark'}
                     </span>
                   </button>
@@ -726,26 +726,26 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           {/* KPI strip — 4 items in one row */}
           <div className="grid grid-cols-4 gap-px bg-white/5 rounded-xl overflow-hidden mb-4 relative z-10">
             <div className="bg-slate-800/60 px-2.5 py-2.5">
-              <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Gross</p>
-              <p className="text-[12px] font-black text-white tabular-nums leading-none">₱{totals.gross.toLocaleString()}</p>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Gross</p>
+              <p className="text-xs font-black text-white tabular-nums leading-none">₱{totals.gross.toLocaleString()}</p>
             </div>
             <div className="bg-slate-800/60 px-2.5 py-2.5">
-              <p className="text-[7px] font-black text-amber-500/60 uppercase tracking-widest leading-none mb-1">Staff Pay</p>
-              <p className="text-[12px] font-black text-amber-400 tabular-nums leading-none">−₱{totals.staffPay.toLocaleString()}</p>
+              <p className="text-xs font-black text-amber-500/60 uppercase tracking-widest leading-none mb-1">Staff Pay</p>
+              <p className="text-xs font-black text-amber-400 tabular-nums leading-none">−₱{totals.staffPay.toLocaleString()}</p>
             </div>
             <div className="bg-slate-800/60 px-2.5 py-2.5">
-              <p className="text-[7px] font-black text-rose-500/60 uppercase tracking-widest leading-none mb-1">Expenses</p>
-              <p className="text-[12px] font-black text-rose-400 tabular-nums leading-none">−₱{totals.ops.toLocaleString()}</p>
+              <p className="text-xs font-black text-rose-500/60 uppercase tracking-widest leading-none mb-1">Expenses</p>
+              <p className="text-xs font-black text-rose-400 tabular-nums leading-none">−₱{totals.ops.toLocaleString()}</p>
             </div>
             <div className="bg-slate-800/60 px-2.5 py-2.5">
-              <p className="text-[7px] font-black text-indigo-400/60 uppercase tracking-widest leading-none mb-1">Deposit</p>
-              <p className="text-[12px] font-black text-indigo-300 tabular-nums leading-none">₱{totals.bills.toLocaleString()}</p>
+              <p className="text-xs font-black text-indigo-400/60 uppercase tracking-widest leading-none mb-1">Deposit</p>
+              <p className="text-xs font-black text-indigo-300 tabular-nums leading-none">₱{totals.bills.toLocaleString()}</p>
             </div>
           </div>
 
           {/* Projected ROI */}
           <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl mb-4 relative z-10 ${totals.net >= 0 ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Projected ROI</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Projected ROI</span>
             <span className={`text-xl font-black tracking-tighter tabular-nums ${totals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {totals.net < 0 ? '−' : ''}₱{Math.abs(totals.net).toLocaleString()}
             </span>
@@ -753,20 +753,20 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
           <div className="space-y-3 relative z-10">
             <div className="space-y-1">
-              <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Reason / Notes</label>
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Reason / Notes</label>
               <textarea
                 required
                 rows={2}
                 placeholder="Explain why this backfill is needed..."
                 value={formData.notes}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all resize-none text-white placeholder:text-slate-600"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all resize-none text-white placeholder:text-slate-600"
               />
             </div>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl text-[12px] uppercase tracking-[0.2em] shadow-lg hover:bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+              className="w-full bg-emerald-600 text-white font-black py-4 rounded-xl text-xs uppercase tracking-[0.2em] shadow-lg hover:bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
             >
               {isSubmitting
                 ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>

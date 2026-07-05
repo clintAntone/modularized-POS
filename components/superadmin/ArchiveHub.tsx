@@ -170,8 +170,8 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12h12l1-12" /></svg>
             </div>
             <div>
-              <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Reports History</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Historical Data Explorer</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Reports History</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Historical Data Explorer</p>
             </div>
           </div>
 
@@ -203,13 +203,13 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
             {loadingOlder && (
               <>
                 <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Loading older reports…</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading older reports…</span>
               </>
             )}
           </div>
         )}
         {allLoaded && olderReports.length > 0 && (
-          <p className="text-center text-[9px] font-bold text-slate-300 uppercase tracking-widest pb-4">All historical reports loaded</p>
+          <p className="text-center text-xs font-bold text-slate-300 uppercase tracking-widest pb-4">All historical reports loaded</p>
         )}
       </div>
   );

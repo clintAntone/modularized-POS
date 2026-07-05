@@ -235,9 +235,9 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
             <div className="space-y-3">
                 <div className="flex items-center gap-2">
                     <ScanFace className="w-4 h-4 text-emerald-600" />
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Face ID Enrollment</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Face ID Enrollment</label>
                     {hasEnrolled && (
-                        <span className="ml-auto flex items-center gap-1 text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg uppercase tracking-widest">
+                        <span className="ml-auto flex items-center gap-1 text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg uppercase tracking-widest">
                             <CheckCircle className="w-2.5 h-2.5" />
                             {currentDescriptors!.length} shots enrolled
                         </span>
@@ -246,7 +246,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
 
                 {/* Checklist */}
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-2">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Before you start</p>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Before you start</p>
                     {[
                         { icon: '🕶️', text: 'Remove sunglasses or tinted lenses' },
                         { icon: '🧢', text: 'Remove cap, hat, or hood' },
@@ -255,7 +255,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     ].map(g => (
                         <div key={g.text} className="flex items-center gap-2.5">
                             <span className="text-base leading-none">{g.icon}</span>
-                            <p className="text-[9px] font-bold text-slate-600">{g.text}</p>
+                            <p className="text-xs font-bold text-slate-600">{g.text}</p>
                         </div>
                     ))}
                 </div>
@@ -264,7 +264,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <div className="flex gap-1.5">
                     {STEPS.map(s => (
                         <div key={s.id} className="flex-1 bg-slate-100 rounded-xl py-2 px-1 text-center">
-                            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-tight">{s.label}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-tight">{s.label}</p>
                         </div>
                     ))}
                 </div>
@@ -272,7 +272,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <button
                     type="button"
                     onClick={handleStart}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95"
                 >
                     <Camera className="w-4 h-4" />
                     {hasEnrolled ? 'Re-enroll Face ID' : 'Start Enrollment'}
@@ -308,9 +308,9 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
 
                 {/* Step label */}
                 <div className="text-center">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Step {stepIdx + 1} of {STEPS.length}</p>
-                    <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-tight">{currentStep.label}</p>
-                    <p className="text-[9px] font-bold text-slate-500 mt-0.5">{currentStep.instruction}</p>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Step {stepIdx + 1} of {STEPS.length}</p>
+                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-tight">{currentStep.label}</p>
+                    <p className="text-xs font-bold text-slate-500 mt-0.5">{currentStep.instruction}</p>
                 </div>
 
                 {/* Camera */}
@@ -322,10 +322,10 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 px-6">
                             <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
                             <div className="text-center space-y-1">
-                                <p className="text-[11px] font-black text-white uppercase tracking-widest">
+                                <p className="text-xs font-black text-white uppercase tracking-widest">
                                     {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
-                                <p className="text-[9px] font-bold text-slate-400">
+                                <p className="text-xs font-bold text-slate-400">
                                     {dlProgress >= 100 ? 'Preparing AI engine, please wait…' : 'One-time download (~7MB)'}
                                 </p>
                             </div>
@@ -337,11 +337,11 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                                         style={{ width: dlProgress >= 100 ? '100%' : `${dlProgress}%` }}
                                     />
                                 </div>
-                                <p className="text-[9px] font-black text-amber-400 text-center tabular-nums">
+                                <p className="text-xs font-black text-amber-400 text-center tabular-nums">
                                     {dlProgress >= 100 ? 'Almost ready…' : `${dlProgress}% downloaded`}
                                 </p>
                             </div>
-                            <p className="text-[8px] text-slate-500 font-bold tracking-widest uppercase text-center">
+                            <p className="text-xs text-slate-500 font-bold tracking-widest uppercase text-center">
                                 Next time will be instant
                             </p>
                         </div>
@@ -351,7 +351,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     {cameraError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 bg-slate-900/90">
                             <AlertCircle className="w-6 h-6 text-rose-400" />
-                            <p className="text-[9px] font-bold text-rose-400 text-center">{cameraError}</p>
+                            <p className="text-xs font-bold text-rose-400 text-center">{cameraError}</p>
                         </div>
                     )}
 
@@ -376,7 +376,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     {isError && (
                         <div className="absolute inset-0 bg-rose-500/25 flex flex-col items-center justify-center gap-1.5">
                             <AlertCircle className="w-10 h-10 text-rose-400" strokeWidth={1.5} />
-                            <p className="text-[9px] font-bold text-rose-300">{currentShot?.error}</p>
+                            <p className="text-xs font-bold text-rose-300">{currentShot?.error}</p>
                         </div>
                     )}
                 </div>
@@ -409,7 +409,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         <button
                             type="button"
                             onClick={retakeShot}
-                            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
                             Retake
@@ -420,7 +420,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                             type="button"
                             onClick={handleCapture}
                             disabled={!canCapture}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40"
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40"
                         >
                             {isProcessing
                                 ? <><Loader className="w-4 h-4 animate-spin" /> Processing...</>
@@ -428,7 +428,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         </button>
                     )}
                     {isOk && (
-                        <div className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 rounded-xl text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                        <div className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 rounded-xl text-xs font-black text-emerald-600 uppercase tracking-widest">
                             <CheckCircle className="w-4 h-4" />
                             {stepIdx < STEPS.length - 1 ? 'Next shot coming...' : 'All done — reviewing...'}
                         </div>
@@ -443,8 +443,8 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
         <div className="space-y-3">
             <div className="flex items-center gap-2">
                 <ScanFace className="w-4 h-4 text-emerald-600" />
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Review Captures</label>
-                <span className="ml-auto text-[9px] font-black text-emerald-600 uppercase tracking-widest">{validCount}/{STEPS.length} valid</span>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Review Captures</label>
+                <span className="ml-auto text-xs font-black text-emerald-600 uppercase tracking-widest">{validCount}/{STEPS.length} valid</span>
             </div>
 
             <div className="grid grid-cols-4 gap-2">
@@ -468,17 +468,17 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-0.5 transition-opacity"
                                 >
                                     <RotateCcw className="w-4 h-4 text-white" />
-                                    <span className="text-[7px] font-black text-white uppercase tracking-widest">Retake</span>
+                                    <span className="text-xs font-black text-white uppercase tracking-widest">Retake</span>
                                 </button>
                             </div>
-                            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest text-center">{s.label}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">{s.label}</p>
                         </div>
                     );
                 })}
             </div>
 
             {validCount < STEPS.length && (
-                <p className="text-[8px] font-bold text-amber-500 uppercase tracking-widest text-center">
+                <p className="text-xs font-bold text-amber-500 uppercase tracking-widest text-center">
                     {STEPS.length - validCount} shot{STEPS.length - validCount !== 1 ? 's' : ''} failed — you can still save the valid ones
                 </p>
             )}
@@ -487,7 +487,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                 <button
                     type="button"
                     onClick={resetAll}
-                    className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
                 >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Redo All
@@ -496,7 +496,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     type="button"
                     onClick={handleSave}
                     disabled={isSaving || validCount === 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95 disabled:opacity-40"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95 disabled:opacity-40"
                 >
                     {isSaving
                         ? <><Loader className="w-4 h-4 animate-spin" /> Saving...</>

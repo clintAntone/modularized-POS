@@ -17,8 +17,8 @@ export const GlobalLoadingOverlay: React.FC<GlobalLoadingOverlayProps> = ({ isVi
           </div>
         </div>
         <div className="space-y-1.5">
-          <p className="text-[12px] font-bold text-slate-900 uppercase tracking-tighter">Synchronizing...</p>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Establishing Mainframe Link over Network</p>
+          <p className="text-xs font-bold text-slate-900 uppercase tracking-tighter">Synchronizing...</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-tight">Establishing Mainframe Link over Network</p>
         </div>
       </div>
     </div>

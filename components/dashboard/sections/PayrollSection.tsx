@@ -491,7 +491,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-sm group active:scale-95"
             >
               <svg className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-              <span className="text-[10px] font-bold uppercase tracking-widest">Cycles</span>
+              <span className="text-xs font-bold uppercase tracking-widest">Cycles</span>
             </button>
 
             <div className="flex items-center gap-2">
@@ -506,7 +506,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     }`}
                 >
                   <div className={`w-1.5 h-1.5 rounded-full ${isSettled ? 'bg-emerald-500 animate-pulse' : 'bg-white/50'}`}></div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                  <span className="text-xs font-bold uppercase tracking-widest">
                     {isUpdatingSettlement ? '...' : (isSettled ? 'Settled' : 'Settle')}
                   </span>
                 </button>
@@ -517,7 +517,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                   className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" strokeWidth="2.5" /></svg>
-                <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest">Export PDF</span>
+                <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest">Export PDF</span>
               </button>
             </div>
           </div>
@@ -532,17 +532,17 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                   <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.3em]">Payroll Audit · Week {selectedCycle.id}</p>
+                  <p className="text-xs font-black text-emerald-500 uppercase tracking-[0.3em]">Payroll Audit · Week {selectedCycle.id}</p>
                   <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-tight mt-0.5">{selectedCycle.start} — {selectedCycle.end}</h2>
                 </div>
               </div>
               <div className="flex items-center gap-8 border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-8 ml-[60px] sm:ml-0">
                 <div>
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Headcount</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Headcount</p>
                   <p className="text-2xl font-black text-white tabular-nums">{staffCycleSummary.length}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Net Payout</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Net Payout</p>
                   <p className="text-2xl font-black text-emerald-400 tabular-nums">₱{totalPayout.toLocaleString()}</p>
                 </div>
               </div>
@@ -554,9 +554,9 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
               {/* Column headers — Employee ID hidden on mobile */}
               <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_120px] items-center px-4 sm:px-6 py-3 border-b border-slate-100 bg-slate-50">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Employee ID</p>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Name</p>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Salary</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">Employee ID</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Name</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-right">Salary</p>
               </div>
 
               {/* Rows */}
@@ -567,22 +567,22 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     onClick={() => { playSound('click'); setSelectedStaffPayslip({ ...s, isSettled: s.isSettled || isSettled }); }}
                     className="grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_120px] items-center px-4 sm:px-6 py-3.5 cursor-pointer group hover:bg-emerald-50/50 transition-colors"
                   >
-                    <p className="text-[9px] font-mono font-bold text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
+                    <p className="text-xs font-mono font-bold text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px] shrink-0 group-hover:bg-emerald-600 transition-colors">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shrink-0 group-hover:bg-emerald-600 transition-colors">
                         {getInitials(s.name)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] sm:text-[12px] font-bold text-slate-800 uppercase truncate leading-tight">{s.name}</p>
+                        <p className="text-xs sm:text-xs font-bold text-slate-800 uppercase truncate leading-tight">{s.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="text-[9px] text-slate-400">{s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
-                          {(s.isSettled || isSettled) && <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Settled</span>}
+                          <p className="text-xs text-slate-400">{s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
+                          {(s.isSettled || isSettled) && <span className="text-xs font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Settled</span>}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[13px] font-black text-slate-900 tabular-nums group-hover:text-emerald-700 transition-colors">₱{s.netPay.toLocaleString()}</p>
-                      {s.advance > 0 && <p className="text-[8px] font-bold text-rose-400 tabular-nums">−₱{s.advance.toLocaleString()} adv</p>}
+                      <p className="text-sm font-black text-slate-900 tabular-nums group-hover:text-emerald-700 transition-colors">₱{s.netPay.toLocaleString()}</p>
+                      {s.advance > 0 && <p className="text-xs font-bold text-rose-400 tabular-nums">−₱{s.advance.toLocaleString()} adv</p>}
                     </div>
                   </div>
                 ))}
@@ -590,14 +590,14 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
               {/* Footer — total only, no count */}
               <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-slate-900">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Payout</p>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Total Payout</p>
                 <p className="text-[15px] font-black text-emerald-400 tabular-nums">₱{staffCycleSummary.reduce((sum: number, s: any) => sum + s.netPay, 0).toLocaleString()}</p>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-40">
               <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No records for this period</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No records for this period</p>
             </div>
           )}
         </div>
@@ -611,7 +611,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-slate-900 text-white rounded-2xl sm:rounded-3xl flex items-center justify-center text-xl sm:text-2xl shadow-xl border border-white/5 shrink-0">🏢</div>
             <div className="space-y-0.5 sm:space-y-1 overflow-hidden">
               <h3 className="text-lg sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter leading-none truncate">Payroll Archive</h3>
-              <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] sm:tracking-[0.4em] truncate">Historical Ledger Registry</p>
+              <p className="text-xs sm:text-xs font-bold text-slate-400 uppercase tracking-[0.2em] sm:tracking-[0.4em] truncate">Historical Ledger Registry</p>
             </div>
           </div>
 
@@ -622,7 +622,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     onClick={() => { setShowYearDropdown(!showYearDropdown); setShowMonthDropdown(false); playSound('click'); }}
                     className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm hover:border-emerald-500 transition-all min-w-[100px]"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">{selectedYear}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-900">{selectedYear}</span>
                   <svg className={`w-3 h-3 text-slate-400 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 {showYearDropdown && (
@@ -633,7 +633,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                             <button
                                 key={y}
                                 onClick={() => { setSelectedYear(y); setShowYearDropdown(false); playSound('click'); }}
-                                className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${selectedYear === y ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                                className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedYear === y ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
                             >
                               {y}
                             </button>
@@ -648,7 +648,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); playSound('click'); }}
                     className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm hover:border-emerald-500 transition-all min-w-[140px]"
                 >
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-900">
                   {selectedMonth === 'all' ? 'All Months' : months.find(m => m.value === selectedMonth)?.label}
                 </span>
                   <svg className={`w-3 h-3 text-slate-400 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
@@ -659,7 +659,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                       <div className="absolute top-full right-0 md:left-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-[110] overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 max-h-[60vh] overflow-y-auto no-scrollbar">
                         <button
                             onClick={() => { setSelectedMonth('all'); setShowMonthDropdown(false); playSound('click'); }}
-                            className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${selectedMonth === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                            className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedMonth === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
                         >
                           All Months
                         </button>
@@ -668,7 +668,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                             <button
                                 key={m.value}
                                 onClick={() => { setSelectedMonth(m.value); setShowMonthDropdown(false); playSound('click'); }}
-                                className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${selectedMonth === m.value ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                                className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${selectedMonth === m.value ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
                             >
                               {m.label}
                             </button>
@@ -705,19 +705,19 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                             <span className={`w-2 h-2 rounded-full ${isProcessed ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
                             <h3 className={`font-bold text-sm uppercase tracking-tight ${isProcessed ? 'text-emerald-700' : 'text-amber-600'}`}>Week {cycle.id} Registry</h3>
                           </div>
-                          <span className={`text-[7px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${
+                          <span className={`text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${
                             isProcessed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                           }`}>
                             {isProcessed ? 'Processed' : 'In Progress'}
                           </span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cycle.start} — {cycle.end}</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{cycle.start} — {cycle.end}</p>
                       </div>
 
                       <div className="flex items-end justify-between relative z-10">
                         <div className="space-y-0.5">
                           <p className={`text-2xl font-bold tracking-tighter leading-none ${isProcessed ? 'text-emerald-700' : 'text-amber-600'}`}>₱{calculateCycleTotalPay(cycle).toLocaleString()}</p>
-                          <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">{isProcessed ? 'Paid Ledger' : 'Running Total'}</p>
+                          <p className="text-xs font-bold text-slate-300 uppercase tracking-[0.2em]">{isProcessed ? 'Paid Ledger' : 'Running Total'}</p>
                         </div>
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                           isProcessed ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-500'
@@ -737,7 +737,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         ) : (
             <div className="py-32 text-center bg-white rounded-[40px] border border-dashed border-slate-200">
               <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl grayscale opacity-50">📁</div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No records found for the selected period</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No records found for the selected period</p>
             </div>
         )}
       </div>

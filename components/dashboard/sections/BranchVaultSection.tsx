@@ -758,7 +758,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[400] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-xs uppercase tracking-[0.1em] bg-slate-900 text-white border border-white/10 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`} />
           {toast.message}
         </div>
@@ -771,8 +771,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
           <div>
-            <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest leading-none">Vault Disabled</p>
-            <p className="text-[9px] font-bold text-amber-600 mt-0.5">This vault is archived. Balance and history are read-only.</p>
+            <p className="text-xs font-black text-amber-800 uppercase tracking-widest leading-none">Vault Disabled</p>
+            <p className="text-xs font-bold text-amber-600 mt-0.5">This vault is archived. Balance and history are read-only.</p>
           </div>
         </div>
       )}
@@ -783,14 +783,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           {/* Balance hero */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-300 mb-2 flex items-center gap-1.5">
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-300 mb-2 flex items-center gap-1.5">
                 <Landmark className="w-3 h-3 opacity-60" />
                 Vault Fund
               </p>
               <p className={`text-3xl sm:text-5xl lg:text-6xl font-black tabular-nums tracking-tighter leading-none ${!branchVault || branchVault.balance <= 0 ? 'text-slate-500' : 'text-emerald-400'}`}>
                 ₱{(branchVault?.balance ?? 0).toLocaleString()}
               </p>
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-2">Running Balance</p>
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2">Running Balance</p>
             </div>
           </div>
           {/* Deposited / Withdrawn / Starting — tap to expand */}
@@ -798,22 +798,22 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             className="w-full text-left flex items-center justify-between"
             onClick={() => setKpiExpanded(v => !v)}
           >
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Overview</span>
+            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Overview</span>
             <svg className={`w-3 h-3 text-slate-500 transition-transform duration-200 ${kpiExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
           </button>
           {kpiExpanded && (
             <div className={`grid gap-2 ${(branchVault?.initialBalance ?? 0) > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div className="bg-white/5 rounded-2xl px-3 py-2.5">
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Deposited</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Deposited</p>
                 <p className="text-sm font-black text-emerald-400 tabular-nums">+₱{totalDeposits.toLocaleString()}</p>
               </div>
               <div className="bg-white/5 rounded-2xl px-3 py-2.5">
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Withdrawn</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Withdrawn</p>
                 <p className="text-sm font-black text-rose-400 tabular-nums">−₱{totalWithdrawals.toLocaleString()}</p>
               </div>
               {(branchVault?.initialBalance ?? 0) > 0 && (
                 <div className="bg-white/5 rounded-2xl px-3 py-2.5">
-                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Starting</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Starting</p>
                   <p className="text-sm font-black text-slate-300 tabular-nums">₱{(branchVault!.initialBalance).toLocaleString()}</p>
                 </div>
               )}
@@ -837,15 +837,15 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           return (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                <span className="text-xs font-black text-slate-300 uppercase tracking-widest">
                   {hasTarget ? 'Vault Target' : 'Vault Balance'}
                 </span>
                 {hasTarget ? (
-                  <span className={`text-[10px] font-black uppercase tracking-widest tabular-nums ${reached ? 'text-emerald-400' : 'text-slate-300'}`}>
+                  <span className={`text-xs font-black uppercase tracking-widest tabular-nums ${reached ? 'text-emerald-400' : 'text-slate-300'}`}>
                     ₱{balance.toLocaleString()} / ₱{target.toLocaleString()}
                   </span>
                 ) : (
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No target set</span>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">No target set</span>
                 )}
               </div>
               <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
@@ -855,17 +855,17 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 />
               </div>
               {!hasTarget ? (
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Contact admin to set a vault target</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Contact admin to set a vault target</p>
               ) : reached ? (
-                <p className="text-[11px] font-black uppercase tracking-widest text-emerald-400">Target reached — 100% funded</p>
+                <p className="text-xs font-black uppercase tracking-widest text-emerald-400">Target reached — 100% funded</p>
               ) : (
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-[13px] font-black tabular-nums text-white">₱{remaining.toLocaleString()} <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">to go</span></p>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{Math.round(pct * 100)}% of target reached</p>
+                  <p className="text-sm font-black tabular-nums text-white">₱{remaining.toLocaleString()} <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">to go</span></p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{Math.round(pct * 100)}% of target reached</p>
                 </div>
               )}
               {canCoverBills && (
-                <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-400">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
                   Can cover all unpaid bills (₱{unpaidTotal.toLocaleString()})
                 </p>
               )}
@@ -885,7 +885,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 playSound('click');
               }}
               disabled={!branchVault || branchVault.balance <= 0}
-              className="flex-1 py-3 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <ArrowDownCircle className="w-4 h-4" />
               Withdraw
@@ -904,7 +904,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 setShowDepositModal(true);
                 playSound('click');
               }}
-              className="flex-1 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <ArrowUpCircle className="w-4 h-4" />
               Deposit
@@ -951,7 +951,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-[15px] font-black text-slate-800 leading-none tracking-tight">Bills Paid</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
                     Vault Outflows{totalVaultUsed > 0 && <span className="text-amber-500 ml-1.5 tabular-nums">· ₱{totalVaultUsed.toLocaleString()}</span>}
                   </p>
                 </div>
@@ -967,7 +967,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   value={billsSearch}
                   onChange={e => setBillsSearch(e.target.value)}
                   placeholder="SEARCH NAME, AMOUNT...."
-                  className="w-full pl-8 pr-8 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
+                  className="w-full pl-8 pr-8 py-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
                 />
                 {billsSearch && (
                   <button
@@ -1000,8 +1000,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <Banknote className="w-5 h-5 text-slate-200" />
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{billsSearch ? 'No results' : 'No vault payments yet'}</p>
-                  <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest px-8">{billsSearch ? `No matches for "${billsSearch}"` : 'Bills & expenses paid from vault will appear here'}</p>
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">{billsSearch ? 'No results' : 'No vault payments yet'}</p>
+                  <p className="text-xs font-bold text-slate-300 uppercase tracking-widest px-8">{billsSearch ? `No matches for "${billsSearch}"` : 'Bills & expenses paid from vault will appear here'}</p>
                 </div>
               </div>
             ) : (
@@ -1010,7 +1010,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <div key={date}>
                     {/* Date group header */}
                     <div className="px-4 sm:px-8 py-2 flex items-center gap-3">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
                       <div className="flex-1 h-px bg-slate-100" />
                     </div>
                     {/* Transaction rows */}
@@ -1027,10 +1027,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                                 <Banknote className="w-4.5 h-4.5" style={{ width: '1.1rem', height: '1.1rem' }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{stripVaultPrefix(tx.name)}</p>
-                                <p className="text-[9px] font-bold text-slate-400 tabular-nums mt-0.5">{formatTime(tx.timestamp)}</p>
+                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{stripVaultPrefix(tx.name)}</p>
+                                <p className="text-xs font-bold text-slate-400 tabular-nums mt-0.5">{formatTime(tx.timestamp)}</p>
                                 {tx.performedBy && (
-                                  <p className="text-[9px] font-semibold text-slate-400 truncate mt-0.5"><span className="font-black uppercase tracking-widest text-[8px]">By:</span> {tx.performedBy}</p>
+                                  <p className="text-xs font-semibold text-slate-400 truncate mt-0.5"><span className="font-black uppercase tracking-widest text-xs">By:</span> {tx.performedBy}</p>
                                 )}
                               </div>
                               <div className="shrink-0 flex items-center gap-1.5">
@@ -1071,7 +1071,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   </div>
                 )}
                 {visibleBills >= allVaultWithdrawals.length && allVaultWithdrawals.length > 0 && (
-                  <p className="text-center text-[9px] font-black text-slate-300 uppercase tracking-widest py-4">
+                  <p className="text-center text-xs font-black text-slate-300 uppercase tracking-widest py-4">
                     {allVaultWithdrawals.length} record{allVaultWithdrawals.length !== 1 ? 's' : ''} total
                   </p>
                 )}
@@ -1091,10 +1091,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           className="w-full px-6 sm:px-8 py-5 flex items-center justify-between gap-3 hover:bg-slate-50/60 active:bg-slate-100 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Vault History</h3>
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Vault History</h3>
             {txLoading
               ? <span className="h-3 w-12 rounded bg-slate-100 animate-pulse inline-block" />
-              : <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{transactions.length} records</span>
+              : <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{transactions.length} records</span>
             }
           </div>
           <div className={`w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 transition-transform duration-200 ${historyExpanded ? 'rotate-180' : ''}`}>
@@ -1115,7 +1115,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   value={historySearch}
                   onChange={e => setHistorySearch(e.target.value)}
                   placeholder="SEARCH NAME, AMOUNT...."
-                  className="w-full pl-8 pr-8 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
+                  className="w-full pl-8 pr-8 py-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-300"
                 />
                 {historySearch && (
                   <button
@@ -1138,7 +1138,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${
                       filter === f.key
                         ? f.key === 'withdrawals'
                           ? 'bg-rose-600 text-white shadow-sm'
@@ -1149,7 +1149,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     }`}
                   >
                     {f.label}
-                    <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${
+                    <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${
                       filter === f.key ? 'bg-white/20 text-white' : 'bg-white text-slate-400'
                     }`}>{f.count}</span>
                   </button>
@@ -1159,7 +1159,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     <div className="w-px bg-slate-200 shrink-0 self-stretch my-1" />
                     <button
                       onClick={() => setSelectedMonth(null)}
-                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${
                         selectedMonth === null ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                       }`}
                     >
@@ -1169,7 +1169,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                       <button
                         key={key}
                         onClick={() => setSelectedMonth(key === selectedMonth ? null : key)}
-                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${
                           selectedMonth === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                         }`}
                       >
@@ -1198,10 +1198,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             ) : filtered.length === 0 ? (
               <div className="px-8 py-16 text-center space-y-3">
                 <div className="text-4xl opacity-10">🏦</div>
-                <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No transactions</p>
-                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No transactions</p>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
                   {historySearch ? `No results for "${historySearch}"` : filter !== 'all' ? `No ${filter} found` : 'Deposits and withdrawals will appear here'}
-                  {historySearch && <><br /><span className="text-[8px]">Try searching by name or amount (e.g. 2,200 or 2200)</span></>}
+                  {historySearch && <><br /><span className="text-xs">Try searching by name or amount (e.g. 2,200 or 2200)</span></>}
                 </p>
               </div>
             ) : (
@@ -1210,7 +1210,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <div key={date}>
                     {/* Date group header */}
                     <div className="px-4 sm:px-8 py-2 flex items-center gap-3">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
                       <div className="flex-1 h-px bg-slate-100" />
                     </div>
 
@@ -1238,10 +1238,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
                             {/* Label + meta */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{tx.name}</p>
-                              <p className="text-[9px] font-bold text-slate-400 tabular-nums mt-0.5">{formatTime(tx.timestamp)}</p>
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{tx.name}</p>
+                              <p className="text-xs font-bold text-slate-400 tabular-nums mt-0.5">{formatTime(tx.timestamp)}</p>
                               {tx.performedBy && (
-                                <p className="text-[9px] font-semibold text-slate-400 truncate mt-0.5"><span className="font-black uppercase tracking-widest text-[8px]">By:</span> {tx.performedBy}</p>
+                                <p className="text-xs font-semibold text-slate-400 truncate mt-0.5"><span className="font-black uppercase tracking-widest text-xs">By:</span> {tx.performedBy}</p>
                               )}
                             </div>
 
@@ -1274,7 +1274,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   </div>
                 )}
                 {visibleHistory >= filtered.length && filtered.length > 0 && (
-                  <p className="text-center text-[9px] font-black text-slate-300 uppercase tracking-widest py-4">
+                  <p className="text-center text-xs font-black text-slate-300 uppercase tracking-widest py-4">
                     {filtered.length} record{filtered.length !== 1 ? 's' : ''} total
                   </p>
                 )}
@@ -1309,7 +1309,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                       : <ArrowUpCircle className="w-6 h-6" />}
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">
                       {selectedTx.type === 'deposit' ? 'Vault Deposit' : 'Vault Withdrawal'}
                     </p>
                     <p className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-tight">{selectedTx.name}</p>
@@ -1325,7 +1325,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Amount */}
               <div className={`rounded-2xl p-4 flex items-center justify-between ${selectedTx.type === 'deposit' ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Amount</span>
                 <span className={`text-2xl font-black tabular-nums ${selectedTx.type === 'deposit' ? 'text-emerald-700' : 'text-rose-600'}`}>
                   {selectedTx.type === 'deposit' ? '+' : '−'}₱{selectedTx.amount.toLocaleString()}
                 </span>
@@ -1334,24 +1334,24 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               {/* Details grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-2xl p-4">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Date</p>
-                  <p className="text-[11px] font-black text-slate-800 uppercase">{toManilaDate(selectedTx.timestamp)}</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Date</p>
+                  <p className="text-xs font-black text-slate-800 uppercase">{toManilaDate(selectedTx.timestamp)}</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
-                  <p className="text-[11px] font-black text-slate-800 uppercase">{formatTime(selectedTx.timestamp)}</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
+                  <p className="text-xs font-black text-slate-800 uppercase">{formatTime(selectedTx.timestamp)}</p>
                 </div>
               </div>
 
               <div className="bg-slate-50 rounded-2xl p-4">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reference ID</p>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{selectedTx.id.slice(-12).toUpperCase()}</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Reference ID</p>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-wider">{selectedTx.id.slice(-12).toUpperCase()}</p>
               </div>
 
               {/* Receipt image */}
               {selectedTx.receiptUrl && (
                 <div className="space-y-2">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Receipt</p>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Receipt</p>
                   <a href={selectedTx.receiptUrl} target="_blank" rel="noopener noreferrer" className="block">
                     <img
                       src={selectedTx.receiptUrl}
@@ -1364,7 +1364,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               <button
                 onClick={() => setSelectedTx(null)}
-                className="w-full py-4 rounded-2xl border-2 border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+                className="w-full py-4 rounded-2xl border-2 border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
               >
                 Close
               </button>
@@ -1392,7 +1392,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">
                     {billForm.id ? 'Edit Bill' : 'Add Bill'}
                   </h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monthly recurring bill</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Monthly recurring bill</p>
                 </div>
                 <button
                   onClick={() => setBillForm(null)}
@@ -1404,20 +1404,20 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Name */}
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Bill Name <span className="text-rose-500">*</span></label>
                 <input
                   type="text"
                   autoFocus
                   value={billForm.name}
                   onChange={e => setBillForm(f => f && ({ ...f, name: e.target.value }))}
                   placeholder="e.g. RENT, ELECTRICITY"
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-[12px] font-bold uppercase outline-none focus:border-slate-400 focus:bg-white transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-xs font-bold uppercase outline-none focus:border-slate-400 focus:bg-white transition-colors"
                 />
               </div>
 
               {/* Amount */}
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Amount <span className="text-slate-300">(optional)</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Amount <span className="text-slate-300">(optional)</span></label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">₱</span>
                   <input
@@ -1425,7 +1425,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     value={billForm.amount}
                     onChange={e => setBillForm(f => f && ({ ...f, amount: e.target.value }))}
                     placeholder="0"
-                    className="w-full bg-slate-50 border border-slate-200 pl-8 pr-4 py-3 rounded-xl text-[13px] font-black outline-none focus:border-slate-400 focus:bg-white transition-colors tabular-nums"
+                    className="w-full bg-slate-50 border border-slate-200 pl-8 pr-4 py-3 rounded-xl text-sm font-black outline-none focus:border-slate-400 focus:bg-white transition-colors tabular-nums"
                   />
                 </div>
               </div>
@@ -1433,21 +1433,21 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               {/* Due Day + Due Next Month */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day <span className="text-slate-300">(1–31)</span></label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Due Day <span className="text-slate-300">(1–31)</span></label>
                   <input
                     type="number" min="1" max="31" step="1"
                     value={billForm.dueDay}
                     onChange={e => setBillForm(f => f && ({ ...f, dueDay: e.target.value }))}
                     placeholder="e.g. 15"
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-[13px] font-black outline-none focus:border-slate-400 focus:bg-white transition-colors tabular-nums"
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-black outline-none focus:border-slate-400 focus:bg-white transition-colors tabular-nums"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Due Month</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Due Month</label>
                   <button
                     type="button"
                     onClick={() => setBillForm(f => f && ({ ...f, dueNextMonth: !f.dueNextMonth }))}
-                    className={`w-full py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
                       billForm.dueNextMonth
                         ? 'bg-indigo-600 text-white border-indigo-600'
                         : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'
@@ -1460,31 +1460,31 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Notes */}
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notes <span className="text-slate-300">(optional)</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Notes <span className="text-slate-300">(optional)</span></label>
                 <input
                   type="text"
                   value={billForm.notes}
                   onChange={e => setBillForm(f => f && ({ ...f, notes: e.target.value }))}
                   placeholder="Any remarks"
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-[12px] font-bold outline-none focus:border-slate-400 focus:bg-white transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-xs font-bold outline-none focus:border-slate-400 focus:bg-white transition-colors"
                 />
               </div>
 
               {billFormError && (
-                <p className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{billFormError}</p>
+                <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{billFormError}</p>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setBillForm(null)}
-                  className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                  className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveBill}
                   disabled={isSavingBill}
-                  className="h-12 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
+                  className="h-12 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
                 >
                   {isSavingBill ? 'Saving…' : billForm.id ? 'Update' : 'Add Bill'}
                 </button>
@@ -1510,19 +1510,19 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             </div>
             <div className="text-center">
               <h4 className="text-[15px] font-black text-slate-900 uppercase tracking-tight">Remove Bill?</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">This bill will be hidden from the list.</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">This bill will be hidden from the list.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteBill(confirmDeleteId)}
                 disabled={isDeletingBill}
-                className="h-12 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
+                className="h-12 bg-rose-600 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
               >
                 {isDeletingBill ? 'Removing…' : 'Remove'}
               </button>
@@ -1549,7 +1549,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Deposit to Vault</h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name} · Select a report to deduct from</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name} · Select a report to deduct from</p>
                 </div>
                 <button
                   onClick={() => { setShowDepositModal(false); setDepositAmount(''); setDepositSelectedDate(null); }}
@@ -1561,16 +1561,16 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Current vault balance */}
               <div className="bg-slate-900 rounded-2xl px-4 py-3 flex items-center justify-between">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Current Vault Balance</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Vault Balance</p>
                 <p className="text-base font-black text-emerald-400 tabular-nums">₱{(branchVault?.balance ?? 0).toLocaleString()}</p>
               </div>
 
               {/* Report date picker */}
               <div className="space-y-2">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-0.5">Select Report Date (Last 7 Days)</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-0.5">Select Report Date (Last 7 Days)</p>
                 {currentWeekReports.length === 0 ? (
                   <div className="bg-slate-50 rounded-2xl p-4 text-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No reports in the last 7 days</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No reports in the last 7 days</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
@@ -1615,17 +1615,17 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                               {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
                             <div>
-                              <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>{dateLabel}</span>
+                              <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>{dateLabel}</span>
                               {existingForDate && (
-                                <p className="text-[7px] font-bold text-amber-500 uppercase tracking-widest">Deposited ₱{existingForDate.amount.toLocaleString()} · Tap to update</p>
+                                <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Deposited ₱{existingForDate.amount.toLocaleString()} · Tap to update</p>
                               )}
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className={`text-[11px] font-black tabular-nums ${hasRoi ? (isSelected ? 'text-indigo-600' : 'text-emerald-600') : 'text-slate-400'}`}>
+                            <span className={`text-xs font-black tabular-nums ${hasRoi ? (isSelected ? 'text-indigo-600' : 'text-emerald-600') : 'text-slate-400'}`}>
                               ₱{roiAvailable.toLocaleString()}
                             </span>
-                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Available ROI</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available ROI</p>
                           </div>
                         </button>
                       );
@@ -1661,7 +1661,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 return (
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">Deposit Amount (₱)</label>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-0.5">Deposit Amount (₱)</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-400">₱</span>
                         <input
@@ -1679,7 +1679,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                         />
                       </div>
                       {isOverMax && (
-                        <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-0.5">
+                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest ml-0.5">
                           {isTargetCapped
                             ? `Vault target reached — max deposit is ₱${maxAmount.toLocaleString()}`
                             : `Exceeds available ROI of ₱${maxAmount.toLocaleString()}`}
@@ -1690,10 +1690,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     {/* After-deposit preview */}
                     {amt > 0 && !isOverMax && (
                       <div className="bg-indigo-50 rounded-2xl px-4 py-3 space-y-2">
-                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{existingDeposit ? 'After Update' : 'After Deposit'}</p>
+                        <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">{existingDeposit ? 'After Update' : 'After Deposit'}</p>
                         <div className="flex items-end justify-between">
                           <p className="text-lg font-black text-indigo-700 tabular-nums leading-none">₱{afterBalance.toLocaleString()}</p>
-                          {target > 0 && <p className="text-[10px] font-black text-indigo-500 tabular-nums">{afterPct}% of target</p>}
+                          {target > 0 && <p className="text-xs font-black text-indigo-500 tabular-nums">{afterPct}% of target</p>}
                         </div>
                         {target > 0 && (
                           <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
@@ -1701,11 +1701,11 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                           </div>
                         )}
                         {existingDeposit ? (
-                          <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
+                          <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
                             Replaces ₱{existingDeposit.amount.toLocaleString()} deposit · {balanceDelta >= 0 ? '+' : ''}₱{balanceDelta.toLocaleString()} net change
                           </p>
                         ) : (
-                          <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
+                          <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest tabular-nums">
                             ROI deducted: −₱{amt.toLocaleString()} from {new Date(depositSelectedDate + 'T00:00:00+08:00').toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' }).toUpperCase()}
                           </p>
                         )}
@@ -1719,7 +1719,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => { setShowDepositModal(false); setDepositAmount(''); setDepositSelectedDate(null); }}
-                  className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                  className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
                 >
                   Cancel
                 </button>
@@ -1740,7 +1740,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     const cappedMax = space === Infinity ? roiMax : Math.min(roiMax, space);
                     return amt > cappedMax;
                   })()}
-                  className="h-12 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="h-12 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isSubmittingDeposit
                     ? 'Saving…'
@@ -1772,7 +1772,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Pay Bill from Vault</h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name} · Deduct from vault balance</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{branch.name} · Deduct from vault balance</p>
                 </div>
                 <button
                   onClick={() => { setShowWithdrawModal(false); setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); }}
@@ -1784,13 +1784,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Current vault balance */}
               <div className="bg-slate-900 rounded-2xl px-4 py-3 flex items-center justify-between">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
                 <p className="text-base font-black text-emerald-400 tabular-nums">₱{(branchVault?.balance ?? 0).toLocaleString()}</p>
               </div>
 
               {/* Label */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-0.5">
                   Purpose / Label <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1799,13 +1799,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   value={withdrawLabel}
                   onChange={e => setWithdrawLabel(e.target.value)}
                   placeholder="e.g. RENT, ELECTRICITY, SUPPLIES"
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-[12px] font-bold uppercase outline-none focus:border-amber-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal"
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-xs font-bold uppercase outline-none focus:border-amber-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal"
                 />
               </div>
 
               {/* Amount */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-0.5">
                   Amount <span className="text-rose-500">*</span>
                 </label>
                 {(() => {
@@ -1831,11 +1831,11 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                         />
                       </div>
                       {isOverMax && (
-                        <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-0.5">Exceeds vault balance of ₱{maxBal.toLocaleString()}</p>
+                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest ml-0.5">Exceeds vault balance of ₱{maxBal.toLocaleString()}</p>
                       )}
                       {amt > 0 && !isOverMax && (
                         <div className="bg-amber-50 rounded-2xl px-4 py-3 flex items-center justify-between">
-                          <p className="text-[8px] font-black text-amber-400 uppercase tracking-widest">Vault after withdrawal</p>
+                          <p className="text-xs font-black text-amber-400 uppercase tracking-widest">Vault after withdrawal</p>
                           <p className="text-base font-black text-amber-700 tabular-nums">₱{afterBalance.toLocaleString()}</p>
                         </div>
                       )}
@@ -1846,7 +1846,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
               {/* Receipt (required) */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-0.5">Receipt <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-0.5">Receipt <span className="text-rose-500">*</span></label>
                 <input
                   ref={withdrawFileInputRef}
                   type="file"
@@ -1859,7 +1859,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      <p className="text-[10px] font-bold text-amber-700 truncate">{withdrawFile.name}</p>
+                      <p className="text-xs font-bold text-amber-700 truncate">{withdrawFile.name}</p>
                     </div>
                     <button
                       type="button"
@@ -1873,7 +1873,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => withdrawFileInputRef.current?.click()}
-                    className="w-full py-4 rounded-xl border-2 border-dashed border-rose-200 bg-rose-50/30 text-[10px] font-bold text-rose-400 uppercase tracking-widest hover:border-rose-400 hover:bg-rose-50 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-xl border-2 border-dashed border-rose-200 bg-rose-50/30 text-xs font-bold text-rose-400 uppercase tracking-widest hover:border-rose-400 hover:bg-rose-50 transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     Tap to attach receipt
@@ -1890,7 +1890,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                       style={{ width: `${withdrawUploadProgress}%` }}
                     />
                   </div>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
                     Uploading receipt…
                   </p>
                 </div>
@@ -1902,34 +1902,34 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 <div className="space-y-3">
                   <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl overflow-hidden">
                     <div className="px-4 py-2.5 bg-amber-100/60 border-b border-amber-200">
-                      <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Confirm Payment</p>
+                      <p className="text-xs font-black text-amber-600 uppercase tracking-widest">Confirm Payment</p>
                     </div>
                     <div className="divide-y divide-amber-100">
                       <div className="flex items-center justify-between px-4 py-2.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bill</span>
-                        <span className="text-[11px] font-black text-slate-700 uppercase">{withdrawLabel}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bill</span>
+                        <span className="text-xs font-black text-slate-700 uppercase">{withdrawLabel}</span>
                       </div>
                       <div className="flex items-center justify-between px-4 py-2.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Amount</span>
-                        <span className="text-[13px] font-black text-amber-600 tabular-nums">−₱{(Number(withdrawAmount) || 0).toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</span>
+                        <span className="text-sm font-black text-amber-600 tabular-nums">−₱{(Number(withdrawAmount) || 0).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/60">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
-                        <span className="text-[11px] font-black text-slate-600 tabular-nums">₱{Math.max(0, (branchVault?.balance ?? 0) - (Number(withdrawAmount) || 0)).toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
+                        <span className="text-xs font-black text-slate-600 tabular-nums">₱{Math.max(0, (branchVault?.balance ?? 0) - (Number(withdrawAmount) || 0)).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setWithdrawConfirming(false)}
-                      className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                      className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
                     >
                       Back
                     </button>
                     <button
                       onClick={handleVaultWithdraw}
                       disabled={isSubmittingWithdraw}
-                      className="h-12 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                      className="h-12 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                     >
                       {isSubmittingWithdraw
                         ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
@@ -1941,7 +1941,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => { setShowWithdrawModal(false); setWithdrawConfirming(false); setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); }}
-                    className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                    className="h-12 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all"
                   >
                     Cancel
                   </button>
@@ -1955,7 +1955,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                       if (!withdrawFile) return true;
                       return Number(withdrawAmount) > (branchVault?.balance ?? 0);
                     })()}
-                    className="h-12 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="h-12 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Review Payment
                   </button>
@@ -1976,33 +1976,33 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               <Trash2 className="w-6 h-6 text-rose-400" />
             </div>
             <h4 className="text-[18px] font-black text-slate-900 uppercase tracking-tight mb-1">Reverse Payment?</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-5">This will restore the amount to your vault fund</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">This will restore the amount to your vault fund</p>
             <div className="bg-slate-50 rounded-2xl divide-y divide-slate-100 mb-6 text-left">
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bill</span>
-                <span className="text-[11px] font-black text-slate-700 uppercase">{vaultBillToDelete.name}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bill</span>
+                <span className="text-xs font-black text-slate-700 uppercase">{vaultBillToDelete.name}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Refund</span>
-                <span className="text-[13px] font-black text-emerald-600 tabular-nums">+₱{vaultBillToDelete.amount.toLocaleString()}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Refund</span>
+                <span className="text-sm font-black text-emerald-600 tabular-nums">+₱{vaultBillToDelete.amount.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
-                <span className="text-[11px] font-black text-slate-600 tabular-nums">₱{((branchVault?.balance ?? 0) + vaultBillToDelete.amount).toLocaleString()}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vault After</span>
+                <span className="text-xs font-black text-slate-600 tabular-nums">₱{((branchVault?.balance ?? 0) + vaultBillToDelete.amount).toLocaleString()}</span>
               </div>
             </div>
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleDeleteVaultBill}
                 disabled={isDeletingVaultBill}
-                className="w-full py-4 rounded-2xl bg-rose-500 text-white font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl bg-rose-500 text-white font-black text-xs uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {isDeletingVaultBill ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Reversing…</> : 'Yes, Reverse Payment'}
               </button>
               <button
                 onClick={() => setVaultBillToDelete(null)}
                 disabled={isDeletingVaultBill}
-                className="w-full py-3 rounded-2xl text-slate-400 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                className="w-full py-3 rounded-2xl text-slate-400 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
               >
                 Cancel
               </button>

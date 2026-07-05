@@ -127,15 +127,15 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Return from Leave</span>
-              <span className="text-[14px] font-black uppercase tracking-tight">{emp.firstName || emp.name.split(' ')[0]}</span>
+              <span className="text-xs font-black uppercase tracking-widest text-white/70">Return from Leave</span>
+              <span className="text-sm font-black uppercase tracking-tight">{emp.firstName || emp.name.split(' ')[0]}</span>
             </button>
           ) : (
             <div className="flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm border border-white/10 text-white rounded-full px-4 py-2 shadow-lg">
               <svg className="w-3.5 h-3.5 text-purple-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-[9px] font-black uppercase tracking-widest text-purple-200">On Leave</span>
+              <span className="text-xs font-black uppercase tracking-widest text-purple-200">On Leave</span>
             </div>
           )}
         </div>
@@ -156,7 +156,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 style={{ animation: `stroke-fill ${LONG_PRESS_MS}ms linear forwards` }}
               />
             </svg>
-            <span className="text-[9px] font-black text-white uppercase tracking-widest">Hold to Promote</span>
+            <span className="text-xs font-black text-white uppercase tracking-widest">Hold to Promote</span>
           </div>
         </div>
       )}
@@ -164,7 +164,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       {/* Reliever hint (idle) */}
       {isReliever && onPromote && !isLongPressing && !isOnLeave && (
         <div className="absolute bottom-0 inset-x-0 z-10 flex justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+          <span className="text-xs font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
             Hold to Promote
           </span>
         </div>
@@ -176,35 +176,35 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       <div className="absolute top-0 left-6 flex gap-2 z-10 pointer-events-none">
         {isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-emerald-100 text-emerald-700 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-emerald-100 text-emerald-700 text-xs font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
               Manager
             </span>
           </div>
         )}
         {isTempManager && !isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-amber-100 text-amber-700 text-xs font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
               Delegate
             </span>
           </div>
         )}
         {isReliever && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-indigo-100 text-indigo-600 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-indigo-100 text-indigo-600 text-xs font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
               Reliever
             </span>
           </div>
         )}
         {!isActive && !isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-slate-100 text-slate-500 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-slate-100 text-slate-500 text-xs font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
               Disabled
             </span>
           </div>
         )}
         {isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-purple-100 text-purple-600 text-[7px] font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-purple-100 text-purple-600 text-xs font-black uppercase tracking-widest px-2.5 pt-1.5 pb-3 leading-none">
               On Leave
             </span>
           </div>
@@ -282,7 +282,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               const d = new Date(emp.timestamp);
               const empId = `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`.toUpperCase();
               return (
-                <p className="text-[8px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId}</p>
+                <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId}</p>
               );
             })()}
             <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tighter truncate group-hover:text-emerald-700 transition-colors leading-none mb-2">{emp.name || 'UNNAMED'}</h3>
@@ -291,7 +291,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             ) : (!isMainManager && !isTempManager) ? (
               <div className="flex items-center gap-2 text-rose-500 animate-pulse bg-rose-50/50 px-2 py-1 rounded-lg border border-rose-100 w-fit">
                 <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
-                <span className="text-[8px] font-black uppercase tracking-widest">No Role Assigned</span>
+                <span className="text-xs font-black uppercase tracking-widest">No Role Assigned</span>
               </div>
             ) : null}
           </div>
@@ -299,7 +299,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
         <div className="mt-auto pt-6 flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Employee Allowance</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Employee Allowance</p>
             <p className="text-sm font-black text-slate-900 tabular-nums">₱{currentAllowance.toLocaleString()}</p>
           </div>
 
@@ -313,7 +313,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
-              className={`h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+              className={`h-11 px-6 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
             >
               {isOngoing ? 'Time Out' : 'Shift Done'}
             </button>
@@ -323,7 +323,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onFaceTimeIn(); }}
-              className="h-11 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600 flex items-center gap-2"
+              className="h-11 px-5 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600 flex items-center gap-2"
             >
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
@@ -334,7 +334,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onEdit?.(emp); }}
-              className="h-11 px-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest bg-amber-100 text-amber-700 flex items-center gap-2 active:scale-90 transition-all"
+              className="h-11 px-4 rounded-2xl text-xs font-bold uppercase tracking-widest bg-amber-100 text-amber-700 flex items-center gap-2 active:scale-90 transition-all"
               title="Face not enrolled. Tap to open employee profile and register face."
             >
               <ScanFace className="w-4 h-4" strokeWidth={2} />
@@ -346,7 +346,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
-              className="h-11 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600"
+              className="h-11 px-6 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-90 shadow-lg bg-slate-800 text-white hover:bg-emerald-600"
             >
               Time In
             </button>

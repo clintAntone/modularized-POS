@@ -611,8 +611,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-black text-rose-800 uppercase tracking-widest leading-none">Missing Reports</p>
-                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest mt-0.5">
+                <p className="text-xs font-black text-rose-800 uppercase tracking-widest leading-none">Missing Reports</p>
+                <p className="text-xs font-bold text-rose-400 uppercase tracking-widest mt-0.5">
                   {missingBranches.length} {missingBranches.length === 1 ? 'branch has' : 'branches have'} missing reports
                 </p>
               </div>
@@ -633,10 +633,10 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {missingBranches.map(({ branch: b, missingDates }) => (
                     <div key={b.id} className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                      <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide truncate">{b.name}</p>
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-wide truncate">{b.name}</p>
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {missingDates.map(d => (
-                          <span key={d} className="flex items-center gap-1 text-[9px] font-bold text-amber-700">
+                          <span key={d} className="flex items-center gap-1 text-xs font-bold text-amber-700">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
@@ -652,7 +652,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         <div className="flex flex-row items-center gap-4 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
               Showing {Math.min(visibleCount, sortedData.length).toLocaleString()} of {sortedData.length.toLocaleString()} reports
             </p>
           </div>
@@ -660,7 +660,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           <button
             onClick={() => handleExportPDF()}
             disabled={isExporting || sortedData.length === 0}
-            className={`flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
+            className={`flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isExporting ? (
               <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -678,19 +678,19 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               </div>
               <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                 Generate a consolidated PDF summary of all {sortedData.length} filtered reports?
               </p>
               <div className="flex flex-col gap-4 mt-10">
                 <button
                   onClick={() => handleExportPDF(true)}
-                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
                   Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}
-                  className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                  className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                 >
                   Cancel
                 </button>
@@ -701,14 +701,14 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
         <div className="md:hidden flex items-center gap-3 px-1">
           <div className="flex-1 h-px bg-slate-200"></div>
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Reports</span>
+          <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] shrink-0">Reports</span>
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-10 h-10 border-[3px] border-slate-100 border-t-slate-400 rounded-full animate-spin" />
-            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Loading reports…</p>
+            <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Loading reports…</p>
           </div>
         ) : (
           <>
@@ -750,7 +750,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           <div className="flex gap-2">
             {[1,2,3].map(i => <div key={i} className="w-1 h-1 rounded-full bg-slate-400"></div>)}
           </div>
-          <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.5em]">Network Data Finalized v3.2</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.5em]">Network Data Finalized v3.2</p>
         </div>
 
         </div>{/* end main content */}
@@ -765,7 +765,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-rose-200 rounded-2xl shadow-sm hover:bg-rose-50 transition-colors whitespace-nowrap"
               >
                 <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shrink-0" />
-                <span className="text-[9px] font-black text-rose-700 uppercase tracking-widest">
+                <span className="text-xs font-black text-rose-700 uppercase tracking-widest">
                   {missingBranches.length} Missing
                 </span>
                 <svg
@@ -780,8 +780,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
               {showMissingSidebar && (
                 <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl z-50">
                   <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest leading-none">Missing Reports</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Within current weekly cycle</p>
+                    <p className="text-xs font-black text-rose-700 uppercase tracking-widest leading-none">Missing Reports</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Within current weekly cycle</p>
                   </div>
                   <div className="divide-y divide-slate-50 max-h-[50vh] overflow-y-auto">
                     {missingBranches.map(({ branch: b, missingDates }) => (
@@ -792,12 +792,12 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                             </svg>
                           </div>
-                          <p className="text-[10px] font-black text-slate-800 uppercase truncate leading-none flex-1">{b.name}</p>
-                          <span className="text-[8px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full shrink-0">{missingDates.length}d</span>
+                          <p className="text-xs font-black text-slate-800 uppercase truncate leading-none flex-1">{b.name}</p>
+                          <span className="text-xs font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full shrink-0">{missingDates.length}d</span>
                         </div>
                         <div className="flex flex-wrap gap-1 pl-8">
                           {missingDates.map(d => (
-                            <span key={d} className="text-[8px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
+                            <span key={d} className="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
                               {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </span>
                           ))}

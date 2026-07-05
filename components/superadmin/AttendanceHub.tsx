@@ -259,10 +259,10 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Attendance Logs</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Global Staff Clock-in Registry</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Global Staff Clock-in Registry</p>
             </div>
             {filteredAttendance.length > 0 && (
-              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[9px] font-black uppercase tracking-widest">
+              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-black uppercase tracking-widest">
                 {filteredAttendance.length} records
               </span>
             )}
@@ -305,7 +305,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
             >
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span className="text-[11px] font-black uppercase tracking-widest">
+                <span className="text-xs font-black uppercase tracking-widest">
                   {dateFrom === dateTo
                     ? (dateFrom === todayStr ? 'Today' : dateFrom)
                     : `${dateFrom} → ${dateTo}`}
@@ -315,7 +315,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 {(dateFrom !== todayStr || dateTo !== todayStr) && (
                   <span
                     onClick={e => { e.stopPropagation(); setDateFrom(todayStr); setDateTo(todayStr); setCurrentPage(1); playSound('click'); }}
-                    className="text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-800 transition-colors"
+                    className="text-xs font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-800 transition-colors"
                   >
                     Reset
                   </span>
@@ -331,15 +331,15 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                   value={dateFrom}
                   max={dateTo || undefined}
                   onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); playSound('click'); }}
-                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
                 />
-                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0 text-center">to</span>
+                <span className="text-xs font-black text-slate-300 uppercase tracking-widest shrink-0 text-center">to</span>
                 <input
                   type="date"
                   value={dateTo}
                   min={dateFrom || undefined}
                   onChange={e => { setDateTo(e.target.value); setCurrentPage(1); playSound('click'); }}
-                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+                  className="h-10 min-w-0 px-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
                 />
               </div>
             )}
@@ -359,7 +359,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <button
                   key={opt}
                   onClick={() => { setClockOutFilter(opt); setCurrentPage(1); playSound('click'); }}
-                  className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all ${
                     active
                       ? opt === 'IN_PROGRESS'
                         ? 'bg-amber-500 border-amber-500 text-white shadow'
@@ -394,7 +394,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
           <button
             onClick={handleExportPDF}
             disabled={isExporting || filteredAttendance.length === 0}
-            className="h-14 px-5 flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-14 px-5 flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isExporting ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -414,14 +414,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <tr className="bg-slate-50 border-b border-slate-100">
                   {/* accent col — no header */}
                   <th className="w-1.5 p-0" />
-                  <th className="pl-5 pr-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Staff</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Clock In</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Clock Out</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
-                  <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="pl-4 pr-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="pl-5 pr-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Staff</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Branch</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Clock In</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Clock Out</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Duration</th>
+                  <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="pl-4 pr-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -462,7 +462,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         <td className="pl-5 pr-4 py-4">
                           <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-tight truncate" title={log.staffName}>{log.staffName}</p>
                           {isRelief && (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-[7px] font-black text-amber-700 uppercase tracking-widest">
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-xs font-black text-amber-700 uppercase tracking-widest">
                               Relief
                             </span>
                           )}
@@ -470,14 +470,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
 
                         {/* Branch */}
                         <td className="px-4 py-4">
-                          <p className="text-[11px] font-bold text-slate-700 uppercase tracking-tight leading-tight truncate" title={branch?.name || 'Unknown'}>
+                          <p className="text-xs font-bold text-slate-700 uppercase tracking-tight leading-tight truncate" title={branch?.name || 'Unknown'}>
                             {(branch?.name || 'Unknown').replace('BRANCH - ', '')}
                           </p>
                         </td>
 
                         {/* Date */}
                         <td className="px-4 py-4">
-                          <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                          <p className="text-xs font-bold text-slate-500 whitespace-nowrap">
                             {new Date(log.clockIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         </td>
@@ -496,26 +496,26 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                               {new Date(log.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           ) : isActive ? (
-                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest animate-pulse">Active</span>
+                            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest animate-pulse">Active</span>
                           ) : (
-                            <span className="text-[9px] font-bold text-slate-400 italic">No clockout recorded</span>
+                            <span className="text-xs font-bold text-slate-400 italic">No clockout recorded</span>
                           )}
                         </td>
 
                         {/* Duration */}
                         <td className="px-4 py-4">
                           {durationHrs !== null ? (
-                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black tabular-nums">
+                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-black tabular-nums">
                               {durationHrs}h {durationMins}m
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">—</span>
+                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">—</span>
                           )}
                         </td>
 
                         {/* Status */}
                         <td className="px-4 py-4">
-                          <span className={`px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ${statusBadge}`}>
+                          <span className={`px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-widest ${statusBadge}`}>
                             {isActive ? 'Active' : log.status}
                           </span>
                         </td>
@@ -528,7 +528,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                                 onClick={() => handleResetClockOut(log)}
                                 disabled={isResetting === log.id}
                                 title="Reset clock-out"
-                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95"
+                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg text-xs font-black uppercase tracking-widest transition-all active:scale-95"
                               >
                                 {isResetting === log.id ? (
                                   <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -558,12 +558,12 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                       {isFetching ? (
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-7 h-7 border-[3px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />
-                          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
+                          <div className="text-xs font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
                         </div>
                       ) : (
                         <>
                           <Calendar className="w-10 h-10 text-slate-300 mb-4 mx-auto" />
-                          <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No attendance records found</div>
+                          <div className="text-xs font-black text-slate-300 uppercase tracking-widest">No attendance records found</div>
                         </>
                       )}
                     </td>
@@ -610,21 +610,21 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           {log.staffName}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title={branch?.name || 'Unknown'}>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest truncate" title={branch?.name || 'Unknown'}>
                             {branch?.name?.replace('BRANCH - ', '') || 'Unknown'}
                           </p>
                           <span className="text-slate-200">·</span>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                             {new Date(log.clockIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         </div>
                         {isRelief && (
-                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-[8px] font-black text-amber-700 uppercase tracking-widest">
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-xs font-black text-amber-700 uppercase tracking-widest">
                             Relief · Home: {homeBranch.name.replace('BRANCH - ', '')}
                           </span>
                         )}
                       </div>
-                      <span className={`shrink-0 px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ${statusStyle.badge}`}>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-widest ${statusStyle.badge}`}>
                         {isActive ? 'Active' : log.status}
                       </span>
                     </div>
@@ -634,7 +634,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                       <div className="grid grid-cols-2 divide-x divide-slate-100">
                         {/* Clock In */}
                         <div className="px-4 py-3">
-                          <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                             Clock In
                           </p>
@@ -644,7 +644,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         </div>
                         {/* Clock Out */}
                         <div className="px-4 py-3">
-                          <p className={`text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1 ${isActive ? 'text-slate-300' : 'text-rose-500'}`}>
+                          <p className={`text-xs font-black uppercase tracking-widest mb-1 flex items-center gap-1 ${isActive ? 'text-slate-300' : 'text-rose-500'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full inline-block ${isActive ? 'bg-slate-300 animate-pulse' : 'bg-rose-500'}`} />
                             Clock Out
                           </p>
@@ -657,7 +657,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                               In Progress…
                             </p>
                           ) : (
-                            <p className="text-[11px] font-bold text-slate-400 leading-none italic">
+                            <p className="text-xs font-bold text-slate-400 leading-none italic">
                               No clockout recorded
                             </p>
                           )}
@@ -666,15 +666,15 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                       {/* Duration footer */}
                       <div className={`border-t border-slate-100 px-4 py-2 flex items-center justify-center ${isActive ? 'bg-emerald-50/40' : ''}`}>
                         {durationHrs !== null ? (
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                          <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
                             Duration: {durationHrs}h {durationMins}m
                           </p>
                         ) : isActive ? (
-                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-pulse">
+                          <p className="text-xs font-black text-emerald-500 uppercase tracking-widest animate-pulse">
                             Shift ongoing
                           </p>
                         ) : (
-                          <p className="text-[10px] font-bold text-slate-400 italic">
+                          <p className="text-xs font-bold text-slate-400 italic">
                             No clockout recorded
                           </p>
                         )}
@@ -688,7 +688,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           <button
                             onClick={() => handleResetClockOut(log)}
                             disabled={isResetting === log.id}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95"
                           >
                             {isResetting === log.id ? (
                               <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -700,7 +700,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         )}
                         <button
                           onClick={() => { playSound('delete'); setDeleteConfirmLog(log); }}
-                          className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
+                          className={`flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${!log.clockOut || !isToday(log.date) ? 'flex-1' : ''}`}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           Delete
@@ -715,12 +715,12 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 {isFetching ? (
                   <>
                     <div className="w-7 h-7 border-[3px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />
-                    <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
+                    <div className="text-xs font-black text-slate-300 uppercase tracking-widest">Loading attendance…</div>
                   </>
                 ) : (
                   <>
                     <Calendar className="w-10 h-10 text-slate-300" />
-                    <div className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No records found</div>
+                    <div className="text-xs font-black text-slate-300 uppercase tracking-widest">No records found</div>
                   </>
                 )}
               </div>
@@ -740,26 +740,26 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Reset Clock-Out?</h3>
-                <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+                <p className="text-xs font-bold text-slate-500 leading-relaxed">
                   This will clear the clock-out time for
                 </p>
                 <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {resetConfirmLog.staffName}
                 </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   and mark them as "In Progress" again.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={() => { playSound('click'); setResetConfirmLog(null); }}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmResetClockOut}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -784,13 +784,13 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Delete Entry?</h3>
-                <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+                <p className="text-xs font-bold text-slate-500 leading-relaxed">
                   This will permanently remove the clock-in record for
                 </p>
                 <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
                   {deleteConfirmLog.staffName}
                 </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   {new Date(deleteConfirmLog.clockIn).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
@@ -802,14 +802,14 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <button
                   onClick={() => { playSound('click'); setDeleteConfirmLog(null); }}
                   disabled={isDeleting}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteEntry}
                   disabled={isDeleting}
-                  className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   {isDeleting ? (
                     <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

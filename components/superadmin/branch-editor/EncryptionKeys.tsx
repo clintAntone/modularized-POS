@@ -12,7 +12,7 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
 
     return (
         <section className="space-y-5 animate-in slide-in-from-bottom-3 duration-500">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Terminal Encryption Keys</h4>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Terminal Encryption Keys</h4>
             <div className={`p-6 rounded-[28px] shadow-lg relative overflow-hidden transition-all duration-700 ${isPinChanged ? 'bg-[#0F172A]' : 'bg-amber-600'}`}>
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 blur-[80px] rounded-full translate-x-1/4 -translate-y-1/4"></div>
 
@@ -20,11 +20,11 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                             <div className={`w-1.5 h-1.5 rounded-full ${isPinChanged ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'}`}></div>
-                            <p className="text-[9px] font-bold text-white/50 uppercase tracking-[0.2em]">
+                            <p className="text-xs font-bold text-white/50 uppercase tracking-[0.2em]">
                                 {isPinChanged ? 'Secured' : 'Temporary Key'}
                             </p>
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-white/10 ${isPinChanged ? 'text-emerald-400' : 'text-white animate-pulse'}`}>
+                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10 ${isPinChanged ? 'text-emerald-400' : 'text-white animate-pulse'}`}>
                             {isPinChanged ? 'Encrypted' : 'Exposed'}
                         </span>
                     </div>
@@ -53,7 +53,7 @@ export const EncryptionKeys: React.FC<EncryptionKeysProps> = ({ isPinChanged, pi
                         )}
                     </div>
 
-                    <p className="mt-4 text-[9px] font-semibold text-white/25 uppercase tracking-widest leading-relaxed">
+                    <p className="mt-4 text-xs font-semibold text-white/25 uppercase tracking-widest leading-relaxed">
                         {isPinChanged
                             ? (showPin ? 'Emergency access — hide when done.' : 'Controlled by branch manager.')
                             : 'Distribute this setup PIN to the branch manager.'}

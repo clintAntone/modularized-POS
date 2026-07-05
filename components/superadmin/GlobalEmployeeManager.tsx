@@ -705,14 +705,14 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 <Shield className="w-8 h-8 text-rose-500" />
               </div>
               <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Authorize Data Wipe?</h4>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
                 Wiping credentials for <span className="text-slate-900 truncate" title={showAdminWipeConfirm.name || 'UNNAMED'}>{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
               </p>
               <div className="flex flex-col gap-3">
                  <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">
                     {isSaving ? 'Establishing Link...' : 'Confirm Identity Wipe'}
                  </button>
-                 <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest">Abort</button>
+                 <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-xs uppercase tracking-widest">Abort</button>
               </div>
            </div>
         </div>
@@ -729,7 +729,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Identity Management</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Global Identity Management</p>
             </div>
           </div>
 
@@ -737,7 +737,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             {!isReadOnly && (
               <button
                 onClick={() => handleOpenEdit()}
-                className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+                className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
               >
                 <span className="text-lg leading-none">+</span>
                 <span className="hidden sm:inline">Register Staff</span>
@@ -755,13 +755,13 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             <input 
               type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
               placeholder="SEARCH NAME OR EMPLOYEE ID..."
-              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-sm uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
+              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-xs sm:text-sm uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
             />
           </div>
 
           <button
             onClick={() => { setShowFilters(!showFilters); playSound('click'); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-[24px] border transition-all text-[10px] font-black uppercase tracking-widest shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-[24px] border transition-all text-xs font-black uppercase tracking-widest shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
           >
             <svg className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
             <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
@@ -812,11 +812,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 className={`h-11 sm:h-12 px-5 rounded-2xl border transition-all flex items-center gap-3 ${resetRequestedOnly ? 'bg-rose-600 border-rose-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600'}`}
               >
                 <div className={`w-2 h-2 rounded-full ${resetRequestedOnly ? 'bg-white animate-pulse' : 'bg-rose-500'}`}></div>
-                <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">
                   {resetRequestedOnly ? 'Showing Requests' : 'Filter Requests'}
                 </span>
                 {resetRequestedCount > 0 && !resetRequestedOnly && (
-                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-[9px] font-black">
+                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-xs font-black">
                     {resetRequestedCount}
                   </span>
                 )}
@@ -903,7 +903,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             <button
               onClick={() => { if (!isExporting && filteredEmployees.length > 0) setExportDropdownOpen(o => !o); playSound('click'); }}
               disabled={isExporting || filteredEmployees.length === 0}
-              className={`h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center gap-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center gap-2.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isExporting ? (
                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -918,11 +918,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             {exportDropdownOpen && (
               <div className="absolute bottom-[calc(100%+8px)] right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-150 z-[300]">
                 <div className="p-1.5 space-y-0.5">
-                  <button onClick={() => { setExportDropdownOpen(false); handleExportCSV(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-teal-50 hover:text-teal-700 transition-colors">
+                  <button onClick={() => { setExportDropdownOpen(false); handleExportCSV(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-teal-50 hover:text-teal-700 transition-colors">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     Export Excel
                   </button>
-                  <button onClick={() => { setExportDropdownOpen(false); handleExportPDF(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                  <button onClick={() => { setExportDropdownOpen(false); handleExportPDF(); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                     Export PDF
                   </button>
@@ -939,7 +939,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               </div>
               <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export Employees?</h4>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                 Generate and download the global staff directory report?
               </p>
               <div className="flex flex-col gap-4 mt-10">
@@ -1025,7 +1025,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
             <div className="w-16 h-16 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner text-3xl">🏥</div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">End Leave?</h4>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
               Return <span className="text-purple-600 truncate" title={showEndLeaveConfirm.name}>{showEndLeaveConfirm.name}</span> from leave and restore their active status.
             </p>
             <div className="flex flex-col gap-4 mt-10">
@@ -1053,7 +1053,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
               </svg>
             </div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Delete Personnel?</h4>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed">
               Are you sure you want to permanently delete <span className="text-rose-600 truncate" title={showDeleteConfirm.name}>{showDeleteConfirm.name}</span>? This action cannot be undone.
             </p>
             <div className="flex flex-col gap-4 mt-10">

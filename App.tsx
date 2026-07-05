@@ -523,31 +523,24 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           </div>
         )}
 
-        <header className="sticky top-0 left-0 right-0 z-[1000] h-[72px] sm:h-20 no-print w-full bg-emerald-700 shadow-lg overflow-hidden">
-          {/* Decorative depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-800/40 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute -top-8 -right-12 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-          <div className="absolute -bottom-10 left-1/3 w-24 h-24 rounded-full bg-emerald-600/40 pointer-events-none" />
-
-          <div className={`relative z-10 ${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-full flex items-center justify-between gap-3`}>
+        <header className="sticky top-0 left-0 right-0 z-[1000] no-print w-full bg-white border-b border-slate-100 shadow-sm">
+          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-14 sm:h-16 flex items-center justify-between gap-3`}>
             {/* Left: logo + name */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <img src={systemLogo || '/icon.png'} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/15 p-1.5 shrink-0 shadow-md" decoding="async" loading="eager" />
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <img src={systemLogo || '/icon.png'} alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl shrink-0" decoding="async" loading="eager" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="font-black text-[15px] sm:text-[18px] tracking-tight uppercase leading-none text-white truncate">{dynamicAppName}</h1>
-                </div>
-                <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-200/80 uppercase tracking-widest truncate mt-0.5">{identityDisplay}</p>
+                <h1 className="font-black text-sm sm:text-base tracking-tight text-slate-900 truncate leading-none">{dynamicAppName}</h1>
+                <p className="text-xs font-medium text-slate-400 truncate mt-0.5 leading-none">{identityDisplay}</p>
               </div>
             </div>
 
             {/* Right: logout */}
             <button
               onClick={triggerLogoutConfirm}
-              className="flex items-center gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-rose-600 hover:border-rose-600 active:scale-95 transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 active:scale-95 transition-all shrink-0"
+              title="Logout"
             >
-              <Power className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
+              <Power className="w-4 h-4" />
             </button>
           </div>
         </header>

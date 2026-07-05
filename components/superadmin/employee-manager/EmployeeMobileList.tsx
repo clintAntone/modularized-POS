@@ -69,12 +69,12 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {empId && (
-                      <p className="text-[8px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
+                      <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
                     )}
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
                       {emp.onLeave && (
-                        <span className="text-[7px] font-black uppercase tracking-widest text-purple-500 leading-none">● On Leave</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-purple-500 leading-none">● On Leave</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -126,7 +126,7 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
             {authorizedBranches.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {authorizedBranches.map((b, i) => (
-                  <span key={i} className={`text-[9px] font-bold px-2 py-1 rounded-lg uppercase flex items-center gap-1
+                  <span key={i} className={`text-xs font-bold px-2 py-1 rounded-lg uppercase flex items-center gap-1
                     ${b.isManager ? 'bg-indigo-600 text-white'
                       : b.isHome   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       :              'bg-violet-50 text-violet-700 border border-violet-200'}`}>
@@ -141,11 +141,11 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
             <div className="flex items-center justify-between pt-3 border-t border-slate-100">
               <RoleBadge role={getEmployeeRole(emp, currentBranchId || emp.branchId).split(',').filter(r => !['MANAGER','RELIEVER'].includes(r.trim().toUpperCase())).join(',')} />
               <div className="flex flex-col items-end">
-                <p className="text-[13px] font-black text-slate-900 tabular-nums">
+                <p className="text-sm font-black text-slate-900 tabular-nums">
                   ₱{getEmployeeAllowance(emp, currentBranchId || 'all').toLocaleString()}
                 </p>
                 {emp.branchAllowances && Object.keys(emp.branchAllowances).length > 0 && (
-                  <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">
+                  <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">
                     {currentBranchId && currentBranchId !== 'all' && emp.branchAllowances[currentBranchId] !== undefined ? 'Override Active' : 'Overrides Configured'}
                   </span>
                 )}

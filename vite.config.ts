@@ -41,7 +41,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      chunkSizeWarningLimit: 600,
+      // face-api.js (~667 kB) is the only chunk above 600 kB, but it is lazily loaded
+      // via `await import('face-api.js')` in lib/face.ts and never blocks initial page load.
+      chunkSizeWarningLimit: 700,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -50,7 +52,8 @@ export default defineConfig(({ mode }) => {
             'vendor-supabase': ['@supabase/supabase-js'],
             'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html-to-image'],
             'vendor-ui': ['react-datepicker', 'qrcode.react', 'lucide-react'],
-            'vendor-face': ['face-api.js'],
+            // face-api.js intentionally omitted from manualChunks — Vite handles it
+            // as a true async chunk since lib/face.ts uses a dynamic import().
           }
         }
       }

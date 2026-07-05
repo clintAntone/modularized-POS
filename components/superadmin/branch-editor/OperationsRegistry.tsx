@@ -43,17 +43,17 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
 
   return (
     <section className="space-y-5 animate-in slide-in-from-bottom-2 duration-500">
-      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Operations & Authentication Registry</h4>
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Operations & Authentication Registry</h4>
       <div className="bg-slate-50/50 p-6 rounded-[32px] border border-slate-100 space-y-6 shadow-inner">
         
         {/* PRIMARY MANAGER */}
         <div className="space-y-2">
           <div className="flex justify-between items-center px-1">
-             <label className="block text-[10px] font-semibold uppercase text-slate-500 tracking-widest">Designated Manager</label>
+             <label className="block text-xs font-semibold uppercase text-slate-500 tracking-widest">Designated Manager</label>
              {isHomeBranchMismatched && (
                 <button 
                   onClick={handleSyncHomeBranch}
-                  className="text-[8px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-2 py-0.5 rounded border border-amber-200 animate-pulse hover:bg-amber-600 hover:text-white transition-all"
+                  className="text-xs font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-2 py-0.5 rounded border border-amber-200 animate-pulse hover:bg-amber-600 hover:text-white transition-all"
                   title="Correct Home Branch Assignment in Registry"
                 >
                   Sync Home Branch
@@ -77,7 +77,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
           ) : (
             <div className="p-6 bg-amber-50 border-2 border-dashed border-amber-200 rounded-[24px] flex flex-col items-center text-center gap-3 animate-pulse">
               <span className="text-2xl opacity-60">⚠️</span>
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest leading-relaxed max-w-[200px]">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-widest leading-relaxed max-w-[200px]">
                 No active personnel registered. Branch cannot open without an assigned manager or relief delegate.
               </p>
             </div>
@@ -86,7 +86,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
 
         {/* RELIEF MANAGER */}
         <div className="space-y-2">
-           <label className="block text-[10px] font-semibold uppercase text-slate-500 tracking-widest ml-1">Authorized Relief Delegate</label>
+           <label className="block text-xs font-semibold uppercase text-slate-500 tracking-widest ml-1">Authorized Relief Delegate</label>
            <ManagerSelector 
               value={tempManager || ''} 
               employees={potentialManagers.filter(p => p.name !== manager)}
@@ -98,8 +98,8 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
         
         <div className={`flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border transition-all duration-300 ${isManagerUnassigned ? 'border-slate-100 opacity-60 grayscale' : 'border-slate-100'}`}>
           <div className="space-y-0.5 overflow-hidden pr-4">
-             <p className="text-[10px] font-bold uppercase text-slate-900 tracking-widest">Daily Shop Status</p>
-             <p className="text-[9px] font-semibold text-slate-400 uppercase">
+             <p className="text-xs font-bold uppercase text-slate-900 tracking-widest">Daily Shop Status</p>
+             <p className="text-xs font-semibold text-slate-400 uppercase">
                {isManagerUnassigned ? 'Manager Assignment Required' : 'Current Operational Window'}
              </p>
           </div>
@@ -109,7 +109,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
               playSound('click');
               onUpdate({ isOpen: !isOpen });
             }}
-            className={`px-6 sm:px-8 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all active:scale-95 shrink-0 ${isOpen ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'} ${isManagerUnassigned ? 'cursor-not-allowed border-dashed opacity-50' : ''}`}
+            className={`px-6 sm:px-8 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest border-2 transition-all active:scale-95 shrink-0 ${isOpen ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'} ${isManagerUnassigned ? 'cursor-not-allowed border-dashed opacity-50' : ''}`}
           >
             {isOpen ? 'OPEN' : 'CLOSED'}
           </button>

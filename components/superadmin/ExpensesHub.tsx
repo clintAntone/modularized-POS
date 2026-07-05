@@ -137,14 +137,14 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center text-lg shadow-inner">📊</div>
               <div>
-                <h3 className="text-[13px] font-black text-slate-900 uppercase tracking-tighter leading-none">Ledger</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Global Expenditure Audit</p>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none">Ledger</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Global Expenditure Audit</p>
               </div>
             </div>
             <button
               onClick={handlePrint}
               disabled={isExporting}
-              className="h-9 rounded-2xl bg-emerald-600 text-white px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="h-9 rounded-2xl bg-emerald-600 text-white px-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
             >
               {isExporting
                 ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -164,14 +164,14 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Search expense or branch..."
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold uppercase tracking-wider text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal"
+              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold uppercase tracking-wider text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal"
             />
           </div>
 
           {/* Branch filter */}
           {branches.length > 1 && (
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Branch</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Branch</p>
               <BranchCheckboxDropdown
                 branches={branches}
                 selectedIds={selectedBranchIds}
@@ -184,13 +184,13 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Category pills */}
             <div className="flex-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Category</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</p>
               <div className="flex gap-2 flex-wrap">
                 {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                   <button
                     key={key}
                     onClick={() => { playSound('click'); setCategoryFilter(key); }}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
                       categoryFilter === key
                         ? 'bg-slate-900 text-white border-slate-900 shadow'
                         : `bg-white text-slate-500 border-slate-200 hover:border-slate-400`
@@ -205,17 +205,17 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
             {/* Date range */}
             <div className="sm:w-64">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date Range</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Date Range</p>
                 <div className="flex gap-1">
                   {(['today','week','month'] as const).map(p => (
                     <button key={p} onClick={() => setDatePreset(p)}
-                      className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                      className="px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
                       {p}
                     </button>
                   ))}
                   {(startDate || endDate) && (
                     <button onClick={() => { setStartDate(''); setEndDate(''); playSound('click'); }}
-                      className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors">
+                      className="px-2 py-0.5 rounded-lg text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors">
                       Clear
                     </button>
                   )}
@@ -223,9 +223,9 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
               </div>
               <div className="flex gap-2">
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all" />
+                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all" />
                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all" />
+                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all" />
               </div>
             </div>
           </div>
@@ -241,10 +241,10 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
           { label: 'Settlement', value: totals.SETTLEMENT || 0, accent: 'text-emerald-600', border: 'border-emerald-100' },
         ].map(({ label, value, accent, border }) => (
           <div key={label} className={`bg-white rounded-2xl border ${border} px-4 py-3 shadow-sm`}>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
             <p className={`text-base font-black ${accent} tabular-nums leading-tight`}>₱{value.toLocaleString()}</p>
             {totals.total > 0 && label !== 'Total' && (
-              <p className="text-[8px] font-bold text-slate-400 mt-0.5">{Math.round((value / totals.total) * 100)}% of total</p>
+              <p className="text-xs font-bold text-slate-400 mt-0.5">{Math.round((value / totals.total) * 100)}% of total</p>
             )}
           </div>
         ))}
@@ -265,10 +265,10 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                 <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-200">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{group.branchName}</p>
-                    <span className="text-[9px] font-bold text-slate-400">({group.items.length} {group.items.length === 1 ? 'item' : 'items'})</span>
+                    <p className="text-xs font-black text-slate-700 uppercase tracking-widest">{group.branchName}</p>
+                    <span className="text-xs font-bold text-slate-400">({group.items.length} {group.items.length === 1 ? 'item' : 'items'})</span>
                   </div>
-                  <p className="text-[12px] font-black text-slate-900 tabular-nums">₱{group.total.toLocaleString()}</p>
+                  <p className="text-xs font-black text-slate-900 tabular-nums">₱{group.total.toLocaleString()}</p>
                 </div>
 
                 {/* MOBILE: Cards */}
@@ -284,16 +284,16 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border uppercase tracking-wider ${cfg.badge || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-lg border uppercase tracking-wider ${cfg.badge || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                               {exp.category}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-400">{exp.reportDate}</span>
+                            <span className="text-xs font-bold text-slate-400">{exp.reportDate}</span>
                           </div>
                           <span className="text-sm font-black text-slate-900 tabular-nums shrink-0">₱{Number(exp.amount).toLocaleString()}</span>
                         </div>
-                        <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-snug">{exp.name}</p>
+                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-snug">{exp.name}</p>
                         {hasReceipt && (
-                          <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                          <span className="flex items-center gap-1 text-xs font-black text-emerald-600 uppercase tracking-widest">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             View Receipt
                           </span>
@@ -308,11 +308,11 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-100">
-                        <th className="px-5 py-2.5 text-[9px] font-black text-slate-300 uppercase tracking-widest w-28">Date</th>
-                        <th className="px-5 py-2.5 text-[9px] font-black text-slate-300 uppercase tracking-widest">Expense Item</th>
-                        <th className="px-5 py-2.5 text-[9px] font-black text-slate-300 uppercase tracking-widest">Category</th>
-                        <th className="px-5 py-2.5 text-[9px] font-black text-slate-300 uppercase tracking-widest text-right">Amount</th>
-                        <th className="px-5 py-2.5 text-[9px] font-black text-slate-300 uppercase tracking-widest text-center w-24">Receipt</th>
+                        <th className="px-5 py-2.5 text-xs font-black text-slate-300 uppercase tracking-widest w-28">Date</th>
+                        <th className="px-5 py-2.5 text-xs font-black text-slate-300 uppercase tracking-widest">Expense Item</th>
+                        <th className="px-5 py-2.5 text-xs font-black text-slate-300 uppercase tracking-widest">Category</th>
+                        <th className="px-5 py-2.5 text-xs font-black text-slate-300 uppercase tracking-widest text-right">Amount</th>
+                        <th className="px-5 py-2.5 text-xs font-black text-slate-300 uppercase tracking-widest text-center w-24">Receipt</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -326,13 +326,13 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                             className={`transition-colors group ${hasReceipt ? 'cursor-pointer hover:bg-emerald-50/40' : 'hover:bg-slate-50/50'}`}
                           >
                             <td className="px-5 py-3">
-                              <p className="text-[11px] font-bold text-slate-400">{exp.reportDate}</p>
+                              <p className="text-xs font-bold text-slate-400">{exp.reportDate}</p>
                             </td>
                             <td className="px-5 py-3">
-                              <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight">{exp.name}</p>
+                              <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{exp.name}</p>
                             </td>
                             <td className="px-5 py-3">
-                              <span className={`text-[9px] font-black px-2 py-1 rounded-lg border uppercase tracking-widest ${cfg.badge || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                              <span className={`text-xs font-black px-2 py-1 rounded-lg border uppercase tracking-widest ${cfg.badge || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                                 {exp.category}
                               </span>
                             </td>
@@ -341,12 +341,12 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                             </td>
                             <td className="px-5 py-3 text-center">
                               {hasReceipt ? (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase tracking-widest group-hover:underline">
+                                <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 uppercase tracking-widest group-hover:underline">
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                   View
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-slate-300">—</span>
+                                <span className="text-xs text-slate-300">—</span>
                               )}
                             </td>
                           </tr>
@@ -374,8 +374,8 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
-                <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight">{receiptExp.name}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{receiptExp.name}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                   {receiptExp.branchName} · {receiptExp.reportDate} · ₱{Number(receiptExp.amount).toLocaleString()}
                 </p>
               </div>
@@ -403,7 +403,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
                 href={receiptExp.receiptImage}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 Open Full Size

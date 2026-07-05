@@ -36,8 +36,8 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
     return (
         <div className="bg-white p-6 md:p-10 rounded-[44px] shadow-sm border border-slate-100 space-y-8">
             <div className="flex items-center justify-between px-2 mb-2">
-                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Authorized Providers</h3>
-                {props.isDualProviderRequired && <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-indigo-100 animate-pulse">Dual Provider Required</span>}
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Authorized Providers</h3>
+                {props.isDualProviderRequired && <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-widest border border-indigo-100 animate-pulse">Dual Provider Required</span>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
@@ -45,7 +45,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                 <div className="space-y-5">
                     <div className="flex items-center gap-3 ml-1">
                         <div className="w-1.5 h-6 bg-emerald-600 rounded-full"></div>
-                        <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">{leadRoleLabel} (LEAD)</label>
+                        <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest">{leadRoleLabel} (LEAD)</label>
                     </div>
                     <div className="flex flex-col gap-2 min-h-[100px]">
                         {leadList.length > 0 ? leadList.map(emp => {
@@ -77,7 +77,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                                             {(StaffIcons as any)[role] || StaffIcons.THERAPIST}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
+                                            <span className="text-xs font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
                                         </div>
                                     </div>
                                     {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
@@ -85,7 +85,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                             );
                         }) : (
                             <div className="py-8 px-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 opacity-60">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">No {leadRoleLabel}s On-Duty/Clocked In</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-tight">No {leadRoleLabel}s On-Duty/Clocked In</p>
                             </div>
                         )}
                     </div>
@@ -96,7 +96,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                     <div className="space-y-5 animate-in slide-in-from-right duration-500">
                         <div className="flex items-center gap-3 ml-1">
                             <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-                            <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{supportRoleLabel} (SUPPORT)</label>
+                            <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{supportRoleLabel} (SUPPORT)</label>
                         </div>
                         <div className="flex flex-col gap-2 min-h-[100px]">
                             {supportList.length > 0 ? supportList.map(emp => {
@@ -128,7 +128,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                                                 {(StaffIcons as any)[role] || StaffIcons.BONESETTER}
                                             </div>
                                             <div className="flex flex-col overflow-hidden">
-                                                <span className="text-[11px] font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
+                                                <span className="text-xs font-bold uppercase tracking-[0.1em] truncate max-w-[140px]" title={empName}>{empName}</span>
                                             </div>
                                         </div>
                                         {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
@@ -136,7 +136,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                                 );
                             }) : (
                                 <div className="py-8 px-6 text-center bg-indigo-50/30 rounded-2xl border border-dashed border-indigo-100 opacity-60">
-                                    <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest leading-tight">No Specialists On-Duty/Clocked In</p>
+                                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest leading-tight">No Specialists On-Duty/Clocked In</p>
                                 </div>
                             )}
                         </div>
@@ -146,7 +146,7 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                         <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-4 transition-all border border-slate-100 group-hover:scale-105 duration-500">
                             <Zap className="w-6 h-6" strokeWidth={2.5} />
                         </div>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-center px-10 leading-relaxed text-slate-400">Specialist Support Not Required</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.5em] text-center px-10 leading-relaxed text-slate-400">Specialist Support Not Required</p>
                     </div>
                 )}
             </div>

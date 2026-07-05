@@ -114,9 +114,9 @@ const BrowseSkeleton: React.FC = () => (
 // ── KPI Card ────────────────────────────────────────────────────
 const KpiCard: React.FC<{ label: string; value: string; sub?: string; accent?: string }> = ({ label, value, sub, accent = 'text-slate-900' }) => (
   <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-1 shadow-sm">
-    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</p>
     <p className={`text-lg font-black tabular-nums leading-none ${accent}`}>{value}</p>
-    {sub && <p className="text-[9px] font-bold text-slate-400 uppercase">{sub}</p>}
+    {sub && <p className="text-xs font-bold text-slate-400 uppercase">{sub}</p>}
   </div>
 );
 
@@ -136,8 +136,8 @@ const ServiceBarChart: React.FC<{ txs: Transaction[] }> = ({ txs }) => {
       {entries.map(([name, count]) => (
         <div key={name} className="space-y-1.5">
           <div className="flex justify-between items-center">
-            <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight truncate pr-2">{name}</p>
-            <p className="text-[10px] font-black text-slate-500 tabular-nums shrink-0">{count}x</p>
+            <p className="text-xs font-black text-slate-700 uppercase tracking-tight truncate pr-2">{name}</p>
+            <p className="text-xs font-black text-slate-500 tabular-nums shrink-0">{count}x</p>
           </div>
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -167,17 +167,17 @@ const PreferredStaff: React.FC<{ txs: Transaction[] }> = ({ txs }) => {
   });
 
   const entries = Object.entries(staffCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (entries.length === 0) return <p className="text-[10px] font-bold text-slate-400 uppercase">No staff data</p>;
+  if (entries.length === 0) return <p className="text-xs font-bold text-slate-400 uppercase">No staff data</p>;
 
   return (
     <div className="space-y-2.5">
       {entries.map(([name, count], i) => (
         <div key={name} className="flex items-center gap-3">
-          <div className={`w-6 h-6 rounded-xl flex items-center justify-center text-[9px] font-black shrink-0 ${i === 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+          <div className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
             {i + 1}
           </div>
-          <p className="flex-1 text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{name}</p>
-          <p className="text-[10px] font-black text-slate-400 tabular-nums shrink-0">{count}x</p>
+          <p className="flex-1 text-xs font-black text-slate-800 uppercase tracking-tight truncate">{name}</p>
+          <p className="text-xs font-black text-slate-400 tabular-nums shrink-0">{count}x</p>
         </div>
       ))}
     </div>
@@ -297,7 +297,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Back button — standalone row */}
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:border-slate-300 hover:bg-slate-50 transition-all active:scale-95 shadow-sm w-fit"
+          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-black text-slate-600 uppercase tracking-widest hover:border-slate-300 hover:bg-slate-50 transition-all active:scale-95 shadow-sm w-fit"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
@@ -314,7 +314,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
           </div>
           <div>
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none">{client.displayName}</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
               {client.visitCount} session{client.visitCount !== 1 ? 's' : ''} · Client Profile
             </p>
           </div>
@@ -337,11 +337,11 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Service Breakdown + Preferred Staff */}
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top Services</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Top Services</p>
             <ServiceBarChart txs={client.transactions} />
           </div>
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preferred Staff</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Preferred Staff</p>
             <PreferredStaff txs={client.transactions} />
           </div>
         </div>
@@ -349,7 +349,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         {/* Session History — cards (mobile-friendly, with notes) */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Session History</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Session History</p>
           </div>
           <div className="divide-y divide-slate-50">
             {client.transactions.map(tx => {
@@ -360,20 +360,20 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0 mt-0.5" />
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">{tx.serviceName}</p>
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{tx.serviceName}</p>
                     </div>
-                    <p className="text-[12px] font-black text-slate-900 tabular-nums shrink-0">
+                    <p className="text-xs font-black text-slate-900 tabular-nums shrink-0">
                       ₱{Number(tx.total).toLocaleString()}
                     </p>
                   </div>
                   {/* Bottom row: staff + date/time */}
                   <div className="flex items-center justify-between gap-3 pl-3.5">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase truncate">{staffLine}</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase truncate">{staffLine}</p>
                     <div className="text-right shrink-0">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tabular-nums">
+                      <p className="text-xs font-black text-slate-500 uppercase tabular-nums">
                         {formatManilaDate(new Date(tx.timestamp), { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400 tabular-nums">
+                      <p className="text-xs font-bold text-slate-400 tabular-nums">
                         {formatManilaTime(new Date(tx.timestamp))}
                       </p>
                     </div>
@@ -381,8 +381,8 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                   {/* Note (if any) */}
                   {tx.note?.trim() && (
                     <div className="ml-3.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                      <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Note</p>
-                      <p className="text-[10px] font-bold text-amber-800 leading-relaxed">{tx.note.trim()}</p>
+                      <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-0.5">Note</p>
+                      <p className="text-xs font-bold text-amber-800 leading-relaxed">{tx.note.trim()}</p>
                     </div>
                   )}
                 </div>
@@ -408,7 +408,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Client Lookup</p>
+            <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Client Lookup</p>
             <p className="text-[15px] font-black text-white uppercase tracking-tight leading-none truncate">
               {branch.name}
             </p>
@@ -422,14 +422,14 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
             <p className="text-[22px] font-black text-white tabular-nums leading-none">
               {loading ? '—' : allProfiles.length}
             </p>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 leading-none">Clients</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1 leading-none">Clients</p>
           </div>
           {/* Total sessions */}
           <div className="bg-indigo-500/20 border border-indigo-500/30 rounded-2xl px-3.5 py-2.5 text-center min-w-[64px]">
             <p className="text-[22px] font-black text-indigo-300 tabular-nums leading-none">
               {loading ? '—' : allTransactions.length}
             </p>
-            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-1 leading-none">Sessions</p>
+            <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mt-1 leading-none">Sessions</p>
           </div>
         </div>
       </div>
@@ -444,7 +444,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
           placeholder="SEARCH CLIENT BY NAME TO VIEW PROFILE..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="w-full h-12 pl-11 pr-10 bg-white border border-slate-200 rounded-2xl font-bold text-[11px] uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal text-slate-700"
+          className="w-full h-12 pl-11 pr-10 bg-white border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal text-slate-700"
         />
         {isSearching && (
           <button
@@ -473,7 +473,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">
               {filteredProfiles.length} result{filteredProfiles.length !== 1 ? 's' : ''}
             </p>
             {filteredProfiles.map(profile => (
@@ -483,21 +483,21 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                 className="w-full bg-white rounded-2xl border border-slate-100 px-4 py-3.5 flex items-center gap-3 hover:border-indigo-200 hover:shadow-md transition-all group text-left active:scale-[0.99]"
               >
                 <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-indigo-50 transition-colors">
-                  <span className="text-[12px] font-black text-slate-500 group-hover:text-indigo-600 transition-colors uppercase">
+                  <span className="text-xs font-black text-slate-500 group-hover:text-indigo-600 transition-colors uppercase">
                     {profile.displayName === 'WALK-IN CLIENT' ? 'W' : profile.displayName.charAt(0)}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-indigo-700 transition-colors">
+                  <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-indigo-700 transition-colors">
                     {profile.displayName}
                   </p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate mt-0.5">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-tight truncate mt-0.5">
                     {profile.topService}
                   </p>
                 </div>
                 <div className="text-right shrink-0 space-y-0.5">
-                  <p className="text-[12px] font-black text-slate-800 tabular-nums">{profile.visitCount} visits</p>
-                  <p className="text-[9px] font-bold text-emerald-600 tabular-nums">₱{profile.totalSpend.toLocaleString()}</p>
+                  <p className="text-xs font-black text-slate-800 tabular-nums">{profile.visitCount} visits</p>
+                  <p className="text-xs font-bold text-emerald-600 tabular-nums">₱{profile.totalSpend.toLocaleString()}</p>
                 </div>
                 <svg className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
@@ -526,7 +526,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                 <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none">
                   Client names are hidden — search by name to view a profile
                 </p>
               </div>
@@ -539,10 +539,10 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                 <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
                   {/* List header */}
                   <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Activity</p>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Daily Activity</p>
                     <div className="flex items-center gap-5">
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sessions</p>
+                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
+                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Sessions</p>
                     </div>
                   </div>
 
@@ -580,7 +580,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                               )}
 
                               {/* Date label */}
-                              <p className={`text-[11px] font-black uppercase tracking-tight leading-none ${
+                              <p className={`text-xs font-black uppercase tracking-tight leading-none ${
                                 isToday
                                   ? 'text-indigo-600'
                                   : isYesterday
@@ -610,24 +610,24 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                           <div className="flex items-center gap-5 shrink-0">
                             {/* Clients (hidden on mobile) */}
                             <div className="text-right hidden sm:block">
-                              <p className={`text-[13px] font-black tabular-nums leading-none ${
+                              <p className={`text-sm font-black tabular-nums leading-none ${
                                 isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
                               }`}>
                                 {entry.clientCount}
                               </p>
-                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
+                              <p className="text-xs font-black text-slate-300 uppercase tracking-widest mt-0.5">
                                 client{entry.clientCount !== 1 ? 's' : ''}
                               </p>
                             </div>
 
                             {/* Sessions */}
                             <div className="text-right">
-                              <p className={`text-[13px] font-black tabular-nums leading-none ${
+                              <p className={`text-sm font-black tabular-nums leading-none ${
                                 isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
                               }`}>
                                 {entry.sessionCount}
                               </p>
-                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
+                              <p className="text-xs font-black text-slate-300 uppercase tracking-widest mt-0.5">
                                 session{entry.sessionCount !== 1 ? 's' : ''}
                               </p>
                             </div>

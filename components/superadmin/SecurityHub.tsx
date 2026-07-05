@@ -55,8 +55,8 @@ const PinInput: React.FC<PinInputProps> = ({ label, hint, hintColor, value, onCh
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        {hint && <p className={`text-[10px] font-bold ${hintColor ?? 'text-slate-400'}`}>{hint}</p>}
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        {hint && <p className={`text-xs font-bold ${hintColor ?? 'text-slate-400'}`}>{hint}</p>}
       </div>
       <div className="flex gap-2 sm:gap-3" onPaste={handlePaste}>
         {Array.from({ length: 6 }).map((_, i) => {
@@ -154,8 +154,8 @@ export const SecurityHub: React.FC = () => {
       {/* Master PIN card */}
       <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-5 sm:p-6 space-y-5">
         <div>
-          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Master PIN</p>
-          <p className="text-[11px] text-slate-500 mt-1">Update the superadmin authentication passcode</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Master PIN</p>
+          <p className="text-xs text-slate-500 mt-1">Update the superadmin authentication passcode</p>
         </div>
 
         <div className="space-y-5">
@@ -176,14 +176,14 @@ export const SecurityHub: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-between gap-4 pt-1">
-          <div className="text-[11px]">
+          <div className="text-xs">
             {status === 'success' && <span className="text-emerald-600 font-bold">✓ PIN updated.</span>}
             {status === 'error' && <span className="text-rose-500">Ensure both PINs are 6 digits and match.</span>}
           </div>
           <button
             onClick={handleUpdatePin}
             disabled={status === 'saving' || !pinMatch}
-            className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0 shadow-sm"
+            className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2 shrink-0 shadow-sm"
           >
             {status === 'saving'
               ? <><div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Saving…</>
@@ -195,14 +195,14 @@ export const SecurityHub: React.FC = () => {
       {/* Danger Zone card */}
       <div className="bg-white rounded-[28px] border border-rose-100 shadow-sm p-5 sm:p-6 space-y-4">
         <div>
-          <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest">Danger Zone</p>
-          <p className="text-[11px] text-slate-500 mt-1">Destructive network-wide actions</p>
+          <p className="text-xs font-black text-rose-400 uppercase tracking-widest">Danger Zone</p>
+          <p className="text-xs text-slate-500 mt-1">Destructive network-wide actions</p>
         </div>
 
         <div className="bg-rose-50 rounded-[20px] p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide leading-none">Force Logout All</p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-xs font-black text-slate-800 uppercase tracking-wide leading-none">Force Logout All</p>
+            <p className="text-xs text-slate-500 mt-1">
               {forceLogoutStatus === 'success'
                 ? <span className="text-emerald-600 font-bold">Signal broadcasted — all sessions terminated.</span>
                 : forceLogoutStatus === 'error'
@@ -213,7 +213,7 @@ export const SecurityHub: React.FC = () => {
           <button
             onClick={() => setShowConfirm(true)}
             disabled={isForceLoggingOut}
-            className="h-10 px-4 rounded-2xl bg-white border border-rose-200 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0 shadow-sm"
+            className="h-10 px-4 rounded-2xl bg-white border border-rose-200 text-rose-600 text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-2 shrink-0 shadow-sm"
           >
             {isForceLoggingOut
               ? <div className="w-3 h-3 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin" />
@@ -228,19 +228,19 @@ export const SecurityHub: React.FC = () => {
         <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-200">
             <div>
-              <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest mb-1">Confirm Action</p>
+              <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">Confirm Action</p>
               <p className="text-base font-black text-slate-900 uppercase tracking-tight">Force Logout All?</p>
-              <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 This will immediately terminate every active session across the entire network. All branches and portal users must re-authenticate. You will remain logged in.
               </p>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowConfirm(false)}
-                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                className="flex-1 h-10 rounded-2xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
                 Cancel
               </button>
               <button onClick={doForceLogout}
-                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all">
+                className="flex-1 h-10 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all">
                 Confirm
               </button>
             </div>
