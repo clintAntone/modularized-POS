@@ -70,8 +70,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         </div>
       </div>
 
-      {/* ── Row 2: Expenses + Staff (2-col) ── */}
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* ── Row 2: Expenses + Staff (2-col) — legacy adds Rent & Bills as third col ── */}
+      <div className={`grid gap-2.5 ${isLegacy ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {/* Expenses */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
           <div className="flex items-center justify-between mb-1">
@@ -87,6 +87,22 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             <p className="text-xs text-amber-600 font-medium mt-1.5">+{fmt(vaultCoveredExp)} vault</p>
           )}
         </div>
+
+        {/* Rent & Bills (legacy only) */}
+        {isLegacy && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-400">Rent & Bills</p>
+              <span className="w-6 h-6 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <svg className="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(rentAndBillsTotal)}</p>
+            <p className="text-xs text-indigo-500 font-medium mt-1.5">Daily provision</p>
+          </div>
+        )}
 
         {/* Staff Payroll */}
         <button
@@ -114,13 +130,13 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         </button>
       </div>
 
-      {/* ── Vault Deposit (if any) ── */}
-      {(vaultDeposit > 0 || isLegacy) && (
+      {/* ── Vault Deposit — only in historical/report context (no live vault target) ── */}
+      {!isLegacy && vaultDeposit > 0 && !vaultTarget && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-between print:shadow-none">
           <div>
-            <p className="text-xs font-semibold text-slate-400 mb-1">{isLegacy ? 'Rent & Bills' : 'Vault Deposit'}</p>
-            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(isLegacy ? rentAndBillsTotal : vaultDeposit)}</p>
-            <p className="text-xs text-indigo-500 font-medium mt-1.5">{isLegacy ? 'Daily provision' : 'Saved to vault fund'}</p>
+            <p className="text-xs font-semibold text-slate-400 mb-1">Vault Deposit</p>
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(vaultDeposit)}</p>
+            <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -153,7 +169,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         </div>
       </div>
 
-      {/* ── Vault Fund balance ── */}
+      {/* ── Vault Fund balance (with today's deposit inline) ── */}
       {!isLegacy && vaultTarget > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 print:shadow-none">
           <div className="flex items-center justify-between mb-2">
@@ -164,7 +180,16 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
               <span className="text-xs font-semibold text-slate-500">Vault Fund</span>
               {isVaultFull && <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Full</span>}
             </div>
-            <span className="text-lg font-black text-slate-900 tabular-nums">{fmt(vaultBalance)}</span>
+            <div className="text-right">
+              <span className="text-lg font-black text-slate-900 tabular-nums">
+                {fmt(vaultDeposit > 0 ? vaultBalance + vaultDeposit : vaultBalance)}
+              </span>
+              <p className="text-xs font-semibold">
+                {vaultDeposit > 0
+                  ? <span className="text-indigo-500">incl. {fmt(vaultDeposit)} today</span>
+                  : <span className="text-slate-400">no deposit yet</span>}
+              </p>
+            </div>
           </div>
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div

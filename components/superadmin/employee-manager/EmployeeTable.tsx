@@ -34,7 +34,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
           <tbody className="divide-y divide-slate-100">
             {employees.map(emp => {
               const empId = emp.timestamp
-                ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+                ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
                 : null;
 
               const empNameUpper = (emp.name || '').toUpperCase();

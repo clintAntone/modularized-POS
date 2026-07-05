@@ -180,6 +180,16 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   }, [auth.user?.branchId, auth.user?.employeeId, auth.user?.role]);
 
 
+  // THEME SCOPE: dark mode only applies to branch manager / portal dashboards
+  useEffect(() => {
+    const isBranchSession = auth.user?.role === UserRole.BRANCH_MANAGER || auth.user?.role === UserRole.PORTAL_USER;
+    if (isBranchSession && isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [auth.user?.role, isDark]);
+
   // GLOBAL FETCH ERROR HANDLER
   useEffect(() => {
     const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {

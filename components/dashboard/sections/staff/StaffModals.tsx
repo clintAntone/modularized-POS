@@ -566,7 +566,9 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee ID</p>
                     {props.editingEmployee.id && props.editingEmployee.timestamp ? (() => {
                       const d = new Date(props.editingEmployee.timestamp);
-                      const empId = `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${props.editingEmployee.id}`.toUpperCase();
+                      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                      const dd = String(d.getUTCDate()).padStart(2, '0');
+                      const empId = `EMP-${mm}-${dd}-${props.editingEmployee.id}`.toUpperCase();
                       return (
                         <button
                           type="button"

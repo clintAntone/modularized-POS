@@ -369,7 +369,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                 <div
                   key={e.id}
                   className="relative group select-none"
-                  onTouchStart={evt => { evt.preventDefault(); startLP(); }}
+                  onTouchStart={() => startLP()}
                   onTouchEnd={cancelLP}
                   onMouseDown={startLP}
                   onMouseUp={cancelLP}

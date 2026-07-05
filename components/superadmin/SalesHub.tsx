@@ -501,16 +501,16 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               </div>
               <input
                   type="text"
-                  placeholder="SEARCH BRANCH NAME..."
+                  placeholder="Search branch name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all outline-none placeholder:text-slate-300"
               />
             </div>
 
             <button
               onClick={() => { setIsFiltersOpen(!isFiltersOpen); playSound('click'); }}
-              className={`flex items-center gap-2 px-4 py-2.5 md:py-5 rounded-xl md:rounded-2xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${isFiltersOpen ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
             >
               <svg className={`w-4 h-4 transition-transform duration-300 ${isFiltersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
               <span className="hidden sm:inline">{isFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
@@ -707,36 +707,35 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
           <button
               onClick={() => setShowDownloadConfirm(true)}
-              className="h-14 px-5 rounded-2xl bg-emerald-600 text-white flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0"
+              className="h-9 px-4 rounded-xl bg-emerald-600 text-white flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-sm active:scale-95 shrink-0"
           >
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            <span className="hidden sm:inline">Export PDF</span>
-            <svg className="w-3 h-3 text-white/60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            <span>Export PDF</span>
           </button>
         </div>
 
         {/* KPI HUB */}
-        <div className="flex flex-wrap lg:flex-nowrap gap-3 sm:gap-4 px-2 sm:px-0">
-          <div className={`flex-[1.5] min-w-[280px] p-6 sm:p-8 ${UI_THEME.radius.card} shadow-lg flex flex-col justify-center transition-all duration-500 relative overflow-hidden group ${networkTotals.net >= 0 ? 'bg-slate-900' : 'bg-rose-900'}`}>
-            <p className={`${UI_THEME.text.metadata} text-white opacity-40 uppercase tracking-widest`}>Consolidated ROI</p>
-            <p className={`font-bold tabular-nums tracking-tighter mt-3 whitespace-nowrap leading-none ${getFontSize(networkTotals.net)} ${networkTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
-              <span className="text-xl sm:text-2xl mr-1 font-medium">₱</span>{networkTotals.net.toLocaleString()}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`col-span-2 lg:col-span-1 p-5 sm:p-6 ${UI_THEME.radius.card} border-2 flex flex-col justify-center transition-all duration-500 ${networkTotals.net >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-widest ${networkTotals.net >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>Consolidated ROI</p>
+            <p className={`font-bold tabular-nums tracking-tighter mt-2 whitespace-nowrap leading-none ${getFontSize(networkTotals.net)} ${networkTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+              {networkTotals.net < 0 ? '−' : ''}₱{Math.abs(networkTotals.net).toLocaleString()}
             </p>
           </div>
 
-          <div className={`flex-1 min-w-[200px] bg-white p-6 sm:p-8 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className={`${UI_THEME.text.metadata} opacity-40 uppercase tracking-widest`}>Gross Yield</p>
-            <p className={`font-bold text-slate-900 mt-3 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
+          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Gross Yield</p>
+            <p className={`font-bold text-slate-900 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
           </div>
 
-          <div className={`flex-1 min-w-[200px] bg-white p-6 sm:p-8 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className={`${UI_THEME.text.metadata} opacity-40 uppercase tracking-widest`}>Payroll Total</p>
-            <p className={`font-bold text-amber-600 mt-3 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.staffPay)}`}>₱{networkTotals.staffPay.toLocaleString()}</p>
+          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Payroll Total</p>
+            <p className={`font-bold text-amber-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.staffPay)}`}>₱{networkTotals.staffPay.toLocaleString()}</p>
           </div>
 
-          <div className={`flex-1 min-w-[200px] bg-white p-6 sm:p-8 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className={`${UI_THEME.text.metadata} opacity-40 uppercase tracking-widest`}>Rent & Bills</p>
-            <p className={`font-bold text-indigo-600 mt-3 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
+          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p>
+            <p className={`font-bold text-indigo-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
           </div>
         </div>
 
@@ -858,24 +857,24 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
               {/* Metric tiles */}
               <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
-                <div className="bg-slate-50 rounded-xl px-2.5 py-2">
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-2.5 py-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Gross</p>
-                  <p className="text-xs font-black text-slate-900 tabular-nums mt-0.5 truncate">₱{b.gross.toLocaleString()}</p>
+                  <p className="text-xs font-black text-slate-900 dark:text-slate-100 tabular-nums mt-0.5 truncate">₱{b.gross.toLocaleString()}</p>
                 </div>
-                <div className="bg-amber-50/70 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-amber-500">Payroll</p>
-                  <p className="text-xs font-black text-amber-600 tabular-nums mt-0.5 truncate">₱{b.staffPay.toLocaleString()}</p>
+                <div className="bg-amber-50 dark:bg-amber-900/30 rounded-xl px-2.5 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Payroll</p>
+                  <p className="text-xs font-black text-amber-600 dark:text-amber-300 tabular-nums mt-0.5 truncate">₱{b.staffPay.toLocaleString()}</p>
                 </div>
-                <div className="bg-rose-50/70 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-rose-400">Expenses</p>
-                  <p className="text-xs font-black text-rose-500 tabular-nums mt-0.5 truncate">₱{b.operational.toLocaleString()}</p>
+                <div className="bg-rose-50 dark:bg-rose-900/30 rounded-xl px-2.5 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-rose-400 dark:text-rose-400">Expenses</p>
+                  <p className="text-xs font-black text-rose-500 dark:text-rose-300 tabular-nums mt-0.5 truncate">₱{b.operational.toLocaleString()}</p>
                 </div>
               </div>
 
-              {/* Floating ROI footer */}
-              <div className={`mx-2 mb-2 rounded-xl flex items-center justify-between px-4 py-3 ${b.net >= 0 ? 'bg-slate-800' : 'bg-rose-900'}`}>
-                <span className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-slate-400' : 'text-rose-300/60'}`}>ROI</span>
-                <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
+              {/* ROI footer */}
+              <div className={`mx-2 mb-2 rounded-xl flex items-center justify-between px-4 py-3 border ${b.net >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-800'}`}>
+                <span className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-400'}`}>Net ROI</span>
+                <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
                   {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
                 </p>
               </div>

@@ -1918,30 +1918,30 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       {txHistoryTab === 'deposits' && (
                         branchHistory.length === 0
                           ? <p className="text-xs font-bold text-slate-300 uppercase tracking-widest py-8 text-center">No deposits recorded</p>
-                          : <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                          : <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                               {/* Desktop header — hidden on mobile */}
-                              <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] bg-slate-50 border-b border-slate-100 px-4 py-2">
+                              <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 py-2">
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date & Time</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Source</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Transaction ID</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Amount</span>
                               </div>
-                              <div className="divide-y divide-slate-100">
+                              <div className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {branchHistory.slice(0, visibleDeposits).map((entry, i) => {
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
                                   const isAdmin = entry.category === 'ADMIN_DEPOSIT';
                                   const timePart = entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : null;
                                   return (
-                                    <div key={i} className="px-4 py-3 hover:bg-slate-50/70 transition-colors">
+                                    <div key={i} className="px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
                                       {/* Mobile layout */}
                                       <div className="flex items-center justify-between gap-3 sm:hidden">
                                         <div className="min-w-0">
-                                          <p className="text-xs font-bold text-slate-800 leading-tight">
+                                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
                                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50'}`}>
                                               {isAdmin ? 'Admin' : 'Manager'}
                                             </span>
                                             {(entry.performedBy || entry.name) && (
@@ -1950,20 +1950,20 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                             {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums">{timePart}</span>}
                                           </div>
                                         </div>
-                                        <span className="text-sm font-black text-emerald-600 tabular-nums shrink-0">+₱{entry.amount.toLocaleString()}</span>
+                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0">+₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                       {/* Desktop layout */}
                                       <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] items-center">
                                         <div>
-                                          <p className="text-xs font-bold text-slate-800">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                           {timePart && <p className="text-xs font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
                                         <div>
-                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'}`}>{isAdmin ? 'Admin' : 'Manager'}</span>
-                                          {(entry.performedBy || entry.name) && <p className="text-xs font-medium text-slate-500 mt-1 truncate max-w-[130px]">{entry.performedBy || entry.name}</p>}
+                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50'}`}>{isAdmin ? 'Admin' : 'Manager'}</span>
+                                          {(entry.performedBy || entry.name) && <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[130px]">{entry.performedBy || entry.name}</p>}
                                         </div>
                                         <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
-                                        <span className="text-xs font-black text-emerald-600 tabular-nums">+₱{entry.amount.toLocaleString()}</span>
+                                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                     </div>
                                   );
@@ -1972,7 +1972,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                               {visibleDeposits < branchHistory.length && (
                                 <button
                                   onClick={() => setVisibleDeposits(v => v + 20)}
-                                  className="w-full py-3 text-xs font-medium text-slate-400 uppercase tracking-wide hover:bg-slate-50 transition-colors border-t border-slate-100"
+                                  className="w-full py-3 text-xs font-medium text-slate-400 uppercase tracking-wide hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-700"
                                 >
                                   Load more · {branchHistory.length - visibleDeposits} remaining
                                 </button>
@@ -1984,15 +1984,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       {txHistoryTab === 'withdrawals' && (
                         branchWithdrawals.length === 0
                           ? <p className="text-xs font-bold text-slate-300 uppercase tracking-widest py-8 text-center">No withdrawals recorded</p>
-                          : <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                          : <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                               {/* Desktop header — hidden on mobile */}
-                              <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] bg-slate-50 border-b border-slate-100 px-4 py-2">
+                              <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 py-2">
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date & Time</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Label</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Transaction ID</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Amount</span>
                               </div>
-                              <div className="divide-y divide-slate-100">
+                              <div className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {branchWithdrawals.slice(0, visibleWithdrawals).map((entry, i) => {
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
@@ -2000,43 +2000,43 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   return (
                                     <div
                                       key={i}
-                                      className={`px-4 py-3 transition-colors ${entry.receiptImage ? 'cursor-pointer hover:bg-indigo-50/40' : 'hover:bg-slate-50/70'}`}
+                                      className={`px-4 py-3 transition-colors ${entry.receiptImage ? 'cursor-pointer hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/60'}`}
                                       onClick={() => entry.receiptImage && setReceiptModal({ url: entry.receiptImage, label: entry.name || 'Receipt' })}
                                     >
                                       {/* Mobile layout */}
                                       <div className="flex items-center justify-between gap-3 sm:hidden">
                                         <div className="min-w-0">
-                                          <p className="text-xs font-bold text-slate-800 leading-tight">
+                                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
                                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                                             {entry.name
-                                              ? <span className="text-xs font-black text-slate-800 uppercase tracking-wide">{entry.name}</span>
+                                              ? <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">{entry.name}</span>
                                               : <span className="text-xs font-medium text-slate-400 italic">No description</span>
                                             }
                                             {entry.performedBy && entry.performedBy !== entry.name && <span className="text-xs font-medium text-slate-400 truncate">by {entry.performedBy}</span>}
                                             {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums">{timePart}</span>}
                                           </div>
                                         </div>
-                                        <span className="text-sm font-black text-rose-600 tabular-nums shrink-0">−₱{entry.amount.toLocaleString()}</span>
+                                        <span className="text-sm font-black text-rose-600 dark:text-rose-400 tabular-nums shrink-0">−₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                       {/* Desktop layout */}
                                       <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
                                         <div>
-                                          <p className="text-xs font-bold text-slate-800">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                           {timePart && <p className="text-xs font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-2">
                                             {entry.name
-                                              ? <p className="text-xs font-black text-slate-800 truncate uppercase tracking-wide">{entry.name}</p>
+                                              ? <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate uppercase tracking-wide">{entry.name}</p>
                                               : <p className="text-xs font-medium text-slate-400 italic">No description</p>
                                             }
                                           </div>
                                           {entry.performedBy && entry.performedBy !== entry.name && <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">by {entry.performedBy}</p>}
                                         </div>
                                         <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
-                                        <span className="text-xs font-black text-rose-600 tabular-nums">−₱{entry.amount.toLocaleString()}</span>
+                                        <span className="text-xs font-black text-rose-600 dark:text-rose-400 tabular-nums">−₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                     </div>
                                   );
@@ -2045,7 +2045,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                               {visibleWithdrawals < branchWithdrawals.length && (
                                 <button
                                   onClick={() => setVisibleWithdrawals(v => v + 20)}
-                                  className="w-full py-3 text-xs font-medium text-slate-400 uppercase tracking-wide hover:bg-slate-50 transition-colors border-t border-slate-100"
+                                  className="w-full py-3 text-xs font-medium text-slate-400 uppercase tracking-wide hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-700"
                                 >
                                   Load more · {branchWithdrawals.length - visibleWithdrawals} remaining
                                 </button>

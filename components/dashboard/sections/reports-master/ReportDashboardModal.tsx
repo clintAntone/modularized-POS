@@ -121,6 +121,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
   const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
   const isLegacy = !reportBranchVaultEnabled || !resolvedVaultStartDate || reportDateStr < resolvedVaultStartDate;
+  const branchVault = branchVaults.find(v => v.branchId === report.branchId);
+  const vaultBalance = branchVault?.balance ?? 0;
+  const vaultTarget = branchVault?.target ?? 0;
 
   // Derive net operational expense from report-level fields (avoids relying on expenseData snapshot).
   // Formula: gross − netRoi − totalStaffPay − totalVaultProvision
@@ -680,7 +683,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   if (!mounted) return null;
 
   return createPortal(
-      <div className="fixed inset-0 z-[5000] bg-slate-950/80 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
+      <div className="fixed inset-0 z-[5000] backdrop-blur-sm flex items-end md:items-center justify-center px-3 pb-3 pt-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
         <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:bg-white print:overflow-visible print:block`}>
 
           {viewingExpense && (
@@ -1075,13 +1078,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   </div>
                                 </div>
 
-                                <div className="text-right min-w-0 pr-1 sm:pr-2">
-                                  <p className={`font-bold text-slate-900 tracking-tighter leading-none tabular-nums ${
-                                    finalPay.toLocaleString().length > 9 ? 'text-sm sm:text-lg' : 
-                                    finalPay.toLocaleString().length > 7 ? 'text-base sm:text-xl' : 
-                                    'text-[18px] sm:text-[26px]'
-                                  }`}>₱{finalPay.toLocaleString()}</p>
-                                  <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mt-0.5 sm:mt-1 ${isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
+                                <div className="text-right shrink-0 pl-2 flex flex-col items-end">
+                                  <p className="font-bold text-slate-900 tracking-tighter leading-none tabular-nums text-[18px] sm:text-[22px] whitespace-nowrap">₱{finalPay.toLocaleString()}</p>
+                                  <p className={`text-[10px] font-semibold uppercase tracking-wider mt-0.5 whitespace-nowrap ${isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
                                 </div>
                               </div>
 
@@ -1100,17 +1099,17 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-1 sm:gap-2">
+                              <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                 <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
                                   <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
                                   <p className="text-xs sm:text-xs font-bold text-slate-600 tabular-nums">₱{baseAllw.toLocaleString()}</p>
                                 </div>
-                                <div className={`p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border transition-all ${adv > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50/80 border-slate-100/50'}`}>
-                                  <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
-                                  <p className={`text-xs sm:text-xs font-bold tabular-nums ${adv > 0 ? 'text-indigo-700' : 'text-slate-300'}`}>
-                                    {adv > 0 ? `−₱${adv.toLocaleString()}` : '₱0'}
-                                  </p>
-                                </div>
+                                {adv > 0 && (
+                                  <div className="bg-indigo-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100">
+                                    <p className="text-xs sm:text-xs font-medium text-indigo-600 uppercase tracking-wide mb-0.5">Advances</p>
+                                    <p className="text-xs sm:text-xs font-bold text-indigo-700 tabular-nums">−₱{adv.toLocaleString()}</p>
+                                  </div>
+                                )}
                               </div>
 
                               <div className="flex items-center justify-between pt-0.5">

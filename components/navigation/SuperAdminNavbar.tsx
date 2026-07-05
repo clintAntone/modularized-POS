@@ -84,7 +84,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     { id: 'sales_hub',    label: 'Live',        icon: Icons.live,      desc: 'Network Stream',       color: 'bg-emerald-50 text-emerald-600', category: 'Operations', adminOnly: false },
     { id: 'archive',      label: 'Reports',     icon: Icons.reports,   desc: 'Daily History',        color: 'bg-slate-100 text-slate-600',   category: 'Reports',    adminOnly: false },
     { id: 'insights',     label: 'Insights',    icon: Icons.insights,  desc: 'Sales Anomaly Detection', color: 'bg-rose-50 text-rose-600',   category: 'Reports',    adminOnly: false },
-    { id: 'employees',    label: 'Employees',   icon: Icons.staff,     desc: 'Staff Master',         color: 'bg-indigo-50 text-indigo-600',  category: 'People',     adminOnly: false },
+    { id: 'employees',    label: 'Staff',       icon: Icons.staff,     desc: 'Staff Master',         color: 'bg-indigo-50 text-indigo-600',  category: 'People',     adminOnly: false },
     { id: 'attendance',   label: 'Attendance',  icon: Icons.clock,     desc: 'Clock-in Logs',        color: 'bg-sky-50 text-sky-600',        category: 'Operations', adminOnly: false },
     { id: 'network',      label: 'Branches',    icon: Icons.nodes,     desc: 'Branch Control',       color: 'bg-slate-50 text-slate-600',    category: 'Branches',   adminOnly: false },
     { id: 'service_templates', label: 'Catalogs',    icon: Icons.catalogs,  desc: 'Normalized Service Registry', color: 'bg-amber-50 text-amber-700', category: 'Branches',   adminOnly: true  },
@@ -159,9 +159,8 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
 
     let visible: typeof adminTabRegistry;
     if (windowWidth < 640) {
-      // Show 4 priority tabs on all mobile phones (360–430px all fall here).
-      // The old 480px cutoff caused attendance to always be hidden since no phone hits 480–640px portrait.
-      visible = adminTabRegistry.filter(t => priorityIds.slice(0, 4).includes(t.id));
+      // Show 3 priority tabs on mobile — keeps labels readable and uncluttered.
+      visible = adminTabRegistry.filter(t => priorityIds.slice(0, 3).includes(t.id));
     } else {
       const count = visibleCount ?? adminTabRegistry.length;
       visible = adminTabRegistry.slice(0, count);
@@ -195,8 +194,8 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
         onClick={() => handleTabClick(item.id)}
         className={`relative p-4 sm:p-5 rounded-2xl border text-left flex flex-col gap-3 transition-all group overflow-hidden min-h-[110px] sm:min-h-[130px] ${
           isActive
-            ? 'border-emerald-400 bg-emerald-50/40 shadow-sm'
-            : 'border-slate-100 hover:border-slate-200 hover:shadow-md bg-white'
+            ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:border-emerald-700 shadow-sm'
+            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md bg-white dark:bg-slate-800'
         }`}
       >
         {/* Active dot */}
@@ -220,7 +219,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
         </div>
 
         {/* Icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.color} relative`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative ring-1 ring-black/5 dark:ring-white/10 ${item.color}`}>
           {item.icon}
           {item.id === 'employees' && resetRequestCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -248,10 +247,10 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
 
         {/* Label + desc */}
         <div className="min-w-0">
-          <p className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-none mb-1 transition-colors ${isActive ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
+          <p className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-none mb-1 transition-colors ${isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}>
             {item.label}
           </p>
-          <p className="text-xs sm:text-xs font-medium uppercase tracking-wide text-slate-400 truncate">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-400 truncate">
             {item.desc}
           </p>
         </div>
@@ -265,7 +264,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     <>
       {windowWidth >= 640 ? (
         <nav className={`bg-white border-b border-slate-100 no-print ${isSticky ? 'sticky top-14 sm:top-16' : ''} z-[900] w-full`}>
-          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-12 relative`}>
+          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-14 relative`}>
             {/* Hidden measurement div */}
             <div
               ref={measureRef}
@@ -278,19 +277,19 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   key={item.id}
                   data-tab-measure="1"
                   tabIndex={-1}
-                  className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-xs lg:text-xs uppercase shrink-0 rounded-xl"
+                  className="flex items-center gap-1.5 px-5 py-2 font-medium text-xs uppercase tracking-wide shrink-0 rounded-lg"
                 >
                   <div>{item.icon}</div>
-                  <span className="tracking-widest whitespace-nowrap">{item.label}</span>
+                  <span className="whitespace-nowrap">{item.label}</span>
                 </button>
               ))}
               <button
                 data-more-measure="1"
                 tabIndex={-1}
-                className="flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-xs lg:text-xs uppercase shrink-0 rounded-xl mr-2"
+                className="flex items-center gap-1.5 px-5 py-2 font-medium text-xs uppercase tracking-wide shrink-0 rounded-lg mr-2"
               >
                 {Icons.more}
-                <span className="tracking-widest whitespace-nowrap">More</span>
+                <span className="whitespace-nowrap">More</span>
               </button>
             </div>
 
@@ -301,7 +300,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   <button
                     key={item.id}
                     onClick={() => handleTabClick(item.id)}
-                    className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+                    className={`relative flex items-center gap-1.5 px-5 py-2 font-medium text-xs uppercase tracking-wide transition-all duration-150 shrink-0 rounded-lg ${isActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
                   >
                     <div className={`transition-all duration-150 ${isActive ? 'text-emerald-600' : ''}`}>{item.icon}</div>
                     <span className="whitespace-nowrap">{item.label}</span>
@@ -321,7 +320,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
               {overflowTabs.length > 0 && (
                 <button
                   onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg mr-2 ${isMoreActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+                  className={`relative flex items-center gap-1.5 px-5 py-2 font-medium text-xs uppercase tracking-wide transition-all duration-150 shrink-0 rounded-lg mr-2 ${isMoreActive ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
                 >
                   <div>{Icons.more}</div>
                   <span className="whitespace-nowrap">More</span>
@@ -396,17 +395,17 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
           onClick={() => { playSound('click'); setShowMoreModal(false); }}
         >
           <div
-            className={`bg-white w-full max-w-3xl ${UI_THEME.radius.modal} shadow-xl flex flex-col max-h-[90dvh] overflow-hidden`}
+            className={`bg-white dark:bg-slate-900 w-full max-w-3xl ${UI_THEME.radius.modal} shadow-xl flex flex-col max-h-[90dvh] overflow-hidden`}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-100 shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
-                <h3 className="text-base sm:text-lg font-black uppercase tracking-tighter text-slate-900 leading-none">All Modules</h3>
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tighter text-slate-900 dark:text-slate-100 leading-none">All Modules</h3>
               </div>
               <button
                 onClick={() => { playSound('click'); setShowMoreModal(false); }}
-                className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 transition-all border border-slate-100 active:scale-90 shrink-0"
+                className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all border border-slate-200 dark:border-slate-700 active:scale-90 shrink-0"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -423,7 +422,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                       <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                       <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Favorites</span>
                     </div>
-                    <div className="h-px bg-amber-100 flex-1" />
+                    <div className="h-px bg-amber-100 dark:bg-amber-900/40 flex-1" />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                     {starredOverflow.map(item => renderTile(item))}
@@ -448,7 +447,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   <section key={cat} className="space-y-2.5">
                     <div className="flex items-center gap-3">
                       <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${catColor[cat] ?? 'text-slate-400'}`}>{cat}</span>
-                      <div className="h-px bg-slate-100 flex-1" />
+                      <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1" />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                       {catTabs.map(item => renderTile(item))}

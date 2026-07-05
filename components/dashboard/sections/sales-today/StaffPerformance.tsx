@@ -429,7 +429,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-3 sm:gap-6">
+                  <div className="flex flex-col gap-3 sm:gap-6 flex-1">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
                         <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 text-purple-600' : data.attendance ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
@@ -452,45 +452,42 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         </div>
                       </div>
 
-                        <div className="text-right min-w-0 pr-1 sm:pr-2">
-                          <p className={`font-bold text-slate-900 tracking-tighter leading-none tabular-nums ${
-                            finalPay.toLocaleString().length > 9 ? 'text-sm sm:text-lg' : 
-                            finalPay.toLocaleString().length > 7 ? 'text-base sm:text-xl' : 
-                            'text-[18px] sm:text-[26px]'
-                          }`}>₱{isNaN(finalPay) ? '0' : finalPay.toLocaleString()}</p>
-                          <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mt-0.5 sm:mt-1 ${data.isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
+                        <div className="text-right shrink-0 pl-2 flex flex-col items-end">
+                          <p className="font-bold text-slate-900 tracking-tighter leading-none tabular-nums text-[18px] sm:text-[22px] whitespace-nowrap">₱{isNaN(finalPay) ? '0' : finalPay.toLocaleString()}</p>
+                          <p className={`text-[10px] font-semibold uppercase tracking-wider mt-0.5 whitespace-nowrap ${data.isReliever ? 'text-purple-500 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>Take Home</p>
                         </div>
                     </div>
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wider">Service Track</span>
-                        <span className="text-xs sm:text-xs font-bold text-slate-900">{data.count} units</span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Service Track</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{data.count} units</span>
                       </div>
                       <div className="flex gap-0.5 sm:gap-1 h-1 sm:h-1.5 px-0.5">
                         {Array.from({ length: 10 }).map((_, i) => (
                             <div
                                 key={i}
-                                className={`flex-1 rounded-full transition-all duration-700 ${i < data.count ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-slate-100'}`}
+                                className={`flex-1 rounded-full transition-all duration-700 ${i < data.count ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-slate-200 dark:bg-slate-600'}`}
                             ></div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1 sm:gap-2">
-                      <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
-                        <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
-                        <p className="text-xs sm:text-xs font-bold text-slate-600 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+                    <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className="bg-slate-100 dark:bg-slate-700 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-200 dark:border-slate-600">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wide mb-0.5">Allowance</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-100 tabular-nums">₱{data.allowance.toLocaleString()}</p>
                       </div>
-                      <div className={`p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border transition-all ${adv > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50/80 border-slate-100/50'}`}>
-                        <p className={`text-xs sm:text-xs font-medium uppercase tracking-wide mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
-                        <p className={`text-xs sm:text-xs font-bold tabular-nums ${adv > 0 ? 'text-indigo-700' : 'text-slate-300'}`}>
-                          {adv > 0 ? `−₱${adv.toLocaleString()}` : '₱0'}
-                        </p>
-                      </div>
+                      {adv > 0 && (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/40 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-0.5">Advances</p>
+                          <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">−₱{adv.toLocaleString()}</p>
+                        </div>
+                      )}
                     </div>
+                  </div>
 
-                    <div className="flex items-center justify-between pt-0.5">
+                  <div className="flex items-center justify-between mt-3 sm:mt-4">
                       <div className="flex gap-1 sm:gap-1.5 flex-wrap">
                         {late > 0 && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-rose-50 text-rose-700 border-rose-100">−₱{late}</span>}
                         {ot > 0 && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-100">+₱{ot}</span>}
@@ -500,10 +497,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <button
                             onClick={() => {
                               setSelectedStaff(name);
-                              setAttendanceForm({ 
-                                lateDeduction: late, 
-                                otPay: ot, 
-                                cashAdvance: adv, 
+                              setAttendanceForm({
+                                lateDeduction: late,
+                                otPay: ot,
+                                cashAdvance: adv,
                                 baseAllowance: data.baseAllowance,
                                 isHalfDay: !!data.attendance?.isHalfDay,
                                 isPaidDaily: !!(data.attendance?.isPaidDaily || data.attendance?.is_paid_daily)
@@ -514,7 +511,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                         </button>
                       </div>
-                    </div>
                   </div>
                 </div>
             );

@@ -31,7 +31,7 @@ export const PersonalDetailsModal: React.FC<PersonalDetailsModalProps> = ({ empl
   const displayName = `${firstName.trim()} ${middleName.trim() ? middleName.trim() + ' ' : ''}${lastName.trim()}`.trim().toUpperCase() || employee.name || '';
 
   const empId = employee.timestamp
-    ? (() => { const d = new Date(employee.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${employee.id}`.toUpperCase(); })()
+    ? (() => { const d = new Date(employee.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${employee.id}`.toUpperCase(); })()
     : null;
 
   const profileSrc = profileFile ? URL.createObjectURL(profileFile) : employee.profile;

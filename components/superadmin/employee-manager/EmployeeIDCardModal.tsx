@@ -77,7 +77,9 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
   const empId = employee.timestamp
     ? (() => {
         const d = new Date(employee.timestamp);
-        return `EMP-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${employee.id}`;
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        return `EMP-${mm}-${dd}-${employee.id}`;
       })()
     : employee.id;
 

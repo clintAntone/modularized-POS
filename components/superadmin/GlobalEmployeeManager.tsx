@@ -116,7 +116,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         const name = (e.name || '').toUpperCase();
         const id = (e.id || '').toUpperCase();
         const formattedId = e.timestamp
-          ? (() => { const d = new Date(e.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${e.id}`.toUpperCase(); })()
+          ? (() => { const d = new Date(e.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${e.id}`.toUpperCase(); })()
           : '';
         return (
           name.includes(term) ||
@@ -584,7 +584,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             .join(', ') || '—';
           const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
           const empId = emp.timestamp
-            ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+            ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
             : emp.id;
 
           return [
@@ -665,7 +665,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           .join(', ') || '—';
         const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
         const empId = emp.timestamp
-          ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+          ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
           : emp.id;
         return {
           'FIRST NAME': (emp.firstName || '').toUpperCase(),

@@ -280,7 +280,9 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           <div className="min-w-0">
             {emp.timestamp && (() => {
               const d = new Date(emp.timestamp);
-              const empId = `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`.toUpperCase();
+              const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+              const dd = String(d.getUTCDate()).padStart(2, '0');
+              const empId = `EMP-${mm}-${dd}-${emp.id}`.toUpperCase();
               return (
                 <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId}</p>
               );

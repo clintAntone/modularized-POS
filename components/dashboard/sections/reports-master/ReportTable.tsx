@@ -196,39 +196,39 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
       {/* Desktop table — horizontally scrollable at min 1000px */}
       <div className="hidden md:block overflow-x-auto no-scrollbar">
         <div className="min-w-[1100px]">
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-slate-100 dark:border-slate-700/50">
             <div className="px-8 py-4 w-[15%]">
-              <button onClick={() => onSort('identity')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('identity')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Registry Date <SortIndicator field="identity" />
               </button>
             </div>
             <div className="px-6 py-4 w-[17%]">
-              <button onClick={() => onSort('terminal')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('terminal')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Branch Node <SortIndicator field="terminal" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('yield')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('yield')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Gross <SortIndicator field="yield" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('payroll')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('payroll')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Salary <SortIndicator field="payroll" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('expenses')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('expenses')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Expenses <SortIndicator field="expenses" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('reserve')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('reserve')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Provision <SortIndicator field="reserve" />
               </button>
             </div>
             <div className="px-8 py-4 w-[16%]">
-              <button onClick={() => onSort('roi')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('roi')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 NET ROI <SortIndicator field="roi" />
               </button>
             </div>

@@ -1126,11 +1126,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       {/* Reliever hint — shown when there are guest/reliever staff visible */}
       {branchStaff.some(e => e.branchId !== branch.id) && (
-        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
-          <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+          <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400 dark:text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-xs text-indigo-700 leading-relaxed">
+          <p className="text-xs text-indigo-700 dark:text-indigo-200 leading-relaxed">
             <span className="font-bold">Reliever staff</span> are from another branch. To permanently transfer them, use the remove button on their row — do not request to disable them.
           </p>
         </div>
@@ -1147,7 +1147,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       {/* Staff list */}
       {branchStaff.length > 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="space-y-0">
           {branchStaff.map((emp, idx) => {
             const currentRole = getEmployeeRole(emp, branch.id);
             const branchCfg = emp.branchAllowances?.[branch.id];
@@ -1159,7 +1159,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
             return (
               <React.Fragment key={emp.id}>
-                {idx > 0 && <div className="h-px bg-slate-100 mx-4" />}
+                {idx > 0 && <div className="h-3" />}
                 <StaffCard
                   emp={emp}
                   branchId={branch.id}
