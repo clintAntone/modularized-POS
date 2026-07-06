@@ -1337,10 +1337,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {effectiveBranchIds.length > 0 && (
-                        <button
+                        <span
+                          role="button"
                           onClick={e => { e.stopPropagation(); setSelectedBranchIds([]); setBranchSearch(''); playSound('click'); }}
-                          className="w-4 h-4 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center leading-none hover:bg-rose-700 transition-colors"
-                        >✕</button>
+                          className="w-4 h-4 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center leading-none hover:bg-rose-700 transition-colors cursor-pointer"
+                        >✕</span>
                       )}
                       <svg className={`w-3 h-3 transition-transform duration-200 ${branchDropdownOpen ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
                     </div>
