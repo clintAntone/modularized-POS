@@ -35,14 +35,14 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
         type="button"
         disabled={disabled}
         onClick={() => { setIsOpen(!isOpen); playSound('click'); if (!isOpen) setTimeout(() => searchRef.current?.focus(), 50); }}
-        className={`w-full flex items-center justify-between p-4 bg-white border-2 rounded-2xl transition-all duration-300 group ${isOpen ? 'border-emerald-500 shadow-xl ring-4 ring-emerald-500/5' : 'border-slate-100 hover:border-slate-300 shadow-sm'}`}
+        className={`w-full flex items-center justify-between p-4 bg-white dark:bg-slate-700/50 border-2 rounded-2xl transition-all duration-300 group ${isOpen ? 'border-emerald-500 shadow-xl ring-4 ring-emerald-500/5' : 'border-slate-100 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 shadow-sm'}`}
       >
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 transition-all ${value ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-50 text-slate-300'}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 transition-all ${value ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-600 text-slate-300'}`}>
             {value ? (selectedEmployee?.role.includes('MANAGER') ? '👑' : '👤') : '∅'}
           </div>
           <div className="text-left overflow-hidden">
-            <p className={`font-bold text-xs uppercase tracking-tight truncate ${value ? 'text-slate-900' : 'text-slate-300'}`}>
+            <p className={`font-bold text-xs uppercase tracking-tight truncate ${value ? 'text-slate-900 dark:text-slate-100' : 'text-slate-300 dark:text-slate-500'}`}>
               {value || 'Unassigned / Select Personnel...'}
             </p>
             {value && <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none">Registered Manager</p>}
@@ -54,7 +54,7 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
       </button>
 
       {isOpen && (
-        <div className="absolute z-[200] top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.15)] overflow-hidden animate-in zoom-in-95 fade-in duration-200 p-1.5 ring-1 ring-slate-900/5">
+        <div className="absolute z-[200] top-[calc(100%+8px)] left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.15)] overflow-hidden animate-in zoom-in-95 fade-in duration-200 p-1.5 ring-1 ring-slate-900/5 dark:ring-slate-700">
           {/* Search */}
           <div className="px-1.5 pb-1.5">
             <input
@@ -63,20 +63,20 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search personnel..."
-              className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
+              className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
             />
           </div>
 
           <button
             type="button"
             onClick={() => { onSelect(''); setIsOpen(false); setSearch(''); playSound('click'); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all mb-1 ${!value ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 hover:text-rose-500'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all mb-1 ${!value ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-rose-500'}`}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${!value ? 'bg-white/10' : 'bg-slate-50'}`}>∅</div>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${!value ? 'bg-white/10' : 'bg-slate-50 dark:bg-slate-700'}`}>∅</div>
             <span className="font-bold text-xs uppercase tracking-widest">Unassigned</span>
           </button>
-          
-          <div className="h-px bg-slate-50 my-1 mx-3"></div>
+
+          <div className="h-px bg-slate-50 dark:bg-slate-700 my-1 mx-3"></div>
           
           <div className="max-h-[280px] overflow-y-auto no-scrollbar pr-0.5">
             {employees.length > 0 ? employees.filter(e => e.name.toUpperCase().includes(search.toUpperCase())).map((emp) => {
@@ -86,10 +86,10 @@ export const ManagerSelector: React.FC<ManagerSelectorProps> = ({ value, employe
                   key={emp.id}
                   type="button"
                   onClick={() => { onSelect(emp.name); setIsOpen(false); setSearch(''); playSound('click'); }}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all mb-1 last:mb-0 group/item ${isSelected ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700'}`}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all mb-1 last:mb-0 group/item ${isSelected ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-emerald-700'}`}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs shrink-0 transition-colors ${isSelected ? 'bg-white/20' : 'bg-slate-50 group-hover/item:bg-white'}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs shrink-0 transition-colors ${isSelected ? 'bg-white/20' : 'bg-slate-50 dark:bg-slate-600 group-hover/item:bg-white dark:group-hover/item:bg-slate-500'}`}>
                        {emp.role.includes('MANAGER') ? '👑' : emp.role.includes('BONESETTER') ? '🦴' : '💆'}
                     </div>
                     <div className="text-left overflow-hidden">

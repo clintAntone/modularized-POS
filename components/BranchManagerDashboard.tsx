@@ -287,7 +287,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   };
 
   return (
-    <div className="pb-24 bg-slate-50">
+    <div className="pb-24 bg-slate-50 dark:bg-slate-900">
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {showClosingWarning && (
@@ -331,7 +331,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       )}
 
       {/* ── Sticky header ────────────────────────────────────────────────────── */}
-      <div className="sticky top-14 sm:top-16 left-0 right-0 z-[60] no-print bg-white border-b border-slate-100">
+      <div className="sticky top-14 sm:top-16 left-0 right-0 z-[60] no-print bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
         <div>
           <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-10 flex flex-row justify-between items-center gap-2`}>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -352,23 +352,23 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
                 <div className="relative">
                   <button
                     onClick={() => { setIsSwitchingOpen(!isSwitchingOpen); playSound('click'); }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}
                   >
                     <Store className="w-3 h-3" strokeWidth={2.5} />
                     <span className="hidden sm:inline">Switch</span>
                     <span className={`text-xs font-black px-1 rounded ${isSwitchingOpen ? 'text-slate-300' : 'text-slate-500'}`}>{managedNodes.length}</span>
                   </button>
                   {isSwitchingOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
-                      <p className="text-xs font-semibold text-slate-400 px-3 py-1.5 mb-0.5">Managed Branches</p>
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
+                      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 px-3 py-1.5 mb-0.5">Managed Branches</p>
                       {managedNodes.map(n => (
                         <button
                           key={n.id}
                           onClick={() => { setPendingSwitchBranchId(n.id); setShowUnlockModal(true); setIsSwitchingOpen(false); playSound('click'); }}
-                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-between group"
+                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center justify-between group"
                         >
-                          <p className="text-xs font-semibold text-slate-700 truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
-                          <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-500 transition-colors" strokeWidth={2.5} />
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
+                          <ChevronRight className="w-3 h-3 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 transition-colors" strokeWidth={2.5} />
                         </button>
                       ))}
                     </div>

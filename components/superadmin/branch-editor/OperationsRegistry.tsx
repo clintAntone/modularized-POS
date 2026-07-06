@@ -44,12 +44,12 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
   return (
     <section className="space-y-5 animate-in slide-in-from-bottom-2 duration-500">
       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Operations & Authentication Registry</h4>
-      <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-6 shadow-inner">
+      <div className="bg-slate-50/50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-6 shadow-inner">
         
         {/* PRIMARY MANAGER */}
         <div className="space-y-2">
           <div className="flex justify-between items-center px-1">
-             <label className="block text-xs font-semibold uppercase text-slate-500 tracking-widest">Designated Manager</label>
+             <label className="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-widest">Designated Manager</label>
              {isHomeBranchMismatched && (
                 <button 
                   onClick={handleSyncHomeBranch}
@@ -86,7 +86,7 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
 
         {/* RELIEF MANAGER */}
         <div className="space-y-2">
-           <label className="block text-xs font-semibold uppercase text-slate-500 tracking-widest ml-1">Authorized Relief Delegate</label>
+           <label className="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-widest ml-1">Authorized Relief Delegate</label>
            <ManagerSelector 
               value={tempManager || ''} 
               employees={potentialManagers.filter(p => p.name !== manager)}
@@ -96,10 +96,10 @@ export const OperationsRegistry: React.FC<OperationsRegistryProps> = ({
             />
         </div>
         
-        <div className={`flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border transition-all duration-300 ${isManagerUnassigned ? 'border-slate-100 opacity-60 grayscale' : 'border-slate-100'}`}>
+        <div className={`flex items-center justify-between p-5 bg-white dark:bg-slate-700/50 rounded-2xl shadow-sm border transition-all duration-300 ${isManagerUnassigned ? 'border-slate-100 dark:border-slate-600 opacity-60 grayscale' : 'border-slate-100 dark:border-slate-600'}`}>
           <div className="space-y-0.5 overflow-hidden pr-4">
-             <p className="text-xs font-bold uppercase text-slate-900 tracking-widest">Daily Shop Status</p>
-             <p className="text-xs font-semibold text-slate-400 uppercase">
+             <p className="text-xs font-bold uppercase text-slate-900 dark:text-slate-100 tracking-widest">Daily Shop Status</p>
+             <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase">
                {isManagerUnassigned ? 'Manager Assignment Required' : 'Current Operational Window'}
              </p>
           </div>

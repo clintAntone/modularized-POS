@@ -352,10 +352,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
       {/* Submission History */}
       {myRequests.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Submission History</span>
-            <div className="h-px flex-1 bg-slate-100" />
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide">Submission History</span>
+            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-700" />
           </div>
           <div className="space-y-2">
             {myRequests.map(req => {
@@ -366,17 +366,17 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 : 'bg-amber-100 text-amber-700';
               const statusLabel = req.status === 'APPROVED' ? 'Approved' : req.status === 'REJECTED' ? 'Rejected' : 'Pending';
               return (
-                <div key={req.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div key={req.id} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-700">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusStyle}`}>{statusLabel}</span>
-                      <span className="text-xs font-bold text-slate-500">{req.data?.reportDate}</span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{req.data?.reportDate}</span>
                     </div>
                     {req.reviewNote && (
-                      <p className="text-xs font-medium text-slate-600 italic mt-1">"{req.reviewNote}"</p>
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300 italic mt-1">"{req.reviewNote}"</p>
                     )}
                   </div>
-                  <span className="text-xs font-bold text-slate-400 shrink-0 tabular-nums">{new Date(req.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 shrink-0 tabular-nums">{new Date(req.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
                 </div>
               );
             })}
@@ -385,23 +385,23 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       )}
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4 space-y-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-base shadow-inner shrink-0">📝</div>
           <div>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none">Backfill Report</h2>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Submit historical data for approval</p>
+            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter leading-none">Backfill Report</h2>
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide mt-0.5">Submit historical data for approval</p>
           </div>
         </div>
-        <div className="border-t border-slate-100 pt-3">
-          <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1.5">Target Date</label>
+        <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
+          <label className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide block mb-1.5">Target Date</label>
           <input
             type="date"
             required
             max={yesterday}
             value={formData.date}
             onChange={e => setFormData({ ...formData, date: e.target.value })}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-black text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
           />
         </div>
       </div>
@@ -409,30 +409,30 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
       <form onSubmit={handleSubmit} className="space-y-3">
 
         {/* Gross Sales */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Gross Sales</span>
-            <div className="h-px flex-1 bg-slate-100"></div>
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide">Gross Sales</span>
+            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-700"></div>
             <span className="text-xs font-black text-emerald-500 uppercase tracking-widest">Revenue</span>
           </div>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">₱</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 font-black text-sm">₱</span>
             <input
               type="number"
               required
               placeholder="0"
               value={formData.grossSales}
               onChange={e => setFormData({ ...formData, grossSales: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-[15px] font-black text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-4 py-3 text-[15px] font-black text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
             />
           </div>
         </div>
 
         {/* Operational Expenses */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Operational Expenses</span>
-            <div className="h-px flex-1 bg-slate-100"></div>
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide">Operational Expenses</span>
+            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-700"></div>
             {totals.ops > 0 && (
               <span className="text-xs font-black text-rose-500 tabular-nums">−₱{totals.ops.toLocaleString()}</span>
             )}
@@ -456,8 +456,8 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               })}
               {/* Manual expense entries */}
               {expenseItems.map((item, idx) => (
-                <div key={item.id || idx} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-slate-50 border-slate-100">
-                  <span className="flex-1 text-xs font-bold text-slate-700 uppercase truncate">{item.name}</span>
+                <div key={item.id || idx} className="flex items-center gap-2 rounded-xl px-3 py-2 border bg-slate-50 dark:bg-slate-700/50 border-slate-100 dark:border-slate-700">
+                  <span className="flex-1 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase truncate">{item.name}</span>
                   <span className="text-xs font-black text-rose-500 tabular-nums shrink-0">₱{Number(item.amount).toLocaleString()}</span>
                   <button
                     type="button"
@@ -477,18 +477,18 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               value={newExpenseName}
               onChange={e => setNewExpenseName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpenseItem(); } }}
-              className="w-full sm:flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
+              className="w-full sm:flex-1 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
             />
             <div className="flex gap-2">
             <div className="relative flex-1 sm:w-28 sm:flex-none">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">₱</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-xs font-black">₱</span>
               <input
                 type="number"
                 placeholder="0"
                 value={newExpenseAmount}
                 onChange={e => setNewExpenseAmount(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpenseItem(); } }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-rose-400 focus:outline-none transition-all"
               />
             </div>
             <button
@@ -500,17 +500,17 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
             </div>
           </div>
           {expenseItems.length === 0 && (
-            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No expenses added yet</p>
+            <p className="text-xs font-bold text-slate-300 dark:text-slate-500 uppercase tracking-widest mt-2 ml-1">No expenses added yet</p>
           )}
         </div>
 
         {/* Rent & Bills Deposit (legacy) / Vault Deposit (vault-era) */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide">
               {isLegacy ? 'Rent & Bills Deposit' : 'Vault Deposit'}
             </span>
-            <div className="h-px flex-1 bg-slate-100"></div>
+            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-700"></div>
             {totals.bills > 0 && (
               <span className={`text-xs font-black tabular-nums ${isLegacy ? 'text-indigo-600' : 'text-emerald-600'}`}>
                 ₱{totals.bills.toLocaleString()}
@@ -550,20 +550,20 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                 )}
               </button>
               {depositAmount <= 0 && (
-                <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
+                <p className="text-xs font-bold text-slate-300 dark:text-slate-500 uppercase tracking-widest mt-2 ml-1">No deposit amount configured for this branch</p>
               )}
             </>
           ) : (
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">₱</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-xs font-black">₱</span>
                 <input
                   type="number"
                   placeholder="0"
                   value={newVaultDepositAmount}
                   onChange={e => setNewVaultDepositAmount(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVaultDepositItem(); } }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-6 pr-3 py-2.5 text-xs font-black text-slate-900 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
                 />
               </div>
               <button
@@ -577,10 +577,10 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         </div>
 
         {/* Staff Payroll */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm px-5 py-4">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Staff Payroll</span>
-            <div className="h-px flex-1 bg-slate-100"></div>
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide">Staff Payroll</span>
+            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-700"></div>
             {totals.staffPay > 0 && (
               <span className="text-xs font-black text-amber-600 tabular-nums">−₱{totals.staffPay.toLocaleString()}</span>
             )}
@@ -598,23 +598,23 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                   onChange={e => { setPersonnelSearch(e.target.value); setIsPersonnelOpen(true); }}
                   onFocus={() => setIsPersonnelOpen(true)}
                   onBlur={() => setTimeout(() => setIsPersonnelOpen(false), 150)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
                 />
               </div>
             </div>
             {isPersonnelOpen && personnelResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto no-scrollbar">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto no-scrollbar">
                 {personnelResults.map(emp => (
                   <button
                     key={emp.id}
                     type="button"
                     onMouseDown={() => handleAddStaff(emp)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-50 dark:hover:bg-slate-700 transition-colors text-left"
                   >
                     <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-black shrink-0">{emp.name[0]}</div>
                     <div>
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
-                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{emp.role} · {emp.branchId}</p>
+                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight leading-none">{emp.name}</p>
+                      <p className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide mt-0.5">{emp.role} · {emp.branchId}</p>
                     </div>
                     <span className="ml-auto text-xs font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-lg uppercase tracking-widest">RELIEVER</span>
                   </button>
@@ -631,18 +631,18 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
               const total = (Number(p.commission) || 0) + (Number(p.ot) || 0) + (Number(p.allowance) || 0) - (Number(p.late) || 0);
               const isHalfDay = !!staffPayroll[emp.id]?.isHalfDay;
               return (
-                <div key={emp.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isReliever ? 'bg-violet-50 border-violet-200' : isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+                <div key={emp.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isReliever ? 'bg-violet-50 border-violet-200' : isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
                   {/* Card header */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-inherit">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-tight">{emp.name}</p>
+                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight leading-tight">{emp.name}</p>
                       {isReliever
                         ? <span className="text-xs font-black text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Reliever · pay → expenses</span>
-                        : <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{emp.role}</p>
+                        : <p className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide mt-0.5">{emp.role}</p>
                       }
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none">Net Pay</p>
+                      <p className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide leading-none">Net Pay</p>
                       <p className={`text-sm font-black tabular-nums leading-tight ${isReliever ? 'text-violet-700' : total >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>₱{total.toLocaleString()}</p>
                     </div>
                     <button
@@ -666,7 +666,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                             <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
                             <input
                               type="number" placeholder="0"
-                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-amber-500'}`}
                               value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
                               onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
                             />
@@ -685,7 +685,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                             <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs font-black ${isDeduction ? 'text-rose-400' : 'text-slate-400'}`}>₱</span>
                             <input
                               type="number" placeholder="0"
-                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 text-slate-900 focus:ring-amber-500'}`}
+                              className={`w-full border-none rounded-lg pl-5 pr-2 py-2 text-xs font-black focus:ring-2 focus:outline-none ${isDeduction ? 'bg-rose-50 text-rose-600 focus:ring-rose-400' : 'bg-slate-100/60 dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-amber-500'}`}
                               value={staffPayroll[emp.id]?.[field as keyof typeof p] ?? ''}
                               onChange={e => handlePayrollChange(emp.id, field, e.target.value)}
                             />
@@ -702,14 +702,14 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
                     className={`w-full flex items-center justify-between px-4 py-2.5 border-t transition-all active:scale-[0.99] ${
                       isHalfDay
                         ? 'bg-amber-500 border-amber-400 text-white'
-                        : 'bg-white/60 border-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
+                        : 'bg-white/60 dark:bg-slate-800/60 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 hover:border-amber-200'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
                       <span className="text-xs font-semibold uppercase tracking-wide">Half Day</span>
                     </div>
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${isHalfDay ? 'text-white/80' : 'text-slate-300'}`}>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isHalfDay ? 'text-white/80' : 'text-slate-300 dark:text-slate-500'}`}>
                       {isHalfDay ? 'On — allowance halved' : 'Tap to mark'}
                     </span>
                   </button>
@@ -720,23 +720,23 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         </div>
 
         {/* ROI Summary + Notes + Submit */}
-        <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-4 shadow-sm">
 
           {/* KPI strip — 4 items in one row */}
-          <div className="grid grid-cols-4 gap-px bg-slate-100 rounded-xl overflow-hidden mb-4">
-            <div className="bg-white px-2.5 py-2.5">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-none mb-1">Gross</p>
-              <p className="text-xs font-bold text-slate-900 tabular-nums leading-none">₱{totals.gross.toLocaleString()}</p>
+          <div className="grid grid-cols-4 gap-px bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden mb-4">
+            <div className="bg-white dark:bg-slate-800 px-2.5 py-2.5">
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide leading-none mb-1">Gross</p>
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-100 tabular-nums leading-none">₱{totals.gross.toLocaleString()}</p>
             </div>
-            <div className="bg-white px-2.5 py-2.5">
+            <div className="bg-white dark:bg-slate-800 px-2.5 py-2.5">
               <p className="text-xs font-semibold text-amber-500 uppercase tracking-wide leading-none mb-1">Staff Pay</p>
               <p className="text-xs font-bold text-amber-600 tabular-nums leading-none">−₱{totals.staffPay.toLocaleString()}</p>
             </div>
-            <div className="bg-white px-2.5 py-2.5">
+            <div className="bg-white dark:bg-slate-800 px-2.5 py-2.5">
               <p className="text-xs font-semibold text-rose-500 uppercase tracking-wide leading-none mb-1">Expenses</p>
               <p className="text-xs font-bold text-rose-600 tabular-nums leading-none">−₱{totals.ops.toLocaleString()}</p>
             </div>
-            <div className="bg-white px-2.5 py-2.5">
+            <div className="bg-white dark:bg-slate-800 px-2.5 py-2.5">
               <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide leading-none mb-1">Deposit</p>
               <p className="text-xs font-bold text-indigo-600 tabular-nums leading-none">₱{totals.bills.toLocaleString()}</p>
             </div>
@@ -744,7 +744,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
           {/* Projected ROI */}
           <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl mb-4 ${totals.net >= 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}`}>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Projected ROI</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Projected ROI</span>
             <span className={`text-xl font-black tabular-nums ${totals.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {totals.net < 0 ? '−' : ''}₱{Math.abs(totals.net).toLocaleString()}
             </span>
@@ -752,14 +752,14 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide ml-1">Reason / Notes</label>
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">Reason / Notes</label>
               <textarea
                 required
                 rows={2}
                 placeholder="Explain why this backfill is needed..."
                 value={formData.notes}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none placeholder:text-slate-400"
+                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
             <button

@@ -136,7 +136,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
   return (
     <div className={`space-y-6 md:space-y-8 ${UI_THEME.layout.maxContent}`}>
       {/* HEADER SECTION */}
-      <div className={`bg-white ${UI_THEME.layout.cardPadding} ${UI_THEME.radius.card} shadow-sm border border-slate-200 space-y-6 no-print`}>
+      <div className={`bg-white dark:bg-slate-800 ${UI_THEME.layout.cardPadding} ${UI_THEME.radius.card} shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 no-print`}>
         <div className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
@@ -172,7 +172,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                 placeholder="SEARCH BRANCH..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
+                className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-4 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-600 rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
             />
           </div>
 
@@ -191,12 +191,12 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             <div className="flex flex-col lg:flex-row items-stretch gap-6">
               <div className="flex-1 space-y-2">
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Access Status</p>
-                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner h-14">
+                <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-inner h-14">
                   {(['all', 'active', 'inactive'] as const).map((val) => (
                     <button
                       key={val}
                       onClick={() => { setStatusFilter(val); playSound('click'); }}
-                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${statusFilter === val ? 'bg-white text-slate-900 shadow-md scale-[1.02] border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${statusFilter === val ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-md scale-[1.02] border border-slate-100 dark:border-slate-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                     >
                       {val === 'all' ? 'All' : val === 'active' ? 'Active' : 'Inactive'}
                     </button>
@@ -206,12 +206,12 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
 
               <div className="flex-1 space-y-2">
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Live Status</p>
-                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner h-14">
+                <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-inner h-14">
                   {(['all', 'live', 'closed'] as const).map((val) => (
                     <button
                       key={val}
                       onClick={() => { setLiveFilter(val); playSound('click'); }}
-                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-md scale-[1.02] border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${liveFilter === val ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-md scale-[1.02] border border-slate-100 dark:border-slate-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                     >
                       {val === 'all' ? 'All' : val === 'live' ? 'Online' : 'Offline'}
                     </button>
@@ -221,12 +221,12 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
 
               <div className="flex-1 space-y-2">
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Manager Status</p>
-                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner h-14">
+                <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-inner h-14">
                   {(['all', 'has_manager', 'no_manager'] as const).map((val) => (
                     <button
                       key={val}
                       onClick={() => { setManagerFilter(val); playSound('click'); }}
-                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${managerFilter === val ? 'bg-white text-slate-900 shadow-md scale-[1.02] border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${managerFilter === val ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-md scale-[1.02] border border-slate-100 dark:border-slate-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                     >
                       {val === 'all' ? 'All' : val === 'has_manager' ? 'Has Manager' : 'No Manager'}
                     </button>
@@ -295,11 +295,11 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
         )}
 
         {/* DESKTOP TABLE */}
-        <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-100 shadow-sm overflow-hidden`}>
+        <div className={`hidden md:block bg-white dark:bg-slate-800 ${UI_THEME.radius.card} border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-100">
+                <tr className="bg-slate-50/80 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
                   <th className={`px-8 py-4 w-[30%] ${UI_THEME.text.metadata}`}>Branch</th>
                   <th className={`px-4 py-4 w-[18%] ${UI_THEME.text.metadata}`}>Manager</th>
                   <th className={`px-4 py-4 w-[11%] text-center ${UI_THEME.text.metadata}`}>Access</th>
@@ -309,19 +309,17 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                   <th className={`px-8 py-4 w-[12%] text-right ${UI_THEME.text.metadata}`}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                 {paginatedBranches.map(branch => (
                   <tr
                     key={branch.id}
-                    className={`group transition-colors relative ${
-                      branch.isOpen ? 'hover:bg-slate-50/60' : 'hover:bg-slate-50/60'
-                    } ${!branch.isEnabled ? 'opacity-50' : ''}`}
+                    className={`group transition-colors relative hover:bg-slate-50/60 dark:hover:bg-slate-700/50 ${!branch.isEnabled ? 'opacity-50' : ''}`}
                   >
                     {/* Live accent strip */}
                     <td className="px-8 py-4 relative">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-black text-slate-900 uppercase text-sm tracking-tight group-hover:text-emerald-700 transition-colors leading-none">{branch.name}</p>
+                          <p className="font-black text-slate-900 dark:text-slate-100 uppercase text-sm tracking-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-none">{branch.name}</p>
                           {branch.faceIdEnabled === false && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-600 text-xs font-semibold uppercase tracking-wide shrink-0">
                               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
@@ -373,14 +371,14 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
                       }
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-600">
                         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][branch.weeklyCutoff]}
                       </span>
                     </td>
                     <td className="px-8 py-4 text-right">
                       <button
                         onClick={() => { playSound('click'); onEdit(branch.id); }}
-                        className="px-4 py-1.5 bg-slate-100 text-slate-600 font-black rounded-xl text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white active:scale-95 transition-all"
+                        className="px-4 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-xl text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white active:scale-95 transition-all"
                       >
                         Config
                       </button>

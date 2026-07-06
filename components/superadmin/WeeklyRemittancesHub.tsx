@@ -1595,6 +1595,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
                   const distributableRoi = adjustedRoi - levyCut;
                   const hasAdj = rowAdj.length > 0;
+                  const owners: any[] = Array.isArray(report.owners) ? report.owners : [];
                   const sub = subLookup[`${report.branchId}::${group.label}`];
                   const rKey = `${report.branchId}::${group.label}`;
                   const cardId = `branch-card-${report.branchId}-${group.label.replace(/[\s,/]/g, '-')}`;
@@ -1785,13 +1786,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         )}
 
                         {/* Dotted separator before owners */}
-                        {report.owners.length > 0 && (
+                        {owners.length > 0 && (
                           <>
                             <div className="border-t-2 border-dashed border-slate-200 my-2" />
                             <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                               Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                             </div>
-                            {report.owners.map((owner: any, oIdx: number) => {
+                            {owners.map((owner: any, oIdx: number) => {
                               const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
                               const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
                               return (
@@ -1804,13 +1805,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 </div>
                               );
                             })}
-                            {report.owners.length > 1 && (
+                            {owners.length > 1 && (
                               <>
                                 <div className="border-t border-dotted border-slate-200 my-1" />
                                 <div className="flex justify-between py-1">
                                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</span>
                                   <span className="font-black text-sm tabular-nums text-slate-800">
-                                    {fmt(report.owners.reduce((s: number, o: any) => {
+                                    {fmt(owners.reduce((s: number, o: any) => {
                                       const ot = ownerAdj.filter(a => a.targetOwner === o.name).reduce((sum, a) => sum + a.amount, 0);
                                       return s + distributableRoi * (o.percentage / 100) + ot;
                                     }, 0))}
@@ -1820,7 +1821,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             )}
                           </>
                         )}
-                        {report.owners.length === 0 && (
+                        {owners.length === 0 && (
                           <p className="text-xs text-slate-400 italic py-2">No owners configured</p>
                         )}
 
@@ -1861,7 +1862,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           )}
 
                           {!isReadOnly && sub?.status !== 'approved' && adjFormKey !== rKey && (
-                            <div className={`grid gap-2 mt-2 ${report.owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                            <div className={`grid gap-2 mt-2 ${owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
                               <button
                                 onClick={() => { setAdjFormMode('add'); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setIsVaultDeposit(false); setAdjFormKey(rKey); }}
                                 className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
@@ -1886,7 +1887,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
                                 </div>
                               </button>
-                              {report.owners.length >= 2 && (
+                              {owners.length >= 2 && (
                                 <button
                                   onClick={() => { setAdjFormMode('transfer'); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setIsVaultDeposit(false); setAdjFormKey(rKey); }}
                                   className="col-span-2 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100"
@@ -1919,7 +1920,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   <div className="space-y-1">
                                     <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">From (pays)</p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {report.owners.map((o: any) => (
+                                      {owners.map((o: any) => (
                                         <button key={o.name} type="button"
                                           onClick={() => { setAdjTransferFrom(o.name); if (o.name === adjTransferTo) setAdjTransferTo(''); }}
                                           className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${adjTransferFrom === o.name ? 'bg-rose-500 text-white shadow-sm' : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'}`}
@@ -1930,7 +1931,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   <div className="space-y-1">
                                     <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">To (receives)</p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {report.owners.filter((o: any) => o.name !== adjTransferFrom).map((o: any) => (
+                                      {owners.filter((o: any) => o.name !== adjTransferFrom).map((o: any) => (
                                         <button key={o.name} type="button"
                                           onClick={() => setAdjTransferTo(o.name)}
                                           className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${adjTransferTo === o.name ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'}`}
@@ -2005,14 +2006,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               />
 
                               {/* Hide owners when vault deposit is checked */}
-                              {report.owners.length > 0 && !isVaultDeposit && (
+                              {owners.length > 0 && !isVaultDeposit && (
                                 <select
                                   value={adjTargetOwner}
                                   onChange={e => setAdjTargetOwner(e.target.value)}
                                   className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none focus:border-slate-400 transition-colors appearance-none"
                                 >
                                   <option value="">All Owners (Global)</option>
-                                  {report.owners.map((o: any) => (
+                                  {owners.map((o: any) => (
                                     <option key={o.name} value={o.name}>{o.name}</option>
                                   ))}
                                 </select>

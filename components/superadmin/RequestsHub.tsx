@@ -692,34 +692,34 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                     return (
                     <div className="space-y-4">
                       {/* Before / After summary */}
-                      <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                      <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                         {/* Column headers */}
-                        <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100">
+                        <div className="grid grid-cols-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                           <div className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Metric</div>
-                          <div className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right border-l border-slate-100">
+                          <div className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right border-l border-slate-100 dark:border-slate-700">
                             {prior ? 'Before' : '—'}
                           </div>
-                          <div className="px-4 py-2.5 text-xs font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100">After</div>
+                          <div className="px-4 py-2.5 text-xs font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100 dark:border-slate-700">After</div>
                         </div>
                         {rows.map(({ label, before, after, roiColor }) => {
                           const changed = before !== null && before !== after;
                           const delta = before !== null ? after - before : null;
                           return (
-                            <div key={label} className={`grid grid-cols-3 border-b border-slate-50 last:border-0 ${changed ? 'bg-amber-50/40' : ''}`}>
-                              <div className="px-4 py-3 text-xs font-black text-slate-600 uppercase tracking-widest">{label}</div>
-                              <div className="px-4 py-3 text-right border-l border-slate-100">
+                            <div key={label} className={`grid grid-cols-3 border-b border-slate-50 dark:border-slate-700/50 last:border-0 ${changed ? 'bg-amber-50/40 dark:bg-amber-900/20' : 'dark:bg-slate-800/50'}`}>
+                              <div className="px-4 py-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{label}</div>
+                              <div className="px-4 py-3 text-right border-l border-slate-100 dark:border-slate-700">
                                 {before !== null
-                                  ? <span className={`text-sm font-black tabular-nums ${changed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{fmt(before)}</span>
-                                  : <span className="text-xs text-slate-300">—</span>
+                                  ? <span className={`text-sm font-black tabular-nums ${changed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{fmt(before)}</span>
+                                  : <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
                                 }
                               </div>
-                              <div className="px-4 py-3 text-right border-l border-slate-100 flex flex-col items-end gap-0.5">
+                              <div className="px-4 py-3 text-right border-l border-slate-100 dark:border-slate-700 flex flex-col items-end gap-0.5">
                                 {!changed && before !== null ? (
-                                  <span className="text-xs font-black text-slate-300 uppercase tracking-widest">No Changes</span>
+                                  <span className="text-xs font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">No Changes</span>
                                 ) : (
                                   <>
                                     <span className={`text-sm font-black tabular-nums ${
-                                      roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900'
+                                      roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900 dark:text-slate-100'
                                     }`}>{fmt(after)}</span>
                                     {delta !== null && changed && (
                                       <span className={`text-xs font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
