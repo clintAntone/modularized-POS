@@ -822,20 +822,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               <span className="text-slate-500">Vault / Bills</span>
               <span className="font-bold text-rose-600 tabular-nums">-{fmt(agg.totalVaultProvision)}</span>
             </div>
-
             <div className="border-t-2 border-dashed border-slate-200 my-2" />
 
+            {/* NET ROI = pure arithmetic always */}
             <div className="flex justify-between py-2">
-              <span className="font-black text-slate-900 text-sm uppercase tracking-wide">{hasAdj ? 'Adjusted ROI' : 'Net ROI'}</span>
-              {loadingAdj ? (
-                <div className="h-6 w-24 bg-slate-100 rounded animate-pulse" />
-              ) : (
-                <span className={`font-black text-lg tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(adjustedRoi)}</span>
-              )}
+              <span className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide">Net ROI</span>
+              <span className={`font-black text-lg tabular-nums ${agg.netRoi < 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{agg.netRoi < 0 ? '−' : ''}{fmt(Math.abs(agg.netRoi))}</span>
             </div>
-            {!loadingAdj && hasAdj && (
-              <div className="text-xs text-slate-400 text-right -mt-1 mb-1">
-                Base {fmt(agg.netRoi)} {totalGlobalAdj >= 0 ? '+' : '−'} {fmt(Math.abs(totalGlobalAdj))} adj
+
+            {/* Vault deposit / global adjustments shown explicitly below NET ROI */}
+            {!loadingAdj && totalGlobalAdj !== 0 && (
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                  {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
+                </span>
               </div>
             )}
 

@@ -26,6 +26,8 @@ const App: React.FC = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [isTimeSynced, setIsTimeSynced] = useState(false);
+  const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
+  const [showBranchPicker, setShowBranchPicker] = useState(false);
 
   const isSupabaseConfigured = !!supabase;
 
@@ -534,7 +536,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           </div>
         )}
 
-        <header className="sticky top-0 left-0 right-0 z-[1000] no-print w-full bg-white border-b border-slate-100 shadow-sm">
+        <header className="sticky top-0 left-0 right-0 z-[1001] no-print w-full bg-white border-b border-slate-100 shadow-sm">
           <div className={`${UI_THEME.layout.maxContent} px-6 sm:px-10 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3`}>
             {/* Left: logo + name */}
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -545,8 +547,46 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
               </div>
             </div>
 
-            {/* Right: theme toggle + logout */}
+            {/* Right: preview + theme toggle + logout */}
             <div className="flex items-center gap-2 shrink-0">
+              {auth.user?.role === UserRole.SUPERADMIN && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBranchPicker(v => !v)}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-indigo-500 hover:bg-indigo-50 active:scale-95 transition-all dark:bg-slate-800 dark:text-indigo-400 dark:border dark:border-slate-600 dark:hover:bg-slate-700"
+                    title="View as Branch"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  {showBranchPicker && (
+                    <>
+                      <div className="fixed inset-0 z-[9998]" onClick={() => setShowBranchPicker(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-[9999] overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+                        <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">View as Branch</p>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto py-1">
+                          {branches.filter(b => b.isActive !== false).map(b => (
+                            <button
+                              key={b.id}
+                              onClick={() => { setPreviewBranchId(b.id); setShowBranchPicker(false); }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2.5"
+                            >
+                              <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400">{b.name.charAt(0)}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{b.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               <button
                 onClick={toggleTheme}
                 className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-400 dark:border dark:border-slate-600 dark:hover:bg-slate-700"
@@ -567,8 +607,34 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
 
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>
-            {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
-                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
+            {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) && previewBranchId ? (() => {
+              const previewBranch = branches.find(b => b.id === previewBranchId);
+              if (!previewBranch || !auth.user) return null;
+              const previewUser = { ...auth.user, role: UserRole.BRANCH_MANAGER, branchId: previewBranchId };
+              return (
+                <>
+                  {/* Preview mode banner */}
+                  <div className="sticky top-14 sm:top-[4.5rem] z-[999] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between gap-3 no-print">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span className="text-xs font-black uppercase tracking-wide">Previewing as Manager</span>
+                      <span className="text-xs font-semibold text-indigo-200 truncate">— {previewBranch.name}</span>
+                    </div>
+                    <button
+                      onClick={() => setPreviewBranchId(null)}
+                      className="shrink-0 text-xs font-black uppercase tracking-wide bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors active:scale-95"
+                    >
+                      Exit Preview
+                    </button>
+                  </div>
+                  <BranchManagerDashboard user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={null} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} />
+                </>
+              );
+            })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
+                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} onPreviewBranch={setPreviewBranchId} />
             ) : (
                 auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
             )}

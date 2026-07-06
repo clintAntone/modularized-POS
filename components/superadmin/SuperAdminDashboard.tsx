@@ -65,6 +65,7 @@ interface SuperAdminDashboardProps {
   onSyncStatusChange?: (isSyncing: boolean) => void;
   fetchSystemConfig?: () => Promise<void>;
   permissions?: PortalPermissions; // undefined = superadmin (full access)
+  onPreviewBranch?: (branchId: string) => void;
 }
 
 type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'service_templates';
@@ -87,7 +88,7 @@ const LiveClock = memo(() => {
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   user, branches, transactions, expenses, auditLogs, salesReports, salesReportsLoading = false, vaultTransactions = [],
-  employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, fetchSystemConfig, permissions,
+  employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, fetchSystemConfig, permissions, onPreviewBranch,
 }) => {
   const queryClient = useQueryClient();
   const isPortalUser = !!permissions;
@@ -186,17 +187,19 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               </svg>
               <LiveClock />
             </div>
-            {isPortalUser && (
-              <button
-                onClick={openMyAccount}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors active:scale-95"
-              >
-                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-emerald-700 uppercase leading-none">{(user.username || '?').charAt(0)}</span>
-                </div>
-                <span className="text-xs font-semibold text-slate-600 hidden sm:block">{user.username}</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {isPortalUser && (
+                <button
+                  onClick={openMyAccount}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors active:scale-95"
+                >
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-emerald-700 uppercase leading-none">{(user.username || '?').charAt(0)}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 hidden sm:block">{user.username}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

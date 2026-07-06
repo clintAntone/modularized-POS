@@ -1589,7 +1589,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const globalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
                   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
-                  const adjustedRoi = report.netRoi + totalGlobalAdj;
+                  const pureNetRoi = report.grossSales - report.totalStaffPay - report.totalExpenses - report.totalVaultProvision;
+                  const adjustedRoi = pureNetRoi + totalGlobalAdj;
                   const levy = report.groupLevy as { name: string; percentage: number } | null;
                   const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
                   const distributableRoi = adjustedRoi - levyCut;
@@ -1758,14 +1759,17 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         {/* Dotted separator */}
                         <div className="border-t-2 border-dashed border-slate-200 my-2" />
 
-                        {/* Net ROI */}
+                        {/* Net ROI — always pure arithmetic */}
                         <div className="flex justify-between py-2">
-                          <span className="font-black text-slate-900 text-sm uppercase tracking-wide">{hasAdj ? 'Adjusted ROI' : 'Net ROI'}</span>
-                          <span className={`font-black text-lg tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(adjustedRoi)}</span>
+                          <span className="font-black text-slate-900 text-sm uppercase tracking-wide">Net ROI</span>
+                          <span className={`font-black text-lg tabular-nums ${pureNetRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{pureNetRoi < 0 ? '−' : ''}{fmt(Math.abs(pureNetRoi))}</span>
                         </div>
-                        {hasAdj && (
-                          <div className="text-xs text-slate-400 text-right -mt-1 mb-1">
-                            Base {fmt(report.netRoi)} {totalGlobalAdj >= 0 ? '+' : '−'} {fmt(Math.abs(totalGlobalAdj))} adj
+                        {totalGlobalAdj !== 0 && (
+                          <div className="flex justify-between py-1.5">
+                            <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                            <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                              {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
+                            </span>
                           </div>
                         )}
 
