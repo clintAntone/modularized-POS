@@ -98,30 +98,15 @@ export function useAutoSaveReport({
         // (isVaultActive requires vault.target > 0, which caused provision to be saved as 0
         // for target-less vault branches even when real deposits existed.)
         const isVaultBranch = (branch.vaultEnabled ?? false) && branchVault !== null;
-        // Re-fetch vault deposits and live balance fresh from DB — bypasses React Query stale cache.
         let savedVaultProvision = 0;
-        let liveVaultBalance = branchVault?.balance ?? 0;
         if (isVaultBranch) {
-          // Use next-day boundary (exclusive) so no deposit near midnight is ever missed.
-          const nextDayDate = new Date(`${todayStr}T00:00:00+08:00`);
-          nextDayDate.setDate(nextDayDate.getDate() + 1);
-          const nextDayStr = nextDayDate.toISOString().slice(0, 10);
-          const [{ data: freshDeposits }, { data: freshVault }] = await Promise.all([
-            supabase
-              .from(DB_TABLES.VAULT_TRANSACTIONS)
-              .select(DB_COLUMNS.AMOUNT)
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-              .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-              .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00+08:00`)
-              .lt(DB_COLUMNS.TIMESTAMP, `${nextDayStr}T00:00:00+08:00`),
-            supabase
-              .from(DB_TABLES.BRANCH_VAULTS)
-              .select(DB_COLUMNS.VAULT_BALANCE)
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-              .single(),
-          ]);
-          savedVaultProvision = (freshDeposits || []).reduce((s, t) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0);
-          liveVaultBalance = freshVault?.[DB_COLUMNS.VAULT_BALANCE] ?? liveVaultBalance;
+          // Compute from todayVaultTxs state — avoids DB round-trip timing issues where
+          // a freshly committed INSERT may not be visible on a different PgBouncer connection.
+          // By the time this fires (3s debounce), todayVaultTxs has been refreshed via
+          // realtime subscription or onRefresh(), so the latest deposit is already reflected.
+          savedVaultProvision = todayVaultTxs
+            .filter(t => t.type === 'DEPOSIT')
+            .reduce((s, t) => s + t.amount, 0);
         }
 
         // Vault-covered expenses (expenses table VAULT_WITHDRAWAL records) — authoritative source

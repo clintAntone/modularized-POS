@@ -26,7 +26,7 @@ import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole } from '../lib/payroll';
 import { supabase } from '../lib/supabase';
-import { getTrueDate, formatManilaDate, formatManilaTime } from '../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr } from '../lib/time';
 import { DB_TABLES } from '../constants/db_schema';
 import { Clock, Store, ChevronRight } from 'lucide-react';
 
@@ -195,7 +195,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   });
 
   const todayVaultTxs = useMemo(() =>
-    (props.vaultTransactions ?? []).filter(t => t.branchId === props.branch.id && t.timestamp?.startsWith(todayStr)),
+    (props.vaultTransactions ?? []).filter(t => t.branchId === props.branch.id && toManilaDateStr(t.timestamp) === todayStr),
   [props.vaultTransactions, props.branch.id, todayStr]);
 
   const { autoSyncStatus, forceSync } = useAutoSaveReport({

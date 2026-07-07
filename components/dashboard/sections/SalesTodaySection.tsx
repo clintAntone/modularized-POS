@@ -673,17 +673,13 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       if (vaultErr) throw vaultErr;
     }
 
-    // Sync total_vault_provision to sales_reports immediately so it doesn't
-    // depend on the auto-save chain catching up (which can lag or miss entirely).
+    // Write total_vault_provision directly to sales_reports as part of the deposit operation.
+    // Multiple deposits per day are allowed but consolidated into one vault_transaction record
+    // (each deposit replaces the previous amount). So totalProvision = amount = current total.
+    // depositDelta adjusts net_roi correctly whether this is a new deposit or a replacement.
     try {
-      const { data: allDeposits } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .select(DB_COLUMNS.AMOUNT)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-        .gte(DB_COLUMNS.TIMESTAMP, `${depositDate}T00:00:00+08:00`)
-        .lt(DB_COLUMNS.TIMESTAMP, `${depositDate}T23:59:59.999+08:00`);
-      const totalProvision = (allDeposits || []).reduce((s, t) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0);
+      const depositDelta = amount - (existingDeposit?.amount ?? 0);
+      const totalProvision = amount;
 
       const { data: existingReport } = await supabase
         .from(DB_TABLES.SALES_REPORTS)
@@ -691,29 +687,19 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         .eq(DB_COLUMNS.ID, reportId)
         .maybeSingle();
 
-      if (existingReport) {
-        const prevProvision = Number(existingReport[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
-        const prevNet = Number(existingReport[DB_COLUMNS.NET_ROI] ?? 0);
-        const provisionDelta = totalProvision - prevProvision;
-        const newNet = Math.max(0, prevNet - provisionDelta);
+      const prevNet = Number(existingReport?.[DB_COLUMNS.NET_ROI] ?? 0);
+      const newNet = Math.max(0, prevNet - depositDelta);
 
-        await supabase
-          .from(DB_TABLES.SALES_REPORTS)
-          .update({
+      await supabase
+        .from(DB_TABLES.SALES_REPORTS)
+        .upsert(
+          {
+            [DB_COLUMNS.ID]: reportId,
             [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalProvision,
-            [DB_COLUMNS.NET_ROI]: newNet,
-          })
-          .eq(DB_COLUMNS.ID, reportId);
-      } else {
-        // No report exists yet — write only the vault provision so it's available
-        // when auto-save runs and computes net_roi from scratch.
-        await supabase
-          .from(DB_TABLES.SALES_REPORTS)
-          .upsert(
-            { [DB_COLUMNS.ID]: reportId, [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalProvision },
-            { onConflict: DB_COLUMNS.ID },
-          );
-      }
+            ...(existingReport ? { [DB_COLUMNS.NET_ROI]: newNet } : {}),
+          },
+          { onConflict: DB_COLUMNS.ID },
+        );
     } catch (syncErr) {
       console.error('[VaultDeposit] Failed to sync to sales_reports:', syncErr);
     }
