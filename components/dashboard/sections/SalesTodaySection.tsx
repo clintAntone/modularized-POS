@@ -704,11 +704,21 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             [DB_COLUMNS.NET_ROI]: newNet,
           })
           .eq(DB_COLUMNS.ID, reportId);
+      } else {
+        // No report exists yet — write only the vault provision so it's available
+        // when auto-save runs and computes net_roi from scratch.
+        await supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .upsert(
+            { [DB_COLUMNS.ID]: reportId, [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalProvision },
+            { onConflict: DB_COLUMNS.ID },
+          );
       }
     } catch (syncErr) {
       console.error('[VaultDeposit] Failed to sync to sales_reports:', syncErr);
     }
 
+    onForceSync?.();
     onRefresh?.();
   };
 

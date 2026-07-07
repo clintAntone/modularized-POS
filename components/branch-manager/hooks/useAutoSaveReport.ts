@@ -93,7 +93,11 @@ export function useAutoSaveReport({
 
         const reportId = `${branch.id}_${todayStr.replace(/-/g, '')}`;
 
-        const isVaultBranch = totals.isVaultActive;
+        // Use branch.vaultEnabled + branchVault presence — NOT totals.isVaultActive — so that
+        // vault provision is tracked even for branches with vault enabled but no target set.
+        // (isVaultActive requires vault.target > 0, which caused provision to be saved as 0
+        // for target-less vault branches even when real deposits existed.)
+        const isVaultBranch = (branch.vaultEnabled ?? false) && branchVault !== null;
         // Re-fetch vault deposits and live balance fresh from DB — bypasses React Query stale cache.
         let savedVaultProvision = 0;
         let liveVaultBalance = branchVault?.balance ?? 0;
@@ -126,6 +130,19 @@ export function useAutoSaveReport({
           .filter(e => e.category === 'VAULT_WITHDRAWAL')
           .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
+        // net_roi computation:
+        // - isVaultActive=true (target>0): useTodayData already deducted vault from totals.net — use as-is
+        // - isVaultBranch but isVaultActive=false (target=0): totals.net did NOT deduct vault — subtract savedVaultProvision here
+        // - non-vault branch: legacy path, subtract provisionExp
+        let netRoi: number;
+        if (totals.isVaultActive) {
+          netRoi = totals.net;
+        } else if (isVaultBranch) {
+          netRoi = Math.max(0, totals.net - savedVaultProvision);
+        } else {
+          netRoi = totals.net - totals.provisionExp;
+        }
+
         const basePayload = {
           [DB_COLUMNS.ID]: reportId,
           [DB_COLUMNS.BRANCH_ID]: branch.id,
@@ -134,10 +151,7 @@ export function useAutoSaveReport({
           [DB_COLUMNS.GROSS_SALES]: totals.gross,
           [DB_COLUMNS.TOTAL_STAFF_PAY]: totals.totalStaffLiability,
           [DB_COLUMNS.TOTAL_EXPENSES]: Math.max(0, totals.operationalExp - vaultCoveredExp),
-          // For vault branches: totals.net already deducts vault deposit (useTodayData
-          // subtracts it in rawNet). Do NOT subtract savedVaultProvision again or it
-          // double-counts the deposit. For non-vault branches keep the legacy behaviour.
-          [DB_COLUMNS.NET_ROI]: isVaultBranch ? totals.net : (totals.net - totals.provisionExp),
+          [DB_COLUMNS.NET_ROI]: netRoi,
           [DB_COLUMNS.SESSION_DATA]: todayTxs.map(t => ({
             ...t,
             settlement: t.paymentMethod?.toLowerCase() || 'cash',

@@ -83,6 +83,8 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   // Draft state for the per-service branch assignment modal
   const [draftBranchIds, setDraftBranchIds] = useState<string[]>([]);
   const [isAssignSaving, setIsAssignSaving] = useState(false);
+  const [branchSearch, setBranchSearch] = useState('');
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<ServiceTemplate | null>(null);
   const [saveConfirm, setSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -658,7 +660,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       {/* Assign button */}
                       {!isReadOnly && (
                         <button
-                          onClick={e => { e.stopPropagation(); setManagingTemplate(t); setDraftBranchIds(assignedBranches.map(b => b.id)); playSound('click'); }}
+                          onClick={e => { e.stopPropagation(); setManagingTemplate(t); setDraftBranchIds(assignedBranches.map(b => b.id)); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
                           onMouseDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all shrink-0 ${
@@ -868,83 +870,158 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
       {/* ── Branch Assignments Modal ── */}
       {managingTemplate && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+        <div
+          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200"
+          onClick={() => branchDropdownOpen && setBranchDropdownOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
 
             {/* Header */}
-            <div className="px-6 pt-6 pb-4 shrink-0">
+            <div className="px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-black text-slate-900 leading-tight truncate">{managingTemplate.name}</h3>
+                  <h3 className="text-sm font-black text-slate-900 leading-tight">{managingTemplate.name}</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Default price: <span className="font-bold text-slate-600">₱{managingTemplate.default_price.toLocaleString()}</span></p>
                 </div>
                 <button
-                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); }}
+                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); }}
                   className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Summary pill */}
-              <div className="mt-3 flex items-center gap-2">
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold uppercase tracking-wide">
-                  {draftBranchIds.length} branch{draftBranchIds.length !== 1 ? 'es' : ''} selected
-                </span>
-                {draftBranchIds.length > 0 && !isReadOnly && (
+              {/* Branch picker — dropdown trigger */}
+              {!isReadOnly && (
+                <div className="mt-3 relative">
                   <button
-                    onClick={() => setDraftBranchIds([])}
-                    className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Branch list */}
-            <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1.5">
-              {branches.map(b => {
-                const inDraft = draftBranchIds.includes(b.id);
-                const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
-                return (
-                  <div
-                    key={b.id}
-                    className={`rounded-2xl border-2 overflow-hidden transition-all ${
-                      inDraft ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 bg-white'
+                    onClick={() => { setBranchDropdownOpen(o => !o); setBranchSearch(''); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 border rounded-xl text-left transition-all ${
+                      branchDropdownOpen ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
                     }`}
                   >
-                    {/* Branch row — tap to toggle */}
-                    <button
-                      disabled={isReadOnly}
-                      onClick={() => setDraftBranchIds(prev =>
-                        prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
-                      )}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
-                    >
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                        inDraft ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'
-                      }`}>
-                        {inDraft && (
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h12M3 17h6" />
+                    </svg>
+                    <span className="flex-1 text-xs font-semibold text-slate-500">
+                      {draftBranchIds.length === 0 ? 'Select branches…' : `${draftBranchIds.length} branch${draftBranchIds.length !== 1 ? 'es' : ''} selected`}
+                    </span>
+                    {draftBranchIds.length > 0 && (
+                      <span
+                        role="button"
+                        onClick={e => { e.stopPropagation(); setDraftBranchIds([]); }}
+                        className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors mr-1"
+                      >
+                        Clear
+                      </span>
+                    )}
+                    <svg className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${branchDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown panel */}
+                  {branchDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-20 flex flex-col max-h-64">
+                      {/* Search inside dropdown */}
+                      <div className="px-3 pt-3 pb-2 border-b border-slate-100 shrink-0">
+                        <div className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                           </svg>
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Search branches..."
+                            value={branchSearch}
+                            onChange={e => setBranchSearch(e.target.value)}
+                            className="flex-1 bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 outline-none"
+                          />
+                          {branchSearch && (
+                            <button onClick={() => setBranchSearch('')} className="text-slate-400 hover:text-slate-600">
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Branch list */}
+                      <div className="overflow-y-auto flex-1">
+                        {branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).length === 0 ? (
+                          <div className="px-4 py-4 text-xs text-slate-400 italic text-center">No branches match</div>
+                        ) : (
+                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
+                            const inDraft = draftBranchIds.includes(b.id);
+                            return (
+                              <button
+                                key={b.id}
+                                onClick={() => setDraftBranchIds(prev =>
+                                  prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                                )}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-slate-50 last:border-0 transition-colors ${
+                                  inDraft ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                  inDraft ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'
+                                }`}>
+                                  {inDraft && (
+                                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className={`flex-1 text-xs font-semibold truncate ${inDraft ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                  {b.name}
+                                </span>
+                              </button>
+                            );
+                          })
                         )}
                       </div>
-                      <span className={`flex-1 text-xs font-bold truncate ${inDraft ? 'text-slate-900' : 'text-slate-500'}`}>
-                        {b.name}
-                      </span>
-                      {assignment?.price != null && (
-                        <span className="text-xs font-black text-amber-500 shrink-0">₱{assignment.price.toLocaleString()} custom</span>
-                      )}
-                    </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                    {/* Price override — only visible when selected */}
-                    {inDraft && (
-                      <div className="px-4 pb-3 flex items-center gap-2 border-t border-emerald-100">
-                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">Custom price</span>
-                        <div className="flex items-center gap-1.5 ml-auto">
-                          <span className="text-xs font-bold text-slate-400">₱</span>
+            {/* Selected branches list */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {draftBranchIds.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5" />
+                    </svg>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-400">No branches selected</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Use the picker above to add branches</p>
+                </div>
+              ) : (
+                branches.filter(b => draftBranchIds.includes(b.id)).map(b => {
+                  const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
+                  return (
+                    <div key={b.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                      <div className="flex items-center gap-3 px-3 py-2.5">
+                        <span className="flex-1 text-xs font-bold text-slate-800 truncate">{b.name}</span>
+                        {assignment?.price != null && (
+                          <span className="text-xs font-black text-amber-500 shrink-0">₱{assignment.price.toLocaleString()} custom</span>
+                        )}
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => setDraftBranchIds(prev => prev.filter(id => id !== b.id))}
+                            className="w-5 h-5 rounded-full bg-slate-100 hover:bg-rose-100 hover:text-rose-500 flex items-center justify-center text-slate-400 transition-colors shrink-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 px-3 pb-2.5 border-t border-slate-100 pt-2">
+                        <span className="text-xs text-slate-400 shrink-0">Custom price</span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <span className="text-xs text-slate-400">₱</span>
                           <input
                             type="number"
                             min="0"
@@ -952,24 +1029,22 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                             value={assignment?.price ?? ''}
                             onChange={e => assignment && handleUpdatePrice(b.id, managingTemplate.id, e.target.value)}
                             placeholder={String(managingTemplate.default_price)}
-                            className="w-24 px-2 py-1 bg-white border border-emerald-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                         </div>
-                        {!assignment && (
-                          <span className="text-xs text-slate-400 italic">Save first to set custom price</span>
-                        )}
+                        {!assignment && <span className="text-xs text-slate-300 italic">Save first</span>}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Footer */}
             {!isReadOnly && (
               <div className="px-4 py-4 border-t border-slate-100 shrink-0 flex gap-2">
                 <button
-                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); }}
+                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); }}
                   className="flex-1 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all"
                 >
                   Cancel
