@@ -699,14 +699,15 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       )}
 
       {/* ── KPI Strip ── */}
-      <div className="hidden md:grid grid-cols-4 gap-3">
+      <div className="hidden md:grid grid-cols-5 gap-2.5">
         {[
           { label: 'Gross Sales', value: fmt(agg.grossSales), color: 'text-slate-900', sub: `${agg.reportCount} day${agg.reportCount !== 1 ? 's' : ''}` },
           { label: 'Staff Payroll', value: fmt(agg.totalStaffPay), color: 'text-rose-600', sub: 'commissions + allowance' },
-          { label: 'Expenses', value: fmt(agg.totalExpenses + agg.totalVaultProvision), color: 'text-rose-600', sub: 'operational + vault/bills' },
+          { label: 'Expenses', value: fmt(agg.totalExpenses), color: 'text-rose-600', sub: 'operational only' },
+          { label: 'Vault Deposit', value: fmt(agg.totalVaultProvision), color: 'text-indigo-600', sub: 'saved to vault' },
           { label: hasAdj ? 'Adjusted ROI' : 'Net ROI', value: fmt(adjustedRoi), color: adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-600', sub: hasAdj ? `base ${fmt(agg.netRoi)}` : 'for this period' },
         ].map(k => (
-          <div key={k.label} className="bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-sm">
+          <div key={k.label} className="bg-white border border-slate-100 rounded-2xl px-4 py-4 shadow-sm">
             <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
             <p className={`text-xl font-black tabular-nums tracking-tighter ${k.color}`}>{k.value}</p>
             <p className="text-xs font-medium text-slate-300 uppercase tracking-wide mt-1">{k.sub}</p>

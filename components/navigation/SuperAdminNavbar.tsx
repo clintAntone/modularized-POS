@@ -333,7 +333,9 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
       ) : (
         /* MOBILE NAV */
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4">
-          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-2xl shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
+          {/* Glow */}
+          <div className="absolute inset-x-4 bottom-0 h-12 bg-emerald-500/20 blur-2xl rounded-full pointer-events-none" />
+          <div className="relative bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-2xl shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
             {visibleTabs.map(item => {
               const isActive = activeTab === item.id;
               return (

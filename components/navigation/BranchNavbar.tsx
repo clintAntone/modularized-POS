@@ -254,7 +254,9 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       ) : (
         /* MOBILE NAV */
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-transparent dark:border-slate-700
+          {/* Glow */}
+          <div className="absolute inset-x-4 bottom-0 h-12 bg-indigo-400/20 dark:bg-indigo-500/25 blur-2xl rounded-full pointer-events-none" />
+          <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-white/60 dark:border-slate-700
             shadow-[0_8px_32px_-4px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.06)]">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;

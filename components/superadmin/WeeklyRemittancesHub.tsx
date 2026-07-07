@@ -43,6 +43,13 @@ interface RemittanceSubmission {
 
 const fmt = formatPeso;
 
+/** Normalizes owner names to Title Case regardless of how they were saved. */
+function toTitleCase(str: string): string {
+  return str.trim().replace(/[-\s]+/g, m => m).split(/(\s+|-)/).map(part =>
+    part === '-' || part.trim() === '' ? part : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+  ).join('');
+}
+
 export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ branches, salesReports: _salesReportsProp, onRefresh, isReadOnly, addedBy }) => {
   // Fetch ALL reports with scalar fields only (no JSON blobs) — paginated to bypass PostgREST row cap
   const { data: allSalesReports = _salesReportsProp } = useQuery<SalesReport[]>({
@@ -145,13 +152,15 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const [tableSortKey, setTableSortKey] = useState<'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending'>('branch');
   const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc');
-  const [mainView, setMainView] = useState<'remittances' | 'deductions'>('remittances');
+  const [mainView, setMainView] = useState<'remittances' | 'deductions' | 'owners'>('remittances');
   const [deductionSearch, setDeductionSearch] = useState('');
   const [deductionBranchFilter, setDeductionBranchFilter] = useState('');
   const [deductionOwnerFilter, setDeductionOwnerFilter] = useState('');
   const [deductionAddedByFilter, setDeductionAddedByFilter] = useState('');
   const [deductionDateFrom, setDeductionDateFrom] = useState('');
   const [deductionDateTo, setDeductionDateTo] = useState('');
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set());
 
   // Vault deposit state
   const [vaultRows, setVaultRows] = useState<Record<string, { balance: number; target: number }>>({});
@@ -886,13 +895,134 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   // The most recent period label across all grouped reports (for email report context)
   const latestPeriodLabel: string | undefined = allGroupedReports[0]?.label;
 
+  // Preview data — mirrors the edge function's classification logic so the user
+  // can see exactly what will be in the email before sending.
+  const emailPreview = useMemo(() => {
+    const now = getTrueDate();
+    const rows: Array<{
+      name: string; period: string;
+      status: 'remitted' | 'pending' | 'no_data' | 'nothing_to_remit';
+      distributableRoi: number;
+      ownerShares: { name: string; amount: number }[];
+    }> = [];
+
+    for (const branch of activeBranches) {
+      for (const group of allGroupedReports) {
+        const report = group.reports.find((r: any) => r.branchId === branch.id);
+        if (!report) continue;
+        if (group.weekEnd >= now) continue;
+
+        const sub = subLookup[`${branch.id}::${group.label}`];
+        const pureNetRoi = report.netRoi;
+
+        const branchAdjs = adjustments.filter(a => a.branchId === branch.id && a.periodLabel === group.label);
+        const globalAdj  = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+        const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
+        const adjustedRoi = pureNetRoi + globalAdj;
+        const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
+        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const distributableRoi = adjustedRoi - levyCut;
+
+        const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        const ownerShares = owners.map(o => {
+          const base = distributableRoi * (o.percentage / 100);
+          const ot = ownerAdjs.filter(a => a.targetOwner === o.name).reduce((s, a) => s + a.amount, 0);
+          return { name: o.name, amount: base + ot };
+        });
+
+        let status: 'remitted' | 'pending' | 'no_data' | 'nothing_to_remit';
+        if (sub?.status === 'approved')  status = 'remitted';
+        else if (pureNetRoi <= 0)        status = 'nothing_to_remit';
+        else if (!sub)                   status = 'no_data';
+        else                             status = 'pending';
+
+        rows.push({
+          name: branch.name.replace(/BRANCH\s*-\s*/i, '').trim(),
+          period: group.label, status, distributableRoi,
+          ownerShares: status === 'remitted' ? ownerShares : [],
+        });
+        break; // most recent completed period only
+      }
+    }
+
+    // Aggregate owner totals (case-insensitive dedup)
+    const ownerMap: Record<string, { displayName: string; amount: number }> = {};
+    for (const row of rows) {
+      if (row.status !== 'remitted') continue;
+      for (const o of row.ownerShares) {
+        const key = o.name.trim().toLowerCase();
+        if (ownerMap[key]) ownerMap[key].amount += o.amount;
+        else ownerMap[key] = { displayName: o.name.trim(), amount: o.amount };
+      }
+    }
+
+    const remitted       = rows.filter(r => r.status === 'remitted');
+    const pending        = rows.filter(r => r.status === 'pending' || r.status === 'no_data');
+    const nothingToRemit = rows.filter(r => r.status === 'nothing_to_remit');
+    const totalRoi       = remitted.reduce((s, r) => s + r.distributableRoi, 0);
+    const ownerEntries   = Object.values(ownerMap).sort((a, b) => b.amount - a.amount);
+
+    return { remitted, pending, nothingToRemit, totalRoi, ownerEntries };
+  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+
+  // Owner ROI data — aggregated across ALL approved periods (not just last week)
+  const ownerRoiData = useMemo(() => {
+    const ownerMap: Record<string, { displayName: string; totalShare: number; entries: { branchName: string; period: string; share: number }[] }> = {};
+    const now = getTrueDate();
+
+    // Branch-first iteration — identical pattern to emailPreview so numbers always match.
+    // Group-first iteration caused divergence when a branch appeared in multiple groups.
+    for (const branch of activeBranches) {
+      for (const group of allGroupedReports) {
+        const report = (group.reports as any[]).find((r: any) => r.branchId === branch.id);
+        if (!report) continue;
+        if (group.weekEnd >= now) continue; // skip current / future
+
+        const sub = subLookup[`${branch.id}::${group.label}`];
+        if (sub?.status !== 'approved') break; // most recent period not remitted — stop
+
+        const branchAdjs = adjustments.filter(a => a.branchId === branch.id && a.periodLabel === group.label);
+        const globalAdj  = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+        const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
+
+        const adjustedRoi      = report.netRoi + globalAdj;
+        const levy             = branch.groupLevy as { name?: string; percentage?: number } | null;
+        const levyCut          = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const distributableRoi = adjustedRoi - levyCut;
+
+        const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        for (const owner of owners) {
+          const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
+          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          const key = owner.name.trim().toLowerCase();
+          if (!ownerMap[key]) ownerMap[key] = { displayName: owner.name.trim(), totalShare: 0, entries: [] };
+          ownerMap[key].totalShare += share;
+          ownerMap[key].entries.push({ branchName: report.branchName, period: group.label, share });
+        }
+        break; // only the most recent completed period per branch
+      }
+    }
+
+    return Object.values(ownerMap)
+      .map(o => ({
+        ...o,
+        entries: [...o.entries].sort((a, b) => {
+          const periodCmp = b.period.localeCompare(a.period);
+          return periodCmp !== 0 ? periodCmp : a.branchName.localeCompare(b.branchName);
+        }),
+      }))
+      .sort((a, b) => b.totalShare - a.totalShare);
+  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+
   const handleSendEmailReport = async () => {
     if (!emailReportAddr || emailReportSending) return;
     setEmailReportSending(true);
     setEmailReportDone(null);
     try {
+      const ownerSummary = ownerRoiData.map(o => ({ name: o.displayName, amount: o.totalShare }));
+      const networkRoi = ownerRoiData.reduce((s, o) => s + o.totalShare, 0);
       const { data, error } = await supabase.functions.invoke('send-remittance-report', {
-        body: { email: emailReportAddr },
+        body: { email: emailReportAddr, ownerSummary, networkRoi },
       });
       if (error) throw error;
       if (data?.ok) {
@@ -1074,16 +1204,16 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           )}
         </div>
 
-        {/* View toggle — hidden (deductions tab removed) */}
-        {false && !activeBranchId && (
+        {/* View toggle */}
+        {!activeBranchId && (
           <div className="flex w-full lg:w-fit bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner mt-3">
-            {(['remittances', 'deductions'] as const).map(v => (
+            {(['remittances', 'owners'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => { setMainView(v); playSound('click'); }}
                 className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                {v === 'remittances' ? 'Remittances' : 'Deductions'}
+                {v === 'remittances' ? 'Remittances' : 'Owners'}
               </button>
             ))}
           </div>
@@ -1297,6 +1427,135 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     );
                   })}
                 </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Owners View ── */}
+      {!activeBranchId && mainView === 'owners' && (() => {
+        const networkTotal = ownerRoiData.reduce((s, o) => s + o.totalShare, 0);
+        const filtered = ownerRoiData.filter(o =>
+          ownerSearch.trim() === '' || toTitleCase(o.displayName).toLowerCase().includes(ownerSearch.trim().toLowerCase())
+        );
+
+        const toggleOwner = (key: string) => {
+          setExpandedOwners(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+          });
+        };
+
+        return (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Summary stat */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                <p className="text-xs font-black text-emerald-400 uppercase tracking-widest leading-none mb-1">Network ROI (Remitted)</p>
+                <p className={`text-xl font-black tabular-nums ${networkTotal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(networkTotal)}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-widest leading-none mb-1">Network Total (Owners)</p>
+                <p className="text-xl font-black text-slate-700 tabular-nums">{filtered.length}</p>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
+              <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1 mb-1.5">Filter by Owner</p>
+              <input
+                type="text"
+                value={ownerSearch}
+                onChange={e => setOwnerSearch(e.target.value)}
+                placeholder="TYPE OWNER NAME..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium bg-slate-50 text-slate-700 outline-none focus:border-slate-400 focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Owner cards */}
+            {filtered.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No owners found</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filtered.map(owner => {
+                  const key = owner.displayName.trim().toLowerCase();
+                  const isExpanded = expandedOwners.has(key);
+                  return (
+                    <div key={key} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      {/* Card header — click to expand */}
+                      <button
+                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50/60 transition-colors"
+                        onClick={() => { toggleOwner(key); playSound('click'); }}
+                      >
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Owner</p>
+                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{toTitleCase(owner.displayName)}</p>
+                          <p className="text-xs font-medium text-slate-400 mt-0.5">{owner.entries.length} period{owner.entries.length !== 1 ? 's' : ''} across {Array.from(new Set(owner.entries.map(e => e.branchName))).length} branch{Array.from(new Set(owner.entries.map(e => e.branchName))).length !== 1 ? 'es' : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <p className={`text-xl font-black tabular-nums ${owner.totalShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(owner.totalShare)}</p>
+                          {/* Chevron */}
+                          <svg
+                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Breakdown table */}
+                      {isExpanded && (
+                        <div className="border-t border-slate-100">
+                          {/* Desktop */}
+                          <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100">
+                                  <th className="px-5 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-widest">Branch</th>
+                                  <th className="px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-widest">Period</th>
+                                  <th className="px-5 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {owner.entries.map((entry, idx) => (
+                                  <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="px-5 py-3">
+                                      <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{entry.branchName.replace(/BRANCH\s*-\s*/i, '').trim()}</span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-tight">{entry.period}</span>
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      <span className={`text-sm font-black tabular-nums ${entry.share >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(entry.share)}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {/* Mobile */}
+                          <div className="md:hidden divide-y divide-slate-50">
+                            {owner.entries.map((entry, idx) => (
+                              <div key={idx} className="px-5 py-3 flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{entry.branchName.replace(/BRANCH\s*-\s*/i, '').trim()}</p>
+                                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{entry.period}</p>
+                                </div>
+                                <span className={`text-sm font-black tabular-nums shrink-0 ${entry.share >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(entry.share)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2182,25 +2441,90 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           onClick={() => { if (!emailReportSending) { setEmailReportModal(false); setEmailReportDone(null); } }}
         >
           <div
-            className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden"
+            className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
             <div className="bg-slate-900 px-6 pt-6 pb-5">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-tight leading-tight">Email Remittance Report</h3>
+                  <p className="text-xs font-medium text-slate-400 mt-0.5">Preview what will be sent before confirming</p>
+                </div>
               </div>
-              <h3 className="text-base font-black text-white uppercase tracking-tight leading-tight">Email Remittance Report</h3>
-              <p className="text-xs font-medium text-slate-400 mt-1">
-                Each branch's most recent completed cycle — who hasn't remitted yet
-              </p>
+
+              {/* Stat pills */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-lg text-xs font-black text-amber-400 uppercase tracking-wide">{emailPreview.pending.length} Pending</span>
+                <span className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs font-black text-slate-400 uppercase tracking-wide">{emailPreview.nothingToRemit.length} N/A</span>
+                <span className="px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-xs font-black text-emerald-400 uppercase tracking-wide">{emailPreview.remitted.length} Remitted</span>
+              </div>
             </div>
 
             {/* Body */}
-            <div className="px-6 py-5 space-y-4">
-              <div>
+            <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+
+              {/* Network summary */}
+              {emailPreview.remitted.length > 0 && (
+                <div className="bg-slate-900 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total ROI</span>
+                    <span className="text-lg font-black text-emerald-400 tabular-nums">{fmt(emailPreview.totalRoi)}</span>
+                  </div>
+                  {emailPreview.ownerEntries.length > 0 && (
+                    <div className="border-t border-slate-700 pt-3 space-y-1.5">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Owner Distribution</p>
+                      {emailPreview.ownerEntries.map((o, i) => (
+                        <div key={o.displayName} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-600">{i + 1}.</span>
+                            <span className="text-xs font-semibold text-slate-300">{toTitleCase(o.displayName)}</span>
+                          </div>
+                          <span className="text-xs font-black text-white tabular-nums">{fmt(o.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending branches */}
+              {emailPreview.pending.length > 0 && (
+                <div>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Not Yet Remitted</p>
+                  <div className="space-y-1">
+                    {emailPreview.pending.map(r => (
+                      <div key={r.name} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl">
+                        <span className="text-xs font-bold text-slate-700">{r.name}</span>
+                        <span className="text-xs text-slate-400">{r.period}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Remitted branches */}
+              {emailPreview.remitted.length > 0 && (
+                <div>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Remitted</p>
+                  <div className="space-y-1">
+                    {emailPreview.remitted.map(r => (
+                      <div key={r.name} className="flex items-center justify-between px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+                        <span className="text-xs font-bold text-slate-700">{r.name}</span>
+                        <span className="text-xs font-black text-emerald-600 tabular-nums">{fmt(r.distributableRoi)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Email input */}
+              <div className="border-t border-slate-100 pt-4">
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">
                   Recipient Email
                 </label>
