@@ -82,6 +82,28 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const [toast, setToast] = useState<Toast | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
+  const [isSlowNetwork, setIsSlowNetwork] = useState(false);
+
+  // Slow network detection — check effectiveType and probe with timing fallback
+  useEffect(() => {
+    const check = () => {
+      const conn = (navigator as any).connection;
+      if (conn?.effectiveType && ['slow-2g', '2g'].includes(conn.effectiveType)) {
+        setIsSlowNetwork(true);
+        return;
+      }
+      // Timing probe: fetch a tiny resource; if > 2s, flag as slow
+      const start = Date.now();
+      fetch('/sw.js', { method: 'HEAD', cache: 'no-store' })
+        .then(() => { setIsSlowNetwork(Date.now() - start > 2000); })
+        .catch(() => {}); // network error handled by connStatus
+    };
+    check();
+    const conn = (navigator as any).connection;
+    conn?.addEventListener('change', check);
+    const interval = setInterval(check, 30000);
+    return () => { conn?.removeEventListener('change', check); clearInterval(interval); };
+  }, []);
 
   // Today's vault deposits — derived from salesReports prop so it stays in sync with refreshes
   useEffect(() => {
@@ -789,7 +811,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         rowPageBreak: 'avoid'
       });
 
-      let currentY = (doc as any).lastAutoTable.finalY + 15;
+      let currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       // 3. Session Logs
       doc.setFontSize(11);
@@ -831,7 +853,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 15;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       // Check for page overflow
       if (currentY > 250) {
@@ -882,7 +904,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 15;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       if (currentY > 250) {
         doc.addPage();
@@ -925,7 +947,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 10;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
 
       // 6. Vault Transactions — withdrawals (vault-shouldered) + deposits
       if (allTodayVaultTxs.length > 0) {
@@ -963,7 +985,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           rowPageBreak: 'avoid'
         });
 
-        currentY = (doc as any).lastAutoTable.finalY + 10;
+        currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
       }
 
       if (currentY > 250) {
@@ -1014,22 +1036,38 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         <div className="flex flex-row justify-between items-center no-print px-2 mb-2">
           {/* SYNC STATUS LEGEND */}
           <div className="flex-1">
-            {(connStatus === 'offline' || autoSyncStatus === 'saving') && (
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-500 shadow-sm ${connStatus === 'offline' ? 'bg-rose-50 border-rose-100 shadow-rose-50' : 'bg-emerald-50 border-emerald-100 shadow-emerald-50'}`}>
+            {(connStatus === 'offline' || autoSyncStatus === 'saving' || isSlowNetwork) && (
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-500 shadow-sm border ${
+                connStatus === 'offline'
+                  ? 'bg-rose-50 border-rose-100 shadow-rose-50'
+                  : isSlowNetwork
+                    ? 'bg-amber-50 border-amber-100 shadow-amber-50'
+                    : 'bg-emerald-50 border-emerald-100 shadow-emerald-50'
+              }`}>
                 <div className="relative">
                   {connStatus === 'offline' ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
+                  ) : isSlowNetwork ? (
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#fbbf24]"></div>
                   ) : (
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
                   )}
                 </div>
                 <div className="w-px h-2.5 bg-slate-200"></div>
-                <span className={`text-xs font-semibold uppercase tracking-wide tabular-nums ${connStatus === 'offline' ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  {connStatus === 'offline' 
-                    ? `OFFLINE: ${pendingSyncCount} PENDING RELAY` 
-                    : autoSyncStatus === 'saving' 
-                      ? 'SAVING...' 
-                      : 'SYNCED'}
+                <span className={`text-xs font-semibold uppercase tracking-wide tabular-nums ${
+                  connStatus === 'offline'
+                    ? 'text-rose-700'
+                    : isSlowNetwork
+                      ? 'text-amber-700'
+                      : 'text-emerald-700'
+                }`}>
+                  {connStatus === 'offline'
+                    ? `OFFLINE${pendingSyncCount > 0 ? `: ${pendingSyncCount} PENDING RELAY` : ''}`
+                    : isSlowNetwork
+                      ? `SLOW NETWORK${pendingSyncCount > 0 ? ` · ${pendingSyncCount} QUEUED` : ''}`
+                      : autoSyncStatus === 'saving'
+                        ? 'SAVING...'
+                        : 'SYNCED'}
                 </span>
               </div>
             )}

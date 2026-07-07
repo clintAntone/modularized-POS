@@ -84,10 +84,11 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         // Use whichever is larger — protects against stale auto-save
         const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
 
-        const dbNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
-        // If vault provision was under-counted in DB, adjust net ROI accordingly
-        const provisionDelta = resolvedVaultProvision - dbVaultProvision;
-        const resolvedNetRoi = dbNetRoi - provisionDelta;
+        // Trust the stored net_roi — it was computed at submission time and already
+        // accounts for any vault deposit even if total_vault_provision was not saved correctly.
+        // Re-deriving net_roi from the provision delta caused double-subtraction when
+        // the vault deposit was already baked into the stored net_roi.
+        const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
 
         setVaultDepositTxs(vaultTxData || []);
         setReport({
@@ -388,7 +389,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         rowPageBreak: 'avoid'
       });
 
-      let currentY = (doc as any).lastAutoTable.finalY + 15;
+      let currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       if (isAggregate) {
         // 3. Constituent Units
@@ -424,7 +425,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           },
           rowPageBreak: 'avoid'
         });
-        currentY = (doc as any).lastAutoTable.finalY + 15;
+        currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
       }
 
       // 4. Session Logs
@@ -469,7 +470,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 15;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       // Check for page overflow
       if (currentY > 250) {
@@ -523,7 +524,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 15;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 15;
 
       if (currentY > 250) {
         doc.addPage();
@@ -566,7 +567,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
         rowPageBreak: 'avoid'
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 10;
+      currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
 
       // 6b. Vault Withdrawals (non-legacy only — vault-covered expense portions)
       if (!isLegacy && vaultWithdrawalEntries.length > 0) {
@@ -588,7 +589,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
           rowPageBreak: 'avoid'
         });
-        currentY = (doc as any).lastAutoTable.finalY + 10;
+        currentY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
       }
 
       if (currentY > 250) {

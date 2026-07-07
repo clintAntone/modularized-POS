@@ -158,6 +158,22 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [savingDepositKey, setSavingDepositKey] = useState<string | null>(null);
   const [isVaultDeposit, setIsVaultDeposit] = useState(false);
 
+  // Branch admin notes
+  const [branchNotes, setBranchNotes] = useState<Record<string, string>>({}); // key: "branchId::periodLabel"
+  const [savingNoteKey, setSavingNoteKey] = useState<string | null>(null);
+
+  // Email report state
+  const [emailReportModal, setEmailReportModal] = useState(false);
+  const [emailReportAddr, setEmailReportAddr] = useState('');
+  const [emailReportSending, setEmailReportSending] = useState(false);
+  const [emailReportDone, setEmailReportDone] = useState<string | null>(null);
+
+  // Pre-fill email from system_config owner_email
+  useEffect(() => {
+    supabase.from('system_config').select('value').eq('key', 'owner_email').maybeSingle()
+      .then(({ data }) => { if (data?.value) setEmailReportAddr(data.value); });
+  }, []);
+
   // Fetch vault balances for deposit button
   useEffect(() => {
     if (!supabase) return;
@@ -212,6 +228,15 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       if (subResult.data) setSubmissions(subResult.data.map(mapSubmission));
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
+
+    supabase.from('remittance_notes').select('branch_id, period_label, note')
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          data.forEach((r: any) => { map[`${r.branch_id}::${r.period_label}`] = r.note || ''; });
+          setBranchNotes(map);
+        }
+      });
 
     // Realtime: update submission list whenever a branch submits or a review is saved
     const channel = supabase
@@ -370,6 +395,19 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     } finally {
       setIsReviewing(false);
     }
+  };
+
+  const handleSaveNote = async (branchId: string, periodLabel: string, note: string) => {
+    const key = `${branchId}::${periodLabel}`;
+    setSavingNoteKey(key);
+    try {
+      await supabase.from('remittance_notes').upsert(
+        { branch_id: branchId, period_label: periodLabel, note: note.trim(), updated_at: new Date().toISOString() },
+        { onConflict: 'branch_id,period_label' }
+      );
+      setBranchNotes(prev => ({ ...prev, [key]: note.trim() }));
+    } catch (e) { console.error('Note save error', e); playSound('warning'); }
+    finally { setSavingNoteKey(null); }
   };
 
   const handleAddAdjustment = async (branchId: string, periodLabel: string, adjustedRoi: number) => {
@@ -845,6 +883,33 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     }
   };
 
+  // The most recent period label across all grouped reports (for email report context)
+  const latestPeriodLabel: string | undefined = allGroupedReports[0]?.label;
+
+  const handleSendEmailReport = async () => {
+    if (!emailReportAddr || emailReportSending) return;
+    setEmailReportSending(true);
+    setEmailReportDone(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-remittance-report', {
+        body: { email: emailReportAddr },
+      });
+      if (error) throw error;
+      if (data?.ok) {
+        setEmailReportDone(`Report sent! ${data.remitted} remitted, ${data.pending} pending.`);
+        playSound('success');
+      } else {
+        setEmailReportDone(`Error: ${data?.error || 'Unknown error'}`);
+        playSound('warning');
+      }
+    } catch (err: any) {
+      setEmailReportDone(`Error: ${err?.message || 'Failed to send report'}`);
+      playSound('warning');
+    } finally {
+      setEmailReportSending(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in duration-300">
@@ -987,13 +1052,25 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Owner Distributions & Validation</p>
           </div>
           {!activeBranchId && (
-            <button
-              onClick={handleExportPDF}
-              className="hidden lg:flex items-center gap-2 px-4 h-8 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 shrink-0"
-            >
-              <FileDown className="w-3.5 h-3.5" />
-              Export
-            </button>
+            <div className="hidden lg:flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => { setEmailReportDone(null); setEmailReportModal(true); playSound('click'); }}
+                className="flex items-center gap-2 px-4 h-8 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
+                title="Email Remittance Report"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email Report
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 h-8 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                Export
+              </button>
+            </div>
           )}
         </div>
 
@@ -1602,7 +1679,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const cardId = `branch-card-${report.branchId}-${group.label.replace(/[\s,/]/g, '-')}`;
 
                   return (
-                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
+                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border flex flex-col ${
                       sub?.status === 'approved'  ? 'border-emerald-300' :
                       sub?.status === 'rejected'  ? 'border-rose-300' :
                       'border-slate-100'
@@ -1700,7 +1777,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       )}
 
                       {/* ── Receipt-style body ── */}
-                      <div className="px-6 py-5 space-y-0 font-mono text-xs">
+                      <div className="px-6 py-5 space-y-0 font-mono text-xs flex-1">
 
                         {/* Line items */}
                         {(() => {
@@ -1861,9 +1938,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           {rowAdj.length === 0 && adjFormKey !== rKey && (
                             <p className="text-xs text-slate-400 italic">No adjustments</p>
                           )}
+                        </div>{/* /space-y-1.5 */}
+                      </div>{/* /receipt-body */}
 
-                          {!isReadOnly && sub?.status !== 'approved' && adjFormKey !== rKey && (
-                            <div className={`grid gap-2 mt-2 ${owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                      {/* Buttons / adj form — anchored to card bottom */}
+                      {!isReadOnly && sub?.status !== 'approved' && (
+                        <div className="px-6 pb-4">
+                          {adjFormKey !== rKey && (
+                            <div className="grid grid-cols-2 gap-2 mt-0">
                               <button
                                 onClick={() => { setAdjFormMode('add'); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setIsVaultDeposit(false); setAdjFormKey(rKey); }}
                                 className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
@@ -1888,6 +1970,21 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
                                 </div>
                               </button>
+                              {/* Vault Deposit — only shown if branch has vault enabled */}
+                              {branches.find(b => b.id === report.branchId)?.vaultEnabled && (
+                                <button
+                                  onClick={() => { setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setAdjFormKey(rKey); }}
+                                  className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-xs font-black uppercase tracking-wide leading-none text-emerald-800">Vault Deposit</p>
+                                    <p className="text-xs font-medium text-emerald-500 mt-0.5 leading-none">Deduct from ROI → credit vault</p>
+                                  </div>
+                                </button>
+                              )}
                               {owners.length >= 2 && (
                                 <button
                                   onClick={() => { setAdjFormMode('transfer'); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setIsVaultDeposit(false); setAdjFormKey(rKey); }}
@@ -1904,7 +2001,6 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               )}
                             </div>
                           )}
-
                           {adjFormKey === rKey && (() => {
                             rKeyRef.current = rKey;
                             const branchObj = branches.find(b => b.id === report.branchId);
@@ -1973,27 +2069,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 </span>
                               </div>
 
-                              {vaultEligible && (
-                                <label className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${isVaultDeposit ? 'bg-emerald-100 border border-emerald-300' : 'bg-white border border-slate-200 hover:border-emerald-300'}`}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isVaultDeposit}
-                                    onChange={e => {
-                                      const checked = e.target.checked;
-                                      setIsVaultDeposit(checked);
-                                      if (checked) {
-                                        setAdjForm(f => ({ ...f, description: 'VAULT DEPOSIT', amount: '' }));
-                                        setAdjTargetOwner('');
-                                      } else {
-                                        setAdjForm(f => ({ ...f, description: '', amount: '' }));
-                                      }
-                                    }}
-                                    className="w-3.5 h-3.5 accent-emerald-600 shrink-0"
-                                  />
-                                  <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                    Deposit to Vault
-                                  </span>
-                                </label>
+                              {isVaultDeposit && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
+                                  <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                  <span className="text-xs font-semibold text-emerald-700">Amount will be credited to branch vault</span>
+                                </div>
                               )}
 
                               <input
@@ -2061,8 +2141,27 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             );
                           })()}
                         </div>
+                      )}
 
-
+                      {/* Admin Note — always anchored to card bottom */}
+                      <div className="border-t border-slate-100 px-6 py-4">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-3.5 h-3.5 text-slate-300 mt-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          <textarea
+                            rows={1}
+                            placeholder="Add a note (visible in email report)..."
+                            defaultValue={branchNotes[`${report.branchId}::${group.label}`] || ''}
+                            onBlur={e => {
+                              const val = e.target.value;
+                              const existing = branchNotes[`${report.branchId}::${group.label}`] || '';
+                              if (val !== existing) handleSaveNote(report.branchId, group.label, val);
+                            }}
+                            className="flex-1 text-xs text-slate-600 placeholder:text-slate-300 bg-transparent border-none outline-none resize-none leading-relaxed"
+                          />
+                          {savingNoteKey === `${report.branchId}::${group.label}` && (
+                            <span className="text-xs text-slate-300 shrink-0 mt-2">saving…</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -2074,6 +2173,95 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         )
       )}
       </>
+      )}
+
+      {/* ── Email Remittance Report Modal ── */}
+      {emailReportModal && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => { if (!emailReportSending) { setEmailReportModal(false); setEmailReportDone(null); } }}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-xl animate-in zoom-in-95 duration-200 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-slate-900 px-6 pt-6 pb-5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-black text-white uppercase tracking-tight leading-tight">Email Remittance Report</h3>
+              <p className="text-xs font-medium text-slate-400 mt-1">
+                Each branch's most recent completed cycle — who hasn't remitted yet
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                  Recipient Email
+                </label>
+                <input
+                  type="email"
+                  value={emailReportAddr}
+                  onChange={e => setEmailReportAddr(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && emailReportAddr) handleSendEmailReport(); }}
+                  placeholder="Enter email address"
+                  disabled={emailReportSending}
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all disabled:opacity-50"
+                  autoFocus
+                />
+              </div>
+
+              {emailReportDone && (
+                <div className={`rounded-xl px-4 py-3 text-xs font-semibold leading-relaxed ${emailReportDone.startsWith('Error') ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                  {emailReportDone}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {emailReportDone && !emailReportDone.startsWith('Error') ? (
+              <div className="px-6 pb-6 border-t border-slate-100 pt-4">
+                <button
+                  onClick={() => { setEmailReportModal(false); setEmailReportDone(null); }}
+                  className="w-full h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="px-6 pb-6 flex gap-2 border-t border-slate-100 pt-4">
+                <button
+                  onClick={() => { setEmailReportModal(false); setEmailReportDone(null); }}
+                  disabled={emailReportSending}
+                  className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmailReport}
+                  disabled={emailReportSending || !emailReportAddr.trim()}
+                  className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {emailReportSending ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Sending…
+                    </>
+                  ) : 'Send Report'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

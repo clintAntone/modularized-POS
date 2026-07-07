@@ -389,7 +389,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       const totalVault = sortedData.reduce((sum, r) => sum + (r.totalVaultProvision || 0), 0);
       const totalNet = sortedData.reduce((sum, r) => sum + (r.netRoi || 0), 0);
 
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      const finalY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
       doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
       doc.text('NETWORK TOTALS', 14, finalY);

@@ -718,27 +718,41 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
         {/* KPI HUB */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={`col-span-2 lg:col-span-1 p-5 sm:p-6 ${UI_THEME.radius.card} border-2 flex flex-col justify-center transition-all duration-500 ${networkTotals.net >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-            <p className={`text-xs font-semibold uppercase tracking-widest ${networkTotals.net >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>Consolidated ROI</p>
-            <p className={`font-bold tabular-nums tracking-tighter mt-2 whitespace-nowrap leading-none ${getFontSize(networkTotals.net)} ${networkTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {networkTotals.net < 0 ? '−' : ''}₱{Math.abs(networkTotals.net).toLocaleString()}
-            </p>
-          </div>
+          {salesReportsLoading ? (
+            <>
+              {/* Skeleton KPI cards */}
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className={`${i === 0 ? 'col-span-2 lg:col-span-1' : ''} p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 bg-white shadow-sm flex flex-col justify-center gap-3`}>
+                  <div className="h-3 w-24 bg-slate-100 rounded-full animate-pulse" />
+                  <div className="h-8 w-32 bg-slate-100 rounded-xl animate-pulse" />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className={`col-span-2 lg:col-span-1 p-5 sm:p-6 ${UI_THEME.radius.card} border-2 flex flex-col justify-center transition-all duration-500 ${networkTotals.net >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                <p className={`text-xs font-semibold uppercase tracking-widest ${networkTotals.net >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>Consolidated ROI</p>
+                <p className={`font-bold tabular-nums tracking-tighter mt-2 whitespace-nowrap leading-none ${getFontSize(networkTotals.net)} ${networkTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  {networkTotals.net < 0 ? '−' : ''}₱{Math.abs(networkTotals.net).toLocaleString()}
+                </p>
+              </div>
 
-          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Gross Yield</p>
-            <p className={`font-bold text-slate-900 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
-          </div>
+              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Gross Yield</p>
+                <p className={`font-bold text-slate-900 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
+              </div>
 
-          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Payroll Total</p>
-            <p className={`font-bold text-amber-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.staffPay)}`}>₱{networkTotals.staffPay.toLocaleString()}</p>
-          </div>
+              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Payroll Total</p>
+                <p className={`font-bold text-amber-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.staffPay)}`}>₱{networkTotals.staffPay.toLocaleString()}</p>
+              </div>
 
-          <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p>
-            <p className={`font-bold text-indigo-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
-          </div>
+              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p>
+                <p className={`font-bold text-indigo-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* DESKTOP TABLE VIEW - ENHANCED READABILITY */}
@@ -758,7 +772,28 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-              {paginatedStats.length > 0 ? paginatedStats.map((b) => {
+              {salesReportsLoading ? (
+                [...Array(8)].map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+                        <div className="space-y-2">
+                          <div className="h-3.5 w-36 bg-slate-100 rounded-full animate-pulse" />
+                          <div className="h-2.5 w-24 bg-slate-100 rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-6 text-center"><div className="h-6 w-16 bg-slate-100 rounded-full animate-pulse mx-auto" /></td>
+                    <td className="px-4 py-6 text-right"><div className="h-3.5 w-8 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
+                    <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
+                    <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
+                    <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
+                    <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
+                    <td className="px-8 py-6 text-right"><div className="h-8 w-24 bg-slate-100 rounded-xl animate-pulse ml-auto" /></td>
+                  </tr>
+                ))
+              ) : paginatedStats.length > 0 ? paginatedStats.map((b) => {
                 const isPositive = b.net >= 0;
                 return (
                     <tr

@@ -1630,7 +1630,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                     {/* Balance hero */}
                     <div>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Current Balance</p>
-                      <p className={`text-3xl font-black tabular-nums leading-none ${isFull ? 'text-emerald-400' : 'text-white'}`}>
+                      <p className={`text-3xl font-black tabular-nums leading-none ${isFull ? 'text-emerald-400' : 'text-slate-900 dark:text-white'}`}>
                         ₱{balance.toLocaleString()}
                       </p>
                       {target > 0 && (

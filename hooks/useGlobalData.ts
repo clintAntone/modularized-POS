@@ -104,6 +104,10 @@ export const useGlobalData = (auth: AuthState) => {
     // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
     // loading to avoid a network congestion spike on login.
     const [deferredEnabled, setDeferredEnabled] = useState(false);
+    // Sales reports are the heaviest query (paginated, thousands of rows). Delay them 1.5s
+    // after the POS-critical data (transactions, expenses, attendance) has started loading,
+    // so the POS tab is interactive before the Reports tab data arrives.
+    const [historyEnabled, setHistoryEnabled] = useState(false);
 
     const isSyncingQueue = useRef(false);
 
@@ -310,8 +314,13 @@ export const useGlobalData = (auth: AuthState) => {
 
     // Reset deferred flag on logout; enable it once the lightweight core queries settle.
     useEffect(() => {
-        if (!auth.user) { setDeferredEnabled(false); return; }
-        if (!branchesLoading && !employeesLoading) setDeferredEnabled(true);
+        if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
+        if (!branchesLoading && !employeesLoading) {
+            setDeferredEnabled(true);
+            // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
+            const t = setTimeout(() => setHistoryEnabled(true), 1500);
+            return () => clearTimeout(t);
+        }
     }, [auth.user, branchesLoading, employeesLoading]);
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
@@ -412,7 +421,7 @@ export const useGlobalData = (auth: AuthState) => {
                 vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
             }));
         },
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && historyEnabled,
         staleTime: 2 * 60 * 1000
     });
 
