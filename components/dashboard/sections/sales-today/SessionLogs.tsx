@@ -45,7 +45,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
           <div className="hidden md:block overflow-x-auto no-scrollbar print:overflow-visible">
             <table className="w-full text-left text-xs min-w-[820px] print:min-w-0">
               <thead>
-              <tr className="text-xs font-medium text-slate-400 uppercase tracking-wide border-b bg-slate-50/30">
+              <tr className="text-xs font-medium text-slate-500 uppercase tracking-wide border-b bg-slate-50">
                 <th className="px-4 py-3">Time</th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Service</th>
@@ -245,7 +245,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                   </div>
 
                   {/* Footer strip: status + ROI */}
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
                     <div className="flex items-center gap-1.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                       <span className={`text-xs font-semibold uppercase tracking-wide ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>

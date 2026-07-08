@@ -4,7 +4,6 @@ interface SalesKPIStripProps {
     gross: number;
     operationalExp: number;
     vaultDeposit?: number;
-    vaultWithdrawal?: number;
     vaultCoveredExp?: number;
     vaultBalance?: number;
     vaultTarget?: number;
@@ -26,7 +25,7 @@ const fmt = (n: number) =>
   '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
-  gross, operationalExp, vaultDeposit = 0, vaultWithdrawal = 0,
+  gross, operationalExp, vaultDeposit = 0,
   vaultCoveredExp = 0, vaultBalance = 0, vaultTarget = 0,
   rentAndBillsTotal = 0, finalStaffPayTotal, net,
   totalAllowances, otAdditions, lateDeductions, totalCashAdvances,
@@ -136,10 +135,18 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(vaultDeposit)}</p>
             {vaultTarget > 0 ? (
               <p className="text-xs text-indigo-500 font-medium mt-1.5">
-                Fund total {fmt(vaultBalance)}
-                {vaultBalance < vaultTarget && (
-                  <span className="text-slate-400"> · {fmt(vaultTarget - vaultBalance)} to go</span>
-                )}
+                {/* Use whichever is higher — DB balance may lag briefly after a fresh deposit */}
+                {(() => {
+                  const displayBalance = Math.max(vaultBalance, vaultDeposit);
+                  return (
+                    <>
+                      Fund total {fmt(displayBalance)}
+                      {displayBalance < vaultTarget && (
+                        <span className="text-slate-400"> · {fmt(vaultTarget - displayBalance)} to go</span>
+                      )}
+                    </>
+                  );
+                })()}
               </p>
             ) : (
               <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
