@@ -685,7 +685,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   return createPortal(
       <div className="fixed inset-0 z-[5000] backdrop-blur-sm flex items-end md:items-center justify-center px-3 pb-3 pt-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
-        <div className={`bg-slate-50 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} border border-slate-200 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:bg-white print:overflow-visible print:block`}>
+        <div className={`bg-slate-50 dark:bg-slate-900 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:bg-white print:overflow-visible print:block`}>
 
           {viewingExpense && (
               <ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />
@@ -736,7 +736,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           </div>
 
           {/* HEADER BAR */}
-          <div className="p-4 md:p-8 bg-white border-b border-slate-100 flex justify-between items-center shrink-0 gap-3 no-print">
+          <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0 gap-3 no-print">
             <div className="flex items-center gap-3 md:gap-5 min-w-0">
               <div className={`w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg shrink-0`}>
                 {isAggregate ? '📊' : '📂'}
@@ -773,7 +773,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               </button>
 
 
-              <button onClick={onClose} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 active:scale-90 transition-all border border-slate-100 shadow-sm">
+              <button onClick={onClose} className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 shadow-sm">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -1101,9 +1101,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                               </div>
 
                               <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
+                                <div className="bg-slate-50/80 dark:bg-slate-700/50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50 dark:border-slate-700">
                                   <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
-                                  <p className="text-xs sm:text-xs font-bold text-slate-600 tabular-nums">₱{baseAllw.toLocaleString()}</p>
+                                  <p className="text-xs sm:text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums">₱{baseAllw.toLocaleString()}</p>
                                 </div>
                                 {adv > 0 && (
                                   <div className="bg-indigo-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100">

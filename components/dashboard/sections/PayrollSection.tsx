@@ -530,7 +530,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         </div>
 
         {/* Summary card */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 sm:p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-emerald-600 mb-1">Week {selectedCycle.id} · Payroll</p>
@@ -551,9 +551,9 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
         {/* Employee list */}
         {staffCycleSummary.length > 0 ? (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
             {/* Column header */}
-            <div className="hidden sm:grid sm:grid-cols-[160px_1fr_140px] items-center px-5 py-3 border-b border-slate-100 bg-slate-50">
+            <div className="hidden sm:grid sm:grid-cols-[160px_1fr_140px] items-center px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
               <p className="text-xs font-semibold text-slate-400">Employee ID</p>
               <p className="text-xs font-semibold text-slate-400">Name</p>
               <p className="text-xs font-semibold text-slate-400 text-right">Net Pay</p>
@@ -564,7 +564,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                 <button
                   key={s.employeeId || s.name}
                   onClick={() => { playSound('click'); setSelectedStaffPayslip({ ...s, isSettled: s.isSettled || isSettled }); }}
-                  className="w-full text-left grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_140px] items-center px-5 py-4 min-h-[64px] hover:bg-slate-50 transition-colors group"
+                  className="w-full text-left grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_140px] items-center px-5 py-4 min-h-[64px] hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
                 >
                   <p className="text-xs font-mono text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
                   <div className="flex items-center gap-3 min-w-0">

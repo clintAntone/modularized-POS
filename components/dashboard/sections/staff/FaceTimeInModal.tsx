@@ -47,6 +47,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
     const [statusMsg, setStatusMsg] = useState('Loading face models...');
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [dlProgress, setDlProgress] = useState(0);
+    const [loadingTooLong, setLoadingTooLong] = useState(false);
 
     // Seed from props, then immediately hydrate with a fresh DB fetch so that
     // descriptors enrolled seconds ago are available without requiring a full page refresh.
@@ -220,6 +221,13 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         return () => { setBrightness(origBrightness.current); };
     }, []);
 
+    // Show manual override escape hatch if still loading after 15s
+    useEffect(() => {
+        if (status !== 'loading') { setLoadingTooLong(false); return; }
+        const t = setTimeout(() => setLoadingTooLong(true), 15_000);
+        return () => clearTimeout(t);
+    }, [status]);
+
     const loadModelsAndStart = useCallback(async () => {
         setStatus('loading');
         setDlProgress(0);
@@ -382,7 +390,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                         {status === 'loading' && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 bg-slate-900/80">
                                 <Loader className="w-7 h-7 text-amber-400 animate-spin shrink-0" />
-                                <p className="text-xs font-semibold text-slate-700 text-center">
+                                <p className="text-xs font-semibold text-slate-400 text-center">
                                     {dlProgress >= 100 ? 'Setting Up Models' : 'Downloading Face Models'}
                                 </p>
                                 <div className="w-full space-y-1">
@@ -393,9 +401,17 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                                         />
                                     </div>
                                     <p className="text-xs font-black text-amber-400 text-center tabular-nums">
-                                        {dlProgress >= 100 ? 'Preparing AI engine…' : `${dlProgress}% — one-time download`}
+                                        {dlProgress >= 100 ? 'Starting recognition engine…' : `${dlProgress}% — one-time download`}
                                     </p>
                                 </div>
+                                {loadingTooLong && onManualOverride && (
+                                    <button
+                                        onClick={() => { stopCamera(); onClose(); onManualOverride(); }}
+                                        className="mt-1 text-xs font-semibold text-slate-500 hover:text-slate-300 uppercase tracking-wide transition-colors"
+                                    >
+                                        Taking too long? Use manual time-in
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

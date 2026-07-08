@@ -145,6 +145,7 @@ export interface Attendance {
   date: string;
   clockIn: string;
   clockOut?: string;
+  clockInMethod?: 'FACE' | 'MANUAL';
   status: string;
   lateDeduction: number;
   otPay: number;

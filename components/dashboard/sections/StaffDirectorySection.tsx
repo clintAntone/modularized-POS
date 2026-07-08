@@ -731,6 +731,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime.name,
             [DB_COLUMNS.DATE]: todayStr,
             [DB_COLUMNS.CLOCK_IN]: timestamp,
+            [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL',
             [DB_COLUMNS.STATUS]: 'REGULAR'
           });
           showToast(`${selectedEmpForTime.name} is now ON DUTY`);
@@ -858,6 +859,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           [DB_COLUMNS.STAFF_NAME]: emp.name,
           [DB_COLUMNS.DATE]: todayStr,
           [DB_COLUMNS.CLOCK_IN]: timestamp,
+          [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE',
           [DB_COLUMNS.STATUS]: 'REGULAR'
         });
         showToast(`${emp.name} is now ON DUTY`);

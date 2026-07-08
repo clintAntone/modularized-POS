@@ -243,9 +243,9 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
               <div
                   key={row.id}
                   onClick={() => { if (row.rawReport) { playSound('click'); setDrilldownReport(row.rawReport); } }}
-                  className={`group bg-white rounded-xl border transition-all duration-300 hover:shadow-xl flex flex-col overflow-hidden cursor-pointer active:scale-[0.98] ${row.isActive ? 'border-emerald-500 ring-1 ring-emerald-500/5' : 'border-slate-200'}`}
+                  className={`group bg-white dark:bg-slate-800 rounded-xl border transition-all duration-300 hover:shadow-xl flex flex-col overflow-hidden cursor-pointer active:scale-[0.98] ${row.isActive ? 'border-emerald-500 ring-1 ring-emerald-500/5' : 'border-slate-200 dark:border-slate-700'}`}
               >
-                <div className="p-4 bg-slate-50/50 border-b border-slate-100">
+                <div className="p-4 bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black shadow-inner shrink-0 ${row.isActive ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'}`}>
                       {view === 'daily' ? 'D' : view === 'weekly' ? 'W' : 'B'}

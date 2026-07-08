@@ -6,6 +6,11 @@ let modelsLoaded = false;
 let loading = false;
 let loadError: Error | null = null;
 
+// In-memory cache for model file buffers — populated by preloadFaceModels.
+// loadFaceModels monkey-patches face-api's fetch to serve from this cache,
+// avoiding a second network download (Android WebView bypasses HTTP cache for localhost).
+const modelFileCache = new Map<string, ArrayBuffer>();
+
 async function getFaceApi(): Promise<FaceApi> {
     if (!faceapi) faceapi = await import('face-api.js');
     return faceapi;
@@ -26,8 +31,10 @@ const MODEL_FILES = [
 const TOTAL_BYTES = MODEL_FILES.reduce((s, f) => s + f.size, 0);
 
 /**
- * Pre-fetch model files into the browser cache while reporting per-file progress.
- * Also warms up the face-api.js dynamic import so it's ready before loadFaceModels().
+ * Pre-fetch model files and store them in modelFileCache while reporting progress.
+ * Also pre-imports the face-api.js bundle in parallel so that by the time progress
+ * hits 100%, getFaceApi() is already resolved and loadFaceModels() can start
+ * loading model weights immediately with no additional JS-parse delay.
  * onProgress receives (loadedBytes, totalBytes).
  */
 export async function preloadFaceModels(
@@ -35,14 +42,47 @@ export async function preloadFaceModels(
 ): Promise<void> {
     if (modelsLoaded) { onProgress(TOTAL_BYTES, TOTAL_BYTES); return; }
     let loadedBytes = 0;
-    await Promise.all(MODEL_FILES.map(async ({ path, size }) => {
+    // Pre-import face-api.js in parallel with model file downloads so the JS
+    // bundle is parsed before the progress bar finishes — eliminates the freeze
+    // at "Preparing AI engine…" that users see after progress hits 100%.
+    const faceApiPrime = getFaceApi().catch(() => null);
+    await Promise.all([
+        faceApiPrime,
+        ...MODEL_FILES.map(async ({ path, size }) => {
+            try {
+                if (!modelFileCache.has(path)) {
+                    const res = await fetch(path);
+                    const buf = await res.arrayBuffer();
+                    modelFileCache.set(path, buf);
+                }
+                loadedBytes += size;
+                onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
+            } catch { /* loadFaceModels will surface the error */ }
+        }),
+    ]);
+}
+
+/**
+ * Returns a fetch function that serves model files from in-memory cache,
+ * falling back to the real fetch for anything not cached.
+ */
+function makeCachedFetch(realFetch: typeof fetch): typeof fetch {
+    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         try {
-            const res = await fetch(path);
-            await res.arrayBuffer();
-            loadedBytes += size;
-            onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
-        } catch { /* loadFaceModels will surface the error */ }
-    }));
+            const url = typeof input === 'string' ? input
+                : input instanceof URL ? input.href
+                : (input as Request).url;
+            const pathname = new URL(url, window.location.href).pathname;
+            if (modelFileCache.has(pathname)) {
+                const buf = modelFileCache.get(pathname)!;
+                return new Response(buf.slice(0), {
+                    status: 200,
+                    headers: { 'Content-Type': pathname.endsWith('.json') ? 'application/json' : 'application/octet-stream' },
+                });
+            }
+        } catch { /* fall through to real fetch on URL parse errors */ }
+        return realFetch(input as RequestInfo, init);
+    };
 }
 
 export async function loadFaceModels(): Promise<void> {
@@ -65,6 +105,9 @@ export async function loadFaceModels(): Promise<void> {
     try {
         const load = (async () => {
             const api = await getFaceApi();
+            // Serve model files from in-memory cache so loadFromUri doesn't re-download.
+            // This is the key fix for Android WebView where localhost HTTP cache is unreliable.
+            api.env.monkeyPatch({ fetch: makeCachedFetch(window.fetch.bind(window)) as any });
             await Promise.all([
                 api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),

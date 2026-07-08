@@ -116,6 +116,7 @@ export const DB_COLUMNS = {
   EMPLOYEE_NAME: 'employee_name',
   CLOCK_IN: 'clock_in',
   CLOCK_OUT: 'clock_out',
+  CLOCK_IN_METHOD: 'clock_in_method',
   STATUS: 'status',
   DATE_STR: 'date_str',
   DATE: 'date',

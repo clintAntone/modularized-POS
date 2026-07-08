@@ -63,7 +63,7 @@ const COLS = {
     attendance: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
         DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
-        DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
+        DB_COLUMNS.CLOCK_IN_METHOD, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
         DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
     ].join(','),
     requests: [
@@ -497,8 +497,9 @@ export const useGlobalData = (auth: AuthState) => {
             return data.map(att => ({
                 id: att[DB_COLUMNS.ID], branchId: att[DB_COLUMNS.BRANCH_ID], employeeId: att[DB_COLUMNS.EMPLOYEE_ID],
                 staffName: att[DB_COLUMNS.STAFF_NAME], date: att[DB_COLUMNS.DATE], clockIn: att[DB_COLUMNS.CLOCK_IN],
-                clockOut: att[DB_COLUMNS.CLOCK_OUT], status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
-                otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0), 
+                clockOut: att[DB_COLUMNS.CLOCK_OUT], clockInMethod: att[DB_COLUMNS.CLOCK_IN_METHOD] ?? undefined,
+                status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
+                otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0),
                 isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
                 createdAt: att[DB_COLUMNS.CREATED_AT]
             }));

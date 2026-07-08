@@ -739,7 +739,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             {!isReadOnly && (
               <button
                 onClick={() => handleOpenEdit()}
-                className="h-10 sm:h-11 rounded-2xl bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+                className="h-10 sm:h-11 rounded-2xl bg-emerald-500 px-4 sm:px-6 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-emerald-600 transition-all active:scale-95"
               >
                 <span className="text-lg leading-none">+</span>
                 <span className="hidden sm:inline">Register Staff</span>

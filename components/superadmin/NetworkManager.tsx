@@ -152,7 +152,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { playSound('click'); onAdd(); }}
-                className={`h-10 sm:h-11 rounded-2xl ${UI_THEME.styles.actionButton} px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95`}
+                className="h-10 sm:h-11 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95"
               >
                 <span className="text-lg sm:text-base leading-none font-bold">+</span>
                 <span className="hidden sm:inline font-black text-xs uppercase tracking-widest">Register Branch</span>

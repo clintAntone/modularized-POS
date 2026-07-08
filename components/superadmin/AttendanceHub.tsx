@@ -264,7 +264,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Global Staff Clock-in Registry</p>
             </div>
             {filteredAttendance.length > 0 && (
-              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold uppercase tracking-wide">
+              <span className="hidden sm:inline shrink-0 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full text-xs font-semibold uppercase tracking-wide">
                 {filteredAttendance.length} records
               </span>
             )}
@@ -454,7 +454,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                                                'bg-slate-50 text-slate-600 border-slate-200';
 
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50/60 transition-colors group">
+                      <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-700/50 transition-colors group">
                         {/* Status accent strip */}
                         <td className="p-0 w-1.5">
                           <div className={`w-1.5 h-full min-h-[60px] ${accentColor} ${isActive ? 'animate-pulse' : ''}`} />
@@ -507,7 +507,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                         {/* Duration */}
                         <td className="px-4 py-4">
                           {durationHrs !== null ? (
-                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-black tabular-nums">
+                            <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-black tabular-nums">
                               {durationHrs}h {durationMins}m
                             </span>
                           ) : (
@@ -530,7 +530,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                                 onClick={() => handleResetClockOut(log)}
                                 disabled={isResetting === log.id}
                                 title="Reset clock-out"
-                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
+                                className="h-8 px-3 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-400 dark:text-slate-400 hover:text-emerald-600 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
                               >
                                 {isResetting === log.id ? (
                                   <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -690,7 +690,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                           <button
                             onClick={() => handleResetClockOut(log)}
                             disabled={isResetting === log.id}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-500 dark:text-slate-400 hover:text-emerald-600 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
                           >
                             {isResetting === log.id ? (
                               <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -755,7 +755,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={() => { playSound('click'); setResetConfirmLog(null); }}
-                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
                 >
                   Cancel
                 </button>
@@ -804,7 +804,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
                 <button
                   onClick={() => { playSound('click'); setDeleteConfirmLog(null); }}
                   disabled={isDeleting}
-                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 transition-all"
+                  className="py-4 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
                 >
                   Cancel
                 </button>

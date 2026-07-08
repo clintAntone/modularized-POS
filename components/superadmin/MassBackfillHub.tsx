@@ -898,10 +898,10 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         </div>
 
                         {/* Desktop Table View */}
-                        <div className="hidden md:block overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm">
+                        <div className="hidden md:block overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm">
                             <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                                    <tr className="bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
                                         <th className="pl-8 pr-4 py-5 text-left text-xs font-medium text-slate-400 uppercase tracking-wide">Personnel</th>
                                         <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">Commission</th>
                                         <th className="px-4 py-5 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">OT Pay</th>
@@ -913,11 +913,11 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                                         <th className="pl-4 pr-8 py-5 text-right w-20"></th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-50">
+                                <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                                     {employeeEntries.map((emp) => {
                                         const netPay = Number(emp.commission) + Number(emp.otPay) + Number(emp.allowance) - Number(emp.cashAdvance) - Number(emp.lateDeduction);
                                         return (
-                                            <tr key={emp.employeeId} className={`group transition-colors ${emp.isReliever ? 'bg-violet-50/40 hover:bg-violet-50/60' : emp.isHalfDay ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-slate-50/50'}`}>
+                                            <tr key={emp.employeeId} className={`group transition-colors ${emp.isReliever ? 'bg-violet-50/40 dark:bg-violet-900/10 hover:bg-violet-50/60 dark:hover:bg-violet-900/20' : emp.isHalfDay ? 'bg-amber-50/50 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'hover:bg-slate-50/50 dark:hover:bg-slate-700/50'}`}>
                                                 <td className="pl-8 pr-4 py-6">
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-black text-slate-900 uppercase tracking-widest">{emp.name}</p>

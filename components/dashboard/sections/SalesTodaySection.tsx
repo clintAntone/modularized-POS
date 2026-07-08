@@ -673,37 +673,6 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       if (vaultErr) throw vaultErr;
     }
 
-    // Write total_vault_provision directly to sales_reports as part of the deposit operation.
-    // Multiple deposits per day are allowed but consolidated into one vault_transaction record
-    // (each deposit replaces the previous amount). So totalProvision = amount = current total.
-    // depositDelta adjusts net_roi correctly whether this is a new deposit or a replacement.
-    try {
-      const depositDelta = amount - (existingDeposit?.amount ?? 0);
-      const totalProvision = amount;
-
-      const { data: existingReport } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .select(`${DB_COLUMNS.NET_ROI}, ${DB_COLUMNS.TOTAL_VAULT_PROVISION}`)
-        .eq(DB_COLUMNS.ID, reportId)
-        .maybeSingle();
-
-      const prevNet = Number(existingReport?.[DB_COLUMNS.NET_ROI] ?? 0);
-      const newNet = Math.max(0, prevNet - depositDelta);
-
-      await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .upsert(
-          {
-            [DB_COLUMNS.ID]: reportId,
-            [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalProvision,
-            ...(existingReport ? { [DB_COLUMNS.NET_ROI]: newNet } : {}),
-          },
-          { onConflict: DB_COLUMNS.ID },
-        );
-    } catch (syncErr) {
-      console.error('[VaultDeposit] Failed to sync to sales_reports:', syncErr);
-    }
-
     onForceSync?.();
     onRefresh?.();
   };
