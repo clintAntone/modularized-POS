@@ -6,10 +6,6 @@ let modelsLoaded = false;
 let loading = false;
 let loadError: Error | null = null;
 
-// In-memory cache for model file buffers — populated by preloadFaceModels.
-// loadFaceModels monkey-patches face-api's fetch to serve from this cache,
-// avoiding a second network download (Android WebView bypasses HTTP cache for localhost).
-const modelFileCache = new Map<string, ArrayBuffer>();
 
 async function getFaceApi(): Promise<FaceApi> {
     if (!faceapi) faceapi = await import('face-api.js');
@@ -50,11 +46,8 @@ export async function preloadFaceModels(
         faceApiPrime,
         ...MODEL_FILES.map(async ({ path, size }) => {
             try {
-                if (!modelFileCache.has(path)) {
-                    const res = await fetch(path);
-                    const buf = await res.arrayBuffer();
-                    modelFileCache.set(path, buf);
-                }
+                const res = await fetch(path);
+                await res.arrayBuffer(); // warms browser HTTP cache
                 loadedBytes += size;
                 onProgress(Math.min(loadedBytes, TOTAL_BYTES), TOTAL_BYTES);
             } catch { /* loadFaceModels will surface the error */ }
@@ -62,28 +55,6 @@ export async function preloadFaceModels(
     ]);
 }
 
-/**
- * Returns a fetch function that serves model files from in-memory cache,
- * falling back to the real fetch for anything not cached.
- */
-function makeCachedFetch(realFetch: typeof fetch): typeof fetch {
-    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        try {
-            const url = typeof input === 'string' ? input
-                : input instanceof URL ? input.href
-                : (input as Request).url;
-            const pathname = new URL(url, window.location.href).pathname;
-            if (modelFileCache.has(pathname)) {
-                const buf = modelFileCache.get(pathname)!;
-                return new Response(buf.slice(0), {
-                    status: 200,
-                    headers: { 'Content-Type': pathname.endsWith('.json') ? 'application/json' : 'application/octet-stream' },
-                });
-            }
-        } catch { /* fall through to real fetch on URL parse errors */ }
-        return realFetch(input as RequestInfo, init);
-    };
-}
 
 export async function loadFaceModels(): Promise<void> {
     if (modelsLoaded) return;
@@ -104,10 +75,9 @@ export async function loadFaceModels(): Promise<void> {
     const TIMEOUT_MS = 30_000;
     try {
         const load = (async () => {
+            // getFaceApi() is already resolved from the preloadFaceModels pre-import,
+            // so this returns instantly. loadFromUri uses browser HTTP cache.
             const api = await getFaceApi();
-            // Serve model files from in-memory cache so loadFromUri doesn't re-download.
-            // This is the key fix for Android WebView where localhost HTTP cache is unreliable.
-            api.env.monkeyPatch({ fetch: makeCachedFetch(window.fetch.bind(window)) as any });
             await Promise.all([
                 api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -130,10 +100,14 @@ export async function loadFaceModels(): Promise<void> {
 /** Extract face descriptors from a video/canvas element. Returns null if no face found. */
 export async function extractDescriptors(source: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<Float32Array[] | null> {
     const api = await getFaceApi();
-    const detections = await api
-        .detectAllFaces(source, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 }))
-        .withFaceLandmarks()
-        .withFaceDescriptors();
+    const detections = await Promise.race([
+        api.detectAllFaces(source, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 }))
+            .withFaceLandmarks()
+            .withFaceDescriptors(),
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Detection timed out')), 8_000)
+        ),
+    ]);
     if (!detections || detections.length === 0) return null;
     return detections.map(d => d.descriptor);
 }
@@ -141,11 +115,18 @@ export async function extractDescriptors(source: HTMLImageElement | HTMLVideoEle
 /** Extract a single descriptor from a File (for enrollment). */
 export async function extractDescriptorFromFile(file: File): Promise<Float32Array | null> {
     const api = await getFaceApi();
-    const img = await api.bufferToImage(file);
-    const detection = await api
-        .detectSingleFace(img, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor();
+    const detection = await Promise.race([
+        (async () => {
+            const img = await api.bufferToImage(file);
+            return api
+                .detectSingleFace(img, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+        })(),
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Detection timed out — try again')), 12_000)
+        ),
+    ]);
     return detection ? detection.descriptor : null;
 }
 

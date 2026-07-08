@@ -114,7 +114,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 ]);
             }
             setStatus('ready');
-            setStatusMsg('Position your face in the frame');
+            setStatusMsg('Hold still — scanning automatically');
         } catch (err: any) {
             const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
             if (isDenied) {
@@ -135,7 +135,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                         ]);
                     }
                     setStatus('ready');
-                    setStatusMsg('Position your face in the frame');
+                    setStatusMsg('Hold still — scanning automatically');
                     return;
                 } catch {}
             }
@@ -165,15 +165,16 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         try {
             const descriptors = await extractDescriptors(videoRef.current);
             if (!descriptors || descriptors.length === 0) {
+                setFailedAttempts(prev => prev + 1);
                 setStatus('no_face');
                 setStatusMsg('No face detected — move closer');
-                setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2000);
+                setTimeout(() => { setStatus('ready'); setStatusMsg('Hold still — scanning automatically'); }, 2000);
                 return;
             }
             if (empDescriptors.length === 0) {
                 setStatus('no_match');
                 setStatusMsg('No enrolled employees found');
-                setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2500);
+                setTimeout(() => { setStatus('ready'); setStatusMsg('Hold still — scanning automatically'); }, 2500);
                 return;
             }
             // Try all detected face descriptors and take the best match
@@ -189,14 +190,14 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 setFailedAttempts(prev => prev + 1);
                 setStatus('no_match');
                 setStatusMsg('Face not recognized — try again');
-                setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2500);
+                setTimeout(() => { setStatus('ready'); setStatusMsg('Hold still — scanning automatically'); }, 2500);
                 return;
             }
             const emp = employees.find(e => e.id === match.employeeId);
             if (!emp) {
                 setStatus('no_match');
                 setStatusMsg('Employee not found');
-                setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2500);
+                setTimeout(() => { setStatus('ready'); setStatusMsg('Hold still — scanning automatically'); }, 2500);
                 return;
             }
 
@@ -211,7 +212,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
             setFailedAttempts(prev => prev + 1);
             setStatus('error');
             setStatusMsg('Scan failed — try again');
-            setTimeout(() => { setStatus('ready'); setStatusMsg('Position your face in the frame'); }, 2000);
+            setTimeout(() => { setStatus('ready'); setStatusMsg('Hold still — scanning automatically'); }, 2000);
         }
     }, [status, empDescriptors, employees, onMatch, onClose, stopCamera]);
 
@@ -227,6 +228,13 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
         const t = setTimeout(() => setLoadingTooLong(true), 15_000);
         return () => clearTimeout(t);
     }, [status]);
+
+    // Auto-scan while camera is ready — users don't need to tap the button
+    useEffect(() => {
+        if (status !== 'ready') return;
+        const interval = setInterval(() => { scan(); }, 1500);
+        return () => clearInterval(interval);
+    }, [status, scan]);
 
     const loadModelsAndStart = useCallback(async () => {
         setStatus('loading');
@@ -326,7 +334,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     <div>
                         <h3 className="text-sm font-bold text-slate-900">Face Time-In</h3>
                         {targetEmployee && <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mt-0.5 truncate">{targetEmployee.name}</p>}
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Look at the camera</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Look at the camera and hold still</p>
                     </div>
                     <button onClick={() => { stopCamera(); onClose(); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
                         <X className="w-4 h-4" />
@@ -456,7 +464,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 </div>
 
                 {/* Manual override fallback — only shown after 3 failed attempts */}
-                {onManualOverride && failedAttempts >= 3 && (
+                {onManualOverride && failedAttempts >= 5 && (
                     <div className="px-6 pb-5 text-center shrink-0">
                         <button
                             onClick={() => { stopCamera(); onClose(); onManualOverride(); }}

@@ -88,6 +88,7 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
     const [stepIdx, setStepIdx]           = useState(0);
     const [shots, setShots]               = useState<CapturedShot[]>([]);
     const [capturing, setCapturing]       = useState(false);
+    const [capturingTooLong, setCapturingTooLong] = useState(false);
     const [cameraReady, setCameraReady]   = useState(false);
     const [cameraError, setCameraError]   = useState('');
     const [loading, setLoading]           = useState(false);
@@ -188,8 +189,10 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                     }
                 }, 900);
             }
-        } catch {
-            setShots(prev => prev.map(s => s.stepId === stepId ? { ...s, status: 'error', error: 'Capture failed — try again' } : s));
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[FaceEnrollment] capture error:', msg, err);
+            setShots(prev => prev.map(s => s.stepId === stepId ? { ...s, status: 'error', error: msg || 'Capture failed — try again' } : s));
         }
 
         setCapturing(false);
@@ -228,6 +231,13 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
     }, [stopCamera]);
 
     useEffect(() => () => { stopCamera(); }, [stopCamera]);
+
+    // Show a cancel option if processing takes more than 6s (timeout in face.ts is 12s)
+    useEffect(() => {
+        if (!capturing) { setCapturingTooLong(false); return; }
+        const t = setTimeout(() => setCapturingTooLong(true), 6_000);
+        return () => clearTimeout(t);
+    }, [capturing]);
 
     /* ── INTRO ─────────────────────────────────────────────────── */
     if (phase === 'intro') {
@@ -413,6 +423,16 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
                             Retake
+                        </button>
+                    )}
+                    {isProcessing && capturingTooLong && (
+                        <button
+                            type="button"
+                            onClick={retakeShot}
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-slate-200 transition-all"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Cancel
                         </button>
                     )}
                     {!isOk && (
