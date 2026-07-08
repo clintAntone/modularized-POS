@@ -66,6 +66,7 @@ interface BranchManagerDashboardProps {
   onRefresh?: (quiet?: boolean) => void;
   onSwitchBranch?: (branchId: string) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
+  isPreview?: boolean;
 }
 
 export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill' | 'insights' | 'complaints';
@@ -212,6 +213,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     hiddenStaffNames,
     todayReportExists,
     loading: props.loading,
+    isPreview: props.isPreview,
   });
 
   const {

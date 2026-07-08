@@ -35,8 +35,6 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
 }) => {
   const [showPayrollDetail, setShowPayrollDetail] = useState(false);
   const netPayableCash = finalStaffPayTotal - totalCashAdvances;
-  const vaultProgress = vaultTarget > 0 ? Math.min(100, Math.round((vaultBalance / vaultTarget) * 100)) : 0;
-  const isVaultFull = vaultTarget > 0 && vaultBalance >= vaultTarget;
   const roiOnly = Math.max(0, operationalExp - vaultCoveredExp);
 
   const isPositive = net > 0;
@@ -130,13 +128,22 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         </button>
       </div>
 
-      {/* ── Vault Deposit — only in historical/report context (no live vault target) ── */}
-      {!isLegacy && vaultDeposit > 0 && !vaultTarget && (
+      {/* ── Vault Deposit ── */}
+      {!isLegacy && vaultDeposit > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-between print:shadow-none">
           <div>
             <p className="text-xs font-semibold text-slate-400 mb-1">Vault Deposit</p>
             <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(vaultDeposit)}</p>
-            <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
+            {vaultTarget > 0 ? (
+              <p className="text-xs text-indigo-500 font-medium mt-1.5">
+                Fund total {fmt(vaultBalance)}
+                {vaultBalance < vaultTarget && (
+                  <span className="text-slate-400"> · {fmt(vaultTarget - vaultBalance)} to go</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
+            )}
           </div>
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -169,47 +176,6 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         </div>
       </div>
 
-      {/* ── Vault Fund balance (with today's deposit inline) ── */}
-      {!isLegacy && vaultTarget > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 print:shadow-none">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-              <span className="text-xs font-semibold text-slate-500">Vault Fund</span>
-              {isVaultFull && <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Full</span>}
-            </div>
-            <div className="text-right">
-              <span className="text-lg font-black text-slate-900 tabular-nums">
-                {fmt(vaultDeposit > 0 ? vaultBalance + vaultDeposit : vaultBalance)}
-              </span>
-              <p className="text-xs font-semibold">
-                {vaultDeposit > 0
-                  ? <span className="text-indigo-500">incl. {fmt(vaultDeposit)} today</span>
-                  : <span className="text-slate-400">no deposit yet</span>}
-              </p>
-            </div>
-          </div>
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${isVaultFull ? 'bg-emerald-500' : 'bg-indigo-400'}`}
-              style={{ width: `${vaultProgress}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-xs text-slate-400">{vaultProgress}% of target</span>
-            <div className="flex items-center gap-3">
-              {vaultWithdrawal > 0 && (
-                <span className="text-xs text-rose-500 font-medium">−{fmt(vaultWithdrawal)} used</span>
-              )}
-              {!isVaultFull && (
-                <span className="text-xs text-slate-400">{fmt(vaultTarget - vaultBalance)} to go</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

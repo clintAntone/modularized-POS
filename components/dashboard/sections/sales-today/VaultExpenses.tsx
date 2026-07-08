@@ -79,6 +79,12 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
     return { expenseLogs, vaultDepositLogs, vaultWithdrawalLogs, provisionLogs, expensesSubtotal, vaultDepositSubtotal, vaultWithdrawalSubtotal, provisionTotal, vaultCoverageMap };
   }, [operationalLogs, vaultDepositLogsProp]);
 
+  // Must be declared before any early return to satisfy Rules of Hooks
+  const allVaultActivity = useMemo(() => {
+    return vaultDepositLogs.map((e: any) => ({ ...e, flow: 'deposit' as const }))
+      .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  }, [vaultDepositLogs]);
+
   const startLongPress = (id: string, isReliever: boolean) => {
     if (isClosedMode) return;
     longPressTimer.current = setTimeout(() => {
@@ -308,10 +314,6 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
   const hasEntries = allEntries.length > 0;
 
   // Vault fund column shows only deposits; vault cover-from-expense amounts show as badges on the expense entry
-  const allVaultActivity = useMemo(() => {
-    return vaultDepositLogs.map((e: any) => ({ ...e, flow: 'deposit' as const }))
-      .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  }, [vaultDepositLogs]);
   const hasVaultActivity = allVaultActivity.length > 0;
 
   return (

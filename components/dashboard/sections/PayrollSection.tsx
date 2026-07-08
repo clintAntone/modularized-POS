@@ -15,6 +15,7 @@ interface PayrollSectionProps {
   attendance: Attendance[];
   employees: Employee[];
   salesReports: SalesReport[];
+  salesReportsLoading?: boolean;
   onRefresh?: () => void;
 }
 
@@ -29,7 +30,7 @@ interface TherapistSummary {
   advance: number;
 }
 
-export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transactions, expenses, attendance, employees, salesReports, onRefresh }) => {
+export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transactions, expenses, attendance, employees, salesReports, salesReportsLoading, onRefresh }) => {
   const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [selectedStaffPayslip, setSelectedStaffPayslip] = useState<any | null>(null);
@@ -39,6 +40,10 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [settlementStatuses, setSettlementStatuses] = useState<Record<string, string>>({});
   const [isUpdatingSettlement, setIsUpdatingSettlement] = useState(false);
+  const [payrollView, setPayrollView] = useState<'weekly' | 'monthly'>('weekly');
+  const nowDate = new Date();
+  const [monthlyMonth, setMonthlyMonth] = useState(nowDate.getMonth());
+  const [monthlyYear, setMonthlyYear] = useState(getManilaYear());
 
   const months = [
     { value: 0, label: 'January' },
@@ -396,6 +401,67 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     }).sort((a, b) => b.netPay - a.netPay);
   }, [selectedCycle, groupedCycleData, branch.name, employees]);
 
+  const MONTHS_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const isMonthlyfuture = (m: number, y: number) => {
+    const n = new Date();
+    return y > n.getFullYear() || (y === n.getFullYear() && m >= n.getMonth());
+  };
+  const prevMonthly = () => {
+    playSound('click');
+    if (monthlyMonth === 0) { setMonthlyMonth(11); setMonthlyYear(y => y - 1); } else setMonthlyMonth(m => m - 1);
+  };
+  const nextMonthly = () => {
+    if (isMonthlyfuture(monthlyMonth, monthlyYear)) return;
+    playSound('click');
+    if (monthlyMonth === 11) { setMonthlyMonth(0); setMonthlyYear(y => y + 1); } else setMonthlyMonth(m => m + 1);
+  };
+
+  const monthlyEmployeeSummaries = useMemo(() => {
+    if (payrollView !== 'monthly') return [];
+    const prefix = `${monthlyYear}-${String(monthlyMonth + 1).padStart(2, '0')}`;
+    const empMap: Record<string, any> = {};
+    for (const report of salesReports) {
+      if (report.branchId !== branch.id || !report.reportDate.startsWith(prefix)) continue;
+      for (const s of (report.staffBreakdown ?? [])) {
+        if (!s.employeeId || isRelieverExcluded(s)) continue;
+        if (!empMap[s.employeeId]) {
+          empMap[s.employeeId] = {
+            employeeId: s.employeeId,
+            name: (s.staffName || s.name || '').trim().toUpperCase(),
+            commission: 0, allowance: 0, ot: 0, late: 0, advance: 0, sessions: 0, dailyBreakdown: [],
+          };
+        }
+        const att = s.attendance ?? {};
+        const commission = Number(s.commission ?? 0);
+        const allowance  = Number(s.allowance ?? 0);
+        const ot     = Number(att.otPay ?? att.ot_pay ?? 0);
+        const late   = Number(att.lateDeduction ?? att.late_deduction ?? 0);
+        const advance = Number(att.cashAdvance ?? att.cash_advance ?? 0);
+        empMap[s.employeeId].commission += commission;
+        empMap[s.employeeId].allowance  += allowance;
+        empMap[s.employeeId].ot         += ot;
+        empMap[s.employeeId].late       += late;
+        empMap[s.employeeId].advance    += advance;
+        empMap[s.employeeId].sessions   += Number(s.count ?? 0);
+        empMap[s.employeeId].dailyBreakdown.push({
+          date: report.reportDate, commission, allowance, ot, late, advance,
+          net: commission + allowance + ot - late - advance,
+        });
+      }
+    }
+    return Object.values(empMap).map((data: any) => {
+      const emp = employees.find(e => e.id === data.employeeId);
+      const netPay = data.commission + data.allowance + data.ot - data.late - data.advance;
+      const formattedEmpId = emp?.timestamp ? (() => {
+        const d = new Date(emp.timestamp);
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        return `EMP-${mm}-${dd}-${emp.id}`.toUpperCase();
+      })() : undefined;
+      return { ...data, netPay, formattedEmpId, branchName: branch.name };
+    }).sort((a: any, b: any) => b.netPay - a.netPay);
+  }, [payrollView, monthlyMonth, monthlyYear, salesReports, branch.id, employees]);
+
   const toggleExpand = (date: string, empId: string) => {
     playSound('click');
     const id = `${date}-${empId}`;
@@ -481,11 +547,14 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     const isCycleComplete = cycleEndDay < todayMidnight;
 
     return (
-      <div className="max-w-5xl mx-auto space-y-4 pb-32 px-3 sm:px-4 animate-in fade-in slide-in-from-bottom-4 duration-400">
+      <div className="w-full space-y-4 pb-32 px-3 sm:px-4 animate-in fade-in slide-in-from-bottom-4 duration-400">
         {selectedStaffPayslip && (
           <PayslipModal
             data={selectedStaffPayslip}
             onClose={() => setSelectedStaffPayslip(null)}
+            employee={employees.find((e: Employee) => e.id === selectedStaffPayslip.employeeId) ?? null}
+            salesReports={salesReports}
+            branch={branch}
           />
         )}
 
@@ -568,12 +637,11 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                 >
                   <p className="text-xs font-mono text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Avatar */}
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-colors">
                       {getInitials(s.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{s.name}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{s.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-xs text-slate-400">{s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
                         {(s.isSettled || isSettled) && (
@@ -585,7 +653,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-base font-bold text-slate-900 tabular-nums group-hover:text-emerald-600 transition-colors">
+                    <p className="text-base font-bold text-slate-900 dark:text-slate-100 tabular-nums group-hover:text-emerald-600 transition-colors">
                       ₱{s.netPay.toLocaleString()}
                     </p>
                     {s.advance > 0 && (
@@ -622,77 +690,219 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
   // ─── Cycle list view ──────────────────────────────────────────────────────
   return (
     <div className="w-full space-y-5 no-print pb-10 px-3 sm:px-4">
+      {selectedStaffPayslip && (
+        <PayslipModal
+          data={selectedStaffPayslip}
+          onClose={() => setSelectedStaffPayslip(null)}
+          employee={employees.find((e: Employee) => e.id === selectedStaffPayslip.employeeId) ?? null}
+          salesReports={salesReports}
+          branch={branch}
+        />
+      )}
 
       {/* Header + filters */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-        <div>
-          <h3 className="text-lg font-bold text-slate-900">Payroll Archive</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Historical ledger by weekly cycle</p>
-        </div>
-
-        {/* Period selector — pill-style tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Year pills */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-            {availableYears.slice(0, 4).map(y => (
-              <button
-                key={y}
-                onClick={() => { setSelectedYear(y); playSound('click'); }}
-                className={`px-3 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all ${
-                  selectedYear === y
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 sm:p-5 no-print">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Payroll Archive</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {payrollView === 'weekly' ? 'Historical ledger by weekly cycle' : 'Monthly earnings per employee'}
+            </p>
           </div>
 
-          {/* Month dropdown — clean */}
-          <div className="relative">
-            <button
-              onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); playSound('click'); }}
-              className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-all"
-            >
-              {selectedMonth === 'all' ? 'All months' : months.find(m => m.value === selectedMonth)?.label}
-              <svg className={`w-4 h-4 text-slate-400 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showMonthDropdown && (
-              <>
-                <div className="fixed inset-0 z-[100]" onClick={() => setShowMonthDropdown(false)} />
-                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-slate-100 rounded-xl shadow-xl z-[110] overflow-hidden animate-in zoom-in-95 duration-150 p-1.5 max-h-[60vh] overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Weekly / Monthly tabs */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+              {(['weekly', 'monthly'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => { setPayrollView(tab); playSound('click'); }}
+                  className={`px-4 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all capitalize ${
+                    payrollView === tab
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            {/* Year pills — weekly only */}
+            {payrollView === 'weekly' && (
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+                {availableYears.slice(0, 4).map(y => (
                   <button
-                    onClick={() => { setSelectedMonth('all'); setShowMonthDropdown(false); playSound('click'); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                      selectedMonth === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                    key={y}
+                    onClick={() => { setSelectedYear(y); playSound('click'); }}
+                    className={`px-3 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all ${
+                      selectedYear === y
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                     }`}
                   >
-                    All months
+                    {y}
                   </button>
-                  <div className="h-px bg-slate-100 my-1" />
-                  {months.map(m => (
-                    <button
-                      key={m.value}
-                      onClick={() => { setSelectedMonth(m.value); setShowMonthDropdown(false); playSound('click'); }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                        selectedMonth === m.value ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </>
+                ))}
+              </div>
+            )}
+
+            {/* Month dropdown — weekly only */}
+            {payrollView === 'weekly' && (
+              <div className="relative">
+                <button
+                  onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); playSound('click'); }}
+                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 transition-all"
+                >
+                  {selectedMonth === 'all' ? 'All months' : months.find(m => m.value === selectedMonth)?.label}
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showMonthDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-[100]" onClick={() => setShowMonthDropdown(false)} />
+                    <div className="absolute top-full right-0 mt-2 w-44 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-[110] overflow-hidden animate-in zoom-in-95 duration-150 p-1.5 max-h-[60vh] overflow-y-auto">
+                      <button
+                        onClick={() => { setSelectedMonth('all'); setShowMonthDropdown(false); playSound('click'); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                          selectedMonth === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        All months
+                      </button>
+                      <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+                      {months.map(m => (
+                        <button
+                          key={m.value}
+                          onClick={() => { setSelectedMonth(m.value); setShowMonthDropdown(false); playSound('click'); }}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                            selectedMonth === m.value ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Cycle grid */}
-      {filteredCycles.length > 0 ? (
+      {/* ── Monthly view ── */}
+      {payrollView === 'monthly' && (
+        <div className="space-y-4">
+          {/* Month navigator */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={prevMonthly}
+              className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <p className="flex-1 text-center text-base font-bold text-slate-900 dark:text-slate-100">
+              {MONTHS_NAMES[monthlyMonth]} {monthlyYear}
+            </p>
+            <button
+              onClick={nextMonthly}
+              disabled={isMonthlyfuture(monthlyMonth, monthlyYear)}
+              className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Employee monthly list */}
+          {monthlyEmployeeSummaries.length > 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+              <div className="hidden sm:grid sm:grid-cols-[160px_1fr_140px] items-center px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                <p className="text-xs font-semibold text-slate-400">Employee ID</p>
+                <p className="text-xs font-semibold text-slate-400">Name</p>
+                <p className="text-xs font-semibold text-slate-400 text-right">Net Pay</p>
+              </div>
+              <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                {monthlyEmployeeSummaries.map((s: any) => (
+                  <button
+                    key={s.employeeId}
+                    onClick={() => {
+                      playSound('click');
+                      setSelectedStaffPayslip({
+                        ...s, period: `${MONTHS_NAMES[monthlyMonth]} ${monthlyYear}`, isMonthly: true,
+                      });
+                    }}
+                    className="w-full text-left grid grid-cols-[1fr_auto] sm:grid-cols-[160px_1fr_140px] items-center px-5 py-4 min-h-[64px] hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                  >
+                    <p className="text-xs font-mono text-slate-400 truncate pr-4 hidden sm:block">{s.formattedEmpId ?? '—'}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-colors">
+                        {getInitials(s.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{s.name}</p>
+                        <p className="text-xs text-slate-400">{s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-bold text-slate-900 dark:text-slate-100 tabular-nums group-hover:text-emerald-600 transition-colors">
+                        ₱{s.netPay.toLocaleString()}
+                      </p>
+                      {s.advance > 0 && (
+                        <p className="text-xs text-rose-400 tabular-nums font-semibold">−₱{s.advance.toLocaleString()} adv</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between px-5 py-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                <p className="text-sm font-semibold text-slate-500">Total Payout</p>
+                <p className="text-lg font-bold text-emerald-600 tabular-nums">
+                  ₱{monthlyEmployeeSummaries.reduce((sum: number, s: any) => sum + s.netPay, 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center py-16 gap-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 flex items-center justify-center text-2xl">📁</div>
+              <p className="text-sm font-semibold text-slate-500">No records for {MONTHS_NAMES[monthlyMonth]} {monthlyYear}</p>
+              <p className="text-xs text-slate-400">No sales reports found for this month.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cycle grid — weekly only */}
+      {payrollView === 'weekly' && ((salesReportsLoading || (filteredCycles.length > 0 && salesReports.length === 0)) ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 min-h-[120px] flex flex-col justify-between gap-4 animate-pulse">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-600" />
+                    <div className="h-3.5 w-16 bg-slate-200 dark:bg-slate-600 rounded-md" />
+                  </div>
+                  <div className="h-3 w-28 bg-slate-100 dark:bg-slate-700 rounded-md" />
+                </div>
+                <div className="h-5 w-20 bg-slate-100 dark:bg-slate-700 rounded-full" />
+              </div>
+              <div className="flex items-end justify-between">
+                <div className="space-y-1.5">
+                  <div className="h-2.5 w-16 bg-slate-100 dark:bg-slate-700 rounded-md" />
+                  <div className="h-6 w-24 bg-slate-200 dark:bg-slate-600 rounded-md" />
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredCycles.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filteredCycles.map(cycle => {
             const today = new Date();
@@ -757,7 +967,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           <p className="text-sm font-semibold text-slate-500">No payroll records found</p>
           <p className="text-xs text-slate-400">Try a different year or month filter.</p>
         </div>
-      )}
+      ))}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
-import { UserRole } from './types';
+import { UserRole, BranchVault } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
 import ProfileSetup from './components/PinChange';
@@ -27,7 +27,29 @@ const App: React.FC = () => {
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [isTimeSynced, setIsTimeSynced] = useState(false);
   const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
+  const [previewBranchVault, setPreviewBranchVault] = useState<BranchVault | null>(null);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+
+  // Fetch vault data for the previewed branch so View As renders correctly
+  useEffect(() => {
+    if (!previewBranchId || !supabase) { setPreviewBranchVault(null); return; }
+    supabase
+      .from('branch_vaults')
+      .select('branch_id, target, balance, initial_balance, last_deposited_date, start_date')
+      .eq('branch_id', previewBranchId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) { setPreviewBranchVault(null); return; }
+        setPreviewBranchVault({
+          branchId: data.branch_id,
+          target: Number(data.target ?? 0),
+          balance: Number(data.balance ?? 0),
+          initialBalance: Number(data.initial_balance ?? 0),
+          lastDepositedDate: data.last_deposited_date ?? null,
+          startDate: data.start_date ?? null,
+        });
+      });
+  }, [previewBranchId]);
 
   const isSupabaseConfigured = !!supabase;
 
@@ -630,7 +652,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       Exit Preview
                     </button>
                   </div>
-                  <BranchManagerDashboard user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={null} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} />
+                  <BranchManagerDashboard user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (

@@ -27,6 +27,7 @@ interface UseAutoSaveReportParams {
   hiddenStaffNames: Set<string>;
   todayReportExists: boolean;
   loading?: boolean;
+  isPreview?: boolean;
 }
 
 export function useAutoSaveReport({
@@ -43,6 +44,7 @@ export function useAutoSaveReport({
   hiddenStaffNames,
   todayReportExists,
   loading,
+  isPreview = false,
 }: UseAutoSaveReportParams) {
   const [autoSyncStatus, setAutoSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
   const [forceSyncTick, setForceSyncTick] = useState(0);
@@ -66,6 +68,7 @@ export function useAutoSaveReport({
   useEffect(() => {
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
 
+    if (isPreview) return;
     if (loading) return;
     if (document.hidden) return;
 
@@ -175,7 +178,7 @@ export function useAutoSaveReport({
     }, 3000);
 
     return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
-  }, [totals, todayTxs.length, todayExps.length, todayAtt.length, todayVaultTxs.length, branch.id, todayStr, staffSummary, loading, forceSyncTick]);
+  }, [totals, todayTxs.length, todayExps.length, todayAtt.length, todayVaultTxs.length, branch.id, todayStr, staffSummary, loading, isPreview, forceSyncTick]);
 
   return { autoSyncStatus, forceSync };
 }
