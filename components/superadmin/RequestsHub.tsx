@@ -764,10 +764,10 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                 { k: 'Base',  d: (s.salary || 0) - (priorEntry.salary || 0) },
                               ].filter(x => x.d !== 0) : [];
                               return (
-                                <div key={s.employeeId} className={`flex justify-between items-center p-3 rounded-xl gap-3 border ${hasChange ? 'bg-amber-50 border-amber-200' : s.isHalfDay ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                                <div key={s.employeeId} className={`flex justify-between items-center p-3 rounded-xl gap-3 border ${hasChange ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-transparent' : s.isHalfDay ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-transparent' : 'bg-slate-50 border-slate-100 dark:bg-slate-700/50 dark:border-transparent'}`}>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <p className="text-xs font-black text-slate-900 uppercase truncate">{s.name}</p>
+                                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase truncate">{s.name}</p>
                                       {s.isHalfDay && (
                                         <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 bg-amber-500 text-white rounded-md text-xs font-semibold uppercase tracking-wide">
                                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
@@ -782,12 +782,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                         { k: 'OT', v: s.otPay },
                                         { k: 'Allow', v: s.allowance },
                                       ].filter(x => x.v > 0).map(x => (
-                                        <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-xs font-bold">
+                                        <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-100 rounded text-xs font-bold">
                                           {x.k} ₱{x.v.toLocaleString()}
                                         </span>
                                       ))}
                                       {s.lateDeduction > 0 && (
-                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded text-xs font-bold">
+                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 rounded text-xs font-bold">
                                           −Late ₱{s.lateDeduction.toLocaleString()}
                                         </span>
                                       )}
@@ -795,7 +795,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                     {fieldDeltas.length > 0 && (
                                       <div className="flex flex-wrap gap-1 mt-1.5">
                                         {fieldDeltas.map(x => (
-                                          <span key={x.k} className={`px-1.5 py-0.5 rounded text-xs font-black ${x.d > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                                          <span key={x.k} className={`px-1.5 py-0.5 rounded text-xs font-black ${x.d > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300'}`}>
                                             {x.k} {x.d > 0 ? '+' : ''}₱{Math.abs(x.d).toLocaleString()}
                                           </span>
                                         ))}
@@ -803,7 +803,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                     )}
                                   </div>
                                   <div className="flex flex-col items-end shrink-0 gap-0.5">
-                                    <span className="text-sm font-black text-slate-900 tabular-nums">{fmt(total)}</span>
+                                    <span className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">{fmt(total)}</span>
                                     {hasChange && (
                                       <span className={`text-xs font-black tabular-nums ${delta! > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                         {delta! > 0 ? '+' : ''}{fmt(delta!)}

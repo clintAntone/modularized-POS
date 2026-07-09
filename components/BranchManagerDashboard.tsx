@@ -1,26 +1,26 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole, VaultTransaction, Request, EmployeeComplaint } from '../types';
 import { UI_THEME } from '../constants/ui_designs';
 import { useBranchData } from './dashboard/hooks/useBranchData';
 
 // Lazy-loaded tab sections — each becomes its own chunk, loaded on first visit
-const POSSection             = React.lazy(() => import('./dashboard/sections/POSSection').then(m => ({ default: m.POSSection })));
-const ExpensesManagerSection = React.lazy(() => import('./dashboard/sections/ExpensesManagerSection').then(m => ({ default: m.ExpensesManagerSection })));
-const BranchVaultSection     = React.lazy(() => import('./dashboard/sections/BranchVaultSection').then(m => ({ default: m.BranchVaultSection })));
-const ExpenseLedgerSection   = React.lazy(() => import('./dashboard/sections/ExpenseLedgerSection').then(m => ({ default: m.ExpenseLedgerSection })));
-const PayrollSection         = React.lazy(() => import('./dashboard/sections/PayrollSection').then(m => ({ default: m.PayrollSection })));
-const SalesTodaySection      = React.lazy(() => import('./dashboard/sections/SalesTodaySection').then(m => ({ default: m.SalesTodaySection })));
-const StaffDirectorySection  = React.lazy(() => import('./dashboard/sections/StaffDirectorySection').then(m => ({ default: m.StaffDirectorySection })));
-const ReportsMasterSection   = React.lazy(() => import('./dashboard/sections/ReportsMasterSection').then(m => ({ default: m.ReportsMasterSection })));
-const BranchReportsTab       = React.lazy(() => import('./dashboard/sections/BranchReportsTab').then(m => ({ default: m.BranchReportsTab })));
-const SettingsSection        = React.lazy(() => import('./dashboard/sections/SettingsSection').then(m => ({ default: m.SettingsSection })));
-const BackfillRequestSection = React.lazy(() => import('./dashboard/sections/BackfillRequestSection').then(m => ({ default: m.BackfillRequestSection })));
-const HowToSection           = React.lazy(() => import('./dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection })));
-const ClientHistorySection   = React.lazy(() => import('./dashboard/sections/ClientHistorySection').then(m => ({ default: m.ClientHistorySection })));
-const RemittanceSection      = React.lazy(() => import('./dashboard/sections/RemittanceSection').then(m => ({ default: m.RemittanceSection })));
-const InsightsHub            = React.lazy(() => import('./superadmin/InsightsHub').then(m => ({ default: m.InsightsHub })));
-const ComplaintsSection      = React.lazy(() => import('./dashboard/sections/ComplaintsSection').then(m => ({ default: m.ComplaintsSection })));
+const POSSection             = React.memo(React.lazy(() => import('./dashboard/sections/POSSection').then(m => ({ default: m.POSSection }))));
+const ExpensesManagerSection = React.memo(React.lazy(() => import('./dashboard/sections/ExpensesManagerSection').then(m => ({ default: m.ExpensesManagerSection }))));
+const BranchVaultSection     = React.memo(React.lazy(() => import('./dashboard/sections/BranchVaultSection').then(m => ({ default: m.BranchVaultSection }))));
+const ExpenseLedgerSection   = React.memo(React.lazy(() => import('./dashboard/sections/ExpenseLedgerSection').then(m => ({ default: m.ExpenseLedgerSection }))));
+const PayrollSection         = React.memo(React.lazy(() => import('./dashboard/sections/PayrollSection').then(m => ({ default: m.PayrollSection }))));
+const SalesTodaySection      = React.memo(React.lazy(() => import('./dashboard/sections/SalesTodaySection').then(m => ({ default: m.SalesTodaySection }))));
+const StaffDirectorySection  = React.memo(React.lazy(() => import('./dashboard/sections/StaffDirectorySection').then(m => ({ default: m.StaffDirectorySection }))));
+const ReportsMasterSection   = React.memo(React.lazy(() => import('./dashboard/sections/ReportsMasterSection').then(m => ({ default: m.ReportsMasterSection }))));
+const BranchReportsTab       = React.memo(React.lazy(() => import('./dashboard/sections/BranchReportsTab').then(m => ({ default: m.BranchReportsTab }))));
+const SettingsSection        = React.memo(React.lazy(() => import('./dashboard/sections/SettingsSection').then(m => ({ default: m.SettingsSection }))));
+const BackfillRequestSection = React.memo(React.lazy(() => import('./dashboard/sections/BackfillRequestSection').then(m => ({ default: m.BackfillRequestSection }))));
+const HowToSection           = React.memo(React.lazy(() => import('./dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection }))));
+const ClientHistorySection   = React.memo(React.lazy(() => import('./dashboard/sections/ClientHistorySection').then(m => ({ default: m.ClientHistorySection }))));
+const RemittanceSection      = React.memo(React.lazy(() => import('./dashboard/sections/RemittanceSection').then(m => ({ default: m.RemittanceSection }))));
+const InsightsHub            = React.memo(React.lazy(() => import('./superadmin/InsightsHub').then(m => ({ default: m.InsightsHub }))));
+const ComplaintsSection      = React.memo(React.lazy(() => import('./dashboard/sections/ComplaintsSection').then(m => ({ default: m.ComplaintsSection }))));
 
 import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
@@ -277,6 +277,11 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     });
   }, [props.branches, props.branch.id, props.employees, props.user.employeeId, props.user.username]);
 
+  const branchSalesReports = useMemo(
+    () => props.salesReports.filter(r => r.branchId === props.branch.id),
+    [props.salesReports, props.branch.id]
+  );
+
   const changeTab = (tabId: TabID) => {
     resumeAudioContext();
     if (tabId !== activeTab) {
@@ -287,6 +292,10 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       if (['salaries', 'reports_master', 'sales', 'sales_reports'].includes(tabId)) props.onRefresh?.(true);
     }
   };
+
+  const handleRefresh = useCallback(() => { props.onRefresh?.(); }, [props.onRefresh]);
+  const handleRefreshForce = useCallback(() => { props.onRefresh?.(true); }, [props.onRefresh]);
+  const handleNavigateToComplaints = useCallback(() => changeTab('complaints'), [changeTab]);
 
   return (
     <div className="pb-24 bg-slate-50 dark:bg-slate-900">
@@ -409,17 +418,17 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           <React.Suspense fallback={null}>
             {mountedTabs.has('pos')            && <div className={activeTab !== 'pos'            ? 'hidden' : ''}><POSSection {...props} attendance={props.attendance} todayStr={todayStr} isClosedMode={!props.branch.isOpen} isPaymongoEnabled={props.isPaymongoEnabled} onSyncStatusChange={props.onSyncStatusChange} loading={props.loading} hiddenStaffNames={hiddenStaffNames} onForceSync={forceSync} /></div>}
             {mountedTabs.has('sales')          && <div className={activeTab !== 'sales'          ? 'hidden' : ''}><SalesTodaySection {...props} user={props.user} todayStr={todayStr} setActiveTab={changeTab as any} connStatus={props.connStatus} pendingSyncCount={props.pendingSyncCount} hiddenStaffNames={hiddenStaffNames} setHiddenStaffNames={setHiddenStaffNames} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} loading={props.loading} totalBillsAmount={totalBillsAmount} vaultTransactions={props.vaultTransactions} autoSyncStatus={autoSyncStatus} onForceSync={forceSync} /></div>}
-            {mountedTabs.has('staff')          && <div className={activeTab !== 'staff'          ? 'hidden' : ''}><StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} isManagerView onNavigateToComplaints={!props.isRelief ? () => changeTab('complaints') : undefined} /></div>}
+            {mountedTabs.has('staff')          && <div className={activeTab !== 'staff'          ? 'hidden' : ''}><StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} isManagerView onNavigateToComplaints={!props.isRelief ? handleNavigateToComplaints : undefined} /></div>}
             {mountedTabs.has('clients')        && <div className={activeTab !== 'clients'        ? 'hidden' : ''}><ClientHistorySection branch={props.branch} /></div>}
             {mountedTabs.has('remittance')     && <div className={activeTab !== 'remittance'     ? 'hidden' : ''}><RemittanceSection branch={props.branch} salesReports={props.salesReports} vaultTransactions={props.vaultTransactions} performedBy={props.user.username ?? null} canDepositToVault={props.user.role === UserRole.BRANCH_MANAGER || props.user.role === UserRole.SUPERADMIN} isDelegate={props.isRelief} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('expenses_hub')   && <div className={activeTab !== 'expenses_hub'   ? 'hidden' : ''}><ExpensesManagerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} onSyncStatusChange={props.onSyncStatusChange} /></div>}
             {mountedTabs.has('monthly_bills')  && <div className={activeTab !== 'monthly_bills'  ? 'hidden' : ''}><BranchVaultSection branch={props.branch} branchVault={props.branchVault} salesReports={props.salesReports} isClosedMode={!props.branch.isOpen} todayNetRoi={totals.net} todayStr={todayStr} performedBy={props.user.username ?? null} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('expense_reports') && <div className={activeTab !== 'expense_reports' ? 'hidden' : ''}><ExpenseLedgerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} /></div>}
-            {mountedTabs.has('salaries')       && <div className={activeTab !== 'salaries'       ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={() => props.onRefresh?.(true)} /></div>}
+            {mountedTabs.has('salaries')       && <div className={activeTab !== 'salaries'       ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={handleRefreshForce} /></div>}
             {mountedTabs.has('sales_reports')  && <div className={activeTab !== 'sales_reports'  ? 'hidden' : ''}><BranchReportsTab branch={props.branch} salesReports={props.salesReports} salesReportsLoading={props.salesReportsLoading} branches={props.branches} employees={props.employees} branchVault={props.branchVault} /></div>}
             {mountedTabs.has('backfill')       && <div className={activeTab !== 'backfill'       ? 'hidden' : ''}><BackfillRequestSection branch={props.branch} branchVault={props.branchVault} employees={branchEmployees} transactions={props.transactions} expenses={props.expenses} attendance={props.attendance} salesReports={props.salesReports} vaultTransactions={props.vaultTransactions} requests={props.requests ?? []} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('settings')       && <div className={activeTab !== 'settings'       ? 'hidden' : ''}><SettingsSection user={props.user} branch={props.branch} branches={props.branches} todayTxs={todayTxs} todayAtt={todayAtt} todayReportExists={todayReportExists} employees={props.employees} branchVault={props.branchVault} isRelief={props.isRelief} onRefresh={props.onRefresh} /></div>}
-            {mountedTabs.has('insights')        && <div className={activeTab !== 'insights'        ? 'hidden' : ''}><InsightsHub branches={[props.branch]} salesReports={props.salesReports.filter(r => r.branchId === props.branch.id)} isBranchView /></div>}
+            {mountedTabs.has('insights')        && <div className={activeTab !== 'insights'        ? 'hidden' : ''}><InsightsHub branches={[props.branch]} salesReports={branchSalesReports} isBranchView /></div>}
             {mountedTabs.has('complaints')      && <div className={activeTab !== 'complaints'      ? 'hidden' : ''}><ComplaintsSection branch={props.branch} employees={props.employees} complaints={props.complaints ?? []} filedById={props.user.employeeId ?? props.user.username ?? ''} filedByName={props.employees.find(e => e.id === props.user.employeeId)?.name || props.user.username || ''} managerPin={props.user.loginPin} isDelegate={props.isRelief || props.user.role === UserRole.PORTAL_USER} /></div>}
             {mountedTabs.has('how_to')         && <div className={activeTab !== 'how_to'         ? 'hidden' : ''}><HowToSection role={UserRole.BRANCH_MANAGER} /></div>}
           </React.Suspense>

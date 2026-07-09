@@ -10,11 +10,26 @@ interface SessionLogsProps {
   totalCount?: number;
 }
 
+const fmt = (n: number) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
 export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [], totalCount }) => {
   // Build a price lookup map from branch services (in-memory, no DB round-trip)
   const serviceMap = useMemo(() => (
     Object.fromEntries(services.map(s => [s.id, s]))
   ), [services]);
+
+  const totalGross = useMemo(() =>
+    transactions.reduce((sum, t) => sum + (Number(t.basePrice) || 0) - (Number(t.discount) || 0), 0),
+  [transactions]);
+
+  const totalNetRoi = useMemo(() =>
+    transactions.reduce((sum, t) => {
+      const net = (Number(t.basePrice) || 0) - (Number(t.discount) || 0);
+      const comm = (Number(t.primaryCommission) || 0) + (Number(t.secondaryCommission) || 0);
+      const ded = Number(t.deduction) || 0;
+      return sum + net - comm + ded;
+    }, 0),
+  [transactions]);
 
   // Returns [{name, price}] for a transaction's services
   const getServiceItems = (t: Transaction) => {
@@ -29,14 +44,31 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
 
   return (
       <div className="space-y-4">
-        <div>
+        <div className="space-y-2">
           <div className="flex items-baseline gap-2">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Session Logs</h4>
             {totalCount !== undefined && (
               <span className="text-xs font-bold text-slate-400">({totalCount})</span>
             )}
           </div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Lists of clients today</p>
+          {transactions.length > 0 ? (
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                <span className="text-xs text-slate-400">Sessions <span className="font-bold text-slate-600">{transactions.length}</span></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="text-xs text-slate-400">Gross <span className="font-bold text-slate-600">{fmt(totalGross)}</span></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                <span className="text-xs text-slate-400">Net ROI <span className="font-bold text-slate-600">{fmt(totalNetRoi)}</span></span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Lists of clients today</p>
+          )}
         </div>
 
         <div

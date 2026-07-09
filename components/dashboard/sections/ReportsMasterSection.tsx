@@ -3,8 +3,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Branch, BranchVault, SalesReport } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 
@@ -12,8 +10,8 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { ReportFilters } from './reports-master/ReportFilters';
 import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
+import { ExportPDFDialog } from './reports-master/ExportPDFDialog';
 import { toDateStr, getWeekRange, getReportMonth, parseDate, normalizeDateStr } from '@/src/utils/reportUtils';
-import { getManilaTodayStr } from '../../../lib/time';
 
 const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 
@@ -61,8 +59,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const [isExporting, setIsExporting] = useState(false);
-  const [showPrintConfirm, setShowPrintConfirm] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [showMissingPanel, setShowMissingPanel] = useState(false);
   const [showMissingSidebar, setShowMissingSidebar] = useState(false);
 
@@ -108,65 +105,52 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     playSound('click');
   };
 
-  const { displayData, groupedConstituents } = useMemo(() => {
-    const reports = (salesReports || []).filter(r => {
-      // 1. Branch filter
+  // ── Pass 1: filter only (does NOT depend on `view`) ──────────────────────
+  const filteredReports = useMemo(() => {
+    return (salesReports || []).filter(r => {
       if (branch.id !== 'all' && r.branchId !== branch.id) return false;
-
-      // 2. Resolve the target branch (used for week grouping)
-      const targetBranch = branches.find(b => b.id === r.branchId) || (branch.id === r.branchId ? branch : null);
 
       const reportDate = parseDate(r.reportDate);
       if (isNaN(reportDate.getTime())) return false;
 
-      // 3. Date Range Filter
       if (startDate && r.reportDate < startDate) return false;
       if (endDate && r.reportDate > endDate) return false;
 
-      // 4. Search filter
       if (debouncedSearchQuery.trim()) {
         const q = debouncedSearchQuery.toUpperCase();
         const branchName = (branches.find(b => b.id === r.branchId)?.name || '').toUpperCase();
-        
-        // Exact match for branch name if it's a short word, or standard includes
-        const matchesBranch = branchName === q || branchName.startsWith(q + " ") || branchName.includes(" " + q) || branchName.includes(q);
-        
         const dateStr = r.reportDate.toUpperCase();
         const monthName = reportDate.toLocaleDateString(undefined, { month: 'long' }).toUpperCase();
         const yearStr = reportDate.getFullYear().toString();
         const traceId = r.id.toUpperCase();
-        
-        // Numeric fields for search
         const grossStr = r.grossSales.toString();
         const netStr = r.netRoi.toString();
         const payStr = r.totalStaffPay.toString();
         const expStr = r.totalExpenses.toString();
 
-        const matchesSearch = branchName.includes(q) ||
-            dateStr.includes(q) ||
-            monthName.includes(q) ||
-            yearStr.includes(q) ||
-            traceId.includes(q) ||
-            grossStr.includes(q) ||
-            netStr.includes(q) ||
-            payStr.includes(q) ||
-            expStr.includes(q);
-
-        if (!matchesSearch) return false;
+        if (
+          !branchName.includes(q) && !dateStr.includes(q) && !monthName.includes(q) &&
+          !yearStr.includes(q) && !traceId.includes(q) && !grossStr.includes(q) &&
+          !netStr.includes(q) && !payStr.includes(q) && !expStr.includes(q)
+        ) return false;
       }
 
       return true;
     });
+  }, [salesReports, branch.id, debouncedSearchQuery, startDate, endDate, branches]);
 
+  // ── Pass 2: aggregate (depends on `view`; filter result is already cached) ─
+  const { displayData, groupedConstituents } = useMemo(() => {
     if (view === 'daily') {
-      const dailyReports = reports.map(r => ({ ...r, reportType: 'daily' as const }));
-      return { displayData: dailyReports, groupedConstituents: {} };
+      return { displayData: filteredReports as SalesReport[], groupedConstituents: {} as Record<string, SalesReport[]> };
     }
 
     const aggregated: Record<string, SalesReport> = {};
     const subGroups: Record<string, SalesReport[]> = {};
+    // Use Maps for O(1) staff lookup instead of findIndex
+    const staffMaps: Record<string, Map<string, any>> = {};
 
-    reports.forEach(r => {
+    filteredReports.forEach(r => {
       const d = parseDate(r.reportDate);
       let key = "";
       let label = "";
@@ -176,24 +160,17 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
       if (view === 'weekly') {
         const targetBranch = branches.find(b => b.id === r.branchId) || branch;
-        const { weekIndex, weekStart, weekEnd, label: weekLabel } = getWeekRange(d, targetBranch);
-
+        const { weekStart, weekEnd, label: weekLabel } = getWeekRange(d, targetBranch);
         const isConsolidated = branch.id === 'all' && !showWeeklyBreakdown;
-
-        key = isConsolidated
-            ? `${toDateStr(weekStart)}`
-            : `${r.branchId}-${toDateStr(weekStart)}`;
+        key = isConsolidated ? toDateStr(weekStart) : `${r.branchId}-${toDateStr(weekStart)}`;
         label = weekLabel;
         sortDate = toDateStr(weekStart);
         periodEnd = toDateStr(weekEnd);
         reportType = 'weekly';
       } else {
         const { month, year } = getReportMonth(d);
-
         const isConsolidatedMonthly = branch.id === 'all' && !showWeeklyBreakdown;
-        key = isConsolidatedMonthly
-            ? `${year}-M${month}`
-            : `${r.branchId}-${year}-M${month}`;
+        key = isConsolidatedMonthly ? `${year}-M${month}` : `${r.branchId}-${year}-M${month}`;
         label = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
         sortDate = toDateStr(new Date(year, month - 1, 1));
         periodEnd = toDateStr(new Date(year, month, 0));
@@ -208,66 +185,59 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           branchId: isConsolidated ? 'all' : r.branchId,
           reportDate: label,
           reportType: reportType as any,
-          sortDate: sortDate,
-          periodEnd: periodEnd,
-          grossSales: 0,
-          totalStaffPay: 0,
-          totalExpenses: 0,
-          totalVaultProvision: 0,
-          netRoi: 0,
+          sortDate,
+          periodEnd,
+          grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0,
           sessionData: [], staffBreakdown: [], expenseData: [], vaultData: []
         };
         subGroups[key] = [];
+        staffMaps[key] = new Map();
       }
 
       const target = aggregated[key];
-      target.grossSales += r.grossSales;
-      target.totalStaffPay += r.totalStaffPay;
-      target.totalExpenses += r.totalExpenses;
+      target.grossSales          += r.grossSales;
+      target.totalStaffPay       += r.totalStaffPay;
+      target.totalExpenses       += r.totalExpenses;
       target.totalVaultProvision += r.totalVaultProvision;
-      target.netRoi += r.netRoi;
+      target.netRoi              += r.netRoi;
 
-      // Aggregate detailed data
-      target.sessionData = [...(target.sessionData || []), ...(r.sessionData || [])];
-      target.expenseData = [...(target.expenseData || []), ...(r.expenseData || [])];
-      target.vaultData = [...(target.vaultData || []), ...(r.vaultData || [])];
+      // O(1) push instead of O(n) spread-each-iteration
+      if (r.sessionData?.length) target.sessionData!.push(...r.sessionData);
+      if (r.expenseData?.length) target.expenseData!.push(...r.expenseData);
+      if (r.vaultData?.length)   target.vaultData!.push(...r.vaultData);
 
-      // Aggregate staff breakdown by employeeId
-      const currentStaff = [...(target.staffBreakdown || [])];
+      // O(1) Map lookup instead of O(n) findIndex
+      const sMap = staffMaps[key];
       (r.staffBreakdown || []).forEach((s: any) => {
-        const existingIndex = currentStaff.findIndex((e: any) => e.employeeId === s.employeeId);
-        if (existingIndex !== -1) {
-          const existing = { ...currentStaff[existingIndex] };
-          existing.count = (existing.count || 0) + (s.count || 0);
+        const existing = sMap.get(s.employeeId);
+        if (existing) {
+          existing.count      = (existing.count || 0)      + (s.count || 0);
           existing.commission = (existing.commission || 0) + (s.commission || 0);
-          existing.allowance = (existing.allowance || 0) + (s.allowance || 0);
-          
+          existing.allowance  = (existing.allowance || 0)  + (s.allowance || 0);
           if (s.attendance) {
-            const existingAttendance = existing.attendance ? { ...existing.attendance } : null;
-            if (!existingAttendance) {
+            if (!existing.attendance) {
               existing.attendance = { ...s.attendance };
             } else {
-              existingAttendance.lateDeduction = (existingAttendance.lateDeduction || 0) + (s.attendance.lateDeduction || 0);
-              existingAttendance.otPay = (existingAttendance.otPay || 0) + (s.attendance.otPay || 0);
-              existingAttendance.cashAdvance = (existingAttendance.cashAdvance || 0) + (s.attendance.cashAdvance || 0);
-              existing.attendance = existingAttendance;
+              existing.attendance.lateDeduction = (existing.attendance.lateDeduction || 0) + (s.attendance.lateDeduction || 0);
+              existing.attendance.otPay         = (existing.attendance.otPay || 0)         + (s.attendance.otPay || 0);
+              existing.attendance.cashAdvance   = (existing.attendance.cashAdvance || 0)   + (s.attendance.cashAdvance || 0);
             }
           }
-          currentStaff[existingIndex] = existing;
         } else {
-          currentStaff.push({ ...s });
+          sMap.set(s.employeeId, { ...s });
         }
       });
-      target.staffBreakdown = currentStaff;
 
       subGroups[key].push(r);
     });
 
-    return {
-      displayData: Object.values(aggregated),
-      groupedConstituents: subGroups
-    };
-  }, [salesReports, branch.id, view, debouncedSearchQuery, startDate, endDate, branches, showWeeklyBreakdown]);
+    // Flush Maps → arrays once at the end
+    for (const key of Object.keys(aggregated)) {
+      aggregated[key].staffBreakdown = Array.from(staffMaps[key].values());
+    }
+
+    return { displayData: Object.values(aggregated), groupedConstituents: subGroups };
+  }, [filteredReports, view, branch.id, branches, showWeeklyBreakdown]);
 
   const sortedData = useMemo(() => {
     return [...displayData].sort((a, b) => {
@@ -318,112 +288,6 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     observer.observe(el);
     return () => observer.disconnect();
   }, [visibleCount, sortedData.length]);
-
-  const handleExportPDF = async (confirmed = false) => {
-    if (!confirmed) {
-      playSound('warning');
-      setShowPrintConfirm(true);
-      return;
-    }
-
-    setShowPrintConfirm(false);
-    setIsExporting(true);
-    playSound('click');
-
-    try {
-      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      // 1. Header
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('NETWORK SALES CONSOLIDATED REPORT', 14, 20);
-
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139); // slate-400
-      doc.text(`VIEW MODE: ${view.toUpperCase()} | SCOPE: ${branch.name.toUpperCase()}`, 14, 26);
-
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 20, { align: 'right' });
-      doc.text(`Total Records: ${sortedData.length}`, pageWidth - 14, 26, { align: 'right' });
-
-      // 2. Table
-      autoTable(doc, {
-        startY: 35,
-        head: [[
-          'Period/Identity', 
-          'Terminal Node', 
-          'Gross Yield', 
-          'Staff Payroll', 
-          'Operational Exp', 
-          'Vault Reserve', 
-          'Net ROI'
-        ]],
-        body: sortedData.map(r => [
-          (r.reportDate || '').toUpperCase(),
-          (branches.find(b => b.id === r.branchId)?.name || (r.branchId === 'all' ? 'CONSOLIDATED' : 'UNKNOWN')).toUpperCase(),
-          `PHP ${Number(r.grossSales || 0).toLocaleString()}`,
-          `PHP ${Number(r.totalStaffPay || 0).toLocaleString()}`,
-          `PHP ${Number(r.totalExpenses || 0).toLocaleString()}`,
-          `PHP ${Number(r.totalVaultProvision || 0).toLocaleString()}`,
-          `PHP ${Number(r.netRoi || 0).toLocaleString()}`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 7 },
-        columnStyles: {
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-          5: { halign: 'right' },
-          6: { halign: 'right', fontStyle: 'bold' }
-        },
-        rowPageBreak: 'avoid'
-      });
-
-      // 3. Totals
-      const totalGross = sortedData.reduce((sum, r) => sum + (r.grossSales || 0), 0);
-      const totalPayroll = sortedData.reduce((sum, r) => sum + (r.totalStaffPay || 0), 0);
-      const totalExp = sortedData.reduce((sum, r) => sum + (r.totalExpenses || 0), 0);
-      const totalVault = sortedData.reduce((sum, r) => sum + (r.totalVaultProvision || 0), 0);
-      const totalNet = sortedData.reduce((sum, r) => sum + (r.netRoi || 0), 0);
-
-      const finalY = ((doc as any).lastAutoTable?.finalY ?? 0) + 10;
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text('NETWORK TOTALS', 14, finalY);
-      
-      autoTable(doc, {
-        startY: finalY + 2,
-        body: [[
-          'CONSOLIDATED TOTALS',
-          `PHP ${totalGross.toLocaleString()}`,
-          `PHP ${totalPayroll.toLocaleString()}`,
-          `PHP ${totalExp.toLocaleString()}`,
-          `PHP ${totalVault.toLocaleString()}`,
-          `PHP ${totalNet.toLocaleString()}`
-        ]],
-        theme: 'plain',
-        styles: { fontSize: 9, fontStyle: 'bold' },
-        columnStyles: {
-          1: { halign: 'right' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-          5: { halign: 'right' }
-        }
-      });
-
-      doc.save(`NETWORK_REPORTS_${view.toUpperCase()}_${getManilaTodayStr()}.pdf`);
-      playSound('success');
-    } catch (error) {
-      console.error('PDF Export failed:', error);
-      alert('Failed to generate PDF.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const visibleData = useMemo(() => sortedData.slice(0, visibleCount), [sortedData, visibleCount]);
 
@@ -658,45 +522,23 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           </div>
 
           <button
-            onClick={() => handleExportPDF()}
-            disabled={isExporting || sortedData.length === 0}
-            className={`flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
+            onClick={() => { setShowExportDialog(true); playSound('click'); }}
+            disabled={sortedData.length === 0}
+            className="flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isExporting ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting…' : 'Export PDF'}</span>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
         </div>
 
-        {showPrintConfirm && (
-          <div className="fixed inset-0 z-[6000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-2xl w-full max-w-md p-10 text-center border border-slate-100 shadow-xl animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-              </div>
-              <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export PDF?</h4>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
-                Generate a consolidated PDF summary of all {sortedData.length} filtered reports?
-              </p>
-              <div className="flex flex-col gap-4 mt-10">
-                <button
-                  onClick={() => handleExportPDF(true)}
-                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  Confirm Export
-                </button>
-                <button
-                  onClick={() => setShowPrintConfirm(false)}
-                  className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+        {showExportDialog && (
+          <ExportPDFDialog
+            view={view}
+            branches={branches}
+            salesReports={salesReports}
+            currentBranch={branch}
+            onClose={() => setShowExportDialog(false)}
+          />
         )}
 
         <div className="md:hidden flex items-center gap-3 px-1">

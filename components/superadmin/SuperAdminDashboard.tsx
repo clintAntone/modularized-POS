@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, memo } from 'react';
+import React, { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Branch, Transaction, Expense, AuditLog, SalesReport, Employee, Attendance, UserRole, AuthState, PortalPermissions, VaultTransaction, EmployeeComplaint } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -7,29 +7,29 @@ import { UI_THEME } from '../../constants/ui_designs';
 import type { CatalogGroup } from './ServiceCatalog';
 
 // Lazy-loaded tab components — each becomes its own chunk, loaded on first visit
-const ServiceCatalog    = React.lazy(() => import('./ServiceCatalog').then(m => ({ default: m.ServiceCatalog })));
-const NetworkManager    = React.lazy(() => import('./NetworkManager').then(m => ({ default: m.NetworkManager })));
-const BranchEditor      = React.lazy(() => import('./BranchEditor').then(m => ({ default: m.BranchEditor })));
-const SalesHub          = React.lazy(() => import('./SalesHub').then(m => ({ default: m.SalesHub })));
-const SettingsHub       = React.lazy(() => import('./SettingsHub').then(m => ({ default: m.SettingsHub })));
-const ArchiveHub        = React.lazy(() => import('./ArchiveHub').then(m => ({ default: m.ArchiveHub })));
-const AnalyticsHub      = React.lazy(() => import('./AnalyticsHub').then(m => ({ default: m.AnalyticsHub })));
-const GlobalEmployeeManager = React.lazy(() => import('./GlobalEmployeeManager').then(m => ({ default: m.GlobalEmployeeManager })));
-const GlobalAuditHub    = React.lazy(() => import('./GlobalAuditHub').then(m => ({ default: m.GlobalAuditHub })));
-const AttendanceHub     = React.lazy(() => import('./AttendanceHub').then(m => ({ default: m.AttendanceHub })));
-const MassBackfillHub   = React.lazy(() => import('./MassBackfillHub').then(m => ({ default: m.MassBackfillHub })));
-const ExpensesHub       = React.lazy(() => import('./ExpensesHub').then(m => ({ default: m.ExpensesHub })));
-const PayrollHub        = React.lazy(() => import('./PayrollHub').then(m => ({ default: m.PayrollHub })));
-const RequestsHub       = React.lazy(() => import('./RequestsHub').then(m => ({ default: m.RequestsHub })));
-const ComplaintsHub     = React.lazy(() => import('./ComplaintsHub').then(m => ({ default: m.ComplaintsHub })));
-const WeeklyRemittancesHub = React.lazy(() => import('./WeeklyRemittancesHub').then(m => ({ default: m.WeeklyRemittancesHub })));
-const VaultFundHub      = React.lazy(() => import('./VaultFundHub').then(m => ({ default: m.VaultFundHub })));
-const PortalUsersSection = React.lazy(() => import('./PortalUsersSection').then(m => ({ default: m.PortalUsersSection })));
-const DevicesHub        = React.lazy(() => import('./DevicesHub').then(m => ({ default: m.DevicesHub })));
-const InsightsHub       = React.lazy(() => import('./InsightsHub').then(m => ({ default: m.InsightsHub })));
-const HowToSection      = React.lazy(() => import('../dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection })));
-const ReportAuditHub    = React.lazy(() => import('./ReportAuditHub').then(m => ({ default: m.ReportAuditHub })));
-const ServiceTemplatesHub = React.lazy(() => import('./ServiceTemplatesHub').then(m => ({ default: m.ServiceTemplatesHub })));
+const ServiceCatalog    = React.memo(React.lazy(() => import('./ServiceCatalog').then(m => ({ default: m.ServiceCatalog }))));
+const NetworkManager    = React.memo(React.lazy(() => import('./NetworkManager').then(m => ({ default: m.NetworkManager }))));
+const BranchEditor      = React.memo(React.lazy(() => import('./BranchEditor').then(m => ({ default: m.BranchEditor }))));
+const SalesHub          = React.memo(React.lazy(() => import('./SalesHub').then(m => ({ default: m.SalesHub }))));
+const SettingsHub       = React.memo(React.lazy(() => import('./SettingsHub').then(m => ({ default: m.SettingsHub }))));
+const ArchiveHub        = React.memo(React.lazy(() => import('./ArchiveHub').then(m => ({ default: m.ArchiveHub }))));
+const AnalyticsHub      = React.memo(React.lazy(() => import('./AnalyticsHub').then(m => ({ default: m.AnalyticsHub }))));
+const GlobalEmployeeManager = React.memo(React.lazy(() => import('./GlobalEmployeeManager').then(m => ({ default: m.GlobalEmployeeManager }))));
+const GlobalAuditHub    = React.memo(React.lazy(() => import('./GlobalAuditHub').then(m => ({ default: m.GlobalAuditHub }))));
+const AttendanceHub     = React.memo(React.lazy(() => import('./AttendanceHub').then(m => ({ default: m.AttendanceHub }))));
+const MassBackfillHub   = React.memo(React.lazy(() => import('./MassBackfillHub').then(m => ({ default: m.MassBackfillHub }))));
+const ExpensesHub       = React.memo(React.lazy(() => import('./ExpensesHub').then(m => ({ default: m.ExpensesHub }))));
+const PayrollHub        = React.memo(React.lazy(() => import('./PayrollHub').then(m => ({ default: m.PayrollHub }))));
+const RequestsHub       = React.memo(React.lazy(() => import('./RequestsHub').then(m => ({ default: m.RequestsHub }))));
+const ComplaintsHub     = React.memo(React.lazy(() => import('./ComplaintsHub').then(m => ({ default: m.ComplaintsHub }))));
+const WeeklyRemittancesHub = React.memo(React.lazy(() => import('./WeeklyRemittancesHub').then(m => ({ default: m.WeeklyRemittancesHub }))));
+const VaultFundHub      = React.memo(React.lazy(() => import('./VaultFundHub').then(m => ({ default: m.VaultFundHub }))));
+const PortalUsersSection = React.memo(React.lazy(() => import('./PortalUsersSection').then(m => ({ default: m.PortalUsersSection }))));
+const DevicesHub        = React.memo(React.lazy(() => import('./DevicesHub').then(m => ({ default: m.DevicesHub }))));
+const InsightsHub       = React.memo(React.lazy(() => import('./InsightsHub').then(m => ({ default: m.InsightsHub }))));
+const HowToSection      = React.memo(React.lazy(() => import('../dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection }))));
+const ReportAuditHub    = React.memo(React.lazy(() => import('./ReportAuditHub').then(m => ({ default: m.ReportAuditHub }))));
+const ServiceTemplatesHub = React.memo(React.lazy(() => import('./ServiceTemplatesHub').then(m => ({ default: m.ServiceTemplatesHub }))));
 
 import { SuperAdminNavbar } from '../navigation/SuperAdminNavbar';
 import { playSound, resumeAudioContext } from '../../lib/audio';
@@ -172,6 +172,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleRefresh = useCallback(() => { onRefresh?.(); }, [onRefresh]);
+
   const editingBranch = branches.find(b => b.id === editingBranchId);
 
   return (
@@ -303,18 +305,18 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <React.Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" /></div>}>
           {mountedTabs.has('sales_hub')    && <div className={activeTab !== 'sales_hub'    ? 'hidden' : ''}><SalesHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} onRefresh={onRefresh} /></div>}
           {mountedTabs.has('devices')      && <div className={activeTab !== 'devices'      ? 'hidden' : ''}><DevicesHub branches={branches} /></div>}
-          {mountedTabs.has('attendance')   && <div className={activeTab !== 'attendance'   ? 'hidden' : ''}><AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('attendance')   && <div className={activeTab !== 'attendance'   ? 'hidden' : ''}><AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('expenses')     && <div className={activeTab !== 'expenses'     ? 'hidden' : ''}><ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} openAllDates={auditOpenAllDates} /></div>}
           {mountedTabs.has('analytics')   && <div className={activeTab !== 'analytics'    ? 'hidden' : ''}><AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
-          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={() => onRefresh?.()} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} /></div>}
-          {mountedTabs.has('archive')      && <div className={activeTab !== 'archive'      ? 'hidden' : ''}><ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} /></div>}
-          {mountedTabs.has('vault')        && <div className={activeTab !== 'vault'        ? 'hidden' : ''}><VaultFundHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} /></div>}
-          {mountedTabs.has('payroll')      && <div className={activeTab !== 'payroll'      ? 'hidden' : ''}><PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} /></div>}
-          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
-          {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
-          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
-          {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={() => onRefresh?.()} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('archive')      && <div className={activeTab !== 'archive'      ? 'hidden' : ''}><ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
+          {mountedTabs.has('vault')        && <div className={activeTab !== 'vault'        ? 'hidden' : ''}><VaultFundHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
+          {mountedTabs.has('payroll')      && <div className={activeTab !== 'payroll'      ? 'hidden' : ''}><PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={handleRefresh} /></div>}
+          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('network')      && <div className={activeTab !== 'network'      ? 'hidden' : ''}><NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('catalogs')     && <div className={activeTab !== 'catalogs'     ? 'hidden' : ''}><ServiceCatalog branches={branches} catalogs={masterCatalogs} setConfirmState={setConfirmState} onSave={async () => { await refetchCatalogs(); playSound('success'); if (onRefresh) await onRefresh(true); }} /></div>}
           {mountedTabs.has('settings')     && <div className={activeTab !== 'settings'     ? 'hidden' : ''}><SettingsHub onRefresh={onRefresh} /></div>}
@@ -322,7 +324,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('insights')      && <div className={activeTab !== 'insights'      ? 'hidden' : ''}><InsightsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('report_audit')  && <div className={activeTab !== 'report_audit'  ? 'hidden' : ''}><ReportAuditHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} /></div>}
           {mountedTabs.has('how_to')            && <div className={activeTab !== 'how_to'            ? 'hidden' : ''}><HowToSection role={UserRole.SUPERADMIN} /></div>}
-          {mountedTabs.has('service_templates') && <div className={activeTab !== 'service_templates' ? 'hidden' : ''}><ServiceTemplatesHub branches={branches} isReadOnly={isReadOnly} onRefresh={() => onRefresh?.()} /></div>}
+          {mountedTabs.has('service_templates') && <div className={activeTab !== 'service_templates' ? 'hidden' : ''}><ServiceTemplatesHub branches={branches} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
         </React.Suspense>
       </main>
 

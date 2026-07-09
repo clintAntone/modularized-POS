@@ -429,10 +429,14 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['vaultTransactions', auth.user?.branchId],
         queryFn: async () => {
             if (!supabase) return [];
+            const vtLookback = new Date();
+            vtLookback.setDate(vtLookback.getDate() - 90);
+            const vtLookbackIso = vtLookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.VAULT_TRANSACTIONS)
                 .select(COLS.vaultTransactions)
                 .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+                .gte(DB_COLUMNS.TIMESTAMP, vtLookbackIso)
                 .limit(1000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
@@ -519,7 +523,7 @@ export const useGlobalData = (auth: AuthState) => {
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.REQUESTS).select(COLS.requests).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso);
+            let query = supabase.from(DB_TABLES.REQUESTS).select(COLS.requests).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -547,10 +551,15 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['employeeComplaints', auth.user?.branchId],
         queryFn: async (): Promise<EmployeeComplaint[]> => {
             if (!supabase) return [];
+            const ecLookback = new Date();
+            ecLookback.setDate(ecLookback.getDate() - 90);
+            const ecLookbackIso = ecLookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.EMPLOYEE_COMPLAINTS)
                 .select(COLS.employeeComplaints)
-                .order(DB_COLUMNS.FILED_AT, { ascending: false });
+                .order(DB_COLUMNS.FILED_AT, { ascending: false })
+                .gte(DB_COLUMNS.FILED_AT, ecLookbackIso)
+                .limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 const branchId = auth.user.branchId;
                 // Also include complaints filed by other branches about employees who belong here
@@ -634,7 +643,7 @@ export const useGlobalData = (auth: AuthState) => {
             setDisplayChanges(displayChangesVal === 'true');
             const faceIdDisabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'face_id_disabled_branches')?.value;
             try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
-            if (nameVal) setDynamicAppName(nameVal);
+            if (nameVal) { setDynamicAppName(nameVal); localStorage.setItem('hilot_cached_app_name', nameVal); }
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
             if (paymongoEnabledVal) setIsPaymongoEnabled(paymongoEnabledVal === 'true');

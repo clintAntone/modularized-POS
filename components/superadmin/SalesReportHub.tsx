@@ -6,6 +6,8 @@ import { ReportEditorModal } from './ReportEditorModal';
 import { toDateStr, getWeekRange } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 import { getManilaYear } from '../../lib/time';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CycleStats {
   id: string;
@@ -22,6 +24,7 @@ interface CycleStats {
   net: number;
   isActive: boolean;
   rawReport?: SalesReport;
+  dailyRows?: { date: string; gross: number; salary: number; expenses: number; vault: number; net: number }[];
 }
 
 interface SalesReportHubProps {
@@ -29,7 +32,7 @@ interface SalesReportHubProps {
   salesReports: SalesReport[];
 }
 
-type CycleView = 'daily' | 'weekly' | 'batch';
+type CycleView = 'daily' | 'weekly' | 'batch' | 'monthly';
 
 export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesReports }) => {
   const [view, setView] = useState<CycleView>('daily');
@@ -187,6 +190,49 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
         return results.reverse();
       }
 
+      if (view === 'monthly') {
+        const groupedByMonth: Record<string, CycleStats> = {};
+
+        reports.forEach(r => {
+          const d = new Date(r.reportDate);
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const monthStart = `${monthKey}-01`;
+          const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+          const monthEnd = `${monthKey}-${String(lastDay).padStart(2, '0')}`;
+
+          const key = isConsolidated ? monthKey : `${r.branchId}_${monthKey}`;
+          if (!groupedByMonth[key]) {
+            const monthDate = new Date(d.getFullYear(), d.getMonth(), 1);
+            groupedByMonth[key] = {
+              id: `monthly-${key}`,
+              branchId: isConsolidated ? 'all' : r.branchId,
+              name: isConsolidated ? 'NETWORK CONSOLIDATED' : (branches.find(b => b.id === r.branchId)?.name || 'BRANCH NODE'),
+              label: 'MONTHLY LEDGER',
+              scope: `${monthStart} to ${monthEnd}`,
+              displayDate: monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase(),
+              dateRange: { start: monthStart, end: monthEnd },
+              gross: 0, salary: 0, expenses: 0, vault: 0, net: 0,
+              isActive: now.getFullYear() === d.getFullYear() && now.getMonth() === d.getMonth(),
+              dailyRows: []
+            };
+          }
+          const group = groupedByMonth[key];
+          const expensesTotal = (r.expenseData || []).reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+          const vaultTotal = (r.vaultData || []).reduce((sum: number, v: any) => sum + (Number(v.amount) || 0), 0);
+          const dayNet = r.grossSales - r.totalStaffPay - expensesTotal - vaultTotal;
+          group.gross += r.grossSales;
+          group.salary += r.totalStaffPay;
+          group.expenses += expensesTotal;
+          group.vault += vaultTotal;
+          group.net += dayNet;
+          group.dailyRows!.push({ date: r.reportDate, gross: r.grossSales, salary: r.totalStaffPay, expenses: expensesTotal, vault: vaultTotal, net: dayNet });
+        });
+
+        return Object.values(groupedByMonth)
+          .map(g => ({ ...g, dailyRows: g.dailyRows!.sort((a, b) => a.date.localeCompare(b.date)) }))
+          .sort((a, b) => b.dateRange.start.localeCompare(a.dateRange.start));
+      }
+
       return [];
     };
 
@@ -200,6 +246,140 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
       return aggregateReports(branchReports, 'BRANCHES', false);
     }
   }, [branches, salesReports, selectedBranchIds, view]);
+
+  const exportMonthlyPDF = (row: CycleStats) => {
+    playSound('click');
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const generatedOn = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 36, 'F');
+
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text(row.name.toUpperCase(), 14, 14);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('MONTHLY SALES REPORT — FOR GOVERNMENT / REGULATORY USE', 14, 21);
+    doc.text(`Period: ${row.displayDate}`, 14, 28);
+
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Generated: ${generatedOn}`, pageWidth - 14, 21, { align: 'right' });
+    doc.text(`Scope: ${row.scope}`, pageWidth - 14, 28, { align: 'right' });
+
+    // ── Financial Summary ────────────────────────────────────────────────────
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FINANCIAL SUMMARY', 14, 46);
+
+    autoTable(doc, {
+      startY: 49,
+      head: [['Particulars', 'Amount (PHP)']],
+      body: [
+        ['Gross Sales / Revenue', `PHP ${row.gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+        ['Total Payroll / Salaries', `PHP ${row.salary.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+        ['Operational Expenses', `PHP ${row.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+        ['Vault / Rent & Bills', `PHP ${row.vault.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+        ['NET INCOME', `PHP ${row.net.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+      didParseCell: (data) => {
+        if (data.row.index === 4) {
+          data.cell.styles.fillColor = [240, 253, 244];
+          data.cell.styles.textColor = [22, 101, 52];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+      rowPageBreak: 'avoid',
+    });
+
+    // ── Daily Breakdown ──────────────────────────────────────────────────────
+    const finalY = ((doc as any).lastAutoTable?.finalY ?? 0) + 12;
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DAILY BREAKDOWN', 14, finalY);
+
+    const fmtHub = (n: number) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const dailyBody = (row.dailyRows || []).map(d => [
+      new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      fmtHub(d.gross),
+      fmtHub(d.salary),
+      fmtHub(d.expenses),
+      fmtHub(d.vault),
+      fmtHub(d.net),
+    ]);
+
+    // Grand total row at end of month
+    dailyBody.push([
+      'TOTAL',
+      fmtHub(row.gross),
+      fmtHub(row.salary),
+      fmtHub(row.expenses),
+      fmtHub(row.vault),
+      fmtHub(row.net),
+    ]);
+
+    autoTable(doc, {
+      startY: finalY + 3,
+      head: [['Date', 'Gross Sales', 'Payroll', 'Expenses', 'Vault / R&B', 'Net Income']],
+      body: dailyBody,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { halign: 'right', cellWidth: 30 },
+        2: { halign: 'right', cellWidth: 28 },
+        3: { halign: 'right', cellWidth: 28 },
+        4: { halign: 'right', cellWidth: 28 },
+        5: { halign: 'right', cellWidth: 30, fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.row.index === dailyBody.length - 1) {
+          data.cell.styles.fillColor = [15, 23, 42];
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+      rowPageBreak: 'avoid',
+    });
+
+    // ── Certification Footer ─────────────────────────────────────────────────
+    const lastY = ((doc as any).lastAutoTable?.finalY ?? 0) + 18;
+    const pageH = doc.internal.pageSize.getHeight();
+    const footerY = Math.max(lastY, pageH - 50);
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('I hereby certify that the above information is true and correct to the best of my knowledge.', 14, footerY);
+
+    // Signature lines
+    const sigY = footerY + 16;
+    doc.line(14, sigY, 90, sigY);
+    doc.line(pageWidth - 90, sigY, pageWidth - 14, sigY);
+    doc.setFontSize(7);
+    doc.text('Prepared by / Signature over Printed Name', 14, sigY + 4);
+    doc.text('Approved by / Signature over Printed Name', pageWidth - 90, sigY + 4);
+
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`System-generated report · ${generatedOn}`, pageWidth / 2, pageH - 8, { align: 'center' });
+
+    const monthSlug = row.displayDate.replace(/\s/g, '_');
+    doc.save(`MONTHLY_REPORT_${row.name.replace(/\s/g, '_')}_${monthSlug}.pdf`);
+  };
 
   return (
       <div className="space-y-6 max-w-7xl mx-auto px-2">
@@ -224,8 +404,8 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
 
           <div className="w-full xl:w-auto">
             <p className={UI_THEME.text.label + " mb-2 ml-1"}>Cycle Configuration</p>
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/60 shadow-inner w-full sm:min-w-[360px]">
-              {(['daily', 'weekly', 'batch'] as CycleView[]).map(v => (
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/60 shadow-inner w-full sm:min-w-[480px]">
+              {(['daily', 'weekly', 'batch', 'monthly'] as CycleView[]).map(v => (
                   <button
                       key={v}
                       onClick={() => { setView(v); playSound('click'); }}
@@ -243,12 +423,12 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
               <div
                   key={row.id}
                   onClick={() => { if (row.rawReport) { playSound('click'); setDrilldownReport(row.rawReport); } }}
-                  className={`group bg-white dark:bg-slate-800 rounded-xl border transition-all duration-300 hover:shadow-xl flex flex-col overflow-hidden cursor-pointer active:scale-[0.98] ${row.isActive ? 'border-emerald-500 ring-1 ring-emerald-500/5' : 'border-slate-200 dark:border-slate-700'}`}
+                  className={`group bg-white dark:bg-slate-800 rounded-xl border transition-all duration-300 hover:shadow-xl flex flex-col overflow-hidden ${view === 'monthly' ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'} ${row.isActive ? 'border-emerald-500 ring-1 ring-emerald-500/5' : 'border-slate-200 dark:border-slate-700'}`}
               >
                 <div className="p-4 bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black shadow-inner shrink-0 ${row.isActive ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'}`}>
-                      {view === 'daily' ? 'D' : view === 'weekly' ? 'W' : 'B'}
+                      {view === 'daily' ? 'D' : view === 'weekly' ? 'W' : view === 'monthly' ? 'M' : 'B'}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate leading-none mb-1.5 group-hover:text-emerald-700 transition-colors">{row.name}</h3>
@@ -272,7 +452,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                   ))}
                 </div>
 
-                <div className={`mx-3 mb-3 p-3.5 rounded-lg flex items-center justify-between transition-all duration-300 ${row.net >= 0 ? 'bg-[#0F172A]' : 'bg-rose-50 border border-rose-100'}`}>
+                <div className={`mx-3 p-3.5 rounded-lg flex items-center justify-between transition-all duration-300 ${row.net >= 0 ? 'bg-[#0F172A]' : 'bg-rose-50 border border-rose-100'} ${view === 'monthly' ? 'mb-2' : 'mb-3'}`}>
                   <div>
                     <p className={`text-xs font-semibold uppercase tracking-wide leading-none mb-1 ${row.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Net ROI</p>
                     <p className={`text-xl font-black tabular-nums leading-none ${row.net >= 0 ? 'text-[#34D399]' : 'text-rose-700'}`}>
@@ -283,6 +463,20 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="3" /></svg>
                   </div>
                 </div>
+
+                {view === 'monthly' && (
+                  <div className="px-3 pb-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); exportMonthlyPDF(row); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold uppercase tracking-wide transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                      </svg>
+                      Export Monthly PDF
+                    </button>
+                  </div>
+                )}
               </div>
           ))}
         </div>

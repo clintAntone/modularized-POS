@@ -561,7 +561,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         {/* Top action bar */}
         <div className="flex items-center justify-between gap-3 no-print pt-1">
           <button
-            onClick={() => { setSelectedCycleId(null); setExpandedGroupId(null); playSound('click'); }}
+            onClick={() => { setSelectedCycleId(null); setExpandedGroupId(null); setSelectedStaffPayslip(null); playSound('click'); }}
             className="flex items-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
           >
             <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -716,7 +716,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               {(['weekly', 'monthly'] as const).map(tab => (
                 <button
                   key={tab}
-                  onClick={() => { setPayrollView(tab); playSound('click'); }}
+                  onClick={() => { setPayrollView(tab); setSelectedStaffPayslip(null); setSelectedCycleId(null); playSound('click'); }}
                   className={`px-4 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all capitalize ${
                     payrollView === tab
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
