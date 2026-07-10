@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { getTrueDate } from '../lib/time';
 import { normalizeDateStr } from '../src/utils/reportUtils';
+import { withOfflineCache, putOne, putBatch, getAll, setLastSync, STORES } from '../lib/offlineDb';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
@@ -130,7 +131,7 @@ export const useGlobalData = (auth: AuthState) => {
         }
 
         try {
-            const queue: { table: string; data: any; audit?: any }[] = JSON.parse(saved);
+            const queue: { table: string; data: any; audit?: any; conflictKey?: string }[] = JSON.parse(saved);
             if (queue.length === 0) {
                 setPendingSyncCount(0);
                 return;
@@ -144,15 +145,15 @@ export const useGlobalData = (auth: AuthState) => {
             for (let i = 0; i < remainingQueue.length; i++) {
                 const item = remainingQueue[i];
                 try {
-                    const conflictTarget = item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id';
+                    const conflictTarget = item.conflictKey ?? (item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id');
 
                     // Skip if the record was deleted server-side while we were offline
                     // (prevents re-inserting records that an admin intentionally removed)
-                    const itemId = item.data?.id ?? item.data?.key;
-                    if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG) {
+                    const itemId = item.data?.[conflictTarget];
+                    if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG && item.table !== DB_TABLES.BRANCH_VAULTS) {
                         const { data: existing } = await supabase
                             .from(item.table)
-                            .select('id')
+                            .select(conflictTarget)
                             .eq(conflictTarget, itemId)
                             .maybeSingle();
                         // If the record no longer exists (was deleted), drop this queue item silently
@@ -287,12 +288,12 @@ export const useGlobalData = (auth: AuthState) => {
     // React Query Queries
     const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
         queryKey: ['branches'],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.BRANCHES, async () => {
             if (!supabase) return [];
             const { data, error } = await supabase.from(DB_TABLES.BRANCHES).select(COLS.branches).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbBranch);
-        },
+        }),
         enabled: !!supabase,
         staleTime: 0,
         gcTime: 0,
@@ -300,14 +301,14 @@ export const useGlobalData = (auth: AuthState) => {
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
         queryKey: ['employees', auth.user?.branchId, auth.user?.employeeId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.EMPLOYEES, async () => {
             if (!supabase) return [];
             // Fetch all employees to ensure we get those authorized via branch_allowances
             // Filtering is handled client-side in the components
             const { data, error } = await supabase.from(DB_TABLES.EMPLOYEES).select(COLS.employees).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbEmployee);
-        },
+        }),
         enabled: !!supabase,
         staleTime: 5 * 60 * 1000
     });
@@ -325,7 +326,7 @@ export const useGlobalData = (auth: AuthState) => {
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -349,14 +350,14 @@ export const useGlobalData = (auth: AuthState) => {
                 paymongoLinkId: t[DB_COLUMNS.PAYMONGO_LINK_ID],
                 note: t[DB_COLUMNS.NOTE]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
         queryKey: ['expenses', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.EXPENSES, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -372,14 +373,14 @@ export const useGlobalData = (auth: AuthState) => {
                 id: e[DB_COLUMNS.ID], branchId: e[DB_COLUMNS.BRANCH_ID], timestamp: e[DB_COLUMNS.TIMESTAMP],
                 name: e[DB_COLUMNS.NAME], amount: Number(e[DB_COLUMNS.AMOUNT] || 0), category: e[DB_COLUMNS.CATEGORY], receiptImage: e[DB_COLUMNS.RECEIPT_IMAGE]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
         queryKey: ['salesReports', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -447,14 +448,14 @@ export const useGlobalData = (auth: AuthState) => {
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
                 vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
             }));
-        },
+        }),
         enabled: !!supabase && historyEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: vaultTransactions = [] } = useQuery({
         queryKey: ['vaultTransactions', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.VAULT_TRANSACTIONS, async () => {
             if (!supabase) return [];
             const vtLookback = new Date();
             vtLookback.setDate(vtLookback.getDate() - 90);
@@ -482,14 +483,14 @@ export const useGlobalData = (auth: AuthState) => {
                 receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
                 createdAt: r[DB_COLUMNS.CREATED_AT],
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
 
     const { data: auditLogs = [], isLoading: auditLogsLoading, error: auditLogsError } = useQuery({
         queryKey: ['auditLogs', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.AUDIT_LOGS, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -506,14 +507,14 @@ export const useGlobalData = (auth: AuthState) => {
                 activityType: au[DB_COLUMNS.ACTIVITY_TYPE], entityType: au[DB_COLUMNS.ENTITY_TYPE], entityId: au[DB_COLUMNS.ENTITY_ID],
                 description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: attendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
         queryKey: ['attendance', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.ATTENDANCE, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -534,7 +535,7 @@ export const useGlobalData = (auth: AuthState) => {
                 isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
                 createdAt: att[DB_COLUMNS.CREATED_AT]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         // Attendance is clock-in/out sensitive — poll every 30s as a safety net behind
         // the realtime subscription (missed WebSocket events won't leave the UI stale).
@@ -544,7 +545,7 @@ export const useGlobalData = (auth: AuthState) => {
 
     const { data: requests = [], isLoading: requestsLoading, error: requestsError } = useQuery({
         queryKey: ['requests', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.REQUESTS, async () => {
             if (!supabase) return [];
             const lookbackDate = new Date();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
@@ -569,14 +570,14 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewNote: r[DB_COLUMNS.REVIEW_NOTE],
                 updatedAt: r[DB_COLUMNS.UPDATED_AT]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({
         queryKey: ['employeeComplaints', auth.user?.branchId],
-        queryFn: async (): Promise<EmployeeComplaint[]> => {
+        queryFn: (): Promise<EmployeeComplaint[]> => withOfflineCache(STORES.EMPLOYEE_COMPLAINTS, async () => {
             if (!supabase) return [];
             const ecLookback = new Date();
             ecLookback.setDate(ecLookback.getDate() - 90);
@@ -625,7 +626,7 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewedBy: c[DB_COLUMNS.REVIEWED_BY] ?? undefined,
                 reviewedAt: c[DB_COLUMNS.REVIEWED_AT] ?? undefined,
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
@@ -634,22 +635,37 @@ export const useGlobalData = (auth: AuthState) => {
     const { data: branchVault = null } = useQuery<BranchVault | null>({
         queryKey: ['branchVault', auth.user?.branchId],
         queryFn: async (): Promise<BranchVault | null> => {
-            if (!supabase || !auth.user?.branchId) return null;
-            const { data, error } = await supabase
-                .from(DB_TABLES.BRANCH_VAULTS)
-                .select(COLS.branchVault)
-                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
-                .maybeSingle();
-            if (error) throw error;
-            if (!data) return null;
-            return {
-                branchId: data[DB_COLUMNS.BRANCH_ID],
-                target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
-                balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
-                initialBalance: Number(data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
-                lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
-                startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
-            };
+            const branchId = auth.user?.branchId;
+            if (!supabase || !branchId) return null;
+
+            if (!navigator.onLine) {
+                const cached = await getAll<BranchVault>(STORES.BRANCH_VAULTS);
+                return cached.find(v => v.branchId === branchId) ?? null;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from(DB_TABLES.BRANCH_VAULTS)
+                    .select(COLS.branchVault)
+                    .eq(DB_COLUMNS.BRANCH_ID, branchId)
+                    .maybeSingle();
+                if (error) throw error;
+                if (!data) return null;
+                const mapped: BranchVault = {
+                    branchId: data[DB_COLUMNS.BRANCH_ID],
+                    target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
+                    balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+                    initialBalance: Number(data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
+                    lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
+                    startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
+                };
+                // Write-through
+                putOne(STORES.BRANCH_VAULTS, mapped).catch(console.warn);
+                return mapped;
+            } catch (err) {
+                const cached = await getAll<BranchVault>(STORES.BRANCH_VAULTS);
+                return cached.find(v => v.branchId === branchId) ?? null;
+            }
         },
         enabled: !!supabase && !!auth.user && auth.user.role === UserRole.BRANCH_MANAGER,
         staleTime: 2 * 60 * 1000
@@ -657,12 +673,43 @@ export const useGlobalData = (auth: AuthState) => {
 
     const fetchSystemConfig = useCallback(async () => {
         if (!supabase) return;
+
+        // Offline: restore system config from IndexedDB cache
+        if (!navigator.onLine) {
+            const cachedRows = await getAll<{ key: string; value: string }>(STORES.SYSTEM_CONFIG);
+            if (cachedRows.length > 0) {
+                const find = (k: string) => cachedRows.find(c => c.key === k)?.value;
+                const nameVal = find('app_name');
+                const fontVal = find('font_family');
+                const paymongoEnabledVal = find('paymongo_enabled');
+                const latestVal = find('latest');
+                const displayChangesVal = find('display_changes');
+                const faceIdDisabledVal = find('face_id_disabled_branches');
+                const logoutRegistryVal = find('force_logout_registry');
+                const refreshTimeVal = find('auto_refresh_daily_audit');
+                const version = find('version');
+                setDisplayChanges(displayChangesVal === 'true');
+                try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+                if (nameVal) setDynamicAppName(nameVal);
+                if (version) setSystemVersion(version);
+                if (fontVal) setFontFamily(fontVal);
+                if (paymongoEnabledVal) setIsPaymongoEnabled(paymongoEnabledVal === 'true');
+                if (latestVal) setSystemLatest(latestVal !== 'false');
+                if (logoutRegistryVal) { try { setForceLogoutRegistry(JSON.parse(logoutRegistryVal)); } catch { setForceLogoutRegistry({}); } }
+                if (refreshTimeVal) setAutoRefreshTime(refreshTimeVal);
+            }
+            return;
+        }
+
         // Fetch config rows and APK storage listing in parallel — they're independent
         const [{ data: configData }, { data: apkFiles }] = await Promise.all([
             supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*'),
             supabase.storage.from('apk').list().catch(() => ({ data: null })),
         ]);
         if (configData) {
+            // Write-through: persist config rows to IDB for offline use
+            putBatch(STORES.SYSTEM_CONFIG, configData.map((c: any) => ({ key: c[DB_COLUMNS.KEY], value: c.value }))).catch(console.warn);
+
             let logoVal = configData.find(c => c[DB_COLUMNS.KEY] === 'logo')?.value;
             const version = configData.find(c => c[DB_COLUMNS.KEY] === 'version')?.value;
             const nameVal = configData.find(c => c[DB_COLUMNS.KEY] === 'app_name')?.value;

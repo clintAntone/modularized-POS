@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request).catch(() =>
         // Offline only: serve the cached shell as a last resort
-        caches.match('/index.html')
+        caches.match('/index.html').then(r => r ?? new Response('', { status: 503, statusText: 'Offline' }))
       )
     );
     return;
@@ -91,7 +91,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request).then(r => r ?? new Response('', { status: 503, statusText: 'Offline' })))
   );
 });
 

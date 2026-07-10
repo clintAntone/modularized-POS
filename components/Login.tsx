@@ -3,7 +3,8 @@ import { UserRole, Branch, Employee, PortalPermissions } from '../types';
 import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
-import { hashPin, generateSalt } from '../lib/crypto';
+import { hashPin, generateSalt, verifyPin } from '../lib/crypto';
+import { saveAuthCredential, getAuthCredential } from '../lib/offlineDb';
 
 // Modular Imports
 import { NodeSelector } from './login/NodeSelector';
@@ -246,6 +247,34 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
         setIsAuthenticating(true);
         const startTime = Date.now();
 
+        // ── Offline login path ────────────────────────────────────────────────
+        if (!navigator.onLine) {
+            try {
+                const cred = await getAuthCredential(finalUsername);
+                if (!cred) {
+                    setError('No offline credentials cached. Connect to the internet first.');
+                    playSound('warning');
+                    setIsAuthenticating(false);
+                    return;
+                }
+                const valid = await verifyPin(pin, cred.salt, cred.hashedPin);
+                if (!valid) {
+                    handleFailure('Invalid Security PIN');
+                    return;
+                }
+                onLogin(cred.role, cred.branchId, pin, cred.employeeId, cred.username ?? finalUsername, cred.permissions);
+                return;
+            } catch {
+                setError('Offline login failed. Please try again.');
+                setIsAuthenticating(false);
+                return;
+            } finally {
+                const duration = Date.now() - startTime;
+                setTimeout(() => setIsAuthenticating(false), Math.max(0, 800 - duration));
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         try {
             if (selectedBranchId === 'portal') {
                 const { data: portalUser, error: portalError } = await supabase
@@ -271,11 +300,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                         handleFailure('Invalid Security PIN');
                     } else if (portalUser.is_superadmin) {
                         // Full admin — no tab restrictions
+                        const computedHashForCache = dbSalt ? await hashPin(pin, dbSalt) : pin;
+                        saveAuthCredential({ username: finalUsername, hashedPin: computedHashForCache, salt: dbSalt ?? '', role: UserRole.SUPERADMIN, employeeId: portalUser.id, displayName: portalUser.display_name, cachedAt: Date.now() }).catch(console.warn);
                         onLogin(UserRole.SUPERADMIN, undefined, pin, portalUser.id, portalUser.display_name);
                     } else {
                         const perms: PortalPermissions = typeof portalUser.permissions === 'string'
                             ? JSON.parse(portalUser.permissions)
                             : (portalUser.permissions || { tabs: {} });
+                        const computedHashForCache = dbSalt ? await hashPin(pin, dbSalt) : pin;
+                        saveAuthCredential({ username: finalUsername, hashedPin: computedHashForCache, salt: dbSalt ?? '', role: UserRole.PORTAL_USER, employeeId: portalUser.id, displayName: portalUser.display_name, permissions: perms, cachedAt: Date.now() }).catch(console.warn);
                         onLogin(UserRole.PORTAL_USER, undefined, pin, portalUser.id, portalUser.display_name, perms);
                     }
                 }
@@ -376,6 +409,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                             }
 
                             if (isAuthorizedHead || isAuthorizedRelief) {
+                                const empUsername = (empData.username || empData.name || finalUsername).toLowerCase();
+                                const hashForCache = dbPinSalt ? await hashPin(pin, dbPinSalt) : pin;
+                                saveAuthCredential({ username: empUsername, hashedPin: hashForCache, salt: dbPinSalt ?? '', role: UserRole.BRANCH_MANAGER, branchId: branch.id, employeeId: empData.id, displayName: empData.username || empData.name, cachedAt: Date.now() }).catch(console.warn);
                                 onLogin(UserRole.BRANCH_MANAGER, branch.id, pin, empData.id, empData.username || empData.name);
                             } else {
                                 handleFailure('Unauthorized Terminal Access');
@@ -385,7 +421,23 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 }
             }
         } catch (err) {
-            setError('Sync Failed');
+            // Network error while technically "online" — try IDB cached credentials
+            try {
+                const cred = await getAuthCredential(finalUsername);
+                if (cred) {
+                    const valid = await verifyPin(pin, cred.salt, cred.hashedPin);
+                    if (valid) {
+                        onLogin(cred.role, cred.branchId, pin, cred.employeeId, cred.username ?? finalUsername, cred.permissions);
+                        return;
+                    } else {
+                        handleFailure('Invalid Security PIN');
+                        return;
+                    }
+                }
+            } catch {
+                // IDB also failed — fall through to generic error
+            }
+            setError('Network error. Connect to the internet or log in while online first to enable offline access.');
         } finally {
             const duration = Date.now() - startTime;
             const wait = Math.max(0, 800 - duration);

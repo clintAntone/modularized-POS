@@ -12,6 +12,7 @@ import { NetworkDiagnostic } from './components/NetworkDiagnostic';
 import { syncWithServerTime } from './lib/time';
 import SplashScreen from './components/SplashScreen';
 import { GmailPromptModal } from './components/shared/GmailPromptModal';
+import { OfflineBanner } from './components/shared/OfflineBanner';
 
 import { Power, Sun, Moon } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
@@ -91,6 +92,14 @@ const App: React.FC = () => {
   } = useGlobalData(auth);
 
 const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+  }, []);
 
   // Derive identity from synchronized data
   const currentEmployee = useMemo(() =>
@@ -635,6 +644,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
             </div>
           </div>
         </header>
+        <OfflineBanner isOffline={isOffline} />
 
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>

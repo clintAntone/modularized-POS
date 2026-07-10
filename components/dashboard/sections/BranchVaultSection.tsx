@@ -8,7 +8,9 @@ import { playSound } from '../../../lib/audio';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2, Banknote } from 'lucide-react';
 import { compressImage } from '../../../lib/image';
-import { getTrueISOString } from '../../../lib/time';
+import { getTrueISOString, getTrueManilaISOString } from '../../../lib/time';
+
+const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
 interface BranchVaultSectionProps {
   branch: Branch;
@@ -597,6 +599,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
     try {
       if (withdrawFile) {
+        // Receipt upload requires connectivity — fail fast with a clear message
+        if (!navigator.onLine) {
+          showToast('No connection — remove the receipt photo to withdraw offline', 'error');
+          playSound('warning');
+          setIsSubmittingWithdraw(false);
+          return;
+        }
         setWithdrawUploadProgress(30);
         const compressedBlob = await compressImage(withdrawFile);
         setWithdrawUploadProgress(50);
@@ -610,39 +619,20 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
       setWithdrawUploadProgress(70);
 
-      // Re-fetch live balance to avoid stale prop writing a wrong value
-      const { data: liveVaultData } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
-
-      const manilaDate = toManilaDate(getTrueISOString());
-      const timePart = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      }).format(new Date());
-      const timestamp = `${manilaDate}T${timePart}.000+08:00`;
+      const timestamp = getTrueManilaISOString();
       const txId = Math.random().toString(36).substr(2, 9);
 
-      const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-        [DB_COLUMNS.ID]: txId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
-        [DB_COLUMNS.AMOUNT]: amount,
-        [DB_COLUMNS.NAME]: label,
-        [DB_COLUMNS.TIMESTAMP]: timestamp,
-        [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
-        [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+      // ── Online: use RPC for atomic insert + balance update ──────────────────
+      const { error: rpcErr } = await supabase.rpc('process_vault_withdrawal', {
+        p_id:           txId,
+        p_branch_id:    branch.id,
+        p_amount:       amount,
+        p_label:        label,
+        p_timestamp:    timestamp,
+        p_receipt_url:  receiptUrl || null,
+        p_performed_by: performedBy ?? null,
       });
-      if (txErr) throw txErr;
-
-      setWithdrawUploadProgress(90);
-      const newBalance = Math.max(0, liveBalance - amount);
-      const { error: vaultErr } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (vaultErr) throw vaultErr;
+      if (rpcErr) throw rpcErr;
 
       setWithdrawUploadProgress(100);
       playSound('success');
@@ -656,8 +646,62 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       refetch();
       onRefresh?.();
     } catch (err: any) {
-      showToast(err.message || 'Withdrawal failed', 'error');
-      playSound('warning');
+      const isNetworkErr = err?.message?.toLowerCase().includes('fetch') || err?.message?.toLowerCase().includes('network') || !navigator.onLine;
+      if (isNetworkErr && !withdrawFile) {
+        // ── Offline fallback: queue both writes ────────────────────────────────
+        // Uses cached balance — safe for single-branch offline use.
+        // Both items processed in order by flushOfflineQueue on reconnect.
+        try {
+          const timestamp = getTrueManilaISOString();
+          const txId = Math.random().toString(36).substr(2, 9);
+          const cachedBalance = branchVault.balance;
+          const newBalance = Math.max(0, cachedBalance - amount);
+
+          const txPayload = {
+            [DB_COLUMNS.ID]: txId,
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
+            [DB_COLUMNS.AMOUNT]: amount,
+            [DB_COLUMNS.NAME]: label,
+            [DB_COLUMNS.TIMESTAMP]: timestamp,
+            [DB_COLUMNS.RECEIPT_IMAGE]: null,
+            [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+          };
+          const balancePayload = {
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.VAULT_BALANCE]: newBalance,
+          };
+          const auditPayload = {
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.TIMESTAMP]: timestamp,
+            [DB_COLUMNS.ACTIVITY_TYPE]: 'CREATE',
+            [DB_COLUMNS.ENTITY_TYPE]: 'VAULT_TRANSACTION',
+            [DB_COLUMNS.ENTITY_ID]: txId,
+            [DB_COLUMNS.DESCRIPTION]: `Vault withdrawal queued: ${label} ₱${amount}`,
+            [DB_COLUMNS.PERFORMER_NAME]: performedBy || 'BRANCH MANAGER',
+          };
+
+          const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+          // Queue tx first, then balance update — flush processes in order
+          existingQueue.push({ table: DB_TABLES.VAULT_TRANSACTIONS, data: txPayload, audit: auditPayload });
+          existingQueue.push({ table: DB_TABLES.BRANCH_VAULTS, data: balancePayload, conflictKey: 'branch_id' });
+          localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+
+          playSound('success');
+          showToast('Withdrawal queued — will sync on reconnect');
+          setShowWithdrawModal(false);
+          setWithdrawConfirming(false);
+          setWithdrawLabel('');
+          setWithdrawAmount('');
+          onRefresh?.();
+        } catch {
+          showToast('Withdrawal failed — could not queue offline', 'error');
+          playSound('warning');
+        }
+      } else {
+        showToast(err.message || 'Withdrawal failed', 'error');
+        playSound('warning');
+      }
     } finally {
       setIsSubmittingWithdraw(false);
       setWithdrawUploadProgress(0);

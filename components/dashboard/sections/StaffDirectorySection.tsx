@@ -17,6 +17,8 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { AlertTriangle, Users } from 'lucide-react';
 
+const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
+
 // Modular Imports
 import { StaffCard } from './staff/StaffCard';
 import { StaffHeader } from './staff/StaffHeader';
@@ -807,7 +809,37 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         if (onRefresh) onRefresh();
       }
     } catch (err) {
-      showToast('Time Registry Fault', 'error');
+      // Network failure — queue the write for sync on reconnect
+      try {
+        let attendancePayload: any = null;
+        if (state === 'NOT_STARTED' || state === 'COMPLETED') {
+          const todayRecords = (attendance || []).filter(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr);
+          const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+          if (latestRecord && latestRecord.isHalfDay) {
+            attendancePayload = { id: latestRecord.id, [DB_COLUMNS.CLOCK_OUT]: null, [DB_COLUMNS.IS_HALF_DAY]: false, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DATE]: todayStr };
+          } else {
+            const attendanceId = Math.random().toString(36).substr(2, 9);
+            attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime!.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL', [DB_COLUMNS.STATUS]: 'REGULAR' };
+          }
+        } else if (state === 'ONGOING') {
+          const ongoingRec = (attendance || []).find(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr && a.clockIn && !a.clockOut);
+          if (ongoingRec) attendancePayload = { id: ongoingRec.id, [DB_COLUMNS.CLOCK_OUT]: timestamp, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DATE]: todayStr };
+        }
+        if (attendancePayload) {
+          const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DESCRIPTION]: state === 'ONGOING' ? `Clock-out queued for ${selectedEmpForTime!.name}` : `Clock-in queued for ${selectedEmpForTime!.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+          const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+          existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload });
+          localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+          playSound('success');
+          showToast(`${selectedEmpForTime!.name} ${state === 'ONGOING' ? 'clocked out' : 'clocked in'} (queued — will sync on reconnect)`);
+          setIsTimeModalOpen(false);
+          if (onRefresh) onRefresh();
+        } else {
+          showToast('Time Registry Fault', 'error');
+        }
+      } catch {
+        showToast('Time Registry Fault', 'error');
+      }
     } finally {
       setIsSyncing(false);
       if (onSyncStatusChange) onSyncStatusChange(false);
@@ -888,7 +920,27 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         if (onRefresh) onRefresh();
       }
     } catch {
-      showToast('Time Registry Fault', 'error');
+      // Network failure — queue the face clock-in for sync on reconnect
+      try {
+        const todayRecords = (attendance || []).filter(a => a.employeeId === emp.id && a.date === todayStr);
+        const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+        let attendancePayload: any;
+        if (latestRecord && latestRecord.isHalfDay) {
+          attendancePayload = { id: latestRecord.id, [DB_COLUMNS.CLOCK_OUT]: null, [DB_COLUMNS.IS_HALF_DAY]: false, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: emp.id, [DB_COLUMNS.DATE]: todayStr };
+        } else {
+          const attendanceId = Math.random().toString(36).substr(2, 9);
+          attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: emp.id, [DB_COLUMNS.STAFF_NAME]: emp.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE', [DB_COLUMNS.STATUS]: 'REGULAR' };
+        }
+        const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: emp.id, [DB_COLUMNS.DESCRIPTION]: `Face clock-in queued for ${emp.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+        const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload });
+        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+        playSound('success');
+        showToast(`${emp.name} clocked in (queued — will sync on reconnect)`);
+        if (onRefresh) onRefresh();
+      } catch {
+        showToast('Time Registry Fault', 'error');
+      }
     } finally {
       setIsSyncing(false);
       if (onSyncStatusChange) onSyncStatusChange(false);

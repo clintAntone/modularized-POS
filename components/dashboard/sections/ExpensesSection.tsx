@@ -12,6 +12,8 @@ import { logAudit } from '../../../lib/audit';
 import { getTrueDate, getTrueISOString, getTrueManilaISOString, toManilaDateStr } from '../../../lib/time';
 import { Plus, Trash2 } from 'lucide-react';
 
+const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
+
 // Modular Components
 import { ExpenseStats } from './expenses/ExpenseStats';
 import { ExpenseEntryForm } from './expenses/ExpenseEntryForm';
@@ -170,8 +172,33 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
       resetForm();
       onRefresh?.();
     } catch (err: any) {
-      showToast(err.message || 'System Relay Error', 'error');
-      playSound('warning');
+      const isNetworkErr = err?.message?.toLowerCase().includes('fetch') || err?.message?.toLowerCase().includes('network') || !navigator.onLine;
+      // Can't queue if a receipt file was attached — upload requires connectivity
+      if (isNetworkErr && !file && !editingExpense) {
+        try {
+          const cleanName = formData.name.trim().toUpperCase();
+          const cleanAmount = Number(formData.amount);
+          const expenseId = Math.random().toString(36).substr(2, 9);
+          const queuePayload = { [DB_COLUMNS.ID]: expenseId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(), [DB_COLUMNS.NAME]: cleanName, [DB_COLUMNS.AMOUNT]: cleanAmount, [DB_COLUMNS.CATEGORY]: formData.category, [DB_COLUMNS.RECEIPT_IMAGE]: null };
+          const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(), [DB_COLUMNS.ACTIVITY_TYPE]: 'CREATE', [DB_COLUMNS.ENTITY_TYPE]: 'EXPENSE', [DB_COLUMNS.ENTITY_ID]: expenseId, [DB_COLUMNS.DESCRIPTION]: `New expense (queued): ${cleanName} ₱${cleanAmount} [${formData.category}]`, [DB_COLUMNS.PERFORMER_NAME]: user?.username || branch.manager || 'BRANCH MANAGER' };
+          const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+          existingQueue.push({ table: DB_TABLES.EXPENSES, data: queuePayload, audit: auditPayload });
+          localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+          playSound('success');
+          showToast('Disbursement queued — will sync on reconnect');
+          resetForm();
+          onRefresh?.();
+        } catch {
+          showToast('System Relay Error', 'error');
+          playSound('warning');
+        }
+      } else if (isNetworkErr && file) {
+        showToast('No connection — remove the receipt photo to log offline', 'error');
+        playSound('warning');
+      } else {
+        showToast(err.message || 'System Relay Error', 'error');
+        playSound('warning');
+      }
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
