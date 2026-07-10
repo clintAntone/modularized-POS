@@ -600,6 +600,15 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
   const handleVaultDeposit = async (amount: number, targetDate?: string) => {
     if (!branchVault) return;
+    // Hard guard — deposit cannot exceed current net ROI (would result in negative ROI)
+    if (amount > metrics.net) {
+      showToast(`Deposit of ₱${amount.toLocaleString()} exceeds available ROI of ₱${metrics.net.toLocaleString()}`, 'error');
+      return;
+    }
+    if (metrics.net <= 0) {
+      showToast('Cannot deposit — net ROI is zero or negative', 'error');
+      return;
+    }
     const depositDate = targetDate || todayStr;
     const now = getTrueDate();
     const timePart = new Intl.DateTimeFormat('en-GB', {
@@ -1178,6 +1187,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               performerName={user?.username}
               branchVault={branchVault}
               currentNetRoi={metrics.net}
+              todayVaultDeposit={metrics.vaultProvision}
               defaultIsVaultDeposit={openExpenseModalOnDeposit}
               defaultIsLegacyDeposit={openExpenseModalOnLegacyDeposit}
               onDeposit={handleVaultDeposit}

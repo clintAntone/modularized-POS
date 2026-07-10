@@ -21,13 +21,14 @@ interface QuickExpenseModalProps {
   defaultIsVaultDeposit?: boolean;
   defaultIsLegacyDeposit?: boolean;
   currentNetRoi?: number;
+  todayVaultDeposit?: number;
   onDeposit?: (amount: number) => Promise<void>;
   hideDepositTab?: boolean;
 }
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   branch, todayStr, onClose, onRefresh, performerName, branchVault,
-  defaultIsVaultDeposit = false, defaultIsLegacyDeposit = false, currentNetRoi, onDeposit,
+  defaultIsVaultDeposit = false, defaultIsLegacyDeposit = false, currentNetRoi, todayVaultDeposit = 0, onDeposit,
   hideDepositTab = false,
 }) => {
   const initialMode: ModalMode = defaultIsLegacyDeposit ? 'legacy_deposit' : defaultIsVaultDeposit ? 'deposit' : 'expense';
@@ -427,6 +428,21 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Vault deposit conflict warning — this expense will push ROI negative */}
+                  {expenseAmount > 0 && todayVaultDeposit > 0 && expenseAmount > netRoi && (
+                    <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+                      <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-black text-amber-700 uppercase tracking-widest leading-none">Negative ROI Warning</p>
+                        <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                          A vault deposit of <span className="font-black">₱{todayVaultDeposit.toLocaleString()}</span> was already made today. Adding this expense will result in a negative ROI of <span className="font-black text-rose-600">−₱{(expenseAmount - netRoi).toLocaleString()}</span>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Large expense warning — vault can't fully cover this expense */}
                   {expenseAmount > 0 && expenseAmount > vaultBal && vaultBal > 0 && (

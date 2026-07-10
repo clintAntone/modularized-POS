@@ -386,14 +386,12 @@ export const useGlobalData = (auth: AuthState) => {
             const lbd = lookbackDate;
             const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
 
-            // Paginate in 1000-row pages with a stable secondary sort (submitted_at)
-            // so that rows with the same report_date don't flip in/out across queries
-            // or get skipped at page boundaries. The 90-day gte filter keeps each page
-            // small; branch managers cap at one page (500 rows is enough for one branch).
-            const PAGE_SIZE = auth.user?.role === UserRole.BRANCH_MANAGER ? 500 : 1000;
-            const allRows: any[] = [];
-            let from = 0;
-            while (true) {
+            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+            // Branch managers cap at 500 rows (90 days × 1 branch always fits in one page).
+            // Superadmin uses 1000-row pages and may span multiple pages.
+            const PAGE_SIZE = isBranchManager ? 500 : 1000;
+
+            const buildPage = (from: number) => {
                 let q = supabase
                     .from(DB_TABLES.SALES_REPORTS)
                     .select(COLS.salesReports)
@@ -401,15 +399,44 @@ export const useGlobalData = (auth: AuthState) => {
                     .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
                     .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
                     .range(from, from + PAGE_SIZE - 1);
-                if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
+                if (isBranchManager && auth.user?.branchId) {
                     q = q.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
                 }
-                const { data: pageData, error: pageError } = await q;
-                if (pageError) throw pageError;
-                if (pageData && pageData.length > 0) allRows.push(...pageData);
-                if (!pageData || pageData.length < PAGE_SIZE) break;
-                from += PAGE_SIZE;
+                return q;
+            };
+
+            let allRows: any[] = [];
+
+            if (isBranchManager) {
+                // Single-page fetch — one branch always fits within 500 rows
+                const { data, error } = await buildPage(0);
+                if (error) throw error;
+                allRows = data || [];
+            } else {
+                // Superadmin: fetch the first 3 pages in parallel, then continue
+                // sequentially if the last parallel page came back full (rare).
+                const PARALLEL_BATCH = 3;
+                const results = await Promise.all(
+                    Array.from({ length: PARALLEL_BATCH }, (_, i) => buildPage(i * PAGE_SIZE))
+                );
+                for (const { data, error } of results) {
+                    if (error) throw error;
+                    if (data && data.length > 0) allRows.push(...data);
+                }
+                // If the last parallel page was full there may be a 4th+ page
+                const lastBatch = results[PARALLEL_BATCH - 1];
+                if ((lastBatch.data?.length ?? 0) === PAGE_SIZE) {
+                    let from = PARALLEL_BATCH * PAGE_SIZE;
+                    while (true) {
+                        const { data, error } = await buildPage(from);
+                        if (error) throw error;
+                        if (data && data.length > 0) allRows.push(...data);
+                        if (!data || data.length < PAGE_SIZE) break;
+                        from += PAGE_SIZE;
+                    }
+                }
             }
+
             return allRows.map(r => ({
                 id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
@@ -562,12 +589,14 @@ export const useGlobalData = (auth: AuthState) => {
                 .limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 const branchId = auth.user.branchId;
-                // Also include complaints filed by other branches about employees who belong here
-                const { data: branchEmps } = await supabase
-                    .from(DB_TABLES.EMPLOYEES)
-                    .select(DB_COLUMNS.ID)
-                    .eq(DB_COLUMNS.BRANCH_ID, branchId);
-                const empIds = (branchEmps || []).map((e: any) => e[DB_COLUMNS.ID]);
+                // Reuse the already-loaded employees from React Query cache — avoids an
+                // extra round trip since employeeComplaints only runs after employees are loaded.
+                const cachedEmployees = queryClient.getQueryData<Employee[]>(
+                    ['employees', auth.user.branchId, auth.user.employeeId]
+                );
+                const empIds = (cachedEmployees || [])
+                    .filter(e => e.branchId === branchId)
+                    .map(e => e.id);
                 if (empIds.length > 0) {
                     query = query.or(
                         `${DB_COLUMNS.BRANCH_ID}.eq.${branchId},${DB_COLUMNS.EMPLOYEE_ID}.in.(${empIds.join(',')})`
@@ -628,7 +657,11 @@ export const useGlobalData = (auth: AuthState) => {
 
     const fetchSystemConfig = useCallback(async () => {
         if (!supabase) return;
-        const { data: configData } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*');
+        // Fetch config rows and APK storage listing in parallel — they're independent
+        const [{ data: configData }, { data: apkFiles }] = await Promise.all([
+            supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*'),
+            supabase.storage.from('apk').list().catch(() => ({ data: null })),
+        ]);
         if (configData) {
             let logoVal = configData.find(c => c[DB_COLUMNS.KEY] === 'logo')?.value;
             const version = configData.find(c => c[DB_COLUMNS.KEY] === 'version')?.value;
@@ -649,31 +682,26 @@ export const useGlobalData = (auth: AuthState) => {
             if (paymongoEnabledVal) setIsPaymongoEnabled(paymongoEnabledVal === 'true');
             if (latestVal) setSystemLatest(latestVal !== 'false');
 
-            // Fetch APK URL
+            // Resolve APK URL using the already-fetched storage listing
             try {
-                const { data: files } = await supabase.storage.from('apk').list();
+                const files = apkFiles;
                 let targetFilename = null;
-
                 if (files && files.length > 0) {
-                    // Prioritize file with "Latest" in name
-                    const latestFile = files.find(f => f.name.includes('Latest'));
+                    const latestFile = files.find((f: any) => f.name.includes('Latest'));
                     if (latestFile) {
                         targetFilename = latestFile.name;
                     } else if (apkFilenameVal) {
-                        // Fallback to config value
                         targetFilename = apkFilenameVal;
                     } else {
-                        // Fallback to first file
                         targetFilename = files[0].name;
                     }
                 }
-
                 if (targetFilename) {
                     const { data } = supabase.storage.from('apk').getPublicUrl(targetFilename);
                     setApkUrl(data.publicUrl);
                 }
             } catch (err) {
-                console.error('Failed to fetch APK URL:', err);
+                console.error('Failed to resolve APK URL:', err);
             }
             if (logoutRegistryVal) {
                 try { setForceLogoutRegistry(JSON.parse(logoutRegistryVal)); } catch { setForceLogoutRegistry({}); }

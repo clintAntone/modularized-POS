@@ -799,7 +799,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     <tr
                         key={b.id}
                         onClick={() => handleRowClick(b)}
-                        className={`transition-colors group cursor-pointer ${b.rawReport ? 'hover:bg-slate-50/80' : 'opacity-50 grayscale cursor-not-allowed'}`}
+                        className={`transition-colors group cursor-pointer ${b.rawReport ? 'hover:bg-slate-50/80 dark:hover:bg-slate-700/40' : 'opacity-50 grayscale cursor-not-allowed'}`}
                     >
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
