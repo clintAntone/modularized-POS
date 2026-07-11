@@ -12,6 +12,7 @@ import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
 import { ExportPDFDialog } from './reports-master/ExportPDFDialog';
 import { toDateStr, getWeekRange, getReportMonth, parseDate, normalizeDateStr } from '@/src/utils/reportUtils';
+import { getManilaTodayStr } from '../../../lib/time';
 
 const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 
@@ -352,7 +353,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   // Cap the lookback at 90 days to match the data fetch window — dates older than that
   // are simply outside the loaded range and should not be flagged as missing.
   const missingBranches = useMemo(() => {
-    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const manilaToday = getManilaTodayStr();
     const todayDate = new Date(manilaToday + 'T12:00:00+08:00');
     const todayDOW = todayDate.getDay();
 

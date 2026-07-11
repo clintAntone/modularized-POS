@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toDateStr, getWeekRange, getReportMonth, parseDate } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../../../shared/BranchCheckboxDropdown';
+import { getTrueDate } from '../../../../lib/time';
 
 export type ExportViewType = 'daily' | 'weekly' | 'monthly';
 
@@ -84,7 +85,7 @@ function generateDailyPDF(
 ) {
   const doc = new jsPDF('l', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const generatedOn = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const generatedOn = getTrueDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const periodLabel = dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : dateFrom || dateTo || 'ALL DATES';
 
   // ── Header ───────────────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ function generateWeeklyPDF(
 ) {
   const doc = new jsPDF('l', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const generatedOn = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const generatedOn = getTrueDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const headerH = 32;
   doc.setFillColor(15, 23, 42);
@@ -338,7 +339,7 @@ function generateMonthlyPDF(
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const generatedOn = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const generatedOn = getTrueDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   monthKeys.forEach((monthKey, idx) => {
     if (idx > 0) doc.addPage();

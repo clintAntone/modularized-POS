@@ -3,7 +3,7 @@ import { Branch, Transaction } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
-import { formatManilaDate, formatManilaTime, toManilaDateStr } from '../../../lib/time';
+import { formatManilaDate, formatManilaTime, toManilaDateStr, getTrueDate, getManilaTodayStr } from '../../../lib/time';
 import { playSound } from '../../../lib/audio';
 
 interface ClientHistorySectionProps {
@@ -84,7 +84,7 @@ function buildDailySummaryFromReports(
 }
 
 function labelDateKey(dateKey: string): string {
-  const now = new Date();
+  const now = getTrueDate();
   const manilaToday = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const yesterdayDate = new Date(now);
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
@@ -202,7 +202,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+        const manilaToday = getManilaTodayStr();
 
         // 1. Sales reports — use report_date as the authoritative date key
         const { data: reportData, error: reportError } = await supabase
@@ -223,7 +223,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
 
         // 2. Today's live transactions (may not have a report yet).
         // Fetch the last 24h worth from the transactions table and filter to Manila today.
-        const cutoffIso = new Date(Date.now() - 86400000).toISOString();
+        const cutoffIso = new Date(getTrueDate().getTime() - 86400000).toISOString();
         const { data: recentTxs } = await supabase
           .from(DB_TABLES.TRANSACTIONS)
           .select('*')
@@ -258,9 +258,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     return () => { cancelled = true; };
   }, [branch.id]);
 
-  const manilaToday = useMemo(() =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()),
-  []);
+  const manilaToday = useMemo(() => getManilaTodayStr(), []);
 
   const allProfiles = useMemo(() => buildProfiles(allTransactions), [allTransactions]);
   const dailySummary = useMemo(

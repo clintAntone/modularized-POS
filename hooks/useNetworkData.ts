@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
+import { getTrueDate, getTrueISOString } from '../lib/time';
 import { Branch, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, UserRole, AuthState } from '../types';
 
 // Mappers
@@ -50,7 +51,7 @@ const mapDbEmployee = (db: any): Employee => ({
     branchAllowances: typeof db[DB_COLUMNS.BRANCH_ALLOWANCES] === 'string' ? JSON.parse(db[DB_COLUMNS.BRANCH_ALLOWANCES]) : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {}),
     timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
     ...(() => {
-        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
         const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
         const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
         const onLeave = dbOnLeave && (!endDate || endDate >= today);
@@ -128,7 +129,7 @@ export const useTransactions = (branchId?: string) => {
     return useQuery({
         queryKey: ['transactions', branchId],
         queryFn: async () => {
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -234,7 +235,7 @@ export const useSalesReports = (branchId?: string) => {
     return useQuery({
         queryKey: ['salesReports', branchId],
         queryFn: async () => {
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(lookbackDate);
 
@@ -279,7 +280,7 @@ export const useAddTransaction = () => {
                 const optimisticTx = {
                     ...newTx,
                     id: 'temp-' + Date.now(),
-                    timestamp: new Date().toISOString(),
+                    timestamp: getTrueISOString(),
                     total: Number(newTx.total || 0),
                     clientName: newTx.client_name,
                     serviceName: newTx.service_name,

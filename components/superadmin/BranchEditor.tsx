@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { toManilaDateStr } from '../../lib/time';
+import { toManilaDateStr, getManilaTodayStr } from '../../lib/time';
 import { Branch, Service, Employee, Transaction, SalesReport, Attendance } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
@@ -65,9 +65,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
         return localBranch.services || [];
     }, [branchTemplates, masterServices, localBranch.services]);
 
-    const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date()), []);
+    const todayStr = useMemo(() => getManilaTodayStr(), []);
 
     const isOperationalToday = useMemo(() => {
         const hasTxs = transactions.some(t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === todayStr);

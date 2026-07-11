@@ -9,6 +9,7 @@ import {
   Plus, Edit2, Trash2, X, ChevronDown, ChevronRight,
   BookOpen, Layers, Check, AlertTriangle
 } from 'lucide-react';
+import { getTrueDate } from '../../lib/time';
 
 interface BillsCatalogHubProps {
   branches: Branch[];
@@ -39,7 +40,7 @@ type HubTab = 'catalog' | 'branches';
 
 function getManilaDateParts() {
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
-  const parts = fmt.formatToParts(new Date());
+  const parts = fmt.formatToParts(getTrueDate());
   const year = parts.find(p => p.type === 'year')!.value;
   const month = parts.find(p => p.type === 'month')!.value;
   const day = parseInt(parts.find(p => p.type === 'day')!.value, 10);
@@ -196,7 +197,7 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
   // ── Period options ────────────────────────────────────────
   const periodOptions = useMemo(() => {
     const opts: string[] = [];
-    const now = new Date();
+    const now = getTrueDate();
     for (let i = -9; i <= 2; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       opts.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);

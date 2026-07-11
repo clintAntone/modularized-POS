@@ -5,6 +5,7 @@ import { Branch, BranchVault, SalesReport } from '../../types';
 import { ReportsMasterSection } from '../dashboard/sections/ReportsMasterSection';
 import { playSound } from '../../lib/audio';
 import { toDateStr, normalizeDateStr } from '@/src/utils/reportUtils';
+import { getTrueDate } from '../../lib/time';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -151,7 +152,7 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
     isEnabled: true,
     services: [],
     weeklyCutoff: 0,
-    cycleStartDate: branches.length > 0 ? branches[0].cycleStartDate : toDateStr(new Date())
+    cycleStartDate: branches.length > 0 ? branches[0].cycleStartDate : toDateStr(getTrueDate())
   } as Branch), [branches]);
 
   // When exactly 1 branch is selected, show that branch's view; otherwise show consolidated

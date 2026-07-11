@@ -3,50 +3,122 @@ Options -MultiViews -Indexes
 RewriteEngine On
 RewriteBase /
 
-# ── Force HTTPS ──────────────────────────────────────────────────────────────
-# Also checks X-Forwarded-Proto for hosts that terminate SSL at a proxy/CDN
+# ── Force HTTPS ───────────────────────────────────────────────────────────────
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# ── SPA Routing (React / Vite) ───────────────────────────────────────────────
+# ── Block Dangerous HTTP Methods ──────────────────────────────────────────────
+RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK|DELETE|PUT|PATCH|CONNECT)$
+RewriteRule .* - [F,L]
+
+# ── Block Dot Files (.git, .env, .htaccess, etc.) ────────────────────────────
+RewriteRule (^|/)\. - [F,L]
+
+# ── Block Direct Access to Sensitive Files ────────────────────────────────────
+<FilesMatch "\.(env|log|ini|sql|bak|sh|key|pem|md|lock|json)$">
+    Require all denied
+</FilesMatch>
+
+# Re-allow manifest.json specifically (needed by PWA)
+<FilesMatch "^manifest\.json$">
+    Require all granted
+</FilesMatch>
+
+# Block the orphan _app.html
+<FilesMatch "^_app\.html$">
+    Require all denied
+</FilesMatch>
+
+# ── Protect models/ directory (face recognition weights) ─────────────────────
+<IfModule mod_rewrite.c>
+    RewriteRule ^models/ - [F,L]
+</IfModule>
+
+# ── Block Known Scanner / Exploit User Agents ─────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|nmap|masscan|zgrab|nuclei|dirbuster|gobuster|wfuzz|hydra) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ── SPA Routing (React / Vite) ────────────────────────────────────────────────
 RewriteRule ^index\.html$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.html [L]
 
-# ── Security Headers ─────────────────────────────────────────────────────────
+# ── Disable ETags (prevents inode/size leakage) ───────────────────────────────
 <IfModule mod_headers.c>
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
-    Header always set Cross-Origin-Opener-Policy "same-origin"
-    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+    Header unset ETag
+</IfModule>
+FileETag None
+
+# ── Explicit MIME Types ───────────────────────────────────────────────────────
+<IfModule mod_mime.c>
+    AddType application/javascript          .js .mjs
+    AddType application/json               .json
+    AddType application/manifest+json      .webmanifest
+    AddType application/wasm               .wasm
+    AddType text/css                        .css
+    AddType image/webp                      .webp
+    AddType image/avif                      .avif
+    AddType image/svg+xml                   .svg .svgz
+    AddType font/woff                       .woff
+    AddType font/woff2                      .woff2
+    AddType font/ttf                        .ttf
+    AddType font/otf                        .otf
 </IfModule>
 
-# ── Protect Sensitive Files ───────────────────────────────────────────────────
-<FilesMatch "\.(env|log|ini|sql|bak|sh|key|pem)$">
-    Require all denied
-</FilesMatch>
+# ── Security Headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options            "nosniff"
+    Header always set X-Frame-Options                   "DENY"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set X-DNS-Prefetch-Control            "on"
+    Header always set Referrer-Policy                   "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security         "max-age=31536000; includeSubDomains; preload" env=HTTPS
+    Header always set Cross-Origin-Opener-Policy        "same-origin"
+    Header always set Permissions-Policy                "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()"
 
-# ── Compression (Brotli preferred, Gzip fallback) ────────────────────────────
+    # Content Security Policy
+    # - script-src:   only self (Vite bundles everything; no CDN scripts)
+    # - style-src:    self + Google Fonts + unsafe-inline (React inline styles)
+    # - font-src:     self + Google Fonts static files
+    # - img-src:      self + data URIs + blob (canvas/preview) + Supabase Storage
+    # - connect-src:  self + Supabase REST/Realtime + Gemini AI
+    # - worker-src:   self (service worker)
+    # - frame-ancestors: none (no embedding in iframes anywhere)
+    Header always set Content-Security-Policy "\
+default-src 'self'; \
+script-src 'self' 'unsafe-inline'; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com; \
+img-src 'self' data: blob: https://*.supabase.co; \
+connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com; \
+worker-src 'self'; \
+frame-src 'none'; \
+frame-ancestors 'none'; \
+base-uri 'self'; \
+form-action 'self'; \
+object-src 'none'; \
+upgrade-insecure-requests;"
+</IfModule>
+
+# ── Compression (Brotli preferred, Gzip fallback) ─────────────────────────────
 <IfModule mod_brotli.c>
     AddOutputFilterByType BROTLI_COMPRESS text/plain text/html text/xml text/css
     AddOutputFilterByType BROTLI_COMPRESS application/javascript application/json
     AddOutputFilterByType BROTLI_COMPRESS application/wasm application/manifest+json
-    AddOutputFilterByType BROTLI_COMPRESS image/svg+xml font/woff2 font/woff
+    AddOutputFilterByType BROTLI_COMPRESS image/svg+xml font/woff2 font/woff font/ttf font/otf
 </IfModule>
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css
     AddOutputFilterByType DEFLATE application/javascript application/json
     AddOutputFilterByType DEFLATE application/wasm application/manifest+json
-    AddOutputFilterByType DEFLATE image/svg+xml font/woff2 font/woff
+    AddOutputFilterByType DEFLATE image/svg+xml font/woff2 font/woff font/ttf font/otf
 </IfModule>
 
 # ── Browser Caching ───────────────────────────────────────────────────────────
-# Vite hashes JS/CSS filenames so they can be cached for a long time.
-# index.html must never be cached so users always get the latest entry point.
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/html                  "access plus 0 seconds"
@@ -60,16 +132,33 @@ RewriteRule . /index.html [L]
     ExpiresByType image/avif                 "access plus 1 year"
     ExpiresByType image/gif                  "access plus 1 year"
     ExpiresByType image/svg+xml              "access plus 1 year"
-    ExpiresByType image/x-icon              "access plus 1 year"
+    ExpiresByType image/x-icon               "access plus 1 year"
     ExpiresByType font/woff2                 "access plus 1 year"
     ExpiresByType font/woff                  "access plus 1 year"
+    ExpiresByType font/ttf                   "access plus 1 year"
+    ExpiresByType font/otf                   "access plus 1 year"
 </IfModule>
 
 <IfModule mod_headers.c>
-    # Prevent caching of index.html so the app always updates
+    # index.html — never cache
     <FilesMatch "^index\.html$">
-        Header always set Cache-Control "no-cache, no-store, must-revalidate"
-        Header always set Pragma "no-cache"
+        Header always set Cache-Control "no-cache, must-revalidate"
         Header always set Expires "0"
+    </FilesMatch>
+
+    # sw.js — must revalidate so updated service workers install promptly
+    <FilesMatch "^sw\.js$">
+        Header always set Cache-Control "no-cache, must-revalidate"
+        Header always set Expires "0"
+    </FilesMatch>
+
+    # Vite hashed assets — immutable, browser never revalidates
+    <FilesMatch "^assets/.*\.(js|css|wasm)$">
+        Header always set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # Hashed images and fonts
+    <FilesMatch "\.(woff2|woff|ttf|otf|webp|avif|png|jpg|jpeg|gif|svg|ico)$">
+        Header always set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
 </IfModule>

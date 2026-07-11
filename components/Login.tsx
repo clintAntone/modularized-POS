@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { hashPin, generateSalt, verifyPin } from '../lib/crypto';
-import { saveAuthCredential, getAuthCredential } from '../lib/offlineDb';
+import { saveAuthCredential, getAuthCredential, MAX_OFFLINE_CREDENTIAL_AGE_MS } from '../lib/offlineDb';
 
 // Modular Imports
 import { NodeSelector } from './login/NodeSelector';
@@ -257,6 +257,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                     setIsAuthenticating(false);
                     return;
                 }
+                if (Date.now() - cred.cachedAt > MAX_OFFLINE_CREDENTIAL_AGE_MS) {
+                    setError('Offline credentials expired. Connect to the internet to refresh.');
+                    playSound('warning');
+                    setIsAuthenticating(false);
+                    return;
+                }
                 const valid = await verifyPin(pin, cred.salt, cred.hashedPin);
                 if (!valid) {
                     handleFailure('Invalid Security PIN');
@@ -425,6 +431,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
             try {
                 const cred = await getAuthCredential(finalUsername);
                 if (cred) {
+                    if (Date.now() - cred.cachedAt > MAX_OFFLINE_CREDENTIAL_AGE_MS) {
+                        setError('Offline credentials expired. Connect to the internet to refresh.');
+                        setIsAuthenticating(false);
+                        return;
+                    }
                     const valid = await verifyPin(pin, cred.salt, cred.hashedPin);
                     if (valid) {
                         onLogin(cred.role, cred.branchId, pin, cred.employeeId, cred.username ?? finalUsername, cred.permissions);

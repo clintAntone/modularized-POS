@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AuthState, UserRole, PortalPermissions } from '../types';
-import { SESSION_TIMEOUT_MS } from '../constants';
+import { SESSION_TIMEOUT_MS, SESSION_TIMEOUT_SUPERADMIN_MS } from '../constants';
 import { playSound } from '../lib/audio';
 import { logAudit } from '../lib/audit';
 
@@ -15,7 +15,8 @@ export const useAuth = () => {
       const parsed = JSON.parse(saved);
       if (!parsed.user || !parsed.user.lastActive) return { user: null };
       const now = Date.now();
-      if (now - parsed.user.lastActive > SESSION_TIMEOUT_MS) {
+      const timeout = parsed.user.role === UserRole.SUPERADMIN ? SESSION_TIMEOUT_SUPERADMIN_MS : SESSION_TIMEOUT_MS;
+      if (now - parsed.user.lastActive > timeout) {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         return { user: null };
       }
@@ -58,7 +59,8 @@ export const useAuth = () => {
     activityEvents.forEach(event => window.addEventListener(event, handleActivity));
     const interval = setInterval(() => {
       const now = Date.now();
-      if (auth.user && now - auth.user.lastActive > SESSION_TIMEOUT_MS) {
+      const timeout = auth.user.role === UserRole.SUPERADMIN ? SESSION_TIMEOUT_SUPERADMIN_MS : SESSION_TIMEOUT_MS;
+      if (auth.user && now - auth.user.lastActive > timeout) {
         setAuth({ user: null });
         playSound('warning');
       }

@@ -6,7 +6,7 @@ import { getInitials, resolveEmployeeName } from '../../../lib/payroll';
 import { PayslipModal } from './payroll/PayslipModal';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
-import { getTrueISOString, getManilaYear, getTrueDate } from '../../../lib/time';
+import { getTrueISOString, getManilaYear, getManilaMonth, getTrueDate } from '../../../lib/time';
 
 interface PayrollSectionProps {
   branch: Branch;
@@ -41,8 +41,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
   const [settlementStatuses, setSettlementStatuses] = useState<Record<string, string>>({});
   const [isUpdatingSettlement, setIsUpdatingSettlement] = useState(false);
   const [payrollView, setPayrollView] = useState<'weekly' | 'monthly'>('weekly');
-  const nowDate = new Date();
-  const [monthlyMonth, setMonthlyMonth] = useState(nowDate.getMonth());
+  const [monthlyMonth, setMonthlyMonth] = useState(getManilaMonth());
   const [monthlyYear, setMonthlyYear] = useState(getManilaYear());
 
   const months = [
@@ -403,7 +402,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
   const MONTHS_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const isMonthlyfuture = (m: number, y: number) => {
-    const n = new Date();
+    const n = getTrueDate();
     return y > n.getFullYear() || (y === n.getFullYear() && m >= n.getMonth());
   };
   const prevMonthly = () => {
@@ -494,7 +493,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       doc.setTextColor(100, 116, 139);
       doc.text(`Period: ${selectedCycle.start} - ${selectedCycle.end}`, 14, 28);
       doc.text(`Branch: ${branch.name}`, 14, 34);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+      doc.text(`Generated: ${getTrueDate().toLocaleString()}`, 14, 40);
 
       const totalPayout = groupedCycleData.reduce((sum, g) => sum + g.dailyTotal, 0);
       doc.setFontSize(14);
@@ -701,71 +700,109 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       )}
 
       {/* Header + filters */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 sm:p-5 no-print">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Payroll Archive</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {payrollView === 'weekly' ? 'Historical ledger by weekly cycle' : 'Monthly earnings per employee'}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm no-print">
+        {/* Row 1: icon + title + view toggle */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+            <svg className="w-4.5 h-4.5 w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">Payroll Archive</h3>
+            <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+              {payrollView === 'weekly' ? 'By weekly cycle' : 'Monthly per employee'}
             </p>
           </div>
+          <div className="flex-1" />
+          {/* Weekly / Monthly toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-700/60 rounded-lg p-0.5">
+            {(['weekly', 'monthly'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setPayrollView(tab); setSelectedStaffPayslip(null); setSelectedCycleId(null); playSound('click'); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  payrollView === tab
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Weekly / Monthly tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
-              {(['weekly', 'monthly'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => { setPayrollView(tab); setSelectedStaffPayslip(null); setSelectedCycleId(null); playSound('click'); }}
-                  className={`px-4 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all capitalize ${
-                    payrollView === tab
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
+        {/* Row 2: filter strip */}
+        <div className="border-t border-slate-100 dark:border-slate-700/60 px-4 py-2 flex items-center gap-2">
 
-            {/* Year pills — weekly only */}
-            {payrollView === 'weekly' && (
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
-                {availableYears.slice(0, 4).map(y => (
-                  <button
-                    key={y}
-                    onClick={() => { setSelectedYear(y); playSound('click'); }}
-                    className={`px-3 py-2 min-h-[36px] rounded-lg text-sm font-semibold transition-all ${
-                      selectedYear === y
-                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
+          {/* Year dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowYearDropdown(!showYearDropdown); setShowMonthDropdown(false); playSound('click'); }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              <svg className="w-3.5 h-3.5 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {payrollView === 'weekly' ? selectedYear : monthlyYear}
+              <svg className={`w-3 h-3 opacity-40 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showYearDropdown && (
+              <>
+                <div className="fixed inset-0 z-[100]" onClick={() => setShowYearDropdown(false)} />
+                <div className="absolute top-full left-0 mt-2 w-32 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-[110] p-1.5">
+                  {availableYears.map(y => {
+                    const activeYear = payrollView === 'weekly' ? selectedYear : monthlyYear;
+                    return (
+                      <button
+                        key={y}
+                        onClick={() => {
+                          if (payrollView === 'weekly') setSelectedYear(y);
+                          else setMonthlyYear(y);
+                          setShowYearDropdown(false);
+                          playSound('click');
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          activeYear === y ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {y}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             )}
+          </div>
 
-            {/* Month dropdown — weekly only */}
-            {payrollView === 'weekly' && (
+          {/* Month dropdown — weekly only */}
+          {payrollView === 'weekly' && (
+            <>
+              <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-600" />
               <div className="relative">
                 <button
                   onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); playSound('click'); }}
-                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 transition-all"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    selectedMonth !== 'all'
+                      ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/20'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
                 >
                   {selectedMonth === 'all' ? 'All months' : months.find(m => m.value === selectedMonth)?.label}
-                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-3 h-3 opacity-40 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {showMonthDropdown && (
                   <>
                     <div className="fixed inset-0 z-[100]" onClick={() => setShowMonthDropdown(false)} />
-                    <div className="absolute top-full right-0 mt-2 w-44 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-[110] overflow-hidden animate-in zoom-in-95 duration-150 p-1.5 max-h-[60vh] overflow-y-auto">
+                    <div className="absolute top-full left-0 mt-2 w-44 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-[110] p-1.5 max-h-[60vh] overflow-y-auto">
                       <button
                         onClick={() => { setSelectedMonth('all'); setShowMonthDropdown(false); playSound('click'); }}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           selectedMonth === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                       >
@@ -776,7 +813,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                         <button
                           key={m.value}
                           onClick={() => { setSelectedMonth(m.value); setShowMonthDropdown(false); playSound('click'); }}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                             selectedMonth === m.value ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
                         >
@@ -787,8 +824,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                   </>
                 )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -806,7 +843,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               </svg>
             </button>
             <p className="flex-1 text-center text-base font-bold text-slate-900 dark:text-slate-100">
-              {MONTHS_NAMES[monthlyMonth]} {monthlyYear}
+              {MONTHS_NAMES[monthlyMonth]}
             </p>
             <button
               onClick={nextMonthly}
@@ -905,7 +942,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       ) : filteredCycles.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filteredCycles.map(cycle => {
-            const today = new Date();
+            const today = getTrueDate();
             today.setHours(0, 0, 0, 0);
             const cycleEnd = new Date(cycle.endDate);
             cycleEnd.setHours(0, 0, 0, 0);

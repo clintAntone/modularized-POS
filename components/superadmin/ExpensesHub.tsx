@@ -6,7 +6,7 @@ import { playSound } from '../../lib/audio';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
-import { getManilaTodayStr } from '../../lib/time';
+import { getManilaTodayStr, getTrueDate } from '../../lib/time';
 
 interface ExpensesHubProps {
   branches: Branch[];
@@ -35,7 +35,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
 
   const setDatePreset = (preset: 'today' | 'week' | 'month') => {
     playSound('click');
-    const now = new Date();
+    const now = getTrueDate();
     const fmt = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
     if (preset === 'today') {
       const t = fmt(now); setStartDate(t); setEndDate(t);
@@ -92,7 +92,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
       doc.setFontSize(10); doc.setTextColor(100, 116, 139);
       doc.text(`PERIOD: ${startDate || 'ALL'} TO ${endDate || 'ALL'} | TOTAL: PHP ${totals.total.toLocaleString()}`, 14, 26);
       doc.setFontSize(8); doc.setTextColor(148, 163, 184);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pw - 14, 20, { align: 'right' });
+      doc.text(`Generated: ${getTrueDate().toLocaleString()}`, pw - 14, 20, { align: 'right' });
       autoTable(doc, {
         startY: 35,
         head: [['DATE', 'BRANCH', 'ITEM', 'CATEGORY', 'AMOUNT', 'RECEIPT']],

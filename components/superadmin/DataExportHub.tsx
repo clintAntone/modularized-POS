@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { playSound, resumeAudioContext } from '../../lib/audio';
-import { getManilaTodayStr, getTrueISOString } from '../../lib/time';
+import { getManilaTodayStr, getTrueISOString, getTrueDate } from '../../lib/time';
 
 interface ExportOptions {
   schema: boolean;
@@ -209,7 +209,7 @@ export const DataExportHub: React.FC = () => {
       const { error } = await supabase.functions.invoke('send-export-email', {
         body: {
           to: targetEmail,
-          subject: `HILOT CORE SYSTEM BACKUP - ${new Date().toLocaleString()}`,
+          subject: `HILOT CORE SYSTEM BACKUP - ${getTrueDate().toLocaleString()}`,
           sql: base64Sql,
           isBase64: true, // Signal to function that content needs decoding
           fileName: `core_backup_${Date.now()}.sql`

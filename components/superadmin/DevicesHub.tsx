@@ -3,6 +3,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES } from '../../constants/db_schema';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 
 interface DeviceLog {
   device_id: string;
@@ -131,9 +132,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
   const branchMap = useMemo(() => Object.fromEntries(branches.map(b => [b.id, b])), [branches]);
 
   const branchSummary = useMemo(() => {
-    const todayManila = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date());
+    const todayManila = getManilaTodayStr();
 
     const byBranch: Record<string, { todayDevices: DeviceLog[]; periodDevices: DeviceLog[] }> = {};
 
@@ -148,7 +147,7 @@ export const DevicesHub: React.FC<DevicesHubProps> = ({ branches }) => {
 
       // Date period filter
       const lastSeen = new Date(d.last_seen);
-      const now = new Date();
+      const now = getTrueDate();
       const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
       const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
       const ago7 = new Date(todayStart); ago7.setDate(ago7.getDate() - 7);

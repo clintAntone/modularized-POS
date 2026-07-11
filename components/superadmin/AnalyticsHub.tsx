@@ -174,7 +174,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   // ── Week ────────────────────────────────────────────────
   const week = useMemo(() => getWeekBounds(weekAnchor), [weekAnchor]);
   const todayYMD = useMemo(() => {
-    const n = new Date();
+    const n = getTrueDate();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
   }, []);
   const canGoForward = week.end < todayYMD;

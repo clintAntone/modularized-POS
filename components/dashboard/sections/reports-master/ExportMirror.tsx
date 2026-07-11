@@ -1,5 +1,6 @@
 import React from 'react';
 import { SalesReport } from '../../../../types';
+import { getTrueDate } from '../../../../lib/time';
 
 interface ExportMirrorProps {
   report: SalesReport;
@@ -92,7 +93,7 @@ export const ExportMirror = React.forwardRef<HTMLDivElement, ExportMirrorProps>(
 
       <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center opacity-30">
         <p className="text-xs font-black uppercase tracking-[0.5em]">Network Archive Secured v3.0</p>
-        <p className="text-xs font-semibold uppercase tracking-wide">Generated: {new Date().toLocaleString()}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide">Generated: {getTrueDate().toLocaleString()}</p>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Branch, Expense, SalesReport } from '../../../types';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { playSound } from '../../../lib/audio';
 import { ChevronLeft, ChevronRight, Download, Search, X, Receipt } from 'lucide-react';
+import { getTrueDate, getManilaTodayStr, getManilaYear, getManilaMonth } from '../../../lib/time';
 
 interface ExpenseLedgerSectionProps {
   branch: Branch;
@@ -21,7 +22,7 @@ const MONTHS = [
 ];
 
 function getManilaToday() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  return getManilaTodayStr();
 }
 
 // Returns a MoM badge element (▲ +X% / ▼ -X% / — if no prev data)
@@ -41,9 +42,8 @@ function MomBadge({ current, prev }: { current: number; prev: number }) {
 }
 
 export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ branch, expenses, salesReports }) => {
-  const now = new Date();
-  const [selectedYear, setSelectedYear]   = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-indexed
+  const [selectedYear, setSelectedYear]   = useState(getManilaYear());
+  const [selectedMonth, setSelectedMonth] = useState(getManilaMonth()); // 0-indexed
   const [searchTerm, setSearchTerm]       = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [previewItem, setPreviewItem]     = useState<any | null>(null);
@@ -168,7 +168,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
       doc.setFontSize(8);
       doc.text(`OPERATIONAL: ₱${totals.OPERATIONAL.toLocaleString()}   SETTLEMENT: ₱${totals.SETTLEMENT.toLocaleString()}   TOTAL: ₱${totals.total.toLocaleString()}`, 14, 34);
       doc.setFontSize(7); doc.setTextColor(148, 163, 184);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pw - 14, 20, { align: 'right' });
+      doc.text(`Generated: ${getTrueDate().toLocaleString()}`, pw - 14, 20, { align: 'right' });
 
       autoTable(doc, {
         startY: 42,

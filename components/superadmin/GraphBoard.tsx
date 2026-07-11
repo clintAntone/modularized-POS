@@ -4,6 +4,7 @@ import { playSound, resumeAudioContext } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 
 import { toDateStr } from '@/src/utils/reportUtils';
+import { getTrueDate } from '../../lib/time';
 
 interface GraphBoardProps {
   salesReports: SalesReport[];
@@ -28,7 +29,7 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   const chartData = useMemo(() => {
-    const now = new Date();
+    const now = getTrueDate();
     const dataPoints: DetailedPoint[] = [];
     
     // Predicate for reports based on current branch filter
@@ -344,14 +345,14 @@ export const GraphBoard: React.FC<GraphBoardProps> = ({ salesReports, branches }
             .map(b => {
               const bReports = salesReports.filter(r => {
                 if (timeWindow === '7d') {
-                  const d = new Date(); d.setDate(d.getDate() - 7);
+                  const d = getTrueDate(); d.setDate(d.getDate() - 7);
                   return r.branchId === b.id && r.reportDate >= new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
                 }
                 if (timeWindow === '30d') {
-                  const d = new Date(); d.setDate(d.getDate() - 30);
+                  const d = getTrueDate(); d.setDate(d.getDate() - 30);
                   return r.branchId === b.id && r.reportDate >= new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
                 }
-                const d = new Date(); d.setFullYear(d.getFullYear() - 1);
+                const d = getTrueDate(); d.setFullYear(d.getFullYear() - 1);
                 return r.branchId === b.id && r.reportDate >= new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
               });
               const sales = bReports.reduce((s, r) => s + r.grossSales, 0);

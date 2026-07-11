@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 
 interface VaultRow {
   branchId: string;
@@ -231,7 +232,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           t.id,
         ]);
       });
-    downloadCSV(rows, `vault-all-transactions-${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())}.csv`);
+    downloadCSV(rows, `vault-all-transactions-${getManilaTodayStr()}.csv`);
     playSound('success');
   };
 
@@ -274,7 +275,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       ]);
     });
 
-    downloadCSV(rows, `vault-${safeLabel}-${safeName}-${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())}.csv`);
+    downloadCSV(rows, `vault-${safeLabel}-${safeName}-${getManilaTodayStr()}.csv`);
     playSound('success');
   };
 
@@ -549,9 +550,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
       // When enabling, auto-upsert vault row with today as start_date if not already set
       if (next) {
-        const today = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(new Date());
+        const today = getManilaTodayStr();
         const existing = vaultRows[branch.id];
         if (!existing?.startDate) {
           await supabase.from(DB_TABLES.BRANCH_VAULTS).upsert({
@@ -583,7 +582,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     if (!amt || amt <= 0) return;
     setSavingDepositId(branchId);
     try {
-      const now = new Date();
+      const now = getTrueDate();
       const todayManilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
       // Use source report date for the tx timestamp if pulling from a previous ROI,
       // so the deposit appears on the correct day in vault history.

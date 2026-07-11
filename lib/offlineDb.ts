@@ -12,6 +12,9 @@ import { UserRole, PortalPermissions } from '../types';
 const DB_NAME = 'hilot_offline_v1';
 const DB_VERSION = 1;
 
+/** Cached offline credentials older than this are rejected at login. */
+export const MAX_OFFLINE_CREDENTIAL_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 export const STORES = {
   AUTH_CREDS:          'auth_creds',
   BRANCHES:            'branches',

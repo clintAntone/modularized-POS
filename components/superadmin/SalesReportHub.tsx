@@ -5,7 +5,7 @@ import { UI_THEME } from '../../constants/ui_designs';
 import { ReportEditorModal } from './ReportEditorModal';
 import { toDateStr, getWeekRange } from '@/src/utils/reportUtils';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
-import { getManilaYear } from '../../lib/time';
+import { getManilaYear, getTrueDate } from '../../lib/time';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -48,7 +48,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
   const getLocalDateStr = (date: Date) => toDateStr(date);
 
   const currentData = useMemo(() => {
-    const now = new Date();
+    const now = getTrueDate();
     const todayStr = getLocalDateStr(now);
 
     const aggregateReports = (reports: SalesReport[], labelPrefix: string, isConsolidated: boolean) => {
@@ -251,7 +251,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
     playSound('click');
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const generatedOn = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    const generatedOn = getTrueDate().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // ── Header ──────────────────────────────────────────────────────────────
     doc.setFillColor(15, 23, 42);

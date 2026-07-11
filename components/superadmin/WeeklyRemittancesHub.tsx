@@ -411,7 +411,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     setSavingNoteKey(key);
     try {
       await supabase.from('remittance_notes').upsert(
-        { branch_id: branchId, period_label: periodLabel, note: note.trim(), updated_at: new Date().toISOString() },
+        { branch_id: branchId, period_label: periodLabel, note: note.trim(), updated_at: getTrueISOString() },
         { onConflict: 'branch_id,period_label' }
       );
       setBranchNotes(prev => ({ ...prev, [key]: note.trim() }));
@@ -453,7 +453,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const vault = vaultRows[branchId];
         const liveBalance = vault?.balance ?? 0;
         const newBalance = liveBalance + depositAmt;
-        const todayManilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+        const todayManilaDate = getManilaTodayStr();
         const timestamp = `${todayManilaDate}T23:59:30+08:00`;
         const txId = `vault_admin_deposit_${branchId}_${todayManilaDate}`;
         setSavingDepositKey(rKeyRef.current);
@@ -743,7 +743,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pageWidth = doc.internal.pageSize.getWidth();
-      const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      const dateStr = getTrueDate().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
       const p = (n: number) => `₱${n.toLocaleString()}`;
 
       // Document header

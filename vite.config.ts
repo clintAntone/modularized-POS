@@ -31,10 +31,9 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
+    // Gemini API key intentionally removed from define — it now lives server-side only.
+    // AI calls go through /api/ai in server.ts so the key is never in the client bundle.
+    define: {},
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

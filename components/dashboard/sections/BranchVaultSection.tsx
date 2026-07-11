@@ -8,7 +8,8 @@ import { playSound } from '../../../lib/audio';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2, Banknote } from 'lucide-react';
 import { compressImage } from '../../../lib/image';
-import { getTrueISOString, getTrueManilaISOString } from '../../../lib/time';
+import { getTrueISOString, getTrueManilaISOString, getTrueDate, getManilaTodayStr } from '../../../lib/time';
+import { logAudit } from '../../../lib/audit';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
@@ -112,7 +113,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   // ── Delete vault bill payment state ──────────────────────────────────────
   const [vaultBillToDelete, setVaultBillToDelete] = useState<{ id: string; name: string; amount: number } | null>(null);
   const [isDeletingVaultBill, setIsDeletingVaultBill] = useState(false);
-  const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  const manilaToday = getManilaTodayStr();
 
   React.useEffect(() => {
     if (toast) {
@@ -215,8 +216,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   const { data: billPayments = [], refetch: refetchBillPayments } = useQuery<{ billId: string; period: string }[]>({
     queryKey: ['bill_payments', branch.id],
     queryFn: async () => {
-      const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-      const today = manilaFmt.format(new Date());
+      const today = getManilaTodayStr();
       const [y, m] = today.split('-');
       const nextM = parseInt(m, 10) === 12 ? 1 : parseInt(m, 10) + 1;
       const nextY = parseInt(m, 10) === 12 ? parseInt(y, 10) + 1 : parseInt(y, 10);
@@ -242,8 +242,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   }
 
   const billsWithStatus = useMemo((): BillEntry[] => {
-    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-    const today = manilaFmt.format(new Date());
+    const today = getManilaTodayStr();
     const [y, m, d] = today.split('-');
     const todayYear = parseInt(y, 10);
     const todayMonth = parseInt(m, 10);
@@ -318,8 +317,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   const handleTogglePaid = async (bill: BillEntry) => {
     if (markingPaidId) return;
     setMarkingPaidId(bill.id);
-    const manilaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
-    const today = manilaFmt.format(new Date());
+    const today = getManilaTodayStr();
     const [y, m] = today.split('-');
     const todayMonth = parseInt(m, 10);
     const todayYear = parseInt(y, 10);
@@ -429,7 +427,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
   // ── Recent reports (last 7 days from today, Manila time) ──────────────────
   const currentWeekReports = useMemo((): SalesReport[] => {
-    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const manilaToday = getManilaTodayStr();
     const [y, m, d] = manilaToday.split('-').map(Number);
     const todayDate = new Date(y, m - 1, d);
 
@@ -481,7 +479,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     try {
       const manilaTime = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      }).format(new Date());
+      }).format(getTrueDate());
       const timestamp = `${depositSelectedDate}T${manilaTime}.000+08:00`;
       const reportId = `${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
 
@@ -569,6 +567,16 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         }
       }
 
+      logAudit({
+        branchId: branch.id,
+        activityType: liveDeposit ? 'UPDATE' : 'CREATE',
+        entityType: 'VAULT_TRANSACTION',
+        entityId: liveDeposit ? liveDeposit.id : `vault_deposit_${branch.id}_${depositSelectedDate?.replace(/-/g, '')}`,
+        description: `Vault deposit ${liveDeposit ? 'updated' : 'recorded'}: ₱${amount}`,
+        amount,
+        performerName: performedBy || 'BRANCH MANAGER',
+      });
+
       playSound('success');
       showToast(liveDeposit ? 'Vault deposit updated' : 'Vault deposit recorded');
       setShowDepositModal(false);
@@ -623,6 +631,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       const txId = Math.random().toString(36).substr(2, 9);
 
       // ── Online: use RPC for atomic insert + balance update ──────────────────
+      // Falls back to two-step direct writes if the RPC function is not deployed yet.
       const { error: rpcErr } = await supabase.rpc('process_vault_withdrawal', {
         p_id:           txId,
         p_branch_id:    branch.id,
@@ -632,7 +641,53 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         p_receipt_url:  receiptUrl || null,
         p_performed_by: performedBy ?? null,
       });
-      if (rpcErr) throw rpcErr;
+
+      if (rpcErr) {
+        const isRpcMissing = rpcErr.code === 'PGRST202' || rpcErr.message?.toLowerCase().includes('could not find the function');
+        if (!isRpcMissing) throw rpcErr;
+
+        // RPC not deployed — fall back to two sequential writes
+        console.warn('[vault] process_vault_withdrawal RPC not found — using direct writes. Run supabase/vault_withdrawal_rpc.sql to enable atomic withdrawals.');
+
+        const { data: liveVault } = await supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .select(DB_COLUMNS.VAULT_BALANCE)
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .single();
+        const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault!.balance;
+        if (amount > liveBalance) throw new Error(`Insufficient vault balance. Available: ₱${liveBalance}, Requested: ₱${amount}`);
+
+        const { error: txErr } = await supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .insert({
+            [DB_COLUMNS.ID]: txId,
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
+            [DB_COLUMNS.AMOUNT]: amount,
+            [DB_COLUMNS.NAME]: label,
+            [DB_COLUMNS.TIMESTAMP]: timestamp,
+            [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
+            [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+          });
+        if (txErr) throw txErr;
+
+        const { error: balErr } = await supabase
+          .from(DB_TABLES.BRANCH_VAULTS)
+          .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveBalance - amount) })
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+        if (balErr) throw balErr;
+      }
+
+      // Audit log — fire-and-forget (never block the success path)
+      logAudit({
+        branchId: branch.id,
+        activityType: 'CREATE',
+        entityType: 'VAULT_TRANSACTION',
+        entityId: txId,
+        description: `Vault withdrawal: ${label} ₱${amount}`,
+        amount,
+        performerName: performedBy || 'BRANCH MANAGER',
+      });
 
       setWithdrawUploadProgress(100);
       playSound('success');
@@ -738,6 +793,16 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         .from(DB_TABLES.BRANCH_VAULTS)
         .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
         .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+
+      logAudit({
+        branchId: branch.id,
+        activityType: 'DELETE',
+        entityType: 'VAULT_TRANSACTION',
+        entityId: vaultBillToDelete.id,
+        description: `Vault bill payment reversed: ${vaultBillToDelete.name} ₱${refundAmount}`,
+        amount: refundAmount,
+        performerName: performedBy || 'BRANCH MANAGER',
+      });
 
       playSound('success');
       showToast('Bill payment reversed');

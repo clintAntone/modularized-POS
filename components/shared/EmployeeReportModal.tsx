@@ -232,7 +232,7 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
           witnesses: showWitnesses && witnesses.trim() ? witnesses.trim() : null,
           description: description.trim(),
           filedByName,
-          filedAt: new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila' }),
+          filedAt: getTrueDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila' }),
         },
       }).catch(() => { /* silently ignore — complaint is already saved */ });
 

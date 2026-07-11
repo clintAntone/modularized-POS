@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { Branch, SalesReport } from '../../../types';
 import { TabID } from '../../BranchManagerDashboard';
 import { playSound } from '../../../lib/audio';
+import { getTrueDate } from '../../../lib/time';
 
 const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 
@@ -15,14 +16,14 @@ interface MonthlySectionProps {
 export const MonthlySection: React.FC<MonthlySectionProps> = ({ branch, salesReports, setActiveTab }) => {
   const monthCycles = useMemo(() => {
     const data: any[] = [];
-    const now = new Date();
-    
+    const now = getTrueDate();
+
     const anchorDateString = branch.cycleStartDate || `${now.getFullYear()}-01-01`;
     const [startYear, startMonth] = anchorDateString.split('-').map(v => parseInt(v, 10));
-    
+
     // Start from the 1st of the anchor month
     let iterDate = new Date(startYear, startMonth - 1, 1, 0, 0, 0, 0);
-    const currentDate = new Date();
+    const currentDate = getTrueDate();
     const filteredReports = salesReports.filter(r => {
       if (r.branchId !== branch.id) return false;
       return true;

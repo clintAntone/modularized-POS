@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Branch, SalesReport } from '../../../types';
+import { getTrueDate } from '../../../lib/time';
 
 interface WeeklySectionProps {
   branch: Branch;
@@ -19,7 +20,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
   };
 
   const processedCycles = useMemo(() => {
-    const now = new Date();
+    const now = getTrueDate();
     const filteredReports = salesReports.filter(r => r.branchId === branch.id);
 
     return cycles.map(cycle => {

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
+import { getTrueDate } from '../../lib/time';
 
 interface InsightsHubProps {
   branches: Branch[];
@@ -25,13 +26,13 @@ interface BranchInsight {
 }
 
 function getManilaDateStr(daysAgo: number): string {
-  const d = new Date();
+  const d = getTrueDate();
   d.setDate(d.getDate() - daysAgo);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 }
 
 function getManilaToday(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(getTrueDate());
 }
 
 const LEVEL_STYLES: Record<AlertLevel, { badge: string; border: string; dot: string; bg: string }> = {

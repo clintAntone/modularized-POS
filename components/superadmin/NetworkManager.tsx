@@ -7,7 +7,7 @@ import { Pagination } from '../dashboard/sections/common/Pagination';
 import { playSound } from '../../lib/audio';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getManilaTodayStr } from '../../lib/time';
+import { getManilaTodayStr, getTrueDate } from '../../lib/time';
 
 interface NetworkManagerProps {
   branches: Branch[];
@@ -99,7 +99,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
 
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184); // slate-400
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 20, { align: 'right' });
+      doc.text(`Generated: ${getTrueDate().toLocaleString()}`, pageWidth - 14, 20, { align: 'right' });
       doc.text(`Total Branches: ${filteredBranches.length}`, pageWidth - 14, 26, { align: 'right' });
 
       // 2. Table

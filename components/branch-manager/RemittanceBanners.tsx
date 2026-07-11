@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 import { playSound } from '../../lib/audio';
 
 interface RemittanceBannersProps {
@@ -98,7 +98,7 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
         </div>
         <button
           onClick={() => {
-            const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+            const today = getManilaTodayStr();
             localStorage.setItem(`vault_notif_${branchId}_${today}`, '1');
             onDismissVaultNotif();
           }}

@@ -21,7 +21,6 @@ export const syncWithServerTime = async () => {
   const TIMEOUT_MS = 5000;
 
   const commit = (serverTime: number, perfTime: number, source: string) => {
-    if (isInitialized) return; // first writer wins — ignore race losers
     const deviceTime = Date.now();
     initialServerTime = serverTime;
     initialPerformanceTime = perfTime;
@@ -86,9 +85,13 @@ export const syncWithServerTime = async () => {
     await Promise.any([attemptTimeApi(), attemptSupabase()]);
     return true;
   } catch {
-    initialServerTime = Date.now();
-    initialPerformanceTime = performance.now();
-    syncMetadata = { source: 'device_clock', serverTime: initialServerTime, deviceTime: initialServerTime, driftSeconds: 0 };
+    // Only fall back to device clock if we've never had a successful sync
+    if (!isInitialized) {
+      initialServerTime = Date.now();
+      initialPerformanceTime = performance.now();
+      isInitialized = true;
+      syncMetadata = { source: 'device_clock', serverTime: initialServerTime, deviceTime: initialServerTime, driftSeconds: 0 };
+    }
     return false;
   }
 };

@@ -131,7 +131,7 @@ export const useGlobalData = (auth: AuthState) => {
         }
 
         try {
-            const queue: { table: string; data: any; audit?: any; conflictKey?: string }[] = JSON.parse(saved);
+            const queue: { table: string; data: any; audit?: any; conflictKey?: string; isNew?: boolean }[] = JSON.parse(saved);
             if (queue.length === 0) {
                 setPendingSyncCount(0);
                 return;
@@ -145,12 +145,30 @@ export const useGlobalData = (auth: AuthState) => {
             for (let i = 0; i < remainingQueue.length; i++) {
                 const item = remainingQueue[i];
                 try {
+                    // Branch-scoped validation: non-superadmin users may only sync
+                    // items that belong to their own branch. Drop anything that doesn't match.
+                    const userBranchId = auth.user?.branchId;
+                    const itemBranchId = item.data?.[DB_COLUMNS.BRANCH_ID];
+                    if (
+                        auth.user?.role !== UserRole.SUPERADMIN &&
+                        userBranchId &&
+                        itemBranchId &&
+                        itemBranchId !== userBranchId
+                    ) {
+                        console.warn('[offlineQueue] Dropped item — branchId mismatch:', item.table, itemBranchId);
+                        processedIndices.push(i);
+                        continue;
+                    }
+
                     const conflictTarget = item.conflictKey ?? (item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id');
 
-                    // Skip if the record was deleted server-side while we were offline
-                    // (prevents re-inserting records that an admin intentionally removed)
+                    // Skip if the record was deleted server-side while we were offline —
+                    // BUT only for update-style items (isNew: false), not for new inserts.
+                    // New records (isNew: true or unset for backwards compat) always proceed.
+                    // This prevents accidentally dropping offline clock-ins and other new records.
                     const itemId = item.data?.[conflictTarget];
-                    if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG && item.table !== DB_TABLES.BRANCH_VAULTS) {
+                    const isNewRecord = item.isNew === true;
+                    if (!isNewRecord && itemId && item.table !== DB_TABLES.SYSTEM_CONFIG && item.table !== DB_TABLES.BRANCH_VAULTS) {
                         const { data: existing } = await supabase
                             .from(item.table)
                             .select(conflictTarget)
@@ -158,6 +176,7 @@ export const useGlobalData = (auth: AuthState) => {
                             .maybeSingle();
                         // If the record no longer exists (was deleted), drop this queue item silently
                         if (existing === null) {
+                            console.warn('[offlineQueue] Dropping item — record deleted server-side:', item.table, itemId);
                             processedIndices.push(i);
                             continue;
                         }
@@ -328,7 +347,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['transactions', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -359,7 +378,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['expenses', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.EXPENSES, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -382,7 +401,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['salesReports', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lbd = lookbackDate;
             const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
@@ -457,7 +476,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['vaultTransactions', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.VAULT_TRANSACTIONS, async () => {
             if (!supabase) return [];
-            const vtLookback = new Date();
+            const vtLookback = getTrueDate();
             vtLookback.setDate(vtLookback.getDate() - 90);
             const vtLookbackIso = vtLookback.toISOString();
             let query = supabase
@@ -492,7 +511,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['auditLogs', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.AUDIT_LOGS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -516,7 +535,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['attendance', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.ATTENDANCE, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -547,7 +566,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['requests', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.REQUESTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -579,7 +598,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryKey: ['employeeComplaints', auth.user?.branchId],
         queryFn: (): Promise<EmployeeComplaint[]> => withOfflineCache(STORES.EMPLOYEE_COMPLAINTS, async () => {
             if (!supabase) return [];
-            const ecLookback = new Date();
+            const ecLookback = getTrueDate();
             ecLookback.setDate(ecLookback.getDate() - 90);
             const ecLookbackIso = ecLookback.toISOString();
             let query = supabase

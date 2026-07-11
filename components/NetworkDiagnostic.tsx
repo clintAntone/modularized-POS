@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Wifi, WifiOff, ShieldAlert, Activity, CheckCircle2, XCircle } from 'lucide-react';
+import { getTrueDate } from '../lib/time';
 
 export const NetworkDiagnostic: React.FC = () => {
   const [status, setStatus] = useState<{
@@ -16,7 +17,7 @@ export const NetworkDiagnostic: React.FC = () => {
   });
 
   const addDetail = (msg: string) => {
-    setStatus(prev => ({ ...prev, details: [...prev.details, `${new Date().toLocaleTimeString()}: ${msg}`] }));
+    setStatus(prev => ({ ...prev, details: [...prev.details, `${getTrueDate().toLocaleTimeString()}: ${msg}`] }));
   };
 
   const runDiagnostic = async () => {

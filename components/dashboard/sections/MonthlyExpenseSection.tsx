@@ -7,7 +7,7 @@ import { playSound } from '../../../lib/audio';
 import { compressImage } from '../../../lib/image';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { logAudit } from '../../../lib/audit';
-import { getManilaYear, getManilaMonth } from '../../../lib/time';
+import { getManilaYear, getManilaMonth, getManilaTodayStr, getTrueDate } from '../../../lib/time';
 
 // Modular Vault Components
 import { VaultBalanceHero } from './vault/VaultBalanceHero';
@@ -71,7 +71,7 @@ export const MonthlyExpenseSection: React.FC<MonthlyExpenseSectionProps> = ({ us
   };
 
   const { allVaultMovements, reserveBalance, depositCount, payoutCount, carryOverBalance, currentPeriodMovements } = useMemo(() => {
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const today = getManilaTodayStr();
     
     const historicalReports = salesReports.filter(r => r.branchId === branch.id && r.reportDate !== today);
     const historicalItems: Expense[] = historicalReports.flatMap(r => r.vaultData || []);
@@ -169,8 +169,8 @@ export const MonthlyExpenseSection: React.FC<MonthlyExpenseSectionProps> = ({ us
     setUploadProgress(10);
     let receiptUrl = '';
     
-    const now = new Date();
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
+    const now = getTrueDate();
+    const today = getManilaTodayStr();
     const timePart = now.toTimeString().split(' ')[0];
     const manilaTimestamp = `${today}T${timePart}.000+08:00`;
     

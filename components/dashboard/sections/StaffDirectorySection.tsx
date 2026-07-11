@@ -564,7 +564,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     playSound('click');
     try {
       const doc = new jsPDF('l', 'mm', 'a4');
-      const timestamp = new Date().toLocaleString();
+      const timestamp = getTrueDate().toLocaleString();
       
       // Header
       doc.setFontSize(20);
@@ -765,9 +765,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           await updateAttendance.mutateAsync({
             id: ongoingRec.id,
             [DB_COLUMNS.CLOCK_OUT]: timestamp,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime.id,
-            [DB_COLUMNS.DATE]: todayStr
           });
           showToast(`${selectedEmpForTime.name} has clocked out.`);
         }
@@ -823,12 +820,15 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           }
         } else if (state === 'ONGOING') {
           const ongoingRec = (attendance || []).find(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr && a.clockIn && !a.clockOut);
-          if (ongoingRec) attendancePayload = { id: ongoingRec.id, [DB_COLUMNS.CLOCK_OUT]: timestamp, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DATE]: todayStr };
+          if (ongoingRec) attendancePayload = { id: ongoingRec.id, [DB_COLUMNS.CLOCK_OUT]: timestamp };
         }
         if (attendancePayload) {
           const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DESCRIPTION]: state === 'ONGOING' ? `Clock-out queued for ${selectedEmpForTime!.name}` : `Clock-in queued for ${selectedEmpForTime!.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+          // isNew: true marks new inserts — the queue flush must not drop these
+          // thinking the record was deleted server-side (it never existed yet).
+          const isNewInsert = state !== 'ONGOING' && !(latestRecord?.isHalfDay);
           const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
-          existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload });
+          existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload, isNew: isNewInsert });
           localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
           playSound('success');
           showToast(`${selectedEmpForTime!.name} ${state === 'ONGOING' ? 'clocked out' : 'clocked in'} (queued — will sync on reconnect)`);
@@ -932,8 +932,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: emp.id, [DB_COLUMNS.STAFF_NAME]: emp.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE', [DB_COLUMNS.STATUS]: 'REGULAR' };
         }
         const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: emp.id, [DB_COLUMNS.DESCRIPTION]: `Face clock-in queued for ${emp.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+        const isNewInsert = !(latestRecord?.isHalfDay);
         const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
-        existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload });
+        existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload, isNew: isNewInsert });
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
         playSound('success');
         showToast(`${emp.name} clocked in (queued — will sync on reconnect)`);

@@ -10,7 +10,7 @@ import { deleteFileByUrl } from '../../lib/storage';
 import { supabase } from '../../lib/supabase';
 import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
 import { getEmployeeRole } from '../../lib/payroll';
-import { getManilaTodayStr, getTrueISOString } from '../../lib/time';
+import { getManilaTodayStr, getTrueISOString, getTrueDate } from '../../lib/time';
 import { invalidateBranchSessions } from '../../lib/audit';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -531,7 +531,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     try {
       const doc = new jsPDF({ orientation: 'landscape' });
       const pageWidth = doc.internal.pageSize.getWidth();
-      const now = new Date();
+      const now = getTrueDate();
 
       // 1. Header bar
       doc.setFillColor(15, 23, 42);

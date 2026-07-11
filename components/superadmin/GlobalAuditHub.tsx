@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { Pagination } from '../dashboard/sections/common/Pagination';
 import { toDateStr } from '@/src/utils/reportUtils';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 
 interface GlobalAuditHubProps {
   branches: Branch[];
@@ -74,7 +75,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
   });
 
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string>(getManilaTodayStr());
   const [allDates, setAllDates] = useState(openAllDates);
 
   // Fetch logs for the selected date (or last 7 days when "All Dates" is on)
@@ -90,7 +91,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
 
         if (allDates) {
           // All dates: last 90 days, capped at 2000 so it's not insane
-          const from = new Date();
+          const from = getTrueDate();
           from.setDate(from.getDate() - 90);
           query = query.gte(DB_COLUMNS.TIMESTAMP, from.toISOString()).limit(2000);
         } else {
@@ -365,7 +366,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
   const handlePurge = async () => {
     setIsPurging(true);
     try {
-      const cutoff = new Date();
+      const cutoff = getTrueDate();
       cutoff.setUTCDate(cutoff.getUTCDate() - 6);
       cutoff.setUTCHours(23, 59, 59, 999);
       const { error } = await supabase
@@ -772,7 +773,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
         <div className="border-b-2 border-slate-900 pb-4">
           <h1 className="text-2xl font-bold">Network Audit Registry</h1>
           <div className="flex justify-between mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">
-            <p>Generated: {new Date().toLocaleString()}</p>
+            <p>Generated: {getTrueDate().toLocaleString()}</p>
             <p>Branch: {selectedBranchName}</p>
             <p>Date: {allDates ? 'All Dates' : selectedDate}</p>
           </div>

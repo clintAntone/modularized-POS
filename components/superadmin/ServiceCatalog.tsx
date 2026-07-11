@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { UI_THEME } from '../../constants/ui_designs';
 import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List, GitBranch } from 'lucide-react';
 import { Pagination } from '../dashboard/sections/common/Pagination';
-import { getTrueISOString } from '../../lib/time';
+import { getTrueISOString, getTrueDate } from '../../lib/time';
 
 export interface CatalogGroup {
   id: string;
@@ -383,7 +383,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
     playSound('click');
 
     const doc = new jsPDF();
-    const timestamp = new Date().toLocaleString();
+    const timestamp = getTrueDate().toLocaleString();
 
     doc.setFontSize(20);
     doc.setTextColor(15, 23, 42);

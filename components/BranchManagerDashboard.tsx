@@ -26,7 +26,7 @@ import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole } from '../lib/payroll';
 import { supabase } from '../lib/supabase';
-import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr } from '../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr } from '../lib/time';
 import { DB_TABLES } from '../constants/db_schema';
 import { Clock, Store, ChevronRight } from 'lucide-react';
 
@@ -102,9 +102,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   const [highlightDeposit, setHighlightDeposit] = useState(false);
   const [hiddenStaffNames, setHiddenStaffNames] = useState<Set<string>>(() => {
     try {
-      const todayDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date());
+      const todayDate = getManilaTodayStr();
       const saved = localStorage.getItem(`hidden_staff_${props.branch.id}`);
       if (!saved) return new Set();
       const parsed = JSON.parse(saved);
@@ -122,9 +120,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   // Persist hidden staff names with today's date so they auto-clear on a new day
   useEffect(() => {
     try {
-      const todayDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date());
+      const todayDate = getManilaTodayStr();
       localStorage.setItem(`hidden_staff_${props.branch.id}`, JSON.stringify({ date: todayDate, names: [...hiddenStaffNames] }));
     } catch { /* storage quota exceeded — ignore */ }
   }, [hiddenStaffNames, props.branch.id]);
@@ -242,7 +238,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     if (!props.branch.vaultEnabled) return;
     const hasTarget = (props.branchVault?.target ?? 0) > 0;
     if (hasTarget) { setShowVaultUnconfiguredNotif(false); return; }
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const today = getManilaTodayStr();
     const key = `vault_notif_${props.branch.id}_${today}`;
     if (!localStorage.getItem(key)) setShowVaultUnconfiguredNotif(true);
   }, [props.branch.id, props.branch.vaultEnabled, props.branchVault]);

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Branch, SalesReport, VaultTransaction } from '../../../types';
 import { playSound } from '../../../lib/audio';
 import { getWeekRange, parseDate } from '../../../src/utils/reportUtils';
-import { getTrueDate, formatPeso } from '../../../lib/time';
+import { getTrueDate, formatPeso, getManilaTodayStr } from '../../../lib/time';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark, ArrowLeftRight } from 'lucide-react';
@@ -92,7 +92,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (amt > remainingToTarget) return;
     setVaultRemitSaving(true);
     try {
-      const now = new Date();
+      const now = getTrueDate();
       const entryId = `${branch.id}_VR_${now.getTime()}`;
       const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
       const manilaTime = new Intl.DateTimeFormat('en-GB', {
@@ -246,7 +246,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       if (isVaultDeposit) {
         // Vault deposit path — same logic as handleRemitToVault
         const depositAmt = Math.abs(raw);
-        const now = new Date();
+        const now = getTrueDate();
         const entryId = `${branch.id}_VR_${now.getTime()}`;
         const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
         const manilaTime = new Intl.DateTimeFormat('en-GB', {
@@ -555,7 +555,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
   // Adjustments only available after the period ends; locked again 3+ days after weekEnd
   const { adjLocked, adjNotYet } = (() => {
-    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const manilaToday = getManilaTodayStr();
     const weekEndStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(currentGroup.weekEnd);
     const ms = new Date(manilaToday).getTime() - new Date(weekEndStr).getTime();
     const daysPassed = Math.floor(ms / 86400000);
