@@ -68,13 +68,20 @@ const App: React.FC = () => {
     };
     
     performSync();
-    
+
     // Periodic re-sync every 15 minutes to account for any drift
     const interval = setInterval(performSync, 15 * 60 * 1000);
-    
-    return () => { 
+
+    // Re-sync immediately when tab/app returns to foreground
+    // (performance.now() pauses on some mobile browsers when the device sleeps,
+    //  causing the clock to lag until the next 15-min interval fires)
+    const onVisible = () => { if (document.visibilityState === 'visible') performSync(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
       mounted = false;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
