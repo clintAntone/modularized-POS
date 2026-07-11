@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Wifi, WifiOff, ShieldAlert, Activity, CheckCircle2, XCircle } from 'lucide-react';
 import { getTrueDate } from '../lib/time';
+import { Wifi, WifiOff, ShieldAlert, Activity, CheckCircle2, XCircle } from 'lucide-react';
 
 export const NetworkDiagnostic: React.FC = () => {
   const [status, setStatus] = useState<{
