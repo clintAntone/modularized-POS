@@ -870,7 +870,9 @@ export const useGlobalData = (auth: AuthState) => {
         };
     }, [refreshDatabase, fetchSystemConfig, queryClient]);
 
-    const loading = branchesLoading || employeesLoading;
+    // Only block the splash on branches — Login only needs branches to render.
+    // Employees load in the background; the dashboard handles its own loading state.
+    const loading = branchesLoading;
     const error = branchesError || employeesError || transactionsError || expensesError || salesReportsError || auditLogsError || attendanceError || requestsError;
 
     // Sentinel removed — employee time-out is manual only via STAFF tab

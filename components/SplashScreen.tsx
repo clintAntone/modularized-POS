@@ -22,9 +22,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     return () => clearInterval(t);
   }, []);
 
-  // After 15 s of spinning, auto-run the diagnostic
+  // After 20 s of spinning, auto-run the diagnostic
   useEffect(() => {
-    if (elapsed === 8 && diagState === 'idle') {
+    if (elapsed === 20 && diagState === 'idle') {
       runDiagnostic();
     }
   }, [elapsed, diagState]);
@@ -91,13 +91,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
             {subMessage}
           </p>
-          {elapsed >= 5 && diagState === 'idle' && (
+          {elapsed >= 10 && diagState === 'idle' && (
             <p className="text-xs text-slate-300 tabular-nums">{elapsed}s elapsed…</p>
           )}
         </div>
 
-        {/* Diagnostic panel — appears after 8 s */}
-        {elapsed >= 8 && (
+        {/* Diagnostic panel — appears after 20 s */}
+        {elapsed >= 20 && (
           <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">
               {diagState === 'running' ? 'Checking connection…' : 'Taking longer than expected'}
