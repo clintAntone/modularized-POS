@@ -211,7 +211,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
             branch.tempManager?.toUpperCase() === staffDisplayName;
           if (!isThisBranchManager) {
             const emp = employees.find((e: Employee) => e.id === s.employeeId);
-            const isCrossBranch = s.isReliever === true || (emp && emp.branchId !== branch.id);
+            const isCrossBranch = s.isReliever === true ||
+              (s.isReliever !== false && emp && emp.branchId !== branch.id);
             if (isCrossBranch && !(emp && emp.branchId === branch.id)) return;
           }
 
@@ -245,8 +246,13 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
     const emp = employees.find((e: Employee) => e.id === s.employeeId);
 
-    // Determine if cross-branch: trust the stored flag first, fall back to live employee data
-    const isCrossBranch = s.isReliever === true || (emp && emp.branchId !== branch.id);
+    // Determine if cross-branch:
+    // - isReliever === true  → definitely a reliever at time of record
+    // - isReliever === false → was home-branch at time of record; trust it even if employee
+    //                          has since transferred to another branch (live branchId differs)
+    // - isReliever undefined → old record without flag; fall back to live branchId check
+    const isCrossBranch = s.isReliever === true ||
+      (s.isReliever !== false && emp && emp.branchId !== branch.id);
     if (!isCrossBranch) return false;
 
     // Exception: employee was transferred to this branch mid-cycle — their branchId now

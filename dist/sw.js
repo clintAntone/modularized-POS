@@ -1,4 +1,4 @@
-const CACHE_NAME = '_hc-1783834669826';
+const CACHE_NAME = '_hc-1783857754529';
 const PRECACHE_URLS = [
   '/icon-192.png',
   '/icon-512.png',
@@ -26,7 +26,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.in')) return;
+  if (url.hostname !== self.location.hostname) return;
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() =>

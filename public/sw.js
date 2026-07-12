@@ -33,7 +33,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.in')) return;
+  if (url.hostname !== self.location.hostname) return;
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
