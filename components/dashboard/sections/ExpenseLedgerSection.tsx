@@ -131,7 +131,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
 
   // ── Available years ────────────────────────────────────────
   const availableYears = useMemo(() => {
-    const years = new Set<number>([now.getFullYear()]);
+    const years = new Set<number>([getTrueDate().getFullYear()]);
     allItems.forEach(item => {
       const d = new Date(item.timestamp || item.reportDate || '');
       if (!isNaN(d.getTime())) years.add(d.getFullYear());
@@ -150,7 +150,7 @@ export const ExpenseLedgerSection: React.FC<ExpenseLedgerSectionProps> = ({ bran
     if (selectedMonth === 11) { setSelectedYear(y => y + 1); setSelectedMonth(0); }
     else setSelectedMonth(m => m + 1);
   };
-  const isCurrentMonth = selectedYear === now.getFullYear() && selectedMonth === now.getMonth();
+  const isCurrentMonth = selectedYear === getTrueDate().getFullYear() && selectedMonth === getTrueDate().getMonth();
 
   // ── PDF Export ─────────────────────────────────────────────
   const handleExport = async () => {
