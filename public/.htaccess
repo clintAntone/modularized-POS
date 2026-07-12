@@ -25,10 +25,6 @@ RewriteRule (^|/)\. - [F,L]
     Require all granted
 </FilesMatch>
 
-# Block the orphan _app.html
-<FilesMatch "^_app\.html$">
-    Require all denied
-</FilesMatch>
 
 # ── Protect models/ directory (face recognition weights) ─────────────────────
 <IfModule mod_rewrite.c>
@@ -43,8 +39,12 @@ RewriteRule (^|/)\. - [F,L]
 
 # ── SPA Routing (React / Vite) ────────────────────────────────────────────────
 RewriteRule ^index\.html$ - [L]
-# Never serve index.html for asset requests — Safari rejects text/html MIME type for JS
+# For missing asset files return 403 — never serve index.html as a JS substitute
+# (Safari rejects text/html MIME for JS; this condition passes existing files through)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^assets/ - [F,L]
+# SPA fallback for client-side routes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.html [L]
