@@ -1,7 +1,7 @@
 {
-  "name": "Hilot Center Management",
-  "short_name": "HilotCore",
-  "description": "Professional Management System for Hilot Center",
+  "name": "Hilot Center",
+  "short_name": "Hilot",
+  "description": "Management System",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

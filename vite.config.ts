@@ -26,7 +26,11 @@ export default defineConfig(({ mode }) => {
           const swPath = path.resolve(__dirname, 'dist/sw.js');
           if (!fs.existsSync(swPath)) return;
           const stamped = fs.readFileSync(swPath, 'utf-8')
-            .replace('__BUILD_TS__', Date.now().toString());
+            .replace('__BUILD_TS__', Date.now().toString())
+            // Strip single-line comments to avoid stack fingerprinting in the public file
+            .replace(/\/\/.*$/gm, '')
+            // Collapse resulting blank lines
+            .replace(/^\s*[\r\n]/gm, '');
           fs.writeFileSync(swPath, stamped);
         },
       },
