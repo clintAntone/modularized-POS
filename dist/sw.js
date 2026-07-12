@@ -1,4 +1,4 @@
-// 1783791631612 is replaced by the Vite `sw-version-stamp` plugin at build time.
+// 1783825957792 is replaced by the Vite `sw-version-stamp` plugin at build time.
 // Every `npm run build` produces a unique cache name, which forces the browser to
 // install the new SW and run the activate handler that deletes all old caches.
 const CACHE_NAME = 'hilot-cache-__BUILD_TS__';
@@ -20,14 +20,19 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: delete every cache except the current one
+// Activate: delete every cache except the current one, then notify open tabs to reload
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED' }));
+      })
   );
-  self.clients.claim();
 });
 
 // Fetch strategy:

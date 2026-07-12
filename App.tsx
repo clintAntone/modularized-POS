@@ -22,6 +22,31 @@ const SuperAdminDashboard = lazy(() => import('./components/superadmin/SuperAdmi
 const BranchManagerDashboard = lazy(() => import('./components/BranchManagerDashboard'));
 
 
+const SwUpdateBanner: React.FC<{ onReload: () => void }> = ({ onReload }) => {
+  const [count, setCount] = React.useState(5);
+  React.useEffect(() => {
+    if (count <= 0) { onReload(); return; }
+    const t = setTimeout(() => setCount(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [count, onReload]);
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6 px-6">
+      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+        <svg className="w-7 h-7 text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </div>
+      <div className="text-center space-y-2">
+        <p className="text-sm font-black text-white uppercase tracking-widest">New version available</p>
+        <p className="text-xs text-slate-400">Reloading in {count}s…</p>
+      </div>
+      <button onClick={onReload} className="text-xs font-bold text-emerald-400 uppercase tracking-wide hover:text-emerald-300 transition-colors">
+        Reload now
+      </button>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -100,6 +125,17 @@ const App: React.FC = () => {
 
 const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [swUpdateReady, setSwUpdateReady] = useState(false);
+
+  // SW_UPDATED message from service worker means a new bundle has been activated.
+  // Show a brief banner then reload so users always run the latest version.
+  useEffect(() => {
+    const onSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SW_UPDATED') setSwUpdateReady(true);
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+  }, []);
   useEffect(() => {
     const goOnline = () => setIsOffline(false);
     const goOffline = () => setIsOffline(true);
@@ -349,6 +385,12 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           </p>
         </div>
       </div>
+    );
+  }
+
+  if (swUpdateReady) {
+    return (
+      <SwUpdateBanner onReload={() => window.location.reload()} />
     );
   }
 
