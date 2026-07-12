@@ -21,7 +21,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-50 border-b border-slate-100">
               <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Name</th>
               <th className={`px-4 py-5 w-[14%] ${UI_THEME.text.metadata}`}>Home</th>
               <th className={`px-4 py-5 w-[18%] ${UI_THEME.text.metadata}`}>R-Branch</th>
@@ -31,7 +31,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
               <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Control</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {employees.map(emp => {
               const empId = emp.timestamp
                 ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
@@ -52,7 +52,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, branche
               return (
                 <tr
                   key={emp.id}
-                  className={`hover:bg-slate-50 transition-colors group ${onEdit ? 'cursor-pointer' : ''} ${!emp.isActive ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                  className={`border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors group ${onEdit ? 'cursor-pointer' : ''} ${!emp.isActive ? 'opacity-60 grayscale-[0.5]' : ''}`}
                 >
                   <td className="px-8 py-5" onClick={() => onEdit?.(emp)}>
                     <div className="flex items-center gap-4">

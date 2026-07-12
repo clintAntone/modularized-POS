@@ -236,7 +236,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         {selectedStaffData?.isReliever ? (
                           <span className="text-xs sm:text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded uppercase tracking-widest">Not Allowed for Relievers</span>
                         ) : (
-                          <span className="text-xs sm:text-xs font-bold text-slate-300 bg-slate-50 px-2 py-0.5 rounded uppercase tracking-widest">Weekly Settlement</span>
+                          <span className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-widest">Weekly settlement</span>
                         )}
                       </div>
                       <div className="relative group">

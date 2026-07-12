@@ -242,7 +242,7 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-8 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</th>
                 <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-center">Days</th>
                 <th className="px-4 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Units</th>
@@ -253,9 +253,9 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
                 <th className="px-8 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Net ROI</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {branchWeeklyStats.map(b => (
-                <tr key={b.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={b.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-5">
                     <p className="font-bold text-slate-900 uppercase text-sm group-hover:text-indigo-600 transition-colors">{b.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">

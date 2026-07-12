@@ -281,7 +281,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               <button
                 type="button"
                 onClick={() => onViewID(employee as Employee)}
-                className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg sm:rounded-xl text-slate-400 transition-all active:scale-90 flex items-center justify-center shadow-sm"
+                className="w-8 h-8 sm:w-9 sm:h-9 bg-indigo-600 hover:bg-indigo-700 rounded-lg sm:rounded-xl text-white transition-all active:scale-90 flex items-center justify-center shadow-md shadow-indigo-900/40"
                 title="View Company ID"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -303,14 +303,14 @@ export const EditorModal: React.FC<EditorModalProps> = ({
 
         {/* Tabs — only for existing employees */}
         {isExisting && (
-          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 shrink-0">
+          <div className="flex gap-1 p-1 bg-slate-200/70 rounded-xl mb-4 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('assignment')}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                 activeTab === 'assignment'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -323,8 +323,8 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               onClick={() => setActiveTab('personal')}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                 activeTab === 'personal'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -428,8 +428,8 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                     <div key={id} className={`rounded-2xl border overflow-hidden ${isHome ? 'border-indigo-200' : 'border-slate-200'}`}>
                       <div className={`flex items-center justify-between gap-2 px-4 py-3 ${isHome ? 'bg-indigo-500' : 'bg-slate-600'}`}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-900 leading-tight truncate">{branch.name}</p>
-                          {branch.manager && <p className="text-xs font-medium text-white/80 truncate mt-0.5">{branch.manager}</p>}
+                          <p className="text-xs font-bold text-white leading-tight truncate">{branch.name}</p>
+                          {branch.manager && <p className="text-xs font-medium text-white/70 truncate mt-0.5">{branch.manager}</p>}
                         </div>
                         {!isHome ? (
                           <button type="button" onClick={() => { setPendingHomeId(id); playSound('click'); }} className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white">
@@ -468,12 +468,12 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                               return (
                                 <button key={role} type="button" onClick={() => toggleBranchRole(id, role)}
                                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide border-2 transition-all active:scale-95 ${
-                                    isActive && role === 'THERAPIST' ? 'bg-emerald-100 border-emerald-200 text-emerald-700'
-                                    : isActive && role === 'BONESETTER' ? 'bg-amber-100 border-amber-200 text-amber-700'
+                                    isActive && role === 'THERAPIST' ? 'bg-emerald-500 border-emerald-600 text-white'
+                                    : isActive && role === 'BONESETTER' ? 'bg-amber-500 border-amber-600 text-white'
                                     : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-700'
                                   }`}
                                 >
-                                  {isActive && <svg className={`w-3 h-3 shrink-0 ${role === 'THERAPIST' ? 'text-emerald-600' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                  {isActive && <svg className="w-3 h-3 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                   {role}
                                 </button>
                               );
@@ -639,14 +639,14 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             </div>
 
             {/* Emergency contact */}
-            <div className="rounded-2xl border-2 border-rose-200 overflow-hidden">
-              <div className="flex items-center gap-2.5 px-4 py-3 bg-rose-50 border-b-2 border-rose-200">
+            <div className="rounded-2xl border-2 border-rose-900 overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-3 bg-rose-950 border-b-2 border-rose-900">
                 <div className="w-6 h-6 rounded-lg bg-rose-500 flex items-center justify-center shrink-0">
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </div>
-                <p className="text-xs font-black text-rose-700 uppercase tracking-widest">Emergency Contact</p>
+                <p className="text-xs font-black text-rose-400 uppercase tracking-widest">Emergency Contact</p>
               </div>
               <div className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">

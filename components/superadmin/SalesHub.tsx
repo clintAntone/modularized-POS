@@ -760,7 +760,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-slate-50 border-b border-slate-100">
                 <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Branch Node</th>
                 <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Status</th>
                 <th className={`px-4 py-5 w-[8%] text-right ${UI_THEME.text.metadata}`}>Units</th>
@@ -771,7 +771,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Net ROI</th>
               </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
               {salesReportsLoading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
@@ -799,7 +799,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     <tr
                         key={b.id}
                         onClick={() => handleRowClick(b)}
-                        className={`transition-colors group cursor-pointer ${b.rawReport ? 'hover:bg-slate-50/80 dark:hover:bg-slate-700/40' : 'opacity-50 grayscale cursor-not-allowed'}`}
+                        className={`border-b border-slate-100 last:border-b-0 transition-colors group cursor-pointer ${b.rawReport ? 'hover:bg-slate-50/80 dark:hover:bg-slate-700/40' : 'opacity-50 grayscale cursor-not-allowed'}`}
                     >
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">

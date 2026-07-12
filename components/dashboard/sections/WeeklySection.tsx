@@ -250,7 +250,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
           <div className="overflow-x-auto no-scrollbar border-t">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="text-xs font-black text-slate-900 uppercase tracking-wider bg-slate-100 border-b border-slate-200">
+                <tr className="text-xs font-black text-slate-900 uppercase tracking-wider bg-slate-100 border-b border-slate-100">
                   <th className="px-8 py-6">Day / Date</th>
                   <th className="px-8 py-6 text-center">Status</th>
                   <th className="px-8 py-6 text-right">Gross</th>

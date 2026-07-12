@@ -299,16 +299,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           // No side effects — approval just marks the report as acknowledged
         } else if (request.type === 'CREATE_EMPLOYEE') {
           const d = request.data;
+          const homeBranchId = d.branchId || request.branchId;
+          const allowanceVal = Number(d.allowance) || 0;
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES).insert({
             [DB_COLUMNS.ID]: Math.random().toString(36).substr(2, 9),
-            [DB_COLUMNS.BRANCH_ID]: d.branchId || request.branchId,
+            [DB_COLUMNS.BRANCH_ID]: homeBranchId,
             [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.NAME]: d.name,
             [DB_COLUMNS.FIRST_NAME]: d.firstName,
             [DB_COLUMNS.MIDDLE_NAME]: d.middleName || null,
             [DB_COLUMNS.LAST_NAME]: d.lastName,
             [DB_COLUMNS.ROLE]: d.role,
-            [DB_COLUMNS.ALLOWANCE]: Number(d.allowance) || 0,
+            [DB_COLUMNS.ALLOWANCE]: allowanceVal,
+            [DB_COLUMNS.BRANCH_ALLOWANCES]: { [homeBranchId]: { allowance: allowanceVal, role: d.role || '' } },
             [DB_COLUMNS.IS_ACTIVE]: true,
           });
           if (error) throw error;
@@ -692,37 +695,37 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                     return (
                     <div className="space-y-4">
                       {/* Before / After summary */}
-                      <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                      <div className="rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-800/60">
                         {/* Column headers */}
-                        <div className="grid grid-cols-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
-                          <div className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Metric</div>
-                          <div className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right border-l border-slate-100 dark:border-slate-700">
+                        <div className="grid grid-cols-3 px-4 py-2 border-b border-slate-200/60 dark:border-slate-700/60">
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Metric</div>
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-right">
                             {prior ? 'Before' : '—'}
                           </div>
-                          <div className="px-4 py-2.5 text-xs font-black text-emerald-600 uppercase tracking-widest text-right border-l border-slate-100 dark:border-slate-700">After</div>
+                          <div className="text-xs font-black text-emerald-500 uppercase tracking-widest text-right">After</div>
                         </div>
                         {rows.map(({ label, before, after, roiColor }) => {
                           const changed = before !== null && before !== after;
                           const delta = before !== null ? after - before : null;
                           return (
-                            <div key={label} className={`grid grid-cols-3 border-b border-slate-50 dark:border-slate-700/50 last:border-0 ${changed ? 'bg-amber-50/40 dark:bg-amber-900/20' : 'dark:bg-slate-800/50'}`}>
-                              <div className="px-4 py-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{label}</div>
-                              <div className="px-4 py-3 text-right border-l border-slate-100 dark:border-slate-700">
+                            <div key={label} className={`grid grid-cols-3 px-4 py-3 ${changed ? 'bg-amber-50/60 dark:bg-amber-900/20' : ''}`}>
+                              <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider self-center">{label}</div>
+                              <div className="text-right self-center">
                                 {before !== null
-                                  ? <span className={`text-sm font-black tabular-nums ${changed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{fmt(before)}</span>
+                                  ? <span className={`text-sm font-bold tabular-nums ${changed ? 'text-slate-400 dark:text-slate-500 line-through decoration-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{fmt(before)}</span>
                                   : <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
                                 }
                               </div>
-                              <div className="px-4 py-3 text-right border-l border-slate-100 dark:border-slate-700 flex flex-col items-end gap-0.5">
+                              <div className="text-right flex flex-col items-end gap-0.5 self-center">
                                 {!changed && before !== null ? (
-                                  <span className="text-xs font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">No Changes</span>
+                                  <span className="text-xs text-slate-400 dark:text-slate-600">—</span>
                                 ) : (
                                   <>
                                     <span className={`text-sm font-black tabular-nums ${
-                                      roiColor ? (after >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-900 dark:text-slate-100'
+                                      roiColor ? (after >= 0 ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-900 dark:text-slate-100'
                                     }`}>{fmt(after)}</span>
                                     {delta !== null && changed && (
-                                      <span className={`text-xs font-black tabular-nums ${delta > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                      <span className={`text-xs font-bold tabular-nums ${delta > 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
                                         {delta > 0 ? '+' : ''}{fmt(delta)}
                                       </span>
                                     )}
@@ -737,10 +740,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       {/* Staff breakdown */}
                       {request.data.staffBreakdown?.length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <p className="text-xs font-black text-slate-700 uppercase tracking-widest whitespace-nowrap">Staff Payroll</p>
-                            <div className="h-px flex-1 bg-slate-200" />
-                          </div>
+                          <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">Staff Payroll</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {(() => {
                               // Handles both auto-save format (nested under .attendance) and backfill format (top level)
