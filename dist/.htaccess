@@ -43,6 +43,8 @@ RewriteRule (^|/)\. - [F,L]
 
 # ── SPA Routing (React / Vite) ────────────────────────────────────────────────
 RewriteRule ^index\.html$ - [L]
+# Never serve index.html for asset requests — Safari rejects text/html MIME type for JS
+RewriteRule ^assets/ - [F,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.html [L]
