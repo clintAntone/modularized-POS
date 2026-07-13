@@ -32,15 +32,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
   }, []);
 
   const filtered = branches
-    .filter(b => b.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(b => b.isEnabled !== false && b.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       const aChecked = selectedIds.includes(a.id);
       const bChecked = selectedIds.includes(b.id);
       if (aChecked !== bChecked) return aChecked ? -1 : 1;
-      // Active branches above inactive
-      const aInactive = a.isEnabled === false;
-      const bInactive = b.isEnabled === false;
-      if (aInactive !== bInactive) return aInactive ? 1 : -1;
       return 0;
     });
 
@@ -129,11 +125,10 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
 
             {filtered.map(branch => {
               const checked = selectedIds.includes(branch.id);
-              const inactive = branch.isEnabled === false;
               return (
                 <label
                   key={branch.id}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 group ${inactive ? 'opacity-60' : ''}`}
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 group"
                 >
                   <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                     checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'
@@ -148,11 +143,6 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                   <span className={`text-xs font-medium uppercase tracking-wide truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
                     {branch.name}
                   </span>
-                  {inactive && (
-                    <span className="ml-auto shrink-0 text-xs font-semibold uppercase tracking-wide text-amber-500 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                      Inactive
-                    </span>
-                  )}
                 </label>
               );
             })}

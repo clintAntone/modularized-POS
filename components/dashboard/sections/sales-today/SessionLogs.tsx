@@ -10,7 +10,7 @@ interface SessionLogsProps {
   totalCount?: number;
 }
 
-const fmt = (n: number) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt = (n: number) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [], totalCount }) => {
   // Build a price lookup map from branch services (in-memory, no DB round-trip)

@@ -1102,8 +1102,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
                               <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                 <div className="bg-slate-50/80 dark:bg-slate-700/50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50 dark:border-slate-700">
-                                  <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Allowance</p>
-                                  <p className="text-xs sm:text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums">₱{baseAllw.toLocaleString()}</p>
+                                  <p className="text-xs sm:text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Allowance</p>
+                                  <p className="text-xs sm:text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">₱{baseAllw.toLocaleString()}</p>
                                 </div>
                                 {adv > 0 && (
                                   <div className="bg-indigo-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100">

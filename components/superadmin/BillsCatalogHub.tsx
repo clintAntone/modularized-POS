@@ -1004,16 +1004,17 @@ export const BillsCatalogHub: React.FC<BillsCatalogHubProps> = ({ branches, isRe
                   <button
                     type="button"
                     onClick={() => {
-                      if (assignBranches.size === branches.length) setAssignBranches(new Set());
-                      else setAssignBranches(new Set(branches.map(b => b.id)));
+                      const activeBranchIds = branches.filter(b => b.isEnabled !== false).map(b => b.id);
+                      if (assignBranches.size === activeBranchIds.length) setAssignBranches(new Set());
+                      else setAssignBranches(new Set(activeBranchIds));
                     }}
                     className="text-xs font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800"
                   >
-                    {assignBranches.size === branches.length ? 'Deselect All' : 'Select All'}
+                    {assignBranches.size === branches.filter(b => b.isEnabled !== false).length ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {branches.map(b => {
+                  {branches.filter(b => b.isEnabled !== false).map(b => {
                     const alreadyAssigned = allBills.some(bill => bill.branchId === b.id && bill.catalogId === assigningCatalog.id);
                     return (
                       <label key={b.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 transition-colors ${alreadyAssigned ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' : assignBranches.has(b.id) ? 'border-indigo-500 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}>

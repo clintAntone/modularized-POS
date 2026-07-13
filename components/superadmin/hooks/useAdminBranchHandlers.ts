@@ -125,9 +125,20 @@ export function useAdminBranchHandlers({
             const currentRoles = (newManager.role || '').split(',').filter(Boolean);
             if (!currentRoles.includes('MANAGER')) currentRoles.push('MANAGER');
             const nextAllowances = { ...(newManager.branchAllowances || {}) };
+
+            // Ensure all OTHER branch entries have an explicit role so getEmployeeRole()
+            // never falls back to the global MANAGER role for reliever branches.
+            const baseRole = (newManager.role || 'THERAPIST').split(',').filter(r => r !== 'MANAGER')[0] || 'THERAPIST';
+            for (const [bid, config] of Object.entries(nextAllowances)) {
+              if (bid === branchId) continue;
+              if (typeof config === 'object' && config !== null && (config as any).role) continue;
+              const existingAllowance = typeof config === 'object' && config !== null ? (config as any).allowance : (Number(config) || 0);
+              nextAllowances[bid] = { allowance: existingAllowance, role: baseRole };
+            }
+
             const currentAllowance = nextAllowances[branchId];
             const allowanceVal = typeof currentAllowance === 'object' && currentAllowance !== null
-              ? currentAllowance.allowance
+              ? (currentAllowance as any).allowance
               : (Number(currentAllowance) || newManager.allowance || 0);
             nextAllowances[branchId] = { allowance: allowanceVal, role: 'MANAGER' };
             employeeUpdates.push(updateEmployee.mutateAsync({

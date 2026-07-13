@@ -475,8 +475,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <div className="bg-slate-100 dark:bg-slate-700 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-200 dark:border-slate-600">
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wide mb-0.5">Allowance</p>
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-100 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Allowance</p>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">₱{data.allowance.toLocaleString()}</p>
                       </div>
                       {adv > 0 && (
                         <div className="bg-indigo-50 dark:bg-indigo-900/40 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100 dark:border-indigo-800">

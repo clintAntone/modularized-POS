@@ -1388,26 +1388,24 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
               <button
                 onClick={() => {
-                  if (bulkSelectedBranches.length === branches.length) {
-                    setBulkSelectedBranches([]);
-                  } else {
-                    setBulkSelectedBranches(branches.map(b => b.id));
-                  }
+                  const ids = branches.filter(b => b.isEnabled !== false).map(b => b.id);
+                  if (bulkSelectedBranches.length === ids.length) setBulkSelectedBranches([]);
+                  else setBulkSelectedBranches(ids);
                 }}
                 className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
               >
-                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${bulkSelectedBranches.length === branches.length ? 'bg-slate-900 border-slate-900' : 'border-slate-300'}`}>
-                  {bulkSelectedBranches.length === branches.length && <Check className="w-3 h-3 text-white" />}
-                  {bulkSelectedBranches.length > 0 && bulkSelectedBranches.length < branches.length && (
+                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length ? 'bg-slate-900 border-slate-900' : 'border-slate-300'}`}>
+                  {bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length && <Check className="w-3 h-3 text-white" />}
+                  {bulkSelectedBranches.length > 0 && bulkSelectedBranches.length < branches.filter(b => b.isEnabled !== false).length && (
                     <div className="w-2 h-2 bg-slate-400 rounded-sm" />
                   )}
                 </div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                  {bulkSelectedBranches.length === branches.length ? 'Deselect All' : 'Select All Branches'}
+                  {bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length ? 'Deselect All' : 'Select All Branches'}
                 </p>
               </button>
 
-              {branches.map(b => {
+              {branches.filter(b => b.isEnabled !== false).map(b => {
                 const isSelected = bulkSelectedBranches.includes(b.id);
                 const assignedCount = bulkAssign.templateIds.filter(tid =>
                   branchServices.some(bs => bs.branch_id === b.id && bs.template_id === tid)

@@ -495,7 +495,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
   // Exclude test branches unless explicitly opted in
   const activeBranches = useMemo(() =>
-    includeTestBranches ? branches : branches.filter(b => !/^test/i.test(b.name.trim())),
+    branches.filter(b => b.isEnabled && (includeTestBranches || !/^test/i.test(b.name.trim()))),
     [branches, includeTestBranches]
   );
 
@@ -640,6 +640,101 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     });
     return Object.values(map).sort((a, b) => a.branchName.localeCompare(b.branchName));
   }, [allGroupedReports, subLookup, selectedPeriods, branches]);
+
+  // ── Early remitter rankings (scoped to the active cutoff-day filter) ─────────
+  const branchRankings = useMemo(() => {
+    const now = getTrueDate();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const parsePeriodEnd = (label: string, refYear: number): Date | null => {
+      // Label format: "Jul 6 — Jul 12" (em dash) — split on em dash or regular hyphen
+      const parts = label.split(/\s*[—–-]\s*/);
+      if (parts.length < 2) return null;
+      const endStr = parts[parts.length - 1].trim();
+      const d = new Date(`${endStr} ${refYear}`);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const selectedCutoffs = selectedPeriods.map(Number);
+
+    // Build a map of branchId → most recent COMPLETED period label (weekEnd < today).
+    // allGroupedReports is sorted most-recent first, so first match wins.
+    const branchLatestDuePeriod: Record<string, string> = {};
+    for (const group of allGroupedReports) {
+      const groupEnd = new Date(group.weekEnd.getFullYear(), group.weekEnd.getMonth(), group.weekEnd.getDate());
+      if (groupEnd >= todayDate) continue; // skip current / future periods
+      if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(group.cutoffDay)) continue;
+      for (const report of group.reports as any[]) {
+        if (!branchLatestDuePeriod[report.branchId]) {
+          branchLatestDuePeriod[report.branchId] = group.label;
+        }
+      }
+    }
+
+    // Build a map of "branchId::periodLabel" → netRoi from allGroupedReports
+    const periodRoiMap: Record<string, number> = {};
+    for (const group of allGroupedReports) {
+      for (const report of group.reports as any[]) {
+        periodRoiMap[`${report.branchId}::${group.label}`] = report.netRoi ?? 0;
+      }
+    }
+
+    // Build a set of branchIds that have submitted their most recent due period.
+    // Branches that are overdue on the latest period are excluded entirely.
+    const subLookupLocal = new Set(
+      submissions
+        .filter(s => s.status === 'approved' || s.status === 'remitted')
+        .map(s => `${s.branchId}::${s.periodLabel}`)
+    );
+    const qualifiedBranchIds = new Set(
+      Object.entries(branchLatestDuePeriod)
+        .filter(([branchId, label]) => {
+          if (!subLookupLocal.has(`${branchId}::${label}`)) return false;
+          // Also require the latest period had something to actually remit
+          const roi = periodRoiMap[`${branchId}::${label}`] ?? 0;
+          return roi > 0;
+        })
+        .map(([branchId]) => branchId)
+    );
+
+    // Rank only by the most recent completed period submission per branch.
+    const results: { branchId: string; branchName: string; daysLate: number; periodLabel: string; submittedAt: string }[] = [];
+
+    for (const branchId of qualifiedBranchIds) {
+      const latestLabel = branchLatestDuePeriod[branchId];
+      const sub = submissions.find(
+        s => s.branchId === branchId &&
+             s.periodLabel === latestLabel &&
+             (s.status === 'approved' || s.status === 'remitted')
+      );
+      if (!sub) continue;
+      const submittedDate = new Date(sub.submittedAt);
+      const periodEnd = parsePeriodEnd(latestLabel, submittedDate.getFullYear());
+      if (!periodEnd) continue;
+      const submittedDay = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
+      const periodEndDay  = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
+      const daysLate = Math.round((submittedDay.getTime() - periodEndDay.getTime()) / 86_400_000);
+      results.push({
+        branchId,
+        branchName: branches.find(b => b.id === branchId)?.name ?? branchId,
+        daysLate,
+        periodLabel: latestLabel,
+        submittedAt: sub.submittedAt,
+      });
+    }
+
+    return results
+      .sort((a, b) => a.daysLate - b.daysLate || a.submittedAt.localeCompare(b.submittedAt))
+      .map((item, idx) => ({
+        branchId: item.branchId,
+        branchName: item.branchName,
+        avgDaysLate: item.daysLate,
+        fastestDaysLate: item.daysLate,
+        submissionCount: 1,
+        periodLabel: item.periodLabel,
+        rank: idx + 1,
+      }));
+  }, [submissions, branches, selectedPeriods, allGroupedReports]);
 
   // Effective branch filter: use activeBranchId when in detail view, otherwise use manual selection
   const effectiveBranchIds = activeBranchId ? [activeBranchId] : selectedBranchIds;
@@ -1705,7 +1800,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <span className={`text-xs font-semibold uppercase tracking-wide ${effectiveBranchIds.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Branches</span>
                           </button>
                         )}
-                        {branches.filter(b => !branchSearch || b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
+                        {activeBranches.filter(b => !branchSearch || b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
                           const selected = effectiveBranchIds.includes(b.id);
                           return (
                             <button
@@ -1825,6 +1920,70 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             {filtered.length === 0 && (
               <div className="p-12 text-center">
                 <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Early Remitter Rankings ── */}
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Early Remitter Rankings</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {selectedPeriods.length > 0 ? 'Filtered by selected cutoff period' : 'All cutoff periods'} · ranked by days to submit for most recent period
+                </p>
+              </div>
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Lower = Earlier</span>
+            </div>
+            {branchRankings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No approved submissions</p>
+                <p className="text-xs text-slate-400 mt-1">Rankings appear once branches have approved remittances for the selected period.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {branchRankings.map(item => {
+                  const medalSymbols = ['🥇', '🥈', '🥉'];
+                  const fmtDays = (d: number) => {
+                    if (d < 0) return `${Math.abs(Math.round(d))}d early`;
+                    if (d === 0) return 'same day';
+                    return `+${Math.round(d)}d`;
+                  };
+                  const avgD = item.avgDaysLate;
+                  const tier = avgD <= 0
+                    ? { label: 'Early', bg: 'bg-emerald-500', text: 'text-white' }
+                    : avgD <= 3
+                      ? { label: 'On Time', bg: 'bg-amber-500', text: 'text-white' }
+                      : { label: 'Late', bg: 'bg-rose-500', text: 'text-white' };
+                  const isMedal = item.rank <= 3;
+                  return (
+                    <div key={item.branchId} className={`flex items-center gap-3 px-5 py-3 ${item.rank === 1 ? 'bg-amber-50/50' : ''}`}>
+                      <div className="w-8 shrink-0 text-center">
+                        {isMedal
+                          ? <span className="text-lg leading-none">{medalSymbols[item.rank - 1]}</span>
+                          : <span className="text-sm font-black text-slate-400">#{item.rank}</span>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-800 uppercase truncate leading-tight">
+                          {item.branchName.replace(/\s*BRANCH\s*/i, '').trim()}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide">
+                          {item.periodLabel}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-slate-800 tabular-nums">{fmtDays(item.avgDaysLate)}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">days</p>
+                      </div>
+                      <div className="shrink-0">
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide ${tier.bg} ${tier.text}`}>
+                          {tier.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

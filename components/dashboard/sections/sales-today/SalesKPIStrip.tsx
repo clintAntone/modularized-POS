@@ -22,7 +22,7 @@ interface SalesKPIStripProps {
 }
 
 const fmt = (n: number) =>
-  '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
   gross, operationalExp, vaultDeposit = 0,

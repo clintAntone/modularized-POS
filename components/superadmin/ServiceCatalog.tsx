@@ -383,7 +383,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
     playSound('click');
 
     const doc = new jsPDF();
-    const timestamp = getTrueDate().toLocaleString();
+    const timestamp = getTrueDate().toLocaleString('en-PH');
 
     doc.setFontSize(20);
     doc.setTextColor(15, 23, 42);
@@ -1013,11 +1013,11 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="bg-white/10 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-xs font-bold border border-slate-100 shadow-inner">{(activeCatalog.branchIds || []).length} linked</span>
-                        {(activeCatalog.branchIds || []).length < branches.length ? (
+                        {(activeCatalog.branchIds || []).length < branches.filter(b => b.isEnabled !== false).length ? (
                           <button
                             onClick={() => {
                               setLocalCatalogs(prev => prev.map(c =>
-                                c.id === activeCatalog.id ? { ...c, branchIds: branches.map(b => b.id) } : c
+                                c.id === activeCatalog.id ? { ...c, branchIds: branches.filter(b => b.isEnabled !== false).map(b => b.id) } : c
                               ));
                               setHasUnsavedChanges(true);
                               playSound('click');
