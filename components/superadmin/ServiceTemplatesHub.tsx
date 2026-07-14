@@ -93,6 +93,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   const [bulkSelectedBranches, setBulkSelectedBranches] = useState<string[]>([]);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [bulkMode, setBulkMode] = useState<'assign' | 'unassign'>('assign');
+  const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
   // Import Services state
   const [importTo, setImportTo] = useState<string | null>(null);
   const [importSelected, setImportSelected] = useState<string[]>([]);
@@ -199,6 +200,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       playSound('success');
       setEditingTemplate(null);
       await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
       onRefresh?.();
     } catch (err) {
       console.error(err);
@@ -216,6 +218,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       playSound('success');
       setDeleteConfirm(null);
       await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
       onRefresh?.();
     } catch (err) {
       console.error(err);
@@ -232,6 +235,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       await supabase.from(DB_TABLES.BRANCH_SERVICES).insert({ branch_id: branchId, template_id: templateId, price: null });
     }
     await load();
+    queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
   };
 
   const handleUpdatePrice = async (branchId: string, templateId: string, raw: string) => {
@@ -284,8 +288,14 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         }
       }
       playSound('success');
+      const msg = bulkMode === 'assign'
+        ? `Assigned ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} to ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+        : `Removed ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} from ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`;
       setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign');
+      setBulkSuccessMsg(msg);
+      setTimeout(() => setBulkSuccessMsg(null), 4000);
       await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
     } catch (err) {
       console.error(err);
       playSound('warning');
@@ -339,6 +349,14 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
   return (
     <div className="space-y-4">
+
+      {/* ── Bulk assign success toast ── */}
+      {bulkSuccessMsg && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 bg-slate-900 text-white text-xs font-semibold rounded-2xl shadow-xl flex items-center gap-2.5 animate-in slide-in-from-bottom-4 duration-300 whitespace-nowrap">
+          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          {bulkSuccessMsg}
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 space-y-3">
@@ -1075,6 +1093,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       setManagingTemplate(null);
                       setDraftBranchIds([]);
                       await load();
+                      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
                     } catch (err) {
                       console.error(err);
                       playSound('warning');
