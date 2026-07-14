@@ -18,13 +18,14 @@ interface ReportTableProps {
   sortField: string;
   sortOrder: 'asc' | 'desc';
   onSort: (field: any) => void;
-  onSelect: (report: SalesReport) => void;
+  onSelect: (report: SalesReport) => void | Promise<void>;
   vaultStartDate?: string | null;
   canDelete?: boolean;
   onDeleted?: () => void;
+  loadingRowId?: string | null;
 }
 
-export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, branchVaults = [], viewMode, currentBranchId, sortField, sortOrder, onSort, onSelect, vaultStartDate, canDelete = false, onDeleted }) => {
+export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, branchVaults = [], viewMode, currentBranchId, sortField, sortOrder, onSort, onSelect, vaultStartDate, canDelete = false, onDeleted, loadingRowId }) => {
   const HOLD_MS = 5000;
   const TICK_MS = 30;
   const [holdingId, setHoldingId] = useState<string | null>(null);
@@ -188,6 +189,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                 net={r.netRoi}
                 onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
               />
+              {loadingRowId === r.id && (
+                <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-inherit z-20">
+                  <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                </div>
+              )}
             </div>
           );
         })}
@@ -262,6 +268,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                   net={r.netRoi}
                   onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
                 />
+                {loadingRowId === r.id && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-20">
+                    <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
             );
           })}

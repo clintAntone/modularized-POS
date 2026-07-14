@@ -7,7 +7,7 @@ import { playSound } from '../../../lib/audio';
 import { generateSalt, hashPin } from '../../../lib/crypto';
 import { getInitials } from '../../../lib/payroll';
 import { useUpdateBranch, useAddAuditLog, useUpdateEmployee } from '../../../hooks/useNetworkData';
-import { invalidateBranchSessions } from '../../../lib/audit';
+import { invalidateBranchSessions, logAudit } from '../../../lib/audit';
 import { Clock, User, Shield, Terminal, ChevronRight, Check, AlertTriangle, Sun, Moon, Building2 } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { getTrueISOString } from '../../../lib/time';
@@ -115,6 +115,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   const [isSavingOperational, setIsSavingOperational] = useState(false);
   const [isSavingFaceId, setIsSavingFaceId] = useState(false);
   const [localFaceIdEnabled, setLocalFaceIdEnabled] = useState(branch.faceIdEnabled !== false);
+  const [showFaceIdDisableModal, setShowFaceIdDisableModal] = useState(false);
+  const [faceIdDisableReason, setFaceIdDisableReason] = useState('');
 
 
 
@@ -222,9 +224,26 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   ).sort((a, b) => (a.name || '').localeCompare(b.name || '')), [employees, branch.manager, branch.id]);
 
   // ── Face ID toggle ──────────────────────────────────────────────────────
-  const handleToggleFaceId = async () => {
-    const nextEnabled = !localFaceIdEnabled;
-    setLocalFaceIdEnabled(nextEnabled); // optimistic — flip immediately
+  const handleToggleFaceId = () => {
+    if (localFaceIdEnabled) {
+      // Disabling — require justification first
+      setFaceIdDisableReason('');
+      setShowFaceIdDisableModal(true);
+    } else {
+      // Re-enabling — no justification needed
+      void applyFaceIdToggle(true, '');
+    }
+  };
+
+  const confirmDisableFaceId = () => {
+    const trimmed = faceIdDisableReason.trim();
+    if (trimmed.length < 10) return; // enforce min length in UI
+    setShowFaceIdDisableModal(false);
+    void applyFaceIdToggle(false, trimmed);
+  };
+
+  const applyFaceIdToggle = async (nextEnabled: boolean, reason: string) => {
+    setLocalFaceIdEnabled(nextEnabled); // optimistic
     setIsSavingFaceId(true);
     try {
       const { data } = await supabase.from(DB_TABLES.SYSTEM_CONFIG)
@@ -235,6 +254,16 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
         : [...current.filter((id: string) => id !== branch.id), branch.id];
       await supabase.from(DB_TABLES.SYSTEM_CONFIG)
         .upsert({ [DB_COLUMNS.KEY]: 'face_id_disabled_branches', [DB_COLUMNS.VALUE]: JSON.stringify(next) }, { onConflict: DB_COLUMNS.KEY });
+      if (!nextEnabled && reason) {
+        await logAudit({
+          branchId: branch.id,
+          activityType: 'FACE_ID_DISABLED',
+          entityType: 'branch',
+          entityId: branch.id,
+          description: `Face ID disabled for ${branch.name}. Reason: ${reason}`,
+          performerName: user.username || user.name || 'Manager',
+        });
+      }
       playSound('success');
       onRefresh?.();
     } catch {
@@ -1149,6 +1178,60 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           onConfirm={commitUsername}
           onCancel={() => setShowAccountConfirm(false)}
         />
+      )}
+
+      {/* ── Face ID disable justification modal ─────────────────────────── */}
+      {showFaceIdDisableModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">Disable Face ID?</h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 ml-11">
+                Staff will revert to manual clock-in. Please provide a reason for disabling Face ID.
+              </p>
+            </div>
+            {/* Body */}
+            <div className="px-6 py-4">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide block mb-2">
+                Reason <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                value={faceIdDisableReason}
+                onChange={e => setFaceIdDisableReason(e.target.value)}
+                placeholder="e.g. Camera hardware issue, temporary maintenance..."
+                rows={3}
+                className="w-full text-xs rounded-2xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 px-4 py-3 resize-none outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 placeholder:text-slate-300"
+              />
+              {faceIdDisableReason.trim().length > 0 && faceIdDisableReason.trim().length < 10 && (
+                <p className="text-[11px] text-rose-400 mt-1 ml-1">Please provide at least 10 characters.</p>
+              )}
+            </div>
+            {/* Footer */}
+            <div className="px-6 pb-6 flex gap-2">
+              <button
+                onClick={() => setShowFaceIdDisableModal(false)}
+                className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDisableFaceId}
+                disabled={faceIdDisableReason.trim().length < 10}
+                className="flex-1 h-11 rounded-2xl bg-amber-500 text-white text-xs font-black uppercase tracking-wide hover:bg-amber-600 transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Confirm Disable
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

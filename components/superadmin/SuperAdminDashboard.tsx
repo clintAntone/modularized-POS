@@ -198,7 +198,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                     <span className="text-xs font-bold text-emerald-700 uppercase leading-none">{(user.username || '?').charAt(0)}</span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-600 hidden sm:block">{user.username}</span>
+                  <span className="text-xs font-semibold text-slate-600">{user.username}</span>
                 </button>
               )}
             </div>
@@ -282,21 +282,37 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* ── Portal user context banner ────────────────────────────────────── */}
       {isPortalUser && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-950/60 border-b border-indigo-800/30">
-          <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-          <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Portal Access</span>
-          {isReadOnly && (
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-black text-amber-400 uppercase tracking-widest">Read Only</span>
-          )}
-          {permissions?.branchIds && permissions.branchIds.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-xs font-black text-indigo-300 uppercase tracking-widest">
-              {permissions.branchIds.length === 1
-                ? scopedBranches[0]?.name || '1 Branch'
-                : `${permissions.branchIds.length} Branches`}
-            </span>
-          )}
+        <div className="bg-white border-b border-slate-100">
+          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center gap-2.5 h-8`}>
+            <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Portal Access</span>
+            {permissions?.branchIds && permissions.branchIds.length > 0 && (
+              <>
+                <span className="text-slate-300 text-[10px]">·</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[11px] font-semibold text-indigo-600">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  {permissions.branchIds.length === 1
+                    ? scopedBranches[0]?.name || '1 Branch'
+                    : `${permissions.branchIds.length} Branches`}
+                </span>
+              </>
+            )}
+            {isReadOnly && (
+              <>
+                <span className="text-slate-300 text-[10px]">·</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-600 uppercase tracking-wide">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Read Only
+                </span>
+              </>
+            )}
+          </div>
         </div>
       )}
 

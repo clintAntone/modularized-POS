@@ -63,6 +63,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showMissingPanel, setShowMissingPanel] = useState(false);
   const [showMissingSidebar, setShowMissingSidebar] = useState(false);
+  const [fetchingRowId, setFetchingRowId] = useState<string | null>(null);
 
   // Debounce search: wait 300 ms after the user stops typing before filtering
   useEffect(() => {
@@ -148,8 +149,6 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
     const aggregated: Record<string, SalesReport> = {};
     const subGroups: Record<string, SalesReport[]> = {};
-    // Use Maps for O(1) staff lookup instead of findIndex
-    const staffMaps: Record<string, Map<string, any>> = {};
 
     filteredReports.forEach(r => {
       const d = parseDate(r.reportDate);
@@ -192,7 +191,6 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           sessionData: [], staffBreakdown: [], expenseData: [], vaultData: []
         };
         subGroups[key] = [];
-        staffMaps[key] = new Map();
       }
 
       const target = aggregated[key];
@@ -202,40 +200,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
       target.totalVaultProvision += r.totalVaultProvision;
       target.netRoi              += r.netRoi;
 
-      // O(1) push instead of O(n) spread-each-iteration
-      if (r.sessionData?.length) target.sessionData!.push(...r.sessionData);
-      if (r.expenseData?.length) target.expenseData!.push(...r.expenseData);
-      if (r.vaultData?.length)   target.vaultData!.push(...r.vaultData);
-
-      // O(1) Map lookup instead of O(n) findIndex
-      const sMap = staffMaps[key];
-      (r.staffBreakdown || []).forEach((s: any) => {
-        const existing = sMap.get(s.employeeId);
-        if (existing) {
-          existing.count      = (existing.count || 0)      + (s.count || 0);
-          existing.commission = (existing.commission || 0) + (s.commission || 0);
-          existing.allowance  = (existing.allowance || 0)  + (s.allowance || 0);
-          if (s.attendance) {
-            if (!existing.attendance) {
-              existing.attendance = { ...s.attendance };
-            } else {
-              existing.attendance.lateDeduction = (existing.attendance.lateDeduction || 0) + (s.attendance.lateDeduction || 0);
-              existing.attendance.otPay         = (existing.attendance.otPay || 0)         + (s.attendance.otPay || 0);
-              existing.attendance.cashAdvance   = (existing.attendance.cashAdvance || 0)   + (s.attendance.cashAdvance || 0);
-            }
-          }
-        } else {
-          sMap.set(s.employeeId, { ...s });
-        }
-      });
-
       subGroups[key].push(r);
     });
-
-    // Flush Maps → arrays once at the end
-    for (const key of Object.keys(aggregated)) {
-      aggregated[key].staffBreakdown = Array.from(staffMaps[key].values());
-    }
 
     return { displayData: Object.values(aggregated), groupedConstituents: subGroups };
   }, [filteredReports, view, branch.id, branches, showWeeklyBreakdown]);
@@ -567,12 +533,26 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 vaultStartDate={branchVault?.startDate ?? null}
                 canDelete={canDelete}
                 onDeleted={onDeleted}
-                onSelect={(r) => {
+                loadingRowId={fetchingRowId}
+                onSelect={async (r) => {
                   playSound('click');
-                  setSelectedReport(r);
                   if (view !== 'daily') {
-                    setConstituents(groupedConstituents[r.id] || []);
+                    const constituentIds = (groupedConstituents[r.id] || [])
+                      .map(c => c.id)
+                      .filter(id => !id.includes('-'));
+                    if (constituentIds.length > 0 && supabase) {
+                      setFetchingRowId(r.id);
+                      const { data } = await supabase
+                        .from(DB_TABLES.SALES_REPORTS)
+                        .select('*')
+                        .in(DB_COLUMNS.ID, constituentIds);
+                      setFetchingRowId(null);
+                      setConstituents(data ? data.map(mapRawReport) : (groupedConstituents[r.id] || []));
+                    } else {
+                      setConstituents(groupedConstituents[r.id] || []);
+                    }
                   }
+                  setSelectedReport(r);
                 }}
             />
 

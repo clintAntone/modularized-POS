@@ -782,7 +782,23 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           {/* DASHBOARD CONTENT */}
           <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 no-scrollbar pb-32 print:hidden">
 
-            {(() => {
+            {isFetchingLatest && (
+              <div className="space-y-2.5 animate-pulse">
+                <div className="bg-slate-100 rounded-2xl h-24 w-full" />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-slate-100 rounded-2xl h-20" />
+                  <div className="bg-slate-100 rounded-2xl h-20" />
+                </div>
+                <div className="bg-slate-100 rounded-2xl h-20 w-full" />
+                <div className="flex items-center justify-center pt-4 gap-2">
+                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
+                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
+                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            )}
+
+            {!isFetchingLatest && (() => {
               const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
               // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
               const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
@@ -811,7 +827,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               );
             })()}
 
-            {isAggregate ? (
+            {!isFetchingLatest && (isAggregate ? (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between px-4">
                     <h4 className={`${UI_THEME.text.label}`}>Constituent Unit Breakdown</h4>
@@ -1290,7 +1306,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     </div>
                   )}
                 </>
-            )}
+            ))}
 
           </div>
 

@@ -90,11 +90,11 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
   return (
     <div
-      className={`${isOngoing ? 'bg-emerald-50' : isOnLeave ? 'bg-purple-50' : 'bg-white'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none cursor-pointer ${
+      className={`${isOngoing ? 'bg-emerald-50 dark:bg-emerald-900/20' : isOnLeave ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-white dark:bg-slate-800'} ${UI_THEME.radius.card} border transition-all duration-500 group relative overflow-hidden flex flex-col h-full select-none cursor-pointer ${
         isOnLeave
-          ? 'opacity-80 border-purple-200'
+          ? 'opacity-80 border-purple-200 dark:border-purple-500/30'
           : !isActive
-          ? 'grayscale opacity-60 border-slate-200'
+          ? 'grayscale opacity-60 border-slate-200 dark:border-slate-700'
           : isLongPressing
           ? 'border-indigo-400 ring-4 ring-indigo-400/20 scale-[0.98]'
           : isOngoing
@@ -285,10 +285,10 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               const dd = String(d.getUTCDate()).padStart(2, '0');
               const empId = `EMP-${mm}-${dd}-${emp.id}`.toUpperCase();
               return (
-                <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId}</p>
+                <p className="text-xs font-black text-slate-400 dark:text-slate-500 font-mono tracking-wide mb-1">{empId}</p>
               );
             })()}
-            <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tighter truncate group-hover:text-emerald-700 transition-colors leading-none mb-2">{emp.name || 'UNNAMED'}</h3>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tighter truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-none mb-2">{emp.name || 'UNNAMED'}</h3>
             {displayRole ? (
               <RoleBadge role={displayRole} />
             ) : (!isMainManager && !isTempManager) ? (
@@ -302,8 +302,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
         <div className="mt-auto pt-6 flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee Allowance</p>
-            <p className="text-sm font-black text-slate-900 tabular-nums">₱{currentAllowance.toLocaleString()}</p>
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">Employee Allowance</p>
+            <p className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">₱{currentAllowance.toLocaleString()}</p>
           </div>
 
           {/* Time actions */}

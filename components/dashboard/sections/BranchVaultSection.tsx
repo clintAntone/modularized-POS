@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Branch, BranchVault, SalesReport } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { supabase } from '../../../lib/supabase';
@@ -73,6 +73,18 @@ const formatDateTime = (ts: string): string => {
   } catch { return ts; }
 };
 
+const TX_PAGE_SIZE = 100;
+const mapTx = (r: any): VaultTransaction => ({
+  id: r[DB_COLUMNS.ID],
+  timestamp: r[DB_COLUMNS.TIMESTAMP],
+  amount: Number(r[DB_COLUMNS.AMOUNT] || 0),
+  name: r[DB_COLUMNS.NAME] || '',
+  type: (['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((r[DB_COLUMNS.TYPE] || '').toUpperCase()) ? 'withdrawal' : 'deposit') as 'deposit' | 'withdrawal',
+  category: r[DB_COLUMNS.TYPE],
+  receiptUrl: r[DB_COLUMNS.RECEIPT_IMAGE] || null,
+  performedBy: r[DB_COLUMNS.PERFORMED_BY] || null,
+});
+
 export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   branch, branchVault, salesReports = [], isClosedMode = false, todayNetRoi, todayStr, performedBy, onRefresh,
 }) => {
@@ -81,12 +93,11 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [kpiExpanded, setKpiExpanded] = useState(false);
+  const [statsExpanded, setStatsExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [billsSearch, setBillsSearch] = useState('');
   const [selectedTx, setSelectedTx] = useState<VaultTransaction | null>(null);
-  const [visibleHistory, setVisibleHistory] = useState(20);
-  const [visibleBills, setVisibleBills] = useState(20);
   const historyBottomRef = useRef<HTMLDivElement>(null);
   const billsBottomRef = useRef<HTMLDivElement>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
@@ -130,61 +141,51 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     return () => document.removeEventListener('pointerdown', dismiss, { capture: true });
   }, [revealedBillId]);
 
-  // Reset visible counts when filters change
-  useEffect(() => { setVisibleHistory(20); }, [filter, selectedMonth, historySearch]);
-  useEffect(() => { setVisibleBills(20); }, [billsSearch]);
-
-  // Infinite scroll — vault history
+  // Infinite scroll — shared sentinel observer for both history and bills panels
   useEffect(() => {
-    const el = historyBottomRef.current;
-    if (!el) return;
+    const targets = [historyBottomRef.current, billsBottomRef.current].filter(Boolean);
+    if (!targets.length) return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) setVisibleHistory(v => v + 20);
+      if (entry.isIntersecting) void fetchNextTxPage();
     }, { threshold: 0.1 });
-    observer.observe(el);
+    targets.forEach(el => observer.observe(el!));
     return () => observer.disconnect();
-  }, [historyBottomRef.current]);
-
-  // Infinite scroll — bills paid
-  useEffect(() => {
-    const el = billsBottomRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) setVisibleBills(v => v + 20);
-    }, { threshold: 0.1 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [billsBottomRef.current]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyBottomRef.current, billsBottomRef.current]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') =>
     setToast({ message, type });
 
-  // ── Fetch vault transaction history from vault_transactions table ──────────
-  const { data: transactions = [], isLoading: txLoading, refetch } = useQuery<VaultTransaction[]>({
+  // ── Fetch vault transaction history — paginated ────────────────────────────
+  const {
+    data: txPages,
+    isLoading: txLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage: fetchNextTxPage,
+    refetch,
+  } = useInfiniteQuery<VaultTransaction[]>({
     queryKey: ['vault_transactions', branch.id],
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const from = pageParam as number;
       const { data, error } = await supabase
         .from(DB_TABLES.VAULT_TRANSACTIONS)
         .select('*')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
         .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
-        .limit(500);
+        .range(from, from + TX_PAGE_SIZE - 1);
       if (error) throw error;
-      return (data || []).map((r: any) => ({
-        id: r[DB_COLUMNS.ID],
-        timestamp: r[DB_COLUMNS.TIMESTAMP],
-        amount: Number(r[DB_COLUMNS.AMOUNT] || 0),
-        name: r[DB_COLUMNS.NAME] || '',
-        type: (['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((r[DB_COLUMNS.TYPE] || '').toUpperCase()) ? 'withdrawal' : 'deposit') as 'deposit' | 'withdrawal',
-        category: r[DB_COLUMNS.TYPE],
-        receiptUrl: r[DB_COLUMNS.RECEIPT_IMAGE] || null,
-        performedBy: r[DB_COLUMNS.PERFORMED_BY] || null,
-      }));
+      return (data || []).map(mapTx);
     },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < TX_PAGE_SIZE ? undefined : allPages.flat().length,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  const transactions = useMemo(() => txPages?.pages.flat() ?? [], [txPages]);
 
   // ── Bill form state ───────────────────────────────────────────────────────
   type BillForm = { id?: string; name: string; amount: string; dueDay: string; dueNextMonth: boolean; notes: string };
@@ -422,8 +423,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   };
 
   // ── Derived stats ─────────────────────────────────────────────────────────
-  const totalDeposits = transactions.filter(t => ['DEPOSIT', 'ADMIN_DEPOSIT'].includes((t.type || '').toUpperCase())).reduce((s, t) => s + t.amount, 0);
-  const totalWithdrawals = transactions.filter(t => ['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((t.type || '').toUpperCase())).reduce((s, t) => s + t.amount, 0);
+  const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
+  const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
 
   // ── Recent reports (last 7 days from today, Manila time) ──────────────────
   const currentWeekReports = useMemo((): SalesReport[] => {
@@ -851,13 +852,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
   const grouped = useMemo(() => {
     const map = new Map<string, VaultTransaction[]>();
-    for (const tx of filtered.slice(0, visibleHistory)) {
+    for (const tx of filtered) {
       const d = toManilaDate(tx.timestamp);
       if (!map.has(d)) map.set(d, []);
       map.get(d)!.push(tx);
     }
     return Array.from(map.entries()); // already newest-first from query
-  }, [filtered, visibleHistory]);
+  }, [filtered]);
 
   const depositCount = transactions.filter(t => t.type === 'deposit').length;
   const withdrawalCount = transactions.filter(t => t.type === 'withdrawal').length;
@@ -887,53 +888,89 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       )}
 
       {/* ── Vault Balance Hero Card ── */}
-      <div className={`bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 sm:p-8 ${UI_THEME.radius.card} shadow-sm space-y-5`}>
-        <div className="space-y-4">
-          {/* Balance hero */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                  <Landmark className="w-4 h-4 text-emerald-500" />
-                </div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Vault Fund</p>
-              </div>
-              <p className={`text-4xl sm:text-5xl lg:text-6xl font-black tabular-nums tracking-tighter leading-none ${!branchVault || branchVault.balance <= 0 ? 'text-slate-300' : 'text-emerald-600'}`}>
-                ₱{(branchVault?.balance ?? 0).toLocaleString()}
-              </p>
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">Running Balance</p>
-            </div>
-          </div>
+      <div className={`bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 pt-4 pb-6 px-6 sm:pt-5 sm:pb-8 sm:px-8 ${UI_THEME.radius.card} shadow-sm space-y-5`}>
 
-          {/* Deposited / Withdrawn / Starting — tap to expand */}
-          <button
-            className="w-full text-left flex items-center justify-between py-1"
-            onClick={() => setKpiExpanded(v => !v)}
-          >
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Overview</span>
-            <svg className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${kpiExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          {kpiExpanded && (
-            <div className={`grid gap-2 ${(branchVault?.initialBalance ?? 0) > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-              <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Deposited</p>
-                <p className="text-sm font-black text-emerald-600 tabular-nums">+₱{totalDeposits.toLocaleString()}</p>
-              </div>
-              <div className="bg-rose-50 border border-rose-100 rounded-xl px-3 py-2.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Withdrawn</p>
-                <p className="text-sm font-black text-rose-600 tabular-nums">−₱{totalWithdrawals.toLocaleString()}</p>
-              </div>
-              {(branchVault?.initialBalance ?? 0) > 0 && (
-                <div className="bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2.5">
-                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1">Starting</p>
-                  <p className="text-sm font-black text-slate-600 dark:text-slate-300 tabular-nums">₱{(branchVault!.initialBalance).toLocaleString()}</p>
-                </div>
-              )}
+        {/* Top row: icon+label left, buttons right */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Landmark className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Vault Fund</p>
+          </div>
+          {!isClosedMode && branch.vaultEnabled && (
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => { setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); setShowWithdrawModal(true); playSound('click'); }}
+                disabled={!branchVault || branchVault.balance <= 0}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-rose-300 hover:text-rose-500 dark:hover:border-rose-500/40 dark:hover:text-rose-400 font-bold text-xs uppercase tracking-wide transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <ArrowUpCircle className="w-3.5 h-3.5" />
+                Pay Bill
+              </button>
+              <button
+                onClick={() => {
+                  const firstReport = currentWeekReports[0];
+                  const firstDate = firstReport?.reportDate ?? null;
+                  setDepositSelectedDate(firstDate);
+                  if (firstDate) {
+                    const existing = transactions.find(t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate);
+                    setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
+                  }
+                  setShowDepositModal(true);
+                  playSound('click');
+                }}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:hover:border-emerald-500/40 dark:hover:text-emerald-400 font-bold text-xs uppercase tracking-wide transition-all active:scale-[0.98] flex items-center gap-1.5"
+              >
+                <ArrowDownCircle className="w-3.5 h-3.5" />
+                Deposit
+              </button>
             </div>
           )}
         </div>
 
-        {/* Vault target progress bar — always shown */}
+        {/* Balance — tap to toggle stats */}
+        {/* Balance */}
+        <div className="-mt-2">
+          <p className={`text-4xl sm:text-5xl font-black tabular-nums tracking-tighter leading-none ${!branchVault || branchVault.balance <= 0 ? 'text-slate-300 dark:text-slate-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            ₱{(branchVault?.balance ?? 0).toLocaleString()}
+          </p>
+          {/* Label row — tap to toggle stats */}
+          <button
+            type="button"
+            onClick={() => setStatsExpanded(v => !v)}
+            className="flex items-center gap-1.5 mt-1.5 active:opacity-70 transition-opacity"
+          >
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Running Balance</p>
+            <svg className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${statsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+        </div>
+
+        {/* Collapsible stat pills */}
+        {statsExpanded && (
+          <div className="flex items-center gap-3 pb-0.5 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="text-right">
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Deposited</p>
+              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+₱{totalDeposits.toLocaleString()}</p>
+            </div>
+            <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
+            <div className="text-right">
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Withdrawn</p>
+              <p className="text-sm font-black text-rose-500 dark:text-rose-400 tabular-nums">−₱{totalWithdrawals.toLocaleString()}</p>
+            </div>
+            {(branchVault?.initialBalance ?? 0) > 0 && (
+              <>
+                <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Starting</p>
+                  <p className="text-sm font-black text-slate-600 dark:text-slate-300 tabular-nums">₱{(branchVault!.initialBalance).toLocaleString()}</p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Progress bar */}
         {branchVault && (() => {
           const balance = branchVault.balance ?? 0;
           const target = branchVault.target ?? 0;
@@ -941,11 +978,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           const pct = hasTarget ? Math.min(balance / target, 1) : 0;
           const reached = hasTarget && balance >= target;
           const remaining = hasTarget ? Math.max(target - balance, 0) : 0;
-
-          // Bills coverage overlay
           const unpaidTotal = billsWithStatus.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0);
           const canCoverBills = unpaidTotal > 0 ? balance >= unpaidTotal : null;
-
           return (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -953,14 +987,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   {hasTarget ? 'Vault Target' : 'Vault Balance'}
                 </span>
                 {hasTarget ? (
-                  <span className={`text-xs font-semibold uppercase tracking-wide tabular-nums ${reached ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wide tabular-nums ${reached ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`}>
                     ₱{balance.toLocaleString()} / ₱{target.toLocaleString()}
                   </span>
                 ) : (
                   <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">No target set</span>
                 )}
               </div>
-              <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${reached ? 'bg-emerald-500' : 'bg-emerald-400'}`}
                   style={{ width: hasTarget ? `${Math.round(pct * 100)}%` : '0%' }}
@@ -977,54 +1011,43 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 </div>
               )}
               {canCoverBills && (
-                <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
-                  Can cover all unpaid bills (₱{unpaidTotal.toLocaleString()})
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Can cover all unpaid bills (₱{unpaidTotal.toLocaleString()})</p>
+              )}
+              {/* Mobile-only action buttons — below progress bar */}
+              {!isClosedMode && branch.vaultEnabled && (
+                <div className="sm:hidden mt-5 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 border-t border-slate-100 dark:border-slate-700 pt-4 pb-4 px-6 sm:px-8 flex items-center gap-2">
+                  <button
+                    onClick={() => { setWithdrawLabel(''); setWithdrawAmount(''); setWithdrawFile(null); setShowWithdrawModal(true); playSound('click'); }}
+                    disabled={!branchVault || branchVault.balance <= 0}
+                    className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-rose-300 hover:text-rose-500 dark:hover:border-rose-500/40 dark:hover:text-rose-400 font-bold text-xs uppercase tracking-wide transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowUpCircle className="w-3.5 h-3.5" />
+                    Pay Bill
+                  </button>
+                  <button
+                    onClick={() => {
+                      const firstReport = currentWeekReports[0];
+                      const firstDate = firstReport?.reportDate ?? null;
+                      setDepositSelectedDate(firstDate);
+                      if (firstDate) {
+                        const existing = transactions.find(t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate);
+                        setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
+                      }
+                      setShowDepositModal(true);
+                      playSound('click');
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:hover:border-emerald-500/40 dark:hover:text-emerald-400 font-bold text-xs uppercase tracking-wide transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowDownCircle className="w-3.5 h-3.5" />
+                    Deposit
+                  </button>
+                </div>
               )}
             </div>
           );
         })()}
 
-        {/* Deposit + Withdraw buttons — large, full-width on mobile */}
-        {!isClosedMode && branch.vaultEnabled && (
-          <div className="flex flex-col sm:flex-row gap-3 pt-1">
-            <button
-              onClick={() => {
-                setWithdrawLabel('');
-                setWithdrawAmount('');
-                setWithdrawFile(null);
-                setShowWithdrawModal(true);
-                playSound('click');
-              }}
-              disabled={!branchVault || branchVault.balance <= 0}
-              className="flex-1 py-4 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600 font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <ArrowUpCircle className="w-5 h-5" />
-              Pay Bill
-            </button>
-            <button
-              onClick={() => {
-                const firstReport = currentWeekReports[0];
-                const firstDate = firstReport?.reportDate ?? null;
-                setDepositSelectedDate(firstDate);
-                if (firstDate) {
-                  const existing = transactions.find(
-                    t => t.type === 'deposit' && toManilaDate(t.timestamp) === firstDate,
-                  );
-                  setDepositAmount(existing ? String(existing.amount) : String(Math.max(0, firstReport?.netRoi ?? 0)));
-                }
-                setShowDepositModal(true);
-                playSound('click');
-              }}
-              className="flex-1 py-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700 font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              <ArrowDownCircle className="w-5 h-5" />
-              Deposit to Vault
-            </button>
-          </div>
-        )}
-
-      </div>
+      </div>{/* end hero card */}
 
       {/* ── 2-column: Bills | Vault History ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -1041,9 +1064,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         );
         const totalVaultUsed = allVaultWithdrawals.reduce((s, t) => s + t.amount, 0);
 
-        // Group visible slice by Manila date
+        // Group all loaded withdrawals by Manila date
         const byDate = new Map<string, VaultTransaction[]>();
-        for (const tx of allVaultWithdrawals.slice(0, visibleBills)) {
+        for (const tx of allVaultWithdrawals) {
           const d = toManilaDate(tx.timestamp);
           if (!byDate.has(d)) byDate.set(d, []);
           byDate.get(d)!.push(tx);
@@ -1059,15 +1082,21 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             <div className="px-5 sm:px-6 pt-5 pb-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 flex items-center justify-center shrink-0">
                     <Banknote className="w-5 h-5 text-rose-500" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-[15px] font-black text-slate-800 dark:text-slate-200 leading-none tracking-tight">Bills Paid</h3>
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-1 truncate">
-                      Vault Outflows{totalVaultUsed > 0 && <span className="text-rose-500 ml-1.5 tabular-nums">· −₱{totalVaultUsed.toLocaleString()}</span>}
-                    </p>
+                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-1">Vault outflows</p>
                   </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {totalVaultUsed > 0 && (
+                    <p className="text-sm font-black tabular-nums text-rose-500 dark:text-rose-400">−₱{totalVaultUsed.toLocaleString()}</p>
+                  )}
+                  {!txLoading && allVaultWithdrawals.length > 0 && (
+                    <span className="text-[11px] font-bold tabular-nums text-slate-400 dark:text-slate-500">{allVaultWithdrawals.length}{hasNextPage ? '+' : ''} entries</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1080,7 +1109,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   type="text"
                   value={billsSearch}
                   onChange={e => setBillsSearch(e.target.value)}
-                  placeholder="Search name or amount..."
+                  placeholder="SEARCH NAME OR AMOUNT..."
                   className="w-full pl-8 pr-8 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-slate-400 focus:bg-white dark:focus:bg-slate-700 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:font-normal"
                 />
                 {billsSearch && (
@@ -1096,15 +1125,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             </div>
 
             {txLoading ? (
-              <div className="divide-y divide-slate-50 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-lg w-2/5" />
-                      <div className="h-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg w-1/4" />
-                    </div>
-                    <div className="h-4 w-14 bg-rose-50 rounded-lg shrink-0" />
+              <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-2 space-y-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 animate-pulse">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0" />
+                    <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />
+                    <div className="h-3 bg-slate-50 dark:bg-slate-700/50 rounded w-10 ml-auto" />
+                    <div className="h-3 w-12 bg-rose-50 dark:bg-rose-500/10 rounded shrink-0" />
                   </div>
                 ))}
               </div>
@@ -1119,45 +1146,44 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="overflow-y-auto max-h-[480px] border-t border-slate-100 dark:border-slate-700">
-                {groupedWithdrawals.map(([date, txs]) => (
-                  <div key={date}>
-                    {/* Date group header */}
-                    <div className="px-4 sm:px-6 py-2.5 flex items-center gap-3 bg-slate-50/80 dark:bg-slate-700/50">
-                      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide shrink-0">{formatDate(date)}</p>
-                      <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
+              <div className="overflow-y-auto max-h-[480px]">
+                {groupedWithdrawals.map(([date, txs], groupIdx) => (
+                  <div key={date} className={groupIdx > 0 ? 'border-t border-slate-200 dark:border-slate-600 mt-1' : ''}>
+                    {/* Date header */}
+                    <div className="px-4 sm:px-5 pt-3 pb-1 flex items-center gap-2">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
                     </div>
                     {/* Transaction rows */}
-                    <div className="px-3 sm:px-4 py-2 space-y-1">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                       {txs.map(tx => {
                         const isToday = toManilaDate(tx.timestamp) === manilaToday;
+                        const isVaultFee = tx.name.startsWith('VAULT: ');
                         return (
-                          <div key={tx.id} className="flex items-center gap-2">
+                          <div key={tx.id} className="flex items-center gap-1 px-3 sm:px-4">
                             <button
                               onClick={() => { setSelectedTx(tx); playSound('click'); }}
-                              className="flex-1 flex items-center gap-3 px-3 py-3 rounded-xl border border-transparent hover:border-rose-100 hover:bg-rose-50/40 active:scale-[0.98] transition-all text-left min-w-0"
+                              className="flex-1 flex items-center gap-2.5 px-2 py-2 hover:bg-rose-50/40 dark:hover:bg-rose-500/5 active:scale-[0.98] transition-colors text-left min-w-0"
                             >
-                              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-rose-50 text-rose-500">
-                                <Banknote className="w-4.5 h-4.5" style={{ width: '1.05rem', height: '1.05rem' }} />
+                              <div className="w-1.5 h-1.5 rounded-full bg-rose-400 dark:bg-rose-500 shrink-0 mt-px" />
+                              <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight truncate">{stripVaultPrefix(tx.name)}</p>
+                                {tx.receiptUrl && (
+                                  <span title="Has receipt" className="shrink-0 text-slate-300 dark:text-slate-600">
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
+                                  </span>
+                                )}
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums shrink-0 ml-auto">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight truncate">{stripVaultPrefix(tx.name)}</p>
-                                <p className="text-xs text-slate-400 dark:text-slate-500 tabular-nums mt-0.5">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
-                              </div>
-                              <div className="shrink-0 flex items-center gap-1">
-                                <p className="text-sm font-black tabular-nums text-rose-600">
-                                  −₱{tx.amount.toLocaleString()}
-                                </p>
-                                <svg className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                              </div>
+                              <p className="text-xs font-black tabular-nums text-rose-600 dark:text-rose-400 shrink-0">−₱{tx.amount.toLocaleString()}</p>
+                              <svg className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                             </button>
-                            {isToday && !isClosedMode && !tx.name.startsWith('VAULT: ') && (
+                            {isToday && !isClosedMode && !isVaultFee && (
                               <button
                                 onClick={() => { setVaultBillToDelete({ id: tx.id, name: stripVaultPrefix(tx.name), amount: tx.amount }); playSound('warning'); }}
-                                className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 hover:text-rose-600 flex items-center justify-center shrink-0 transition-all active:scale-95"
+                                className="w-6 h-6 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-300 hover:text-rose-500 flex items-center justify-center shrink-0 transition-all active:scale-95"
                                 title="Reverse payment"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
                               </button>
                             )}
                           </div>
@@ -1166,10 +1192,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     </div>
                   </div>
                 ))}
-                {/* Infinite scroll sentinel */}
-                {visibleBills < allVaultWithdrawals.length && (
+                {/* Infinite scroll sentinel — triggers server fetch of next page */}
+                {hasNextPage && (
                   <div ref={billsBottomRef} className="px-4 py-4 space-y-2">
-                    {[1,2,3].map(i => (
+                    {isFetchingNextPage && [1,2,3].map(i => (
                       <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 animate-pulse">
                         <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-600 shrink-0" />
                         <div className="flex-1 space-y-2">
@@ -1181,7 +1207,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     ))}
                   </div>
                 )}
-                {visibleBills >= allVaultWithdrawals.length && allVaultWithdrawals.length > 0 && (
+                {!hasNextPage && allVaultWithdrawals.length > 0 && (
                   <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
                     {allVaultWithdrawals.length} record{allVaultWithdrawals.length !== 1 ? 's' : ''} total
                   </p>
@@ -1209,7 +1235,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               <h3 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">Vault History</h3>
               {txLoading
                 ? <span className="h-3 w-12 rounded bg-slate-100 dark:bg-slate-700 animate-pulse inline-block" />
-                : <span className="text-xs text-slate-400 dark:text-slate-500">{transactions.length} records</span>
+                : <span className="text-xs text-slate-400 dark:text-slate-500">{transactions.length}{hasNextPage ? '+' : ''} records</span>
               }
             </div>
           </div>
@@ -1230,7 +1256,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   type="text"
                   value={historySearch}
                   onChange={e => setHistorySearch(e.target.value)}
-                  placeholder="Search name or amount..."
+                  placeholder="SEARCH NAME OR AMOUNT..."
                   className="w-full pl-8 pr-8 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-slate-400 focus:bg-white dark:focus:bg-slate-700 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:font-normal"
                 />
                 {historySearch && (
@@ -1244,70 +1270,59 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                 )}
               </div>
 
-              {/* Type + month filters — single scrollable row */}
-              <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 sm:px-6 pb-0.5">
-                {([
-                  { key: 'all', label: 'All', count: transactions.length },
-                  { key: 'deposits', label: 'Deposits', count: depositCount },
-                  { key: 'withdrawals', label: 'Withdrawals', count: withdrawalCount },
-                ] as { key: FilterType; label: string; count: number }[]).map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all shrink-0 ${
-                      filter === f.key
-                        ? f.key === 'withdrawals'
-                          ? 'bg-rose-600 text-white shadow-sm'
-                          : f.key === 'deposits'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'bg-slate-800 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    {f.label}
-                    <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${
-                      filter === f.key ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-600 text-slate-400 dark:text-slate-300'
-                    }`}>{f.count}</span>
-                  </button>
-                ))}
-                {availableMonths.length > 1 && (
-                  <>
-                    <div className="w-px bg-slate-200 dark:bg-slate-600 shrink-0 self-stretch my-1" />
+              {/* Type + month filters */}
+              <div className="flex items-center gap-2 px-4 sm:px-6 pb-0.5">
+                {/* Segmented type tabs */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-600/50 rounded-xl flex-1 border border-transparent dark:border-slate-600">
+                  {([
+                    { key: 'all', label: 'All', count: transactions.length },
+                    { key: 'deposits', label: 'In', count: depositCount },
+                    { key: 'withdrawals', label: 'Out', count: withdrawalCount },
+                  ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
-                      onClick={() => setSelectedMonth(null)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all shrink-0 ${
-                        selectedMonth === null ? 'bg-slate-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      key={f.key}
+                      onClick={() => setFilter(f.key)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                        filter === f.key
+                          ? f.key === 'withdrawals'
+                            ? 'bg-rose-500 text-white shadow-sm'
+                            : f.key === 'deposits'
+                              ? 'bg-emerald-500 text-white shadow-sm'
+                              : 'bg-white dark:bg-slate-400 text-slate-700 dark:text-slate-900 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white'
                       }`}
                     >
-                      All Months
+                      {f.label}
+                      <span className={`text-[10px] font-black tabular-nums ${filter === f.key ? 'opacity-70' : 'opacity-60'}`}>{f.count}{hasNextPage && f.key === 'all' ? '+' : ''}</span>
                     </button>
+                  ))}
+                </div>
+                {/* Month picker — compact select */}
+                {availableMonths.length > 1 && (
+                  <select
+                    value={selectedMonth ?? ''}
+                    onChange={e => setSelectedMonth(e.target.value || null)}
+                    className="h-9 px-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 bg-slate-100 dark:bg-slate-600/50 border border-transparent dark:border-slate-600 outline-none cursor-pointer appearance-none pr-7 shrink-0"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center', backgroundSize: '12px' }}
+                  >
+                    <option value="">All months</option>
                     {availableMonths.map(([key, label]) => (
-                      <button
-                        key={key}
-                        onClick={() => setSelectedMonth(key === selectedMonth ? null : key)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all shrink-0 ${
-                          selectedMonth === key ? 'bg-slate-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-                        }`}
-                      >
-                        {label}
-                      </button>
+                      <option key={key} value={key}>{label}</option>
                     ))}
-                  </>
+                  </select>
                 )}
               </div>
             </div>
 
             {txLoading ? (
               /* Skeleton rows while fetching */
-              <div className="divide-y divide-slate-50 dark:divide-slate-700">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-4 px-5 sm:px-6 py-4 animate-pulse">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 shrink-0" />
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-lg w-2/5" />
-                      <div className="h-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg w-1/4" />
-                    </div>
-                    <div className="h-4 bg-slate-100 dark:bg-slate-700 rounded-lg w-16 shrink-0" />
+              <div className="px-4 py-2 space-y-1">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 animate-pulse">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0" />
+                    <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />
+                    <div className="h-3 bg-slate-50 dark:bg-slate-700/50 rounded w-10 ml-auto" />
+                    <div className="h-3 w-14 bg-slate-100 dark:bg-slate-700 rounded shrink-0" />
                   </div>
                 ))}
               </div>
@@ -1323,63 +1338,54 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
               </div>
             ) : (
               <div className="overflow-y-auto max-h-[480px]">
-                {grouped.map(([date, txs]) => (
-                  <div key={date}>
+                {grouped.map(([date, txs], groupIdx) => (
+                  <div key={date} className={groupIdx > 0 ? 'border-t border-slate-200 dark:border-slate-600 mt-1' : ''}>
                     {/* Date group header */}
-                    <div className="px-4 sm:px-6 py-2.5 flex items-center gap-3 bg-slate-50/80 dark:bg-slate-700/50">
-                      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide shrink-0">{formatDate(date)}</p>
-                      <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
+                    <div className="px-4 sm:px-5 pt-3 pb-1 flex items-center gap-2">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
                     </div>
 
                     {/* Transactions in this date group */}
-                    <div className="px-3 sm:px-4 py-2 space-y-1">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                       {txs.map(tx => {
-                        const isAdmin = (tx.type ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
+                        const isAdmin = (tx.category ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
                         const isWithdrawal = tx.type === 'withdrawal';
                         return (
                           <button
                             key={tx.id}
                             onClick={() => { setSelectedTx(tx); playSound('click'); }}
-                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-transparent transition-all active:scale-[0.98] text-left ${
+                            className={`w-full flex items-center gap-2.5 px-5 sm:px-6 py-2 transition-colors active:scale-[0.98] text-left ${
                               isWithdrawal
-                                ? 'hover:bg-rose-50/60 hover:border-rose-100'
+                                ? 'hover:bg-rose-50/50 dark:hover:bg-rose-500/5'
                                 : isAdmin
-                                  ? 'hover:bg-violet-50/60 hover:border-violet-100'
-                                  : 'hover:bg-emerald-50/40 hover:border-emerald-100'
+                                  ? 'hover:bg-violet-50/50 dark:hover:bg-violet-500/5'
+                                  : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-500/5'
                             }`}
                           >
-                            {/* Icon */}
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              isWithdrawal ? 'bg-rose-50 text-rose-500' : isAdmin ? 'bg-violet-50 text-violet-600' : 'bg-emerald-50 text-emerald-600'
-                            }`}>
-                              {isWithdrawal
-                                ? <ArrowUpCircle className="w-4.5 h-4.5" style={{ width: '1.1rem', height: '1.1rem' }} />
-                                : <ArrowDownCircle className="w-4.5 h-4.5" style={{ width: '1.1rem', height: '1.1rem' }} />}
-                            </div>
+                            {/* Compact dot */}
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-px ${isWithdrawal ? 'bg-rose-400' : isAdmin ? 'bg-violet-500' : 'bg-emerald-500'}`} />
 
-                            {/* Label + meta */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight truncate">{tx.name}</p>
-                              <p className="text-xs text-slate-400 dark:text-slate-500 tabular-nums mt-0.5">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
+                            {/* Name + meta one line */}
+                            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight truncate">{tx.name}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums shrink-0 ml-auto">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
                             </div>
 
                             {/* Amount + chevron */}
-                            <div className="flex items-center gap-1 shrink-0">
-                              <p className={`text-sm font-black tabular-nums ${isWithdrawal ? 'text-rose-600' : isAdmin ? 'text-violet-600' : 'text-emerald-700'}`}>
-                                {isWithdrawal ? '−' : '+'}₱{tx.amount.toLocaleString()}
-                              </p>
-                              <svg className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                            </div>
+                            <p className={`text-xs font-black tabular-nums shrink-0 ${isWithdrawal ? 'text-rose-600 dark:text-rose-400' : isAdmin ? 'text-violet-600 dark:text-violet-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                              {isWithdrawal ? '−' : '+'}₱{tx.amount.toLocaleString()}
+                            </p>
+                            <svg className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 ))}
-                {/* Infinite scroll sentinel */}
-                {visibleHistory < filtered.length && (
+                {/* Infinite scroll sentinel — triggers server fetch of next page */}
+                {hasNextPage && (
                   <div ref={historyBottomRef} className="px-4 py-4 space-y-2">
-                    {[1,2,3].map(i => (
+                    {isFetchingNextPage && [1,2,3].map(i => (
                       <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 animate-pulse">
                         <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-600 shrink-0" />
                         <div className="flex-1 space-y-2">
@@ -1391,9 +1397,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                     ))}
                   </div>
                 )}
-                {visibleHistory >= filtered.length && filtered.length > 0 && (
+                {!hasNextPage && filtered.length > 0 && (
                   <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
-                    {filtered.length} record{filtered.length !== 1 ? 's' : ''} total
+                    {filtered.length} record{filtered.length !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>

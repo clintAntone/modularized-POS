@@ -397,37 +397,39 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
     <div className="space-y-5">
 
       {/* ── Header Hero Card ── */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center justify-between gap-4 shadow-sm">
-        {/* Left: icon + title + subtitle */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-none mb-1">Client Lookup</p>
-            <p className="text-[15px] font-bold text-slate-900 leading-none truncate">
-              {branch.name}
-            </p>
-          </div>
-        </div>
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-900 p-5 shadow-lg">
+        {/* decorative rings */}
+        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-white/5" />
+        <div className="absolute -bottom-10 -left-4 w-28 h-28 rounded-full bg-white/[0.03]" />
 
-        {/* Right: KPI tiles */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Unique clients */}
-          <div className="bg-slate-50 rounded-xl px-3.5 py-2.5 text-center min-w-[64px]">
-            <p className="text-[22px] font-black text-slate-900 tabular-nums leading-none">
-              {loading ? '—' : allProfiles.length}
-            </p>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1 leading-none">Clients</p>
+        <div className="relative">
+          {/* Title row */}
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-0.5">Client Lookup</p>
+              <p className="text-base font-black text-white truncate leading-none">{branch.name}</p>
+            </div>
           </div>
-          {/* Total sessions */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3.5 py-2.5 text-center min-w-[64px]">
-            <p className="text-[22px] font-black text-indigo-600 tabular-nums leading-none">
-              {loading ? '—' : allTransactions.length}
-            </p>
-            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mt-1 leading-none">Sessions</p>
+
+          {/* KPI row — full width, balanced */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-white/8 border border-white/10 rounded-xl px-4 py-3">
+              <p className="text-2xl font-black text-white tabular-nums leading-none">
+                {loading ? '—' : allProfiles.length}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mt-1 leading-none">Unique Clients</p>
+            </div>
+            <div className="bg-emerald-500/15 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <p className="text-2xl font-black text-emerald-400 tabular-nums leading-none">
+                {loading ? '—' : allTransactions.length}
+              </p>
+              <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide mt-1 leading-none">Total Sessions</p>
+            </div>
           </div>
         </div>
       </div>
@@ -439,10 +441,10 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         </svg>
         <input
           type="text"
-          placeholder="SEARCH CLIENT BY NAME TO VIEW PROFILE..."
+          placeholder="Search client by name to view profile..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="w-full h-12 pl-11 pr-10 bg-white border border-slate-200 rounded-2xl font-bold text-xs uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal text-slate-700"
+          className="w-full h-12 pl-11 pr-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20 transition-all shadow-sm placeholder:text-slate-400 placeholder:font-normal text-slate-800 dark:text-slate-100"
         />
         {isSearching && (
           <button
@@ -518,34 +520,32 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         ) : (
           <div className="space-y-3">
 
-            {/* Privacy notice pill */}
-            <div className="flex items-center gap-0">
-              <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5">
-                <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-none">
-                  Client names are hidden — search by name to view a profile
-                </p>
-              </div>
+            {/* Privacy notice */}
+            <div className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5">
+              <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+                Client names hidden — search by name to view profile
+              </p>
             </div>
 
             {/* Daily activity list */}
             {(() => {
               const maxSessions = Math.max(...dailySummary.map(e => e.sessionCount), 1);
               return (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  {/* List header */}
-                  <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Daily Activity</p>
-                    <div className="flex items-center gap-5">
-                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest hidden sm:block">Clients</p>
-                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Sessions</p>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                  {/* Column header */}
+                  <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center">
+                    <p className="flex-1 text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">Daily Activity</p>
+                    <div className="flex items-center gap-6 shrink-0">
+                      <p className="w-10 text-right text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Clients</p>
+                      <p className="w-14 text-right text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Sessions</p>
                     </div>
                   </div>
 
                   {/* Rows */}
-                  <div className="divide-y divide-slate-50">
+                  <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
                     {dailySummary.map(entry => {
                       const label = labelDateKey(entry.dateKey);
                       const isToday = label === 'Today';
@@ -553,82 +553,65 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
                       const barPct = maxSessions > 0 ? (entry.sessionCount / maxSessions) * 100 : 0;
                       const hasActivity = entry.sessionCount > 0;
 
-                      // Formatted date for older rows: "Mon, Jun 3"
                       const formattedDate = (() => {
                         const d = new Date(entry.dateKey + 'T12:00:00');
                         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                       })();
 
+                      const dateLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : formattedDate;
+
+                      const countColor = isToday
+                        ? 'text-indigo-400 dark:text-indigo-300'
+                        : isYesterday
+                        ? 'text-slate-700 dark:text-slate-200'
+                        : hasActivity
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-slate-400 dark:text-slate-500';
+
                       return (
                         <div
                           key={entry.dateKey}
-                          className={`px-5 py-3.5 flex items-center gap-4 ${isToday ? 'bg-indigo-50/60' : ''}`}
+                          className={`px-5 py-3 flex items-center gap-3 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''}`}
                         >
-                          {/* Left: dot + label + progress bar */}
+                          {/* Left: dot + date + bar */}
                           <div className="flex-1 min-w-0 space-y-1.5">
-                            <div className="flex items-center gap-2.5">
-                              {/* Status dot */}
+                            <div className="flex items-center gap-2">
                               {isToday ? (
                                 <span className="relative flex shrink-0">
                                   <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75" />
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
                                 </span>
                               ) : (
-                                <div className={`w-2 h-2 rounded-full shrink-0 ${isYesterday ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isYesterday ? 'bg-slate-400 dark:bg-slate-400' : hasActivity ? 'bg-emerald-400 dark:bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                                }`} />
                               )}
-
-                              {/* Date label */}
                               <p className={`text-xs font-black uppercase tracking-tight leading-none ${
-                                isToday
-                                  ? 'text-indigo-600'
-                                  : isYesterday
-                                  ? 'text-slate-600'
-                                  : 'text-slate-400'
+                                isToday ? 'text-indigo-400 dark:text-indigo-300' : isYesterday ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-300'
                               }`}>
-                                {isToday || isYesterday ? label : formattedDate}
+                                {dateLabel}
                               </p>
                             </div>
 
-                            {/* Mini progress bar */}
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden ml-4.5">
+                            {/* Progress bar */}
+                            <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden ml-4">
                               <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  !hasActivity
-                                    ? 'bg-slate-200'
-                                    : isToday
-                                    ? 'bg-indigo-400'
-                                    : 'bg-emerald-400'
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                  isToday ? 'bg-indigo-400' : hasActivity ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-600'
                                 }`}
-                                style={{ width: hasActivity ? `${barPct}%` : '4%', opacity: hasActivity ? 1 : 0.4 }}
+                                style={{ width: hasActivity ? `${Math.max(barPct, 3)}%` : '3%', opacity: hasActivity ? 1 : 0.5 }}
                               />
                             </div>
                           </div>
 
-                          {/* Right: counts */}
-                          <div className="flex items-center gap-5 shrink-0">
-                            {/* Clients (hidden on mobile) */}
-                            <div className="text-right hidden sm:block">
-                              <p className={`text-sm font-black tabular-nums leading-none ${
-                                isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
-                              }`}>
-                                {entry.clientCount}
-                              </p>
-                              <p className="text-xs font-black text-slate-300 uppercase tracking-widest mt-0.5">
-                                client{entry.clientCount !== 1 ? 's' : ''}
-                              </p>
-                            </div>
-
-                            {/* Sessions */}
-                            <div className="text-right">
-                              <p className={`text-sm font-black tabular-nums leading-none ${
-                                isToday ? 'text-indigo-600' : isYesterday ? 'text-slate-600' : 'text-slate-400'
-                              }`}>
-                                {entry.sessionCount}
-                              </p>
-                              <p className="text-xs font-black text-slate-300 uppercase tracking-widest mt-0.5">
-                                session{entry.sessionCount !== 1 ? 's' : ''}
-                              </p>
-                            </div>
+                          {/* Right: client + session counts — fixed-width columns matching header */}
+                          <div className="flex items-center gap-6 shrink-0">
+                            <p className={`w-10 text-right text-sm font-black tabular-nums leading-none ${countColor}`}>
+                              {hasActivity ? entry.clientCount : <span className="text-slate-400 dark:text-slate-500 font-medium">—</span>}
+                            </p>
+                            <p className={`w-14 text-right text-sm font-black tabular-nums leading-none ${countColor}`}>
+                              {hasActivity ? entry.sessionCount : <span className="text-slate-400 dark:text-slate-500 font-medium">—</span>}
+                            </p>
                           </div>
                         </div>
                       );
