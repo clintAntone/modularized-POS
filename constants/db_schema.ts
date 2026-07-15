@@ -150,6 +150,7 @@ export const DB_COLUMNS = {
   STAFF_BREAKDOWN: 'staff_breakdown',
   EXPENSE_DATA: 'expense_data',
   VAULT_DATA: 'vault_data',
+  BACKFILLED: 'backfilled',
 
   // System Config
   KEY: 'key',

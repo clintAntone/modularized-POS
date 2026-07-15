@@ -220,6 +220,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.SESSION_DATA]: existingReport?.sessionData || [],
             [DB_COLUMNS.EXPENSE_DATA]: finalExpenseData,
             [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
+            [DB_COLUMNS.BACKFILLED]: true,
           });
           if (error) throw error;
           // Sync vault deposits into vault_transactions — replace previous entries for this report

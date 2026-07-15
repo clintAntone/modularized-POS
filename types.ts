@@ -211,6 +211,7 @@ export interface SalesReport {
   totalVaultProvision: number;
   netRoi: number;
   sortDate?: string;
+  backfilled?: boolean;
   periodEnd?: string;
   sessionData: any[];
   staffBreakdown: any[];

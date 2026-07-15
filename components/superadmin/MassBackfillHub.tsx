@@ -373,10 +373,6 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             // Source report for preserving existing expense/vault arrays
             const sourceReport = existingBackfill ?? (isBackfillMode ? null : standardReport);
 
-            const sortDate = isBackfillMode
-                ? 'BACKFILL RECORDS - Re:INCOMPLETE REPORT'
-                : (sourceReport?.sortDate || selectedDate);
-
             const reportData = {
                 id: reportId,
                 branch_id: branch.id,
@@ -393,7 +389,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 // vault_data holds both PROVISION (legacy) and VAULT_DEPOSIT (modern) entries
                 vault_data: vaultData,
                 submitted_at: getTrueManilaISOString(),
-                sort_date: sortDate
+                backfilled: isBackfillMode
             };
 
             const { error } = await supabase.from('sales_reports').upsert(reportData, { onConflict: 'id' });

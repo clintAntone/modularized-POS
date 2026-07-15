@@ -217,7 +217,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       const expectedRoi = grossSales - computedSalary - storedExpenses - storedVault;
       const roiDiscrepancy = storedRoi - expectedRoi;
 
-      const isBackfill = r.id.includes('_BACKFILL_') || r.sortDate === 'BACKFILL RECORDS - Re:INCOMPLETE REPORT';
+      const isBackfill = r.id.includes('_BACKFILL_') || r.backfilled === true;
 
       let diagnosis: string;
       if (Math.abs(roiDiscrepancy) < 0.01) {

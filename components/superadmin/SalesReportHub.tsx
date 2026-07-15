@@ -55,7 +55,7 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
       if (view === 'daily') {
         const groupedByDate: Record<string, CycleStats> = {};
         reports.forEach(r => {
-          const isBackfill = r.sortDate === 'BACKFILL RECORDS - Re:INCOMPLETE REPORT' || r.id.includes('_BACKFILL_');
+          const isBackfill = r.backfilled === true || r.id.includes('_BACKFILL_');
           const groupKey = isBackfill 
             ? `${r.reportDate}_BACKFILL` 
             : r.reportDate;

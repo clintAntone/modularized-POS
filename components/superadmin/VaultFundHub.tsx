@@ -159,6 +159,147 @@ const VaultLineChart: React.FC<VaultChartProps> = ({ deposits, withdrawals }) =>
   );
 };
 
+// ---------------------------------------------------------------------------
+// Isolated dropdown components — internal open/close state never touches the
+// parent render cycle, so 66+ branch cards are NOT re-rendered on open/close.
+// ---------------------------------------------------------------------------
+type VaultFilterValue = 'all' | 'enabled' | 'disabled' | 'full';
+const VAULT_FILTER_OPTIONS: { value: VaultFilterValue; label: string }[] = [
+  { value: 'all',      label: 'All Status' },
+  { value: 'enabled',  label: 'Vault On'   },
+  { value: 'disabled', label: 'Vault Off'  },
+  { value: 'full',     label: 'Full'       },
+];
+const VAULT_SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'name',     label: 'A – Z'       },
+  { value: 'progress', label: 'By Progress' },
+  { value: 'balance',  label: 'By Balance'  },
+];
+
+const VaultFilterDropdown = React.forwardRef<{ close: () => void }, {
+  value: VaultFilterValue;
+  onChange: (v: VaultFilterValue) => void;
+  onCloseOther: () => void;
+  playSound: (s: string) => void;
+}>(({ value, onChange, onCloseOther, playSound }, fwdRef) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  React.useImperativeHandle(fwdRef, () => ({ close: () => setOpen(false) }));
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  const label = value === 'all' ? 'Status' : (VAULT_FILTER_OPTIONS.find(o => o.value === value)?.label ?? 'Status');
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => { setOpen(o => !o); onCloseOther(); }}
+        className={`h-10 flex items-center gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
+          open
+            ? 'bg-white dark:bg-slate-800 border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900 dark:text-slate-100'
+            : value !== 'all'
+            ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-300'
+        }`}
+      >
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 9h10M11 14h2" />
+        </svg>
+        <span className="hidden sm:inline">{label}</span>
+        <svg className={`w-3 h-3 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {value !== 'all' && !open && (
+        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center leading-none pointer-events-none">1</span>
+      )}
+      {open && (
+        <div className="absolute z-[200] top-[calc(100%+6px)] right-0 min-w-[168px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+          {VAULT_FILTER_OPTIONS.map(({ value: v, label: l }) => {
+            const checked = value === v;
+            return (
+              <button
+                key={v}
+                onClick={() => { onChange(v); setOpen(false); playSound('click'); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${checked ? 'bg-slate-50 dark:bg-slate-700' : ''}`}
+              >
+                <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                  {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
+                </span>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{l}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const VaultSortDropdown = React.forwardRef<{ close: () => void }, {
+  value: SortMode;
+  onChange: (v: SortMode) => void;
+  onCloseOther: () => void;
+  playSound: (s: string) => void;
+}>(({ value, onChange, onCloseOther, playSound }, fwdRef) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  React.useImperativeHandle(fwdRef, () => ({ close: () => setOpen(false) }));
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  const label = VAULT_SORT_OPTIONS.find(o => o.value === value)?.label ?? 'Sort';
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => { setOpen(o => !o); onCloseOther(); }}
+        className={`h-10 flex items-center gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
+          open
+            ? 'bg-white dark:bg-slate-800 border-indigo-500 ring-4 ring-indigo-500/10 text-slate-900 dark:text-slate-100'
+            : value !== 'name'
+            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-300'
+        }`}
+      >
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M6 12h12M10 18h4" />
+        </svg>
+        <span className="hidden sm:inline">{label}</span>
+        <svg className={`w-3 h-3 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-[200] top-[calc(100%+6px)] right-0 min-w-[168px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+          {VAULT_SORT_OPTIONS.map(({ value: v, label: l }) => {
+            const checked = value === v;
+            return (
+              <button
+                key={v}
+                onClick={() => { onChange(v); setOpen(false); playSound('click'); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${checked ? 'bg-slate-50 dark:bg-slate-700' : ''}`}
+              >
+                <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                  {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
+                </span>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{l}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+// ---------------------------------------------------------------------------
+
 export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesReports, vaultTransactions = [], isReadOnly, onRefresh }) => {
   const [vaultRows, setVaultRows] = useState<Record<string, VaultRow>>({});
   const [loadingVaults, setLoadingVaults] = useState(true);
@@ -178,11 +319,26 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
-  const [vaultFilter, setVaultFilter] = useState<'all' | 'enabled' | 'disabled' | 'full'>('all');
+  const [vaultFilter, setVaultFilter] = useState<VaultFilterValue>('all');
   const [sortMode, setSortMode] = useState<SortMode>('name');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
+  // Refs for mutual-close between filter and sort dropdowns
+  const filterDropdownRef = useRef<{ close: () => void }>(null);
+  const sortDropdownRef = useRef<{ close: () => void }>(null);
+
   const [historyOpen, setHistoryOpen] = useState<Set<string>>(new Set());
+  // Expand state lives in a ref — toggling never triggers a React re-render,
+  // so all 66+ cards stay untouched when one card expands.
+  const expandedRef = useRef<Set<string>>(new Set());
+  const toggleCardExpand = useCallback((branchId: string, cardEl: HTMLElement) => {
+    if (expandedRef.current.has(branchId)) {
+      expandedRef.current.delete(branchId);
+      cardEl.dataset.expanded = 'false';
+    } else {
+      expandedRef.current.add(branchId);
+      cardEl.dataset.expanded = 'true';
+    }
+    playSound('click');
+  }, []);
   const [vaultTotals, setVaultTotals] = useState<Record<string, { deposited: number; depositCount: number; withdrawn: number; withdrawalCount: number }>>({});
   const [detailBranchId, setDetailBranchId] = useState<string | null>(null);
   const [detailTxns, setDetailTxns] = useState<VaultTransaction[]>([]);
@@ -194,8 +350,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const [kpiExpanded, setKpiExpanded] = useState(false);
   const [roiDropdownOpen, setRoiDropdownOpen] = useState(false);
   const [confirmToggleBranch, setConfirmToggleBranch] = useState<Branch | null>(null);
-  const filterRef = useRef<HTMLDivElement>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
 
   const downloadCSV = (rows: string[][], filename: string) => {
     const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -356,14 +510,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     setLocalEnabled(map);
   }, [branches]);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // Fetch full transaction history for the detail modal branch (bypasses global 1000-row cap)
   useEffect(() => {
@@ -702,19 +848,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
   const enabledCount = Object.values(localEnabled).filter(Boolean).length;
 
-  const FILTER_OPTIONS: { value: typeof vaultFilter; label: string }[] = [
-    { value: 'all', label: 'All Status' },
-    { value: 'enabled', label: 'Vault On' },
-    { value: 'disabled', label: 'Vault Off' },
-    { value: 'full', label: 'Full' },
-  ];
-  const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-    { value: 'name', label: 'A – Z' },
-    { value: 'progress', label: 'By Progress' },
-    { value: 'balance', label: 'By Balance' },
-  ];
-  const activeSortLabel = SORT_OPTIONS.find(o => o.value === sortMode)?.label ?? 'Sort';
-  const activeFilterLabel = vaultFilter === 'all' ? 'Status' : (FILTER_OPTIONS.find(o => o.value === vaultFilter)?.label ?? 'Status');
 
   const filteredBranches = useMemo(() => {
     let result = [...branches];
@@ -767,19 +900,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   return (
     <div className="space-y-5">
 
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight leading-none">Vault Fund</h2>
-          {loadingVaults ? (
-            <div className="h-2.5 w-44 bg-slate-200 rounded-full animate-pulse mt-2" />
-          ) : (
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-2">
-              {enabledCount} of {branches.length} branches enabled
-            </p>
-          )}
-        </div>
-      </div>
 
       {/* Network Summary */}
       <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
@@ -831,15 +951,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
               </div>
 
               {/* KPI pills */}
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-2 w-full sm:w-auto">
                 {/* Vault On */}
-                <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <div className="flex-1 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 min-w-0">
+                  <div className="hidden sm:flex w-7 h-7 rounded-xl bg-emerald-100 items-center justify-center shrink-0">
                     <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-base font-black text-emerald-700 tabular-nums leading-none">{networkSummary.enabledCount}</p>
                     <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide leading-none mt-0.5">Saving</p>
                     <p className="text-xs text-emerald-500 leading-none mt-0.5">vault enabled</p>
@@ -847,29 +967,27 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 </div>
 
                 {/* Vault Off */}
-                {networkSummary.disabledCount > 0 && (
-                  <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
-                      <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-base font-black text-slate-600 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-none mt-0.5">Inactive</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 leading-none mt-0.5">not enrolled</p>
-                    </div>
+                <div className="flex-1 flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 min-w-0">
+                  <div className="hidden sm:flex w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-700 items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <p className="text-base font-black text-slate-600 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-none mt-0.5">Inactive</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-none mt-0.5">not enrolled</p>
+                  </div>
+                </div>
 
                 {/* Full */}
-                <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 border ${networkSummary.fullCount > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-700'}`}>
-                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-100' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                <div className={`flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 border min-w-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-700'}`}>
+                  <div className={`hidden sm:flex w-7 h-7 rounded-xl items-center justify-center shrink-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-100' : 'bg-slate-100 dark:bg-slate-700'}`}>
                     <svg className={`w-3.5 h-3.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className={`text-base font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-700' : 'text-slate-500 dark:text-slate-400'}`}>{networkSummary.fullCount}</p>
                     <p className={`text-xs font-semibold uppercase tracking-wide leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`}>At Target</p>
                     <p className={`text-xs leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>goal reached</p>
@@ -907,7 +1025,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           </div>
           <input
             type="text"
-            placeholder="Search name, balance, target…"
+            placeholder="SEARCH NAME, BALANCE, TARGET…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value.toUpperCase())}
             className="w-full h-10 pl-9 pr-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 uppercase placeholder:text-slate-300 placeholder:font-medium placeholder:normal-case focus:bg-white dark:focus:bg-slate-800 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 transition-all outline-none"
@@ -929,90 +1047,23 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           />
         </div>
 
-        {/* Vault status filter dropdown */}
-        <div ref={filterRef} className="relative shrink-0">
-          <button
-            onClick={() => { setFilterOpen(o => !o); setSortOpen(false); }}
-            className={`h-10 flex items-center gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
-              filterOpen
-                ? 'bg-white dark:bg-slate-800 border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900 dark:text-slate-100'
-                : vaultFilter !== 'all'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 9h10M11 14h2" />
-            </svg>
-            <span className="hidden sm:inline">{activeFilterLabel}</span>
-            <svg className={`w-3 h-3 shrink-0 transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {vaultFilter !== 'all' && !filterOpen && (
-            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center leading-none pointer-events-none">1</span>
-          )}
-          {filterOpen && (
-            <div className="absolute z-[200] top-[calc(100%+6px)] right-0 min-w-[168px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
-              {FILTER_OPTIONS.map(({ value, label }) => {
-                const checked = vaultFilter === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => { setVaultFilter(value); setFilterOpen(false); playSound('click'); }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${checked ? 'bg-slate-50 dark:bg-slate-700' : ''}`}
-                  >
-                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                      {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
-                    </span>
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* Vault status filter dropdown — isolated component; open/close state does not touch parent */}
+        <VaultFilterDropdown
+          ref={filterDropdownRef}
+          value={vaultFilter}
+          onChange={setVaultFilter}
+          onCloseOther={() => sortDropdownRef.current?.close()}
+          playSound={playSound}
+        />
 
-        {/* Sort dropdown */}
-        <div ref={sortRef} className="relative shrink-0">
-          <button
-            onClick={() => { setSortOpen(o => !o); setFilterOpen(false); }}
-            className={`h-10 flex items-center gap-2 px-3.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
-              sortOpen
-                ? 'bg-white dark:bg-slate-800 border-indigo-500 ring-4 ring-indigo-500/10 text-slate-900 dark:text-slate-100'
-                : sortMode !== 'name'
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M6 12h12M10 18h4" />
-            </svg>
-            <span className="hidden sm:inline">{activeSortLabel}</span>
-            <svg className={`w-3 h-3 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {sortOpen && (
-            <div className="absolute z-[200] top-[calc(100%+6px)] right-0 min-w-[168px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
-              {SORT_OPTIONS.map(({ value, label }) => {
-                const checked = sortMode === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => { setSortMode(value); setSortOpen(false); playSound('click'); }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${checked ? 'bg-slate-50 dark:bg-slate-700' : ''}`}
-                  >
-                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                      {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
-                    </span>
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* Sort dropdown — isolated component */}
+        <VaultSortDropdown
+          ref={sortDropdownRef}
+          value={sortMode}
+          onChange={setSortMode}
+          onCloseOther={() => filterDropdownRef.current?.close()}
+          playSound={playSound}
+        />
 
         {/* Export CSV button */}
         <button
@@ -1189,7 +1240,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
             return (
               <div
                 key={branch.id}
-                className={`rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
+                data-expanded={expandedRef.current.has(branch.id) ? 'true' : 'false'}
+                className={`group rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
                   cardState === 'off'
                     ? 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'
                     : cardState === 'unconfigured'
@@ -1199,12 +1251,18 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                     : 'bg-white dark:bg-slate-800 border-emerald-100 shadow-sm'
                 }`}
               >
-                {/* Card Header */}
-                <div className={`px-5 pt-5 pb-4 ${
-                  cardState === 'full' ? 'bg-emerald-50/60'
-                  : cardState === 'unconfigured' ? 'bg-amber-50/40'
-                  : ''
-                }`}>
+                {/* Card Header — clickable to expand/collapse (DOM-direct, no React re-render) */}
+                <div
+                  className={`px-5 pt-5 pb-4 cursor-pointer select-none active:opacity-80 transition-opacity ${
+                    cardState === 'full' ? 'bg-emerald-50/60'
+                    : cardState === 'unconfigured' ? 'bg-amber-50/40'
+                    : ''
+                  }`}
+                  onClick={(e) => {
+                    if ((e.target as Element).closest('button, input, select')) return;
+                    toggleCardExpand(branch.id, e.currentTarget.closest('[data-expanded]') as HTMLElement);
+                  }}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm font-black uppercase tracking-wide truncate leading-none ${
@@ -1234,11 +1292,11 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       </div>
                     </div>
 
-                    {/* Configure button */}
+                    {/* Configure button + chevron */}
                     <div className="flex items-center gap-2 shrink-0">
                       {!isReadOnly && !isEditing && !isDepositing && (
                         <button
-                          onClick={() => { startEdit(branch); setDepositingId(null); }}
+                          onClick={e => { e.stopPropagation(); startEdit(branch); setDepositingId(null); }}
                           className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                             cardState === 'unconfigured'
                               ? 'bg-amber-100 hover:bg-amber-200 text-amber-500 hover:text-amber-700'
@@ -1252,6 +1310,12 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                           </svg>
                         </button>
                       )}
+                      <svg
+                        className="w-4 h-4 text-slate-300 dark:text-slate-600 transition-transform duration-200 group-data-[expanded=true]:rotate-180"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
                   </div>
 
@@ -1312,50 +1376,53 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   )}
                 </div>
 
-                {/* Stats row — initial / deposited / withdrawals */}
-                <div className={`px-5 py-3.5 grid gap-3 border-t border-slate-50 dark:border-slate-700/50 ${
-                  cardState === 'off' ? 'grid-cols-1' : 'grid-cols-3'
-                }`}>
-                  {cardState === 'off' ? (
-                    <p className="text-xs font-bold text-slate-300 uppercase tracking-widest text-center">Vault disabled for this branch</p>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Initial</p>
-                        <p className={`text-sm font-black tabular-nums leading-none ${initialBalance > 0 ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300'}`}>
-                          {initialBalance > 0 ? `₱${initialBalance.toLocaleString()}` : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Deposited</p>
-                        <p className={`text-sm font-black tabular-nums leading-none ${row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-300'}`}>
-                          {row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? `₱${(rowTotals?.deposited ?? 0).toLocaleString()}` : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Withdrawn</p>
-                        {(() => { const w = rowTotals?.withdrawn ?? 0; return (
-                          <p className={`text-sm font-black tabular-nums leading-none ${w > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
-                            {w > 0 ? `₱${w.toLocaleString()}` : '—'}
-                          </p>
-                        ); })()}
-                      </div>
-                    </>
-                  )}
-                </div>
+                {/* Stats + history — hidden by default, shown via CSS when card is expanded */}
+                <div className="hidden group-data-[expanded=true]:block">
+                    {/* Stats row — initial / deposited / withdrawals */}
+                    <div className={`px-5 py-3.5 grid gap-3 border-t border-slate-50 dark:border-slate-700/50 ${
+                      cardState === 'off' ? 'grid-cols-1' : 'grid-cols-3'
+                    }`}>
+                      {cardState === 'off' ? (
+                        <p className="text-xs font-bold text-slate-300 uppercase tracking-widest text-center">Vault disabled for this branch</p>
+                      ) : (
+                        <>
+                          <div>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Initial</p>
+                            <p className={`text-sm font-black tabular-nums leading-none ${initialBalance > 0 ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300'}`}>
+                              {initialBalance > 0 ? `₱${initialBalance.toLocaleString()}` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Deposited</p>
+                            <p className={`text-sm font-black tabular-nums leading-none ${row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-300'}`}>
+                              {row?.startDate && (rowTotals?.deposited ?? 0) > 0 ? `₱${(rowTotals?.deposited ?? 0).toLocaleString()}` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-1">Withdrawn</p>
+                            {(() => { const w = rowTotals?.withdrawn ?? 0; return (
+                              <p className={`text-sm font-black tabular-nums leading-none ${w > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
+                                {w > 0 ? `₱${w.toLocaleString()}` : '—'}
+                              </p>
+                            ); })()}
+                          </div>
+                        </>
+                      )}
+                    </div>
 
-                {/* View full history button (mobile only — desktop uses row click) */}
-                {enabled && (
-                  <div className="border-t border-slate-50 dark:border-slate-700/50 px-5 py-3">
-                    <button
-                      onClick={() => { setDetailBranchId(branch.id); playSound('click'); }}
-                      className="w-full flex items-center justify-center gap-2 h-9 rounded-xl bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide transition-all active:scale-95"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      View Deposit & Withdrawal History
-                    </button>
-                  </div>
-                )}
+                    {/* View full history button */}
+                    {enabled && (
+                      <div className="border-t border-slate-50 dark:border-slate-700/50 px-5 py-3">
+                        <button
+                          onClick={() => { setDetailBranchId(branch.id); playSound('click'); }}
+                          className="w-full flex items-center justify-center gap-2 h-9 rounded-xl bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide transition-all active:scale-95"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          View Deposit & Withdrawal History
+                        </button>
+                      </div>
+                    )}
+                </div>
 
 
                 {/* Deposit form */}
