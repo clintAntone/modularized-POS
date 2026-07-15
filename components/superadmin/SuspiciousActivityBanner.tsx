@@ -32,7 +32,7 @@ export const SuspiciousActivityBanner: React.FC<SuspiciousActivityBannerProps> =
   if (flags.length === 0) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-[9990] w-[380px] no-print animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-5 right-4 z-[9990] w-[calc(100vw-2rem)] max-w-[380px] no-print animate-in slide-in-from-bottom-4 duration-300">
 
       {/* Glow */}
       <div className="absolute -inset-0.5 bg-rose-500/20 rounded-2xl blur-md pointer-events-none" />

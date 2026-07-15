@@ -358,31 +358,32 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                             }
 
                             // ── Authorization check BEFORE PIN ──────────────────────────
-                            // Only the branch manager or assigned temp/relief manager may log in.
-                            // Also verify the employee actually belongs to this branch (or has
-                            // an explicit branchAllowances entry) to prevent cross-branch name collisions.
+                            // Allow login if:
+                            //   (A) Name matches branch.manager — the classic head-manager check
+                            //   (B) Name matches branch.tempManager AND employee belongs to branch
+                            //   (C) Employee has MANAGER role for this branch in branchAllowances
+                            //       (robust fallback for cases where branch.manager string doesn't
+                            //       exactly match the employee name due to data entry differences)
                             const dbName = (empData.name || '').toUpperCase().trim();
                             const branchManagerName = (branch.manager || '').toUpperCase().trim();
                             const branchTempManagerName = (branch.tempManager || '').toUpperCase().trim();
-
-                            const isAuthorizedHead = dbName !== '' && dbName === branchManagerName;
-                            const isAuthorizedRelief = branchTempManagerName !== '' && dbName === branchTempManagerName;
 
                             const empBranchId = empData[DB_COLUMNS.BRANCH_ID] ?? empData.branchId ?? empData.branch_id;
                             const branchAllowances = empData[DB_COLUMNS.BRANCH_ALLOWANCES] ?? empData.branchAllowances ?? {};
                             const belongsToBranch = empBranchId === branch.id ||
                                 (typeof branchAllowances === 'object' && branchAllowances !== null && branch.id in branchAllowances);
 
-                            if (!isSetupAccountMode && !(isAuthorizedHead || isAuthorizedRelief)) {
-                                handleFailure('Unauthorized Terminal Access');
-                                return;
-                            }
+                            const isAuthorizedHead = dbName !== '' && dbName === branchManagerName;
+                            const isAuthorizedRelief = branchTempManagerName !== '' && dbName === branchTempManagerName && belongsToBranch;
 
-                            // For temp managers (delegates) only: also verify branch ownership
-                            // to guard against same-name collisions across branches.
-                            // Branch heads are already uniquely identified by branch.manager so
-                            // the ownership check is skipped for them.
-                            if (!isSetupAccountMode && !isAuthorizedHead && isAuthorizedRelief && !belongsToBranch) {
+                            // Role-based fallback: employee's HOME branch is this branch
+                            // and their base role is MANAGER. Intentionally does NOT check
+                            // branchAllowances — a reliever/therapist at another branch
+                            // should never inherit manager access here.
+                            const isAuthorizedByRole = empBranchId === branch.id &&
+                                (empData.role || '').toUpperCase().includes('MANAGER');
+
+                            if (!isSetupAccountMode && !(isAuthorizedHead || isAuthorizedRelief || isAuthorizedByRole)) {
                                 handleFailure('Unauthorized Terminal Access');
                                 return;
                             }
@@ -414,7 +415,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                                 return;
                             }
 
-                            if (isAuthorizedHead || isAuthorizedRelief) {
+                            if (isAuthorizedHead || isAuthorizedRelief || isAuthorizedByRole) {
                                 const empUsername = (empData.username || empData.name || finalUsername).toLowerCase();
                                 const hashForCache = dbPinSalt ? await hashPin(pin, dbPinSalt) : pin;
                                 saveAuthCredential({ username: empUsername, hashedPin: hashForCache, salt: dbPinSalt ?? '', role: UserRole.BRANCH_MANAGER, branchId: branch.id, employeeId: empData.id, displayName: empData.username || empData.name, cachedAt: Date.now() }).catch(console.warn);

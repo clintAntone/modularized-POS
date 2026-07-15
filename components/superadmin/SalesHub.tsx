@@ -233,7 +233,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       // Only flag branches whose opening time has already passed
       if (b.openingTime && manilaTime < b.openingTime) return false;
       return !salesReports.some(r => r.branchId === b.id && r.reportDate === selectedDate);
-    });
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [branches, salesReports, salesReportsLoading, selectedDate, isToday, lastSync]);
 
   const formattedDisplayDate = useMemo(() => {
@@ -389,25 +389,31 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 </div>
               </div>
               {/* List */}
-              <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-50">
-                {missingReportBranches.map((b, i) => (
-                  <div key={b.id} className="flex items-center gap-3 px-6 py-3.5">
-                    <span className="text-xs font-black text-slate-300 w-5 shrink-0">{i + 1}</span>
-                    <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                      <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-                      </svg>
+              <div className="relative">
+                <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-50" id="missing-branches-list">
+                  {missingReportBranches.map((b, i) => (
+                    <div key={b.id} className="flex items-center gap-3 px-6 py-3.5">
+                      <span className="text-xs font-black text-slate-300 w-5 shrink-0">{i + 1}</span>
+                      <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate leading-none">{b.name}</p>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
+                          {b.manager ? `MGR: ${b.manager}` : 'No manager assigned'}
+                          {b.openingTime ? ` · Opens ${b.openingTime}` : ''}
+                        </p>
+                      </div>
+                      <div className={`shrink-0 w-2 h-2 rounded-full ${b.isOpen ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate leading-none">{b.name}</p>
-                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
-                        {b.manager ? `MGR: ${b.manager}` : 'No manager assigned'}
-                        {b.openingTime ? ` · Opens ${b.openingTime}` : ''}
-                      </p>
-                    </div>
-                    <div className={`shrink-0 w-2 h-2 rounded-full ${b.isOpen ? 'bg-emerald-400' : 'bg-slate-300'}`} />
-                  </div>
-                ))}
+                  ))}
+                </div>
+                {/* Fade hint — only shown when list is long enough to scroll */}
+                {missingReportBranches.length > 7 && (
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-900 to-transparent" />
+                )}
               </div>
               {/* Footer */}
               <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -695,7 +701,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
           </div>
         )}
 
-        <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-1 sm:px-2">
           <div className="flex-1 min-w-0">
             <Pagination
                 currentPage={currentPage}

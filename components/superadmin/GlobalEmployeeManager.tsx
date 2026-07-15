@@ -505,6 +505,28 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         [DB_COLUMNS.PROFILE]: profileUrl,
         [DB_COLUMNS.DETAILS]: payload.details ?? null,
       });
+
+      // If the name changed, sync it to any branch where this employee is listed
+      // as the manager or temp manager — otherwise their login breaks because
+      // branches.manager is compared against employees.name during authentication.
+      const oldName = (editingEmployee.name || '').toUpperCase().trim();
+      const newName = (payload.name || '').toUpperCase().trim();
+      if (oldName !== newName) {
+        const branchSyncs = branches
+          .filter(b => {
+            const bMgr = (b.manager || '').toUpperCase().trim();
+            const bTemp = (b.tempManager || '').toUpperCase().trim();
+            return bMgr === oldName || bTemp === oldName;
+          })
+          .map(b => {
+            const updates: Record<string, string> = { id: b.id };
+            if ((b.manager || '').toUpperCase().trim() === oldName) updates[DB_COLUMNS.MANAGER] = payload.name;
+            if ((b.tempManager || '').toUpperCase().trim() === oldName) updates[DB_COLUMNS.TEMP_MANAGER] = payload.name;
+            return updateBranch.mutateAsync(updates);
+          });
+        await Promise.all(branchSyncs);
+      }
+
       playSound('success');
       setEditingEmployee(null);
       if (onRefresh) onRefresh();
