@@ -366,7 +366,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             return (
                 <div
                     key={data.employeeId || name}
-                    className={`${data.isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${data.isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
+                    className={`${data.isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300 dark:hover:border-purple-500' : 'hover:border-emerald-200 dark:hover:border-emerald-700'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
                     onTouchStart={evt => { evt.preventDefault(); startLongPress(name); }}
                     onTouchEnd={cancelLongPress}
                     onTouchMove={cancelLongPress}
@@ -432,7 +432,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                   <div className="flex flex-col gap-3 sm:gap-6 flex-1">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 text-purple-600' : data.attendance ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 dark:bg-purple-800/40 text-purple-600 dark:text-purple-300' : data.attendance ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-300'}`}>
                           {data.profile ? (
                               <img
                                 src={data.profile}

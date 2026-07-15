@@ -869,31 +869,37 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       })()}
                     </div>
                   ) : request.type === 'CREATE_EMPLOYEE' ? (
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
-                      <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">New Employee Request</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="col-span-2 bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Full Name</p>
-                          <p className="text-sm font-black text-slate-900 uppercase">{request.data.name}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Role</p>
-                          <p className="text-xs font-black text-indigo-700 uppercase">{(request.data.role || '').replace(',', ' + ')}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-indigo-100">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-0.5">Daily Allowance</p>
-                          <p className="text-xs font-black text-slate-900 tabular-nums">{fmt(request.data.allowance)}</p>
-                        </div>
+                    <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                      {/* Name — most important, shown prominently */}
+                      <div className="px-4 py-4 bg-slate-50 border-b border-slate-200">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">New Employee</p>
+                        <p className="text-base font-black text-slate-900 uppercase tracking-tight leading-tight">{request.data.name}</p>
                       </div>
-                      {(() => {
-                        const branch = branches.find(b => b.id === (request.data.branchId || request.branchId));
-                        return branch ? (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-indigo-100">
-                            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <p className="text-xs font-black text-indigo-700 uppercase">{branch.name.replace('BRANCH - ', '')}</p>
-                          </div>
-                        ) : null;
-                      })()}
+                      {/* Detail rows */}
+                      <div className="divide-y divide-slate-100">
+                        <div className="flex items-center justify-between px-4 py-3">
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</span>
+                          <span className="text-xs font-black text-indigo-700 uppercase bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                            {(request.data.role || '—').replace(',', ' + ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3">
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Daily Allowance</span>
+                          <span className="text-sm font-black text-slate-900 tabular-nums">{fmt(request.data.allowance)}</span>
+                        </div>
+                        {(() => {
+                          const reqBranch = branches.find(b => b.id === (request.data.branchId || request.branchId));
+                          return reqBranch ? (
+                            <div className="flex items-center justify-between px-4 py-3">
+                              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Branch</span>
+                              <div className="flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                <span className="text-xs font-black text-slate-700 uppercase">{reqBranch.name.replace('BRANCH - ', '')}</span>
+                              </div>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                   ) : request.type === 'BACKFILL_TRANSACTION' ? (
                     <div className="space-y-3">

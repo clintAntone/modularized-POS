@@ -961,8 +961,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   </div>
                   <div className="min-w-0">
                     <p className="text-base font-black text-emerald-700 tabular-nums leading-none">{networkSummary.enabledCount}</p>
-                    <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide leading-none mt-0.5">Saving</p>
-                    <p className="text-xs text-emerald-500 leading-none mt-0.5">vault enabled</p>
+                    <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide leading-none mt-0.5">Active</p>
                   </div>
                 </div>
 
@@ -976,7 +975,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   <div className="min-w-0">
                     <p className="text-base font-black text-slate-600 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-none mt-0.5">Inactive</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-none mt-0.5">not enrolled</p>
                   </div>
                 </div>
 
@@ -990,7 +988,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                   <div className="min-w-0">
                     <p className={`text-base font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-700' : 'text-slate-500 dark:text-slate-400'}`}>{networkSummary.fullCount}</p>
                     <p className={`text-xs font-semibold uppercase tracking-wide leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`}>At Target</p>
-                    <p className={`text-xs leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>goal reached</p>
                   </div>
                 </div>
               </div>
@@ -1176,15 +1173,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       {/* Actions */}
                       <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          {!isReadOnly && enabled && (
-                            <button
-                              onClick={() => { setDetailBranchId(branch.id); setDepositingId(branch.id); setEditingId(null); setDepositInput(''); playSound('click'); }}
-                              className="h-7 px-2.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs font-semibold uppercase tracking-wide transition-all flex items-center gap-1"
-                            >
-                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
-                              Deposit
-                            </button>
-                          )}
                           {!isReadOnly && (
                             <button
                               onClick={() => { setDetailBranchId(branch.id); startEdit(branch); setDepositingId(null); }}

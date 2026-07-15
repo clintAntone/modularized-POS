@@ -1043,18 +1043,20 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                         const baseAllw = Number(s.allowance || 0);
                         const finalPay = baseComm + baseAllw + ot - late;
 
-                        // Resolve name from employeeId if possible
-                        const resolvedName = employees.find(e => e.id === s.employeeId)?.name || s.name || 'Unknown Staff';
+                        // Resolve name and profile from employeeId if possible
+                        const resolvedEmployee = employees.find(e => e.id === s.employeeId);
+                        const resolvedName = resolvedEmployee?.name || s.name || 'Unknown Staff';
+                        const resolvedProfile = s.profile || resolvedEmployee?.profile || null;
 
                         const isPaidDaily = s.attendance?.isPaidDaily || s.attendance?.is_paid_daily || false;
                         const isHalfDay = s.attendance?.isHalfDay || s.attendance?.is_half_day || false;
 
-                        const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && employees.find(e => e.id === s.employeeId)?.branchId !== report.branchId);
+                        const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && resolvedEmployee?.branchId !== report.branchId);
 
                         return (
                           <div
                             key={s.employeeId || s.name}
-                            className={`${isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden cursor-default`}
+                            className={`${isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 hover:shadow-xl ${isReliever ? 'hover:border-purple-300 dark:hover:border-purple-500' : 'hover:border-emerald-200 dark:hover:border-emerald-700'} group relative overflow-hidden cursor-default`}
                           >
                             {isPaidDaily && (
                               <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
@@ -1077,10 +1079,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             <div className="flex flex-col gap-3 sm:gap-6">
                               <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
-                                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${isReliever ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                    {s.profile ? (
+                                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${isReliever ? 'bg-purple-50 dark:bg-purple-800/40 text-purple-600 dark:text-purple-300' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
+                                    {resolvedProfile ? (
                                       <img
-                                        src={s.profile}
+                                        src={resolvedProfile}
                                         alt={resolvedName}
                                         className="w-full h-full object-cover"
                                         referrerPolicy="no-referrer"
