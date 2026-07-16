@@ -17,11 +17,11 @@ export const RoleBadge = ({ role }: { role: string }) => {
   const roles = (role || '').split(',')
     .filter(Boolean)
     .sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
-  
+
   return (
     <div className="flex flex-wrap gap-1 justify-center md:justify-start">
       {roles.map(r => (
-        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide border ${styles[r] || styles.TRAINEE}`}>
+        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide border ${styles[r] || 'bg-violet-600 text-white border-violet-700'}`}>
           {r}
         </span>
       ))}

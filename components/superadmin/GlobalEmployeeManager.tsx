@@ -56,6 +56,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const [resettingEmployee, setResettingEmployee] = useState<Employee | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
@@ -74,6 +75,13 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq(DB_COLUMNS.KEY, 'custom_roles').maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) { try { setCustomRoles(JSON.parse(data.value)); } catch {} }
+      });
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1033,6 +1041,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             branches={branches}
             isSaving={isSaving}
             error={error}
+            customRoles={customRoles}
             onClose={() => setEditingEmployee(null)}
             onSave={handleSaveEmployee}
             onSavePersonalDetails={handleSavePersonalDetails}

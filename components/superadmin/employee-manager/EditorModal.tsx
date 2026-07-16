@@ -20,6 +20,7 @@ interface EditorModalProps {
   branches: Branch[];
   isSaving: boolean;
   error: string;
+  customRoles?: string[];
   onClose: () => void;
   onSave: (payload: any, authorizedIds: string[], profile: File | null) => void;
   onSavePersonalDetails?: (payload: PersonalDetailsPayload, profileFile: File | null) => void;
@@ -85,7 +86,7 @@ const PillDropdown = ({ value, onChange, options, placeholder, className }: {
 };
 
 export const EditorModal: React.FC<EditorModalProps> = ({
-  employee, branches, isSaving, error, onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete, onViewID
+  employee, branches, isSaving, error, customRoles = [], onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete, onViewID
 }) => {
   const isExisting = !!employee.id;
   const [activeTab, setActiveTab] = useState<'assignment' | 'personal'>('assignment');
@@ -471,6 +472,20 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                                     isActive && role === 'THERAPIST' ? 'bg-emerald-500 border-emerald-600 text-white'
                                     : isActive && role === 'BONESETTER' ? 'bg-amber-500 border-amber-600 text-white'
                                     : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-700'
+                                  }`}
+                                >
+                                  {isActive && <svg className="w-3 h-3 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                  {role}
+                                </button>
+                              );
+                            })}
+                            {customRoles.map(role => {
+                              const isActive = (branchRole || '').split(',').includes(role);
+                              return (
+                                <button key={role} type="button" onClick={() => toggleBranchRole(id, role)}
+                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide border-2 transition-all active:scale-95 ${
+                                    isActive ? 'bg-violet-600 border-violet-700 text-white'
+                                    : 'bg-white border-slate-200 text-slate-400 hover:border-violet-300 hover:text-violet-600'
                                   }`}
                                 >
                                   {isActive && <svg className="w-3 h-3 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
