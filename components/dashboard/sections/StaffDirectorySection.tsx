@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Branch, Employee, Transaction, Attendance } from '../../../types';
+import { Branch, Employee, Transaction, Attendance, EmployeeComplaint } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
@@ -38,6 +38,7 @@ interface StaffDirectorySectionProps {
   isDelegate?: boolean;
   isManagerView?: boolean;
   onNavigateToComplaints?: () => void;
+  complaints?: EmployeeComplaint[];
 }
 
 interface Toast {
@@ -45,7 +46,7 @@ interface Toast {
   type: 'success' | 'error';
 }
 
-export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints }) => {
+export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);
@@ -119,6 +120,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
   const [removeRelieversEmployee, setRemoveRelieversEmployee] = useState<Employee | null>(null);
   const [isRemovingReliever, setIsRemovingReliever] = useState(false);
+
+  // Reliever complaint check popup
+  const [relieverComplaintCheck, setRelieverComplaintCheck] = useState<{ emp: Employee; empComplaints: { id: string; status: string; reportType: string; branchId: string; filedAt: string }[] } | null>(null);
+  const [isCheckingComplaints, setIsCheckingComplaints] = useState(false);
 
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -1110,6 +1115,41 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const COMPLAINT_REPORT_LABEL: Record<string, string> = {
+    TARDINESS: 'Tardiness', ABSENCE: 'Unexcused Absence', MISCONDUCT: 'Misconduct',
+    POLICY_VIOLATION: 'Policy Violation', PERFORMANCE: 'Poor Performance', OTHER: 'Other',
+  };
+
+  const handleSaveWithComplaintCheck = async () => {
+    if (isPullMode && editingEmployee?.id) {
+      setIsCheckingComplaints(true);
+      try {
+        const { data } = await supabase
+          .from(DB_TABLES.EMPLOYEE_COMPLAINTS)
+          .select('id,status,report_type,branch_id,filed_at')
+          .eq('employee_id', editingEmployee.id)
+          .neq('status', 'DISMISSED');
+        const empComplaints = (data || []) as any[];
+        if (empComplaints.length > 0) {
+          setRelieverComplaintCheck({
+            emp: editingEmployee as Employee,
+            empComplaints: empComplaints.map(c => ({
+              id: c.id,
+              status: c.status,
+              reportType: c.report_type,
+              branchId: c.branch_id,
+              filedAt: c.filed_at,
+            })),
+          });
+          return;
+        }
+      } finally {
+        setIsCheckingComplaints(false);
+      }
+    }
+    handleSaveEmployee();
+  };
+
   return (
     <>
       {toast && createPortal(
@@ -1119,6 +1159,76 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         </div>,
         document.body
       )}
+
+      {relieverComplaintCheck && createPortal(
+        <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-widest">Complaint History</p>
+                  <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mt-0.5">{relieverComplaintCheck.emp.name}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-2 max-h-64 overflow-y-auto">
+              {relieverComplaintCheck.empComplaints
+                .sort((a, b) => a.filedAt.localeCompare(b.filedAt))
+                .map((c, idx) => (
+                  <div key={c.id} className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Complaint</p>
+                        <p className="text-xs font-black text-slate-800">{COMPLAINT_REPORT_LABEL[c.reportType] || c.reportType}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Offense #</p>
+                        <p className="text-xs font-black text-slate-800">{idx + 1}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Status</p>
+                        <p className={`text-xs font-black uppercase ${
+                          c.status === 'PENDING' ? 'text-amber-600' :
+                          c.status === 'ACKNOWLEDGED' ? 'text-emerald-600' : 'text-slate-400'
+                        }`}>{c.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Branch</p>
+                        <p className="text-xs font-black text-slate-800 truncate">
+                          {branches.find(b => b.id === c.branchId)?.name?.replace(/BRANCH\s*-\s*/i, '') || c.branchId}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div className="px-5 pb-5 pt-2 flex gap-3">
+              <button
+                onClick={() => setRelieverComplaintCheck(null)}
+                className="flex-1 h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setRelieverComplaintCheck(null);
+                  handleSaveEmployee();
+                }}
+                className="flex-1 h-11 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     <div className="space-y-4">
 
       <StaffModals 
@@ -1137,7 +1247,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         getShiftState={getShiftState}
         clockOutLocked={clockOutLocked}
         onTimeAction={handleTimeAction}
-        onSaveEmployee={handleSaveEmployee}
+        onSaveEmployee={handleSaveWithComplaintCheck}
         onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); }}
         onCloseRecovery={() => setRecoveryEmployee(null)}
         onRefresh={() => onRefresh?.()}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Branch, Transaction, Expense, Attendance, Employee, BranchVault, SalesReport, VaultTransaction } from '../../../types';
+import { Branch, Transaction, Expense, Attendance, Employee, BranchVault, SalesReport, VaultTransaction, EmployeeComplaint } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
@@ -45,6 +45,7 @@ interface SalesTodayProps {
   totalBillsAmount?: number;
   vaultTransactions?: VaultTransaction[];
   onForceSync?: () => void;
+  complaints?: EmployeeComplaint[];
 }
 
 interface Toast {
@@ -62,7 +63,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   todayStr: propTodayStr,
   hiddenStaffNames, setHiddenStaffNames,
   isClosedMode = false, onRefresh, loading = false, branchVault = null, totalBillsAmount = 0,
-  vaultTransactions = [], onForceSync,
+  vaultTransactions = [], onForceSync, complaints = [],
 }) => {
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);

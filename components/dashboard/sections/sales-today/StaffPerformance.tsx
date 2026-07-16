@@ -33,7 +33,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                                                                     todayStr,
                                                                     transactions,
                                                                     employees,
-                                                                    hiddenStaffNames
+                                                                    hiddenStaffNames,
                                                                   }) => {
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [showAddStaffSelector, setShowAddStaffSelector] = useState(false);
@@ -366,7 +366,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             return (
                 <div
                     key={data.employeeId || name}
-                    className={`${data.isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300 dark:hover:border-purple-500' : 'hover:border-emerald-200 dark:hover:border-emerald-700'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
+                    className={`${data.isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
                     onTouchStart={evt => { evt.preventDefault(); startLongPress(name); }}
                     onTouchEnd={cancelLongPress}
                     onTouchMove={cancelLongPress}
@@ -379,17 +379,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                       </div>
                     )}
-                    <div className="absolute top-0 left-0 right-0 flex flex-wrap gap-1 px-3 sm:px-4 pt-2 sm:pt-3 z-20 pointer-events-none">
-                    {data.isReliever && (
-                        <div className="bg-purple-600 text-white text-xs font-black uppercase px-2 py-1 rounded-md shadow-lg border border-purple-400">RELIEVER</div>
-                    )}
                     {isSettled && (
+                    <div className="absolute top-0 left-0 right-0 flex flex-wrap gap-1 px-3 sm:px-4 pt-2 sm:pt-3 z-20 pointer-events-none">
                         <div className="bg-emerald-600 text-white text-xs font-bold uppercase px-2 py-0.5 rounded-full shadow-lg border border-emerald-400 flex items-center gap-1">
                           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
                           Paid
                         </div>
+                    </div>
                     )}
-                  </div>
 
                   {/* Long-press remove overlay */}
                   {revealedDeleteId === name && (
@@ -449,6 +446,9 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight truncate leading-none mb-1 group-hover:text-emerald-700 transition-colors">{data.name || name}</h3>
+                          {data.isReliever && (
+                            <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
+                          )}
                         </div>
                       </div>
 
@@ -475,8 +475,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <div className="bg-slate-100 dark:bg-slate-700 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-200 dark:border-slate-600">
-                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Allowance</p>
-                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-200 uppercase tracking-wide mb-0.5">Allowance</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-white tabular-nums">₱{data.allowance.toLocaleString()}</p>
                       </div>
                       {adv > 0 && (
                         <div className="bg-indigo-50 dark:bg-indigo-900/40 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100 dark:border-indigo-800">

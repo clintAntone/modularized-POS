@@ -1,10 +1,95 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Branch, Employee, EmployeeComplaint } from '../../../types';
 import { getEmployeeRole } from '../../../lib/payroll';
 import { playSound } from '../../../lib/audio';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { EmployeeReportModal } from '../../shared/EmployeeReportModal';
-import { Flag, ChevronDown, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Flag, ChevronDown, AlertTriangle, CheckCircle2, Clock, Lock } from 'lucide-react';
+
+// ── Inline PIN gate ───────────────────────────────────────────────
+const PinGate: React.FC<{
+  label: string;
+  correctPin?: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+  cancelLabel?: string;
+}> = ({ label, correctPin, onConfirm, onCancel, cancelLabel = 'Go Back' }) => {
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
+  const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => { inputsRef.current[0]?.focus(); }, []);
+
+  const handleDigit = (i: number, val: string) => {
+    if (!/^\d?$/.test(val)) return;
+    const next = [...digits];
+    next[i] = val;
+    setDigits(next);
+    setError('');
+    if (val && i < 5) inputsRef.current[i + 1]?.focus();
+    if (!val && i > 0) inputsRef.current[i - 1]?.focus();
+  };
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !digits[i] && i > 0) inputsRef.current[i - 1]?.focus();
+    if (e.key === 'Enter') handleSubmit();
+  };
+
+  const handleSubmit = () => {
+    const entered = digits.join('');
+    if (entered.length < 6) { setError('Enter your 6-digit PIN'); return; }
+    if (correctPin && entered !== correctPin) {
+      setError('Incorrect PIN');
+      setShake(true);
+      setDigits(Array(6).fill(''));
+      setTimeout(() => { setShake(false); inputsRef.current[0]?.focus(); }, 500);
+      return;
+    }
+    onConfirm();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-6 space-y-6 animate-in fade-in duration-200">
+      <style>{`@keyframes wiggle{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}`}</style>
+      <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center">
+        <Lock className="w-6 h-6 text-rose-500" strokeWidth={2.5} />
+      </div>
+      <div className="text-center space-y-1">
+        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">PIN Required</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      </div>
+      <div className={`flex justify-center gap-2 ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+        {digits.map((d, i) => (
+          <input
+            key={i}
+            ref={el => { inputsRef.current[i] = el; }}
+            type="password"
+            inputMode="numeric"
+            maxLength={1}
+            value={d}
+            onChange={e => handleDigit(i, e.target.value)}
+            onKeyDown={e => handleKeyDown(i, e)}
+            className={`w-10 h-12 text-center text-lg font-black rounded-xl border-2 outline-none transition-all
+              ${d ? 'border-rose-400 bg-rose-50 text-rose-600' : 'border-slate-200 bg-slate-50 text-slate-900'}
+              focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20`}
+          />
+        ))}
+      </div>
+      {error && <p className="text-xs font-black text-rose-500 uppercase tracking-widest">{error}</p>}
+      <div className="flex gap-3 w-full max-w-xs">
+        {onCancel && (
+          <button onClick={onCancel} className="flex-1 h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all">
+            {cancelLabel}
+          </button>
+        )}
+        <button onClick={handleSubmit} className="flex-1 h-11 rounded-2xl bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-700 active:scale-95 transition-all">
+          Confirm
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const STATUS_META: Record<string, { pill: string; icon: React.ReactNode; label: string }> = {
   PENDING:      { pill: 'bg-amber-100 text-amber-700 border-amber-200',      icon: <Clock className="w-3 h-3" />,         label: 'Pending'      },
@@ -59,9 +144,11 @@ interface ComplaintsSectionProps {
 export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
   branch, employees, complaints, filedById, filedByName, managerPin, isDelegate,
 }) => {
+  const [tabUnlocked, setTabUnlocked] = useState(false);
   const [reportEmployee, setReportEmployee] = useState<Employee | null>(null);
   const [expandedEmpId, setExpandedEmpId] = useState<string | null>(null);
   const [expandedComplaintId, setExpandedComplaintId] = useState<string | null>(null);
+  const [pendingComplaintId, setPendingComplaintId] = useState<string | null>(null); // complaint awaiting PIN
   const [submitted, setSubmitted] = useState(false);
 
   const branchStaff = useMemo(() => {
@@ -78,11 +165,14 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
   const homeBranchEmpIds = useMemo(() => new Set(employees.filter(e => e.branchId === branch.id).map(e => e.id)), [employees, branch.id]);
   const relevantComplaints = useMemo(() =>
     complaints.filter(c =>
-      c.branchId === branch.id ||
-      // Cross-branch complaints about home employees: only show once acknowledged (not while still pending/unproven)
-      (homeBranchEmpIds.has(c.employeeId) && c.status !== 'PENDING')
+      c.filedById === filedById &&
+      (
+        c.branchId === branch.id ||
+        // Cross-branch complaints about home employees: only show once acknowledged (not while still pending/unproven)
+        (homeBranchEmpIds.has(c.employeeId) && c.status !== 'PENDING')
+      )
     ),
-  [complaints, branch.id, homeBranchEmpIds]);
+  [complaints, branch.id, homeBranchEmpIds, filedById]);
 
   const complaintsByEmp = useMemo(() => {
     const map: Record<string, EmployeeComplaint[]> = {};
@@ -121,6 +211,18 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
   [branchStaff, branch.id, complaintsByEmp]);
 
   const sortedStaff = useMemo(() => [...regularStaff, ...relievers], [regularStaff, relievers]);
+
+  if (!tabUnlocked) {
+    return (
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm">
+        <PinGate
+          label="Enter your PIN to access complaints"
+          correctPin={managerPin}
+          onConfirm={() => { playSound('click'); setTabUnlocked(true); }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 pb-4">
@@ -270,7 +372,10 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
                             {/* Complaint summary row */}
                             <button
                               className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
-                              onClick={() => setExpandedComplaintId(isComplaintExpanded ? null : c.id)}
+                              onClick={() => {
+                                if (isComplaintExpanded) { setExpandedComplaintId(null); return; }
+                                setPendingComplaintId(c.id);
+                              }}
                             >
                               <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
                                 {ordinal(offenseNum)}
@@ -354,6 +459,24 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
           </div>
         )}
       </div>
+
+      {pendingComplaintId && (
+        <div className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+            <PinGate
+              label="Enter your PIN to view this complaint"
+              correctPin={managerPin}
+              onConfirm={() => {
+                playSound('click');
+                setExpandedComplaintId(pendingComplaintId);
+                setPendingComplaintId(null);
+              }}
+              onCancel={() => setPendingComplaintId(null)}
+              cancelLabel="Cancel"
+            />
+          </div>
+        </div>
+      )}
 
       {reportEmployee && (
         <EmployeeReportModal

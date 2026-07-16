@@ -473,7 +473,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                                   setSearchResults([]);
                                   playSound('success');
                                 }}
-                                className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-slate-100 hover:border-emerald-400 hover:shadow-sm transition-all group text-left"
+                                className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-slate-100 hover:border-emerald-400 hover:shadow-sm transition-all group text-left disabled:opacity-50"
                               >
                                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black text-xs shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors overflow-hidden">
                                   {emp.profile
@@ -884,5 +884,9 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
     </>
   );
 
-  return createPortal(modalContent, document.body);
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+    </>
+  );
 };
