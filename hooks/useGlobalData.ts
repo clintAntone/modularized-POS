@@ -590,7 +590,8 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
     });
 
     const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({

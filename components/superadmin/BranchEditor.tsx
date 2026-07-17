@@ -61,9 +61,8 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     const { data: branchTemplates } = useBranchServiceTemplates(branch.id);
     const catalogServices = useMemo<Service[]>(() => {
         if (branchTemplates && branchTemplates.length > 0) return branchTemplates as Service[];
-        if (masterServices.length > 0) return masterServices;
-        return localBranch.services || [];
-    }, [branchTemplates, masterServices, localBranch.services]);
+        return masterServices;
+    }, [branchTemplates, masterServices]);
 
     const todayStr = useMemo(() => getManilaTodayStr(), []);
 

@@ -18,6 +18,13 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
   };
 
   const handleUpdateOwner = (index: number, field: 'name' | 'percentage', value: string | number) => {
+    if (field === 'percentage') {
+      const incoming = Number(value);
+      const otherTotal = owners.reduce((sum, o, i) => i === index ? sum : sum + Number(o.percentage), 0);
+      const capped = Math.min(incoming, 100 - otherTotal);
+      onUpdate({ owners: owners.map((owner, i) => i === index ? { ...owner, percentage: Math.max(0, capped) } : owner) });
+      return;
+    }
     onUpdate({ owners: owners.map((owner, i) => i === index ? { ...owner, [field]: value } : owner) });
   };
 
@@ -146,9 +153,14 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               {hasLevy ? `Total (of ${100 - (groupLevy?.percentage || 0)}% post-levy)` : 'Total Allocation'}
             </span>
-            <span className={`text-xs font-black ${totalPercentage > 100 ? 'text-rose-500' : totalPercentage === 100 ? 'text-emerald-600' : 'text-slate-900'}`}>
-              {totalPercentage}%
-            </span>
+            <div className="flex items-center gap-2">
+              {totalPercentage < 100 && (
+                <span className="text-xs text-slate-400">{100 - totalPercentage}% remaining</span>
+              )}
+              <span className={`text-xs font-black ${totalPercentage > 100 ? 'text-rose-500' : totalPercentage === 100 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                {totalPercentage}%
+              </span>
+            </div>
           </div>
         )}
       </div>

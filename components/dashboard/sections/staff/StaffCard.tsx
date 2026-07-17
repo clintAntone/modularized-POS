@@ -229,7 +229,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       )}
 
       {/* Action buttons — absolute top-right, above avatar level */}
-      <div className="absolute top-3 right-3 flex gap-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      <div className="absolute top-3 right-3 flex gap-1.5 z-20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
             {onReset && (isMainManager || isTempManager) && (
               <button
                 onMouseDown={e => e.stopPropagation()}

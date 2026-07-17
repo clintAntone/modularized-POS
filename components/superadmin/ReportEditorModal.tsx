@@ -5,6 +5,7 @@ import { playSound } from '../../lib/audio';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { getTrueISOString } from '../../lib/time';
+import { useBranchServiceTemplates } from '../../hooks/useNetworkData';
 
 interface ReportEditorModalProps {
     report: SalesReport;
@@ -19,6 +20,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
     const [activeTab, setActiveTab] = useState<'sessions' | 'expenses' | 'vault'>('sessions');
     const [isSaving, setIsSaving] = useState(false);
     const [presentEmployeeIds, setPresentEmployeeIds] = useState<Set<string>>(new Set());
+    const { data: branchServiceTemplates = [] } = useBranchServiceTemplates(branch.id);
 
     useEffect(() => {
         document.body.classList.add('modal-open');
@@ -64,7 +66,7 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
         const serviceIds = (s.serviceId || '').split(',').map((id: string) => id.trim());
         const serviceNames = (s.serviceName || '').split('+').map((n: string) => n.trim().toUpperCase());
 
-        const matchedServices = branch.services.filter(srv =>
+        const matchedServices = branchServiceTemplates.filter(srv =>
             serviceIds.includes(srv.id) || serviceNames.includes((srv.name || '').toUpperCase())
         );
 

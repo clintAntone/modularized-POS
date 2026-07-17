@@ -121,7 +121,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     }, [transactions, branch.id, todayStr]);
 
     const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
-    const activeServices = useMemo(() => branchServiceTemplates || branch.services || [], [branchServiceTemplates, branch.services]);
+    const activeServices = useMemo(() => branchServiceTemplates || [], [branchServiceTemplates]);
 
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
