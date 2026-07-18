@@ -180,14 +180,14 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 
           {/* Date range — only on daily view */}
           {view === 'daily' && (
-            <div className="flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${startDate ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:border-slate-300 hover:bg-white dark:hover:bg-slate-600'}`}>
+            <div className="flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+              <label className={`relative flex-1 min-w-0 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 overflow-hidden ${startDate ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:border-slate-300 hover:bg-white dark:hover:bg-slate-600'}`}>
                 <span className={`text-xs font-black uppercase tracking-wider leading-none ${startDate ? 'text-emerald-500' : 'text-slate-400'}`}>From</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => { setStartDate(e.target.value); playSound('click'); }}
-                  className="w-full bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none cursor-pointer appearance-none leading-none uppercase"
+                  className="w-full min-w-0 bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none cursor-pointer appearance-none leading-none uppercase [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </label>
 
@@ -197,13 +197,13 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                 <div className="w-4 h-px bg-slate-300"></div>
               </div>
 
-              <label className={`relative flex-1 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 ${endDate ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:border-slate-300 hover:bg-white dark:hover:bg-slate-600'}`}>
+              <label className={`relative flex-1 min-w-0 group/date cursor-pointer flex flex-col gap-1 px-4 py-3 rounded-2xl border transition-all duration-200 overflow-hidden ${endDate ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:border-slate-300 hover:bg-white dark:hover:bg-slate-600'}`}>
                 <span className={`text-xs font-black uppercase tracking-wider leading-none ${endDate ? 'text-emerald-500' : 'text-slate-400'}`}>To</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => { setEndDate(e.target.value); playSound('click'); }}
-                  className="w-full bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none cursor-pointer appearance-none leading-none uppercase"
+                  className="w-full min-w-0 bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none cursor-pointer appearance-none leading-none uppercase [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </label>
 

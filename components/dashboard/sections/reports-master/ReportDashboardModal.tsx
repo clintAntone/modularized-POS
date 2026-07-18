@@ -117,6 +117,16 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   const isAggregate = constituents.length > 0;
 
+  const isLateClockIn = (clockInStr?: string, openingTime?: string): boolean => {
+    if (!clockInStr || !openingTime) return false;
+    const manilaClockIn = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date(clockInStr));
+    const [clockH, clockM] = manilaClockIn.split(':').map(Number);
+    const [openH, openM] = openingTime.split(':').map(Number);
+    return (clockH * 60 + clockM) > (openH * 60 + openM + 10);
+  };
+
   const reportDateStr = report.reportDate?.slice(0, 10) ?? '';
   const isBackfill = report.id.includes('_BACKFILL_');
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
@@ -1091,9 +1101,14 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   </div>
                                   <div className="min-w-0">
                                     <h3 className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight truncate leading-none mb-1 group-hover:text-emerald-700 transition-colors">{resolvedName}</h3>
-                                    {isReliever && (
-                                      <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
-                                    )}
+                                    <div className="flex flex-wrap gap-1">
+                                      {isReliever && (
+                                        <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
+                                      )}
+                                      {isLateClockIn(s.attendance?.clockIn || s.attendance?.clock_in, branch?.openingTime) && (
+                                        <span className="inline-block bg-amber-500 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-400 leading-none">LATE</span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -1465,6 +1480,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                           {resolvedName}
                           {isReliever && <span className="ml-1 text-xs text-purple-600 font-black">(RELIEVER)</span>}
                           {isHalfDay && <span className="ml-1 text-xs text-amber-600 font-black">(HALF DAY)</span>}
+                          {isLateClockIn(s.attendance?.clockIn || s.attendance?.clock_in, branch?.openingTime) && <span className="ml-1 text-xs text-amber-600 font-black">(LATE)</span>}
                         </td>
                         <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">{Number(s.count || 0)}</td>
                         <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">₱{(baseComm + baseAllw).toLocaleString()}</td>

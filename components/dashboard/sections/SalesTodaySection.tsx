@@ -1049,19 +1049,6 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {onForceSync && (
-              <button
-                onClick={() => { playSound('click'); onForceSync(); }}
-                disabled={autoSyncStatus === 'saving'}
-                title="Force sync report to database"
-                className={`flex items-center gap-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 rounded-xl text-xs font-medium uppercase tracking-wide hover:bg-slate-50 hover:text-slate-600 transition-all shadow-sm active:scale-95 ${autoSyncStatus === 'saving' ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <svg className={`w-3 h-3 ${autoSyncStatus === 'saving' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Sync
-              </button>
-            )}
           <button
               onClick={() => handleExportPDF()}
               disabled={isExporting}

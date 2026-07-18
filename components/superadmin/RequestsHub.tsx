@@ -105,7 +105,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
-  const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean } | null>(null);
+  const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean; duplicateEmployee?: string } | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteRevealId, setDeleteRevealId] = useState<string | null>(null);
@@ -154,7 +154,29 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   const triggerConfirm = (request: Request, action: 'APPROVE' | 'REJECT') => {
     const hasConflict = action === 'APPROVE' && request.type === 'BACKFILL_REPORT'
       && !!salesReports.find(r => r.branchId === request.branchId && r.reportDate === request.data.reportDate);
-    setConfirmState({ request, action, hasConflict });
+
+    let duplicateEmployee: string | undefined;
+    if (action === 'APPROVE' && request.type === 'CREATE_EMPLOYEE') {
+      const reqName = (request.data?.name || '').trim().toUpperCase();
+      // Check against existing active employees in the same branch
+      const existingEmp = employees.find(e =>
+        e.branchId === request.branchId &&
+        e.isActive &&
+        (e.name || '').trim().toUpperCase() === reqName
+      );
+      // Also check if another approved CREATE_EMPLOYEE request already created this person
+      const alreadyApproved = requests.find(r =>
+        r.id !== request.id &&
+        r.type === 'CREATE_EMPLOYEE' &&
+        r.status === 'APPROVED' &&
+        r.branchId === request.branchId &&
+        (r.data?.name || '').trim().toUpperCase() === reqName
+      );
+      if (existingEmp) duplicateEmployee = existingEmp.name;
+      else if (alreadyApproved) duplicateEmployee = alreadyApproved.data?.name || reqName;
+    }
+
+    setConfirmState({ request, action, hasConflict, duplicateEmployee });
   };
 
   const handleAction = async (request: Request, action: 'APPROVE' | 'REJECT') => {
@@ -421,6 +443,14 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                         <p className="text-sm text-rose-600 mt-0.5">A report already exists for <span className="font-black">{confirmState.request.data?.reportDate}</span>. Approving will <span className="font-black">overwrite</span> it permanently.</p>
                       </div>
                     </div>
+                  ) : confirmState.duplicateEmployee ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                      <div>
+                        <p className="text-xs font-black text-amber-700 uppercase tracking-widest">Duplicate Employee</p>
+                        <p className="text-sm text-amber-700 mt-0.5"><span className="font-black">{confirmState.duplicateEmployee}</span> already exists in this branch. Approving will create a second record.</p>
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-sm text-slate-600">Confirm approval of this <span className="font-black text-slate-900">{confirmMeta.label}</span> request?</p>
                   )}
@@ -466,7 +496,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                   disabled={!!isProcessing}
                   className="px-7 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {confirmState.hasConflict ? 'Overwrite & Approve' : 'Approve Request'}
+                  {confirmState.hasConflict ? 'Overwrite & Approve' : confirmState.duplicateEmployee ? 'Approve Anyway' : 'Approve Request'}
                 </button>
               )}
             </div>
@@ -578,6 +608,11 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             };
             const hasConflict = request.type === 'BACKFILL_REPORT' &&
               salesReports.some(r => r.branchId === request.branchId && r.reportDate === request.data.reportDate);
+            const hasDuplicateEmployee = request.type === 'CREATE_EMPLOYEE' && request.status === 'PENDING' && (() => {
+              const reqName = (request.data?.name || '').trim().toUpperCase();
+              return employees.some(e => e.branchId === request.branchId && e.isActive && (e.name || '').trim().toUpperCase() === reqName) ||
+                requests.some(r => r.id !== request.id && r.type === 'CREATE_EMPLOYEE' && r.status === 'APPROVED' && r.branchId === request.branchId && (r.data?.name || '').trim().toUpperCase() === reqName);
+            })();
             const targetDate: string | null = request.type.startsWith('BACKFILL')
               ? (request.data.reportDate || request.data.date || null)
               : null;
@@ -590,6 +625,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                 key={request.id}
                 className={`group bg-white rounded-2xl shadow-sm border overflow-hidden transition-shadow hover:shadow-md select-none ${
                   hasConflict ? 'border-rose-200' :
+                  hasDuplicateEmployee ? 'border-amber-200' :
                   request.status === 'PENDING' ? 'border-amber-100' :
                   request.status === 'APPROVED' ? 'border-emerald-100' :
                   'border-slate-100'
@@ -665,6 +701,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                       <div>
                         <p className="text-sm font-black text-rose-700 uppercase tracking-tight">Conflict Detected</p>
                         <p className="text-xs font-medium text-rose-500 mt-0.5">A report already exists for this date. Approving will overwrite it.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Duplicate employee warning */}
+                  {hasDuplicateEmployee && (
+                    <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                      <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-black text-amber-700 uppercase tracking-tight">Duplicate Employee</p>
+                        <p className="text-xs font-medium text-amber-600 mt-0.5">An employee with this name already exists in this branch.</p>
                       </div>
                     </div>
                   )}

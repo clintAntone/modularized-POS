@@ -399,7 +399,11 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   }
 
   if (!auth.user) {
-    return <Login onLogin={handleLogin} branches={branches} employees={employees} onlineUsers={{}} logo={systemLogo} version={systemVersion} appName={dynamicAppName} connectionError={error} systemLatest={systemLatest} apkUrl={apkUrl} />;
+    const handleLoginAndClearPreview: typeof handleLogin = (...args) => {
+      setPreviewBranchId(null);
+      handleLogin(...args);
+    };
+    return <Login onLogin={handleLoginAndClearPreview} branches={branches} employees={employees} onlineUsers={{}} logo={systemLogo} version={systemVersion} appName={dynamicAppName} connectionError={error} systemLatest={systemLatest} apkUrl={apkUrl} />;
   }
 
   if (auth.user.role === UserRole.BRANCH_MANAGER) {
@@ -512,7 +516,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   }
 
   return (
-      <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-hidden">
+      <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-clip">
         <GlobalLoadingOverlay isVisible={globalSync} />
 
 
@@ -722,7 +726,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       </button>
                     </div>
                   </div>
-                  <BranchManagerDashboard user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} />
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (

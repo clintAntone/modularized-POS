@@ -1,4 +1,4 @@
-const CACHE_NAME = '_hc-1784256314284';
+const CACHE_NAME = '_hc-1784344779998';
 const PRECACHE_URLS = [
   '/icon-192.png',
   '/icon-512.png',

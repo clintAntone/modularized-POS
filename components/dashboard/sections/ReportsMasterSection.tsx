@@ -261,8 +261,12 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   // Fresh-fetch cache: keyed by report ID, populated lazily as rows become visible
   const [freshReports, setFreshReports] = useState<Record<string, SalesReport>>({});
 
-  // Reset cache whenever the parent reloads the source data
-  useEffect(() => { setFreshReports({}); }, [salesReports]);
+  // Reset cache only when the actual set of report IDs changes (not on every array reference change)
+  const salesReportIdKey = useMemo(
+    () => salesReports.map(r => r.id).join(','),
+    [salesReports]
+  );
+  useEffect(() => { setFreshReports({}); }, [salesReportIdKey]);
 
   // Maps a raw Supabase row (snake_case) to the SalesReport shape (camelCase)
   const mapRawReport = (r: any): SalesReport => ({

@@ -60,6 +60,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
+  const [periodPaymentTotals, setPeriodPaymentTotals] = useState<{ cash: number; gcash: number } | null>(null);
   const [vaultBalance, setVaultBalance] = useState<number | null>(null);
   const [vaultTarget, setVaultTarget] = useState<number | null>(null);
   const [isRemittingToVault, setIsRemittingToVault] = useState(false);
@@ -470,7 +471,34 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   useEffect(() => {
     if (currentGroup) fetchSubmission(currentGroup.label);
     setGrossBreakdownOpen(false);
+    setPeriodPaymentTotals(null);
   }, [currentGroup?.label, branch.id]);
+
+  // Lazy-fetch session_data only for the selected period — avoids loading it globally
+  useEffect(() => {
+    const reports = currentGroup && 'reports' in currentGroup ? currentGroup.reports : [];
+    if (!reports.length || !supabase) return;
+    const ids = reports.map((r: SalesReport) => r.id);
+    supabase
+      .from(DB_TABLES.SALES_REPORTS)
+      .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
+      .in(DB_COLUMNS.ID, ids)
+      .then(({ data }) => {
+        if (!data) return;
+        let cash = 0, gcash = 0;
+        data.forEach(row => {
+          const sessions: any[] = typeof row[DB_COLUMNS.SESSION_DATA] === 'string'
+            ? JSON.parse(row[DB_COLUMNS.SESSION_DATA])
+            : (row[DB_COLUMNS.SESSION_DATA] || []);
+          sessions.forEach(t => {
+            const total = Number(t.total || 0);
+            if (t.paymentMethod === 'GCASH') gcash += total;
+            else cash += total;
+          });
+        });
+        setPeriodPaymentTotals({ cash, gcash });
+      });
+  }, [currentGroup?.key, branch.id]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -788,6 +816,24 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               </span>
               <span className="font-bold text-slate-900 tabular-nums group-hover:text-indigo-700 transition-colors">{fmt(agg.grossSales)}</span>
             </button>
+
+            {/* Cash / GCash sub-lines — lazy loaded per period */}
+            {periodPaymentTotals && (periodPaymentTotals.cash > 0 || periodPaymentTotals.gcash > 0) && (
+              <div className="pl-3 border-l-2 border-slate-700 mb-1 space-y-0.5">
+                {periodPaymentTotals.cash > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500 text-xs">↳ Cash</span>
+                    <span className="text-slate-400 tabular-nums text-xs">{fmt(periodPaymentTotals.cash)}</span>
+                  </div>
+                )}
+                {periodPaymentTotals.gcash > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-blue-400 text-xs">↳ GCash</span>
+                    <span className="text-blue-400 tabular-nums text-xs">{fmt(periodPaymentTotals.gcash)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Gross breakdown — per-day list */}
             {grossBreakdownOpen && currentGroup.reports.length > 0 && (

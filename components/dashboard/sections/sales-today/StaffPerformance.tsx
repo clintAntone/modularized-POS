@@ -41,6 +41,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
   const [revealedDeleteId, setRevealedDeleteId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const justLongPressed = useRef(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [attendanceForm, setAttendanceForm] = useState({
     lateDeduction: 0,
@@ -143,17 +144,26 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     }
   };
 
-  const startLongPress = (name: string) => {
+  const startLongPress = (name: string, x?: number, y?: number) => {
+    touchStartPos.current = x != null && y != null ? { x, y } : null;
     longPressTimer.current = setTimeout(() => {
       setRevealedDeleteId(name);
       justLongPressed.current = true;
       playSound('click');
       longPressTimer.current = null;
-    }, 600);
+    }, 700);
   };
 
   const cancelLongPress = () => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    touchStartPos.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current || !longPressTimer.current) return;
+    const dx = e.touches[0].clientX - touchStartPos.current.x;
+    const dy = e.touches[0].clientY - touchStartPos.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 8) cancelLongPress();
   };
 
   const selectedStaffData = selectedStaff ? staffSummary[selectedStaff] : null;
@@ -264,13 +274,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         )}
                       </div>
                       <div className="relative group">
-                        <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-rose-600">₱</span>
+                        <span className={`absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold transition-colors ${staffIsCurrentlyLate ? 'text-slate-300 group-focus-within:text-rose-600' : 'text-slate-200'}`}>₱</span>
                         <input
                             type="number"
                             min={0}
+                            disabled={!staffIsCurrentlyLate}
                             value={attendanceForm.lateDeduction || ''}
                             onChange={e => setAttendanceForm({...attendanceForm, lateDeduction: Math.max(0, Number(e.target.value))})}
-                            className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-rose-600 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner tabular-nums"
+                            className={`w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-rose-600 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner tabular-nums ${!staffIsCurrentlyLate ? 'opacity-40 cursor-not-allowed' : ''}`}
                             placeholder="0"
                         />
                       </div>
@@ -315,14 +326,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                       </button>
                     </div>
 
-                    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-2xl border border-slate-100 flex items-center justify-between bg-slate-50/50 shadow-inner">
+                    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between bg-slate-100 dark:bg-slate-700 shadow-inner">
                       <div className="space-y-0.5 sm:space-y-1">
-                        <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Take-Home Impact</p>
-                        <p className={`text-lg sm:text-2xl font-bold tracking-tighter leading-none ${estimatedImpact < 0 ? 'text-rose-600' : estimatedImpact > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        <p className="text-xs sm:text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wide">Take-Home Impact</p>
+                        <p className={`text-lg sm:text-2xl font-bold tracking-tighter leading-none ${estimatedImpact < 0 ? 'text-rose-600' : estimatedImpact > 0 ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-300'}`}>
                           {estimatedImpact < 0 ? '−' : estimatedImpact > 0 ? '+' : ''}₱{Math.abs(estimatedImpact).toLocaleString()}
                         </p>
                       </div>
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-sm sm:text-lg">📊</div>
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-slate-600 flex items-center justify-center shadow-sm text-sm sm:text-lg">📊</div>
                     </div>
                   </div>
 
@@ -343,11 +354,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
         <div className="flex items-center justify-between px-4">
           <div>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">STAFF PERFORMANCE</h4>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Staff allowances and commissions</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Allowance plus commissions</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Live Audit</span>
           </div>
         </div>
 
@@ -367,9 +377,9 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                 <div
                     key={data.employeeId || name}
                     className={`${data.isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
-                    onTouchStart={evt => { evt.preventDefault(); startLongPress(name); }}
+                    onTouchStart={evt => { startLongPress(name, evt.touches[0].clientX, evt.touches[0].clientY); }}
                     onTouchEnd={cancelLongPress}
-                    onTouchMove={cancelLongPress}
+                    onTouchMove={handleTouchMove}
                     onMouseDown={() => startLongPress(name)}
                     onMouseUp={cancelLongPress}
                     onMouseLeave={cancelLongPress}
@@ -446,9 +456,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight truncate leading-none mb-1 group-hover:text-emerald-700 transition-colors">{data.name || name}</h3>
-                          {data.isReliever && (
-                            <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
-                          )}
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {data.isReliever && (
+                              <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
+                            )}
+                            {isLate(clockInTime) && (
+                              <span className="inline-block bg-amber-500 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-400 leading-none">LATE</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TrendingUp, TrendingDown, Minus, Users, Landmark } from 'lucide-react';
 
 interface SalesKPIStripProps {
     gross: number;
@@ -60,11 +61,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
             </div>
           )}
         </div>
-        <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-        </div>
+        <TrendingUp className="w-5 h-5 text-emerald-500 shrink-0 opacity-70" strokeWidth={2} />
       </div>
 
       {/* ── Row 2: Expenses + Staff (2-col) — legacy adds Rent & Bills as third col ── */}
@@ -73,11 +70,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs font-semibold text-slate-400">Expenses</p>
-            <span className="w-6 h-6 rounded-xl bg-rose-50 flex items-center justify-center">
-              <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
-              </svg>
-            </span>
+            <Minus className="w-4 h-4 text-rose-400 opacity-70 shrink-0" strokeWidth={2.5} />
           </div>
           <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(roiOnly)}</p>
           {vaultCoveredExp > 0 && (
@@ -90,11 +83,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-semibold text-slate-400">Rent & Bills</p>
-              <span className="w-6 h-6 rounded-xl bg-indigo-50 flex items-center justify-center">
-                <svg className="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" />
-                </svg>
-              </span>
+              <Landmark className="w-4 h-4 text-indigo-400 opacity-70 shrink-0" strokeWidth={2} />
             </div>
             <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(rentAndBillsTotal)}</p>
             <p className="text-xs text-indigo-500 font-medium mt-1.5">Daily provision</p>
@@ -108,11 +97,7 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         >
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs font-semibold text-slate-400">Staff Pay</p>
-            <span className="w-6 h-6 rounded-xl bg-amber-50 flex items-center justify-center">
-              <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
-              </svg>
-            </span>
+            <Users className="w-4 h-4 text-amber-400 opacity-70 shrink-0" strokeWidth={2} />
           </div>
           <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(finalStaffPayTotal)}</p>
           <p className="text-xs text-slate-400 font-medium mt-1.5">Net {fmt(netPayableCash)}</p>
@@ -152,35 +137,27 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
               <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
             )}
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" />
-            </svg>
-          </div>
+          <Landmark className="w-5 h-5 text-indigo-400 shrink-0 opacity-70" strokeWidth={2} />
         </div>
       )}
 
       {/* ── Net ROI (full width, dark card) ── */}
-      <div className={`rounded-2xl p-5 flex items-center justify-between relative overflow-hidden print:bg-white print:border print:border-slate-200 print:shadow-none ${isNegative ? 'bg-rose-950 border border-rose-900' : 'bg-slate-900 border border-slate-700'}`}>
+      <div className={`rounded-2xl p-5 flex items-center justify-between relative overflow-hidden print:bg-white print:border print:border-slate-200 print:shadow-none ${isNegative ? 'bg-slate-900 border border-rose-900/40' : 'bg-slate-900 border border-slate-700'}`}>
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-xs font-semibold text-slate-400">Net ROI</p>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isNegative ? 'bg-rose-500/20 text-rose-400' : isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isNegative ? 'bg-rose-500/10 text-rose-500/70' : isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
               {isNegative ? 'Deficit' : isPositive ? 'Growth' : 'Balanced'}
             </span>
           </div>
-          <p className={`text-4xl font-black tabular-nums leading-none print:text-slate-900 ${isNegative ? 'text-rose-400' : isPositive ? 'text-emerald-400' : 'text-slate-400'}`}>
+          <p className={`text-4xl font-black tabular-nums leading-none print:text-slate-900 ${isNegative ? 'text-rose-400/70' : isPositive ? 'text-emerald-400' : 'text-slate-400'}`}>
             {isNegative ? '−' : ''}{fmt(Math.abs(net))}
           </p>
         </div>
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${isNegative ? 'bg-rose-500/10' : 'bg-emerald-500/10'}`}>
-          <svg className={`w-6 h-6 ${isNegative ? 'text-rose-500' : 'text-emerald-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-            {isNegative
-              ? <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" />
-              : <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.286 4.286a11.948 11.948 0 010-6.43l.776-2.897m0 0l3.182 5.51m-3.182-5.51l-5.511 3.181" />
-            }
-          </svg>
-        </div>
+        {isNegative
+          ? <TrendingDown className="w-6 h-6 text-rose-400 shrink-0 opacity-60" strokeWidth={1.5} />
+          : <TrendingUp className="w-6 h-6 text-emerald-400 shrink-0 opacity-60" strokeWidth={1.5} />
+        }
       </div>
 
 

@@ -298,7 +298,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           <button
             onClick={() => setIsAddExpenseModalOpen(true)}
             disabled={isClosedMode}
-            className={`no-print w-full py-4 rounded-xl border transition-all active:scale-[0.98] flex items-center justify-center gap-2 font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-rose-50 border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600'}`}
+            className={`no-print w-full py-4 rounded-xl border transition-all active:scale-[0.98] flex items-center justify-center gap-2 font-bold text-sm ${isClosedMode ? 'border-slate-200 opacity-50 cursor-not-allowed bg-transparent text-slate-400' : 'border-slate-200 bg-transparent hover:bg-slate-50 text-slate-600'}`}
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             Record Expense
@@ -451,15 +451,10 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           </div>
 
           {/* Mobile-only: Vault Deposit button below vault list */}
-          {currentNetRoi <= 0 && !isClosedMode && onOpenVaultDeposit && (
-            <p className="no-print md:hidden text-xs font-bold text-rose-400 uppercase tracking-widest text-center px-1">
-              No ROI available to deposit
-            </p>
-          )}
           <button
             onClick={onOpenVaultDeposit}
             disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border-slate-200 opacity-50 cursor-not-allowed bg-transparent text-slate-400' : 'border-slate-200 bg-transparent hover:bg-slate-50 text-slate-600'}`}
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
             Vault Deposit
@@ -496,7 +491,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           <button
             onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
             disabled={isClosedMode}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-rose-50 border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600'}`}
+            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-200 opacity-50 cursor-not-allowed bg-transparent text-slate-400' : 'border-slate-200 bg-transparent hover:bg-slate-50 text-slate-600'}`}
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             Record Expense
@@ -507,26 +502,19 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
 
       {/* Desktop-only: shared button row so both buttons stay aligned regardless of column height */}
       <div className="no-print hidden md:grid grid-cols-2 gap-4 w-full">
-        <div className="flex flex-col gap-1.5">
-          {currentNetRoi <= 0 && !isClosedMode && onOpenVaultDeposit && (
-            <p className="text-xs font-bold text-rose-400 uppercase tracking-widest text-center">
-              No ROI available to deposit
-            </p>
-          )}
-          <button
-            onClick={onOpenVaultDeposit}
-            disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
-            className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
-            Vault Deposit
-          </button>
-        </div>
+        <button
+          onClick={onOpenVaultDeposit}
+          disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
+          className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border-slate-200 opacity-50 cursor-not-allowed bg-transparent text-slate-400' : 'border-slate-200 bg-transparent hover:bg-slate-50 text-slate-600'}`}
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
+          Vault Deposit
+        </button>
 
         <button
           onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
           disabled={isClosedMode}
-          className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-rose-50 border-rose-100 hover:bg-rose-100 hover:border-rose-200 text-rose-600'}`}
+          className={`flex items-center justify-center gap-2 py-4 px-3 rounded-xl border transition-all active:scale-[0.98] font-bold text-sm ${isClosedMode ? 'border-slate-200 opacity-50 cursor-not-allowed bg-transparent text-slate-400' : 'border-slate-200 bg-transparent hover:bg-slate-50 text-slate-600'}`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Record Expense

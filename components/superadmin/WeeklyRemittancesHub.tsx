@@ -142,6 +142,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [unmarkConfirm, setUnmarkConfirm] = useState<{ submissionId: string; branchName: string; periodLabel: string; hasVaultAdj: boolean } | null>(null);
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
   const [openGrossBreakdown, setOpenGrossBreakdown] = useState<string | null>(null);
+  const [paymentTotalsCache, setPaymentTotalsCache] = useState<Record<string, { cash: number; gcash: number }>>({});
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
   const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
@@ -812,6 +813,47 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     if (lastWeekSubmittedOnly && !activeBranchId) return applyLastWeekFilter(lastWeekSubmittedIds);
     return groups;
   }, [allGroupedReports, selectedPeriods, effectiveBranchIds, statusFilter, submissions, branchSearch, levyOnly, negativeOnly, adjustments, activeBranchId, lastWeekOnly, lastWeekUnremittedIds, lastWeekSubmittedOnly, lastWeekSubmittedIds]);
+
+  // Lazy-fetch session_data for all visible cards when drilling into a branch
+  useEffect(() => {
+    if (!activeBranchId) return; // Only fetch when drilled into a specific branch — prevents URL overflow
+    const allReportIds: string[] = [];
+    const idToPeriodKey: Record<string, string> = {};
+    displayGroups.forEach(group => {
+      group.reports.forEach((report: any) => {
+        const key = `${report.branchId}::${group.label}`;
+        if (!paymentTotalsCache[key]) {
+          (report.reportIds || []).forEach((id: string) => {
+            allReportIds.push(id);
+            idToPeriodKey[id] = key;
+          });
+        }
+      });
+    });
+    if (!allReportIds.length || !supabase) return;
+    supabase
+      .from(DB_TABLES.SALES_REPORTS)
+      .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
+      .in(DB_COLUMNS.ID, allReportIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const totals: Record<string, { cash: number; gcash: number }> = {};
+        data.forEach(row => {
+          const key = idToPeriodKey[row[DB_COLUMNS.ID]];
+          if (!key) return;
+          if (!totals[key]) totals[key] = { cash: 0, gcash: 0 };
+          const sessions: any[] = typeof row[DB_COLUMNS.SESSION_DATA] === 'string'
+            ? JSON.parse(row[DB_COLUMNS.SESSION_DATA])
+            : (row[DB_COLUMNS.SESSION_DATA] || []);
+          sessions.forEach(t => {
+            const total = Number(t.total || 0);
+            if (t.paymentMethod === 'GCASH') totals[key].gcash += total;
+            else totals[key].cash += total;
+          });
+        });
+        setPaymentTotalsCache(prev => ({ ...prev, ...totals }));
+      });
+  }, [activeBranchId, displayGroups.length]);
 
   // Pending branches for the quick-process strip (respects period + branch filter, ignores status filter)
   const quickProcessItems = useMemo(() => {
@@ -2237,6 +2279,26 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   </div>
                                 </div>
                               )}
+                              {(() => {
+                                const pt = paymentTotalsCache[rKey];
+                                if (!pt || (pt.cash === 0 && pt.gcash === 0)) return null;
+                                return (
+                                  <div className="pl-3 border-l-2 border-slate-200 mb-1 space-y-0.5">
+                                    {pt.cash > 0 && (
+                                      <div className="flex justify-between py-0.5">
+                                        <span className="text-slate-400 text-xs">↳ Cash</span>
+                                        <span className="text-slate-500 tabular-nums text-xs">{fmt(pt.cash)}</span>
+                                      </div>
+                                    )}
+                                    {pt.gcash > 0 && (
+                                      <div className="flex justify-between py-0.5">
+                                        <span className="text-blue-400 text-xs">↳ GCash</span>
+                                        <span className="text-blue-400 tabular-nums text-xs">{fmt(pt.gcash)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </>
                           );
                         })()}
