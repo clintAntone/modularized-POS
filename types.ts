@@ -48,6 +48,7 @@ export interface Branch {
   openingTime?: string;
   closingTime?: string;
   shift2OpeningTime?: string;
+  shift2ClosingTime?: string;
   owners?: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;
@@ -155,6 +156,8 @@ export interface Attendance {
   isHalfDay?: boolean;
   isPaidDaily?: boolean;
   settledUnits?: number;
+  /** Which shift the employee was clocked in for (dual-shift branches only). 1 = morning, 2 = afternoon. */
+  shift?: 1 | 2;
 }
 
 export interface EmployeeDetails {
@@ -192,7 +195,7 @@ export interface Employee {
   salary?: number;
   isActive: boolean;
   profile?: string;
-  branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
+  branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean; shift?: 1 | 2 }>;
   details?: EmployeeDetails;
   faceDescriptors?: number[][];
   onLeave?: boolean;

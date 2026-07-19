@@ -55,6 +55,7 @@ export const DB_COLUMNS = {
   OPENING_TIME: 'opening_time',
   CLOSING_TIME: 'closing_time',
   SHIFT2_OPENING_TIME: 'shift2_opening_time',
+  SHIFT2_CLOSING_TIME: 'shift2_closing_time',
   OWNERS: 'owners',
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',
@@ -127,6 +128,7 @@ export const DB_COLUMNS = {
   IS_HALF_DAY: 'is_half_day',
   IS_PAID_DAILY: 'is_paid_daily',
   SETTLED_UNITS: 'settled_units',
+  SHIFT: 'shift',
 
   // Service Catalogs
   BRANCH_IDS: 'branch_ids',

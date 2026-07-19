@@ -20,6 +20,7 @@ const COLS = {
         DB_COLUMNS.MANAGER, DB_COLUMNS.TEMP_MANAGER, DB_COLUMNS.SERVICES,
         DB_COLUMNS.WEEKLY_CUTOFF, DB_COLUMNS.CYCLE_START_DATE, DB_COLUMNS.DAILY_PROVISION_AMOUNT,
         DB_COLUMNS.ENABLE_SHIFT_TRACKING, DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
+        DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
         DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
     ].join(','),
     employees: [
@@ -64,7 +65,7 @@ const COLS = {
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
         DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
         DB_COLUMNS.CLOCK_IN_METHOD, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
-        DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
+        DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT, DB_COLUMNS.SHIFT,
     ].join(','),
     requests: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -238,6 +239,7 @@ export const useGlobalData = (auth: AuthState) => {
             openingTime: db[DB_COLUMNS.OPENING_TIME] ?? '09:00',
             closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
             shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
+            shift2ClosingTime: db[DB_COLUMNS.SHIFT2_CLOSING_TIME] || undefined,
             owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
                 ? JSON.parse(db[DB_COLUMNS.OWNERS])
                 : (db[DB_COLUMNS.OWNERS] || []),
@@ -556,7 +558,8 @@ export const useGlobalData = (auth: AuthState) => {
                 status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
                 otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0),
                 isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
-                createdAt: att[DB_COLUMNS.CREATED_AT]
+                createdAt: att[DB_COLUMNS.CREATED_AT],
+                shift: att[DB_COLUMNS.SHIFT] ? Number(att[DB_COLUMNS.SHIFT]) as 1 | 2 : undefined
             }));
         }),
         enabled: !!supabase && deferredEnabled,

@@ -19,6 +19,10 @@ interface StaffCardProps {
   isMainManager?: boolean;
   isTempManager?: boolean;
   shiftState: 'NOT_STARTED' | 'ONGOING' | 'COMPLETED';
+  /** Shift number recorded at clock-in (dual-shift branches only). */
+  todayShift?: 1 | 2;
+  /** ISO clock-in timestamp for today's ongoing session. */
+  clockInTime?: string;
   isClosedMode: boolean;
   onEdit: (emp: Employee) => void;
   onTimeAction: (emp: Employee) => void;
@@ -38,6 +42,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   isMainManager = false,
   isTempManager = false,
   shiftState,
+  todayShift,
+  clockInTime,
   isClosedMode,
   onEdit,
   onTimeAction,
@@ -310,15 +316,25 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           {isOnLeave ? (
             <div />
           ) : isOngoing || isCompleted || !isActive ? (
-            <button
-              disabled={!isActive || isCompleted}
-              onMouseDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
-              className={`h-11 px-6 rounded-2xl text-xs font-medium uppercase tracking-wide transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-            >
-              {isOngoing ? 'Time Out' : 'Shift Done'}
-            </button>
+            <div className="flex flex-col items-center gap-1">
+              {isOngoing && clockInTime && (() => {
+                const t = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(clockInTime));
+                return (
+                  <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
+                    {todayShift ? `S${todayShift} · ` : ''}IN {t}
+                  </p>
+                );
+              })()}
+              <button
+                disabled={!isActive || isCompleted}
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onTimeAction(emp); }}
+                className={`h-11 px-6 rounded-2xl text-xs font-medium uppercase tracking-wide transition-all active:scale-90 shadow-lg ${isOngoing ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+              >
+                {isOngoing ? 'Time Out' : 'Shift Done'}
+              </button>
+            </div>
           ) : hasFace && onFaceTimeIn && !isReliever ? (
             <button
               onMouseDown={e => e.stopPropagation()}

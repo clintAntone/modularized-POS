@@ -53,8 +53,9 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
   });
 
   // CRITICAL: Check lateness using Manila Time comparison to avoid browser timezone drift
-  const isLate = (clockInStr?: string) => {
-    if (!clockInStr || !branch.openingTime) return false;
+  // Returns minutes late (0 = on time)
+  const getLateMinutes = (clockInStr?: string, recordedShift?: 1 | 2): number => {
+    if (!clockInStr || !branch.openingTime) return 0;
 
     const clockInDate = new Date(clockInStr);
     const manilaClockIn = new Intl.DateTimeFormat('en-GB', {
@@ -70,18 +71,33 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     const [open1H, open1M] = branch.openingTime.split(':').map(Number);
     const shift1Mins = open1H * 60 + open1M;
 
-    // If a second shift is configured, determine which shift the employee belongs to
-    // by finding which shift start they're closest to (midpoint method)
+    let shiftOpenMins = shift1Mins;
+
     if (branch.shift2OpeningTime) {
       const [open2H, open2M] = branch.shift2OpeningTime.split(':').map(Number);
       const shift2Mins = open2H * 60 + open2M;
-      const midpointMins = Math.round((shift1Mins + shift2Mins) / 2);
-      const shiftOpenMins = totalClockMins >= midpointMins ? shift2Mins : shift1Mins;
-      return totalClockMins > shiftOpenMins + 10;
+
+      if (recordedShift) {
+        shiftOpenMins = recordedShift === 2 ? shift2Mins : shift1Mins;
+      } else {
+        // Fallback: midpoint auto-detection for older records without an explicit shift
+        const midpointMins = Math.round((shift1Mins + shift2Mins) / 2);
+        shiftOpenMins = totalClockMins >= midpointMins ? shift2Mins : shift1Mins;
+      }
     }
 
-    // Single shift: LATE means clocking in > 10 minutes after opening hour
-    return totalClockMins > shift1Mins + 10;
+    const diff = totalClockMins - (shiftOpenMins + 10);
+    return diff > 0 ? diff : 0;
+  };
+
+  const isLate = (clockInStr?: string, recordedShift?: 1 | 2) => getLateMinutes(clockInStr, recordedShift) > 0;
+
+  const formatLateMinutes = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `Late ${h}h ${m}m`;
+    if (h > 0) return `Late ${h}h`;
+    return `Late ${m}m`;
   };
 
   const sortedStaff = useMemo(() => {
@@ -178,12 +194,16 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
   const selectedStaffData = selectedStaff ? staffSummary[selectedStaff] : null;
   const staffClockIn = selectedStaffData?.attendance?.clockIn;
-  const staffIsCurrentlyLate = isLate(staffClockIn);
+  const staffIsCurrentlyLate = isLate(staffClockIn, selectedStaffData?.attendance?.shift);
 
   // VALIDATION: Staff only eligible for OT if they have a session that ended AFTER closing time (Manila Time)
   const staffHasOTSession = useMemo(() => {
     if (!selectedStaff || !branch.closingTime) return false;
-    const [closeH, closeM] = branch.closingTime.split(':').map(Number);
+    // For Shift 2 staff, use shift2ClosingTime if set; otherwise fall back to branch closing time
+    const effectiveClosingTime = (selectedStaffData?.attendance?.shift === 2 && branch.shift2ClosingTime)
+      ? branch.shift2ClosingTime
+      : branch.closingTime;
+    const [closeH, closeM] = effectiveClosingTime.split(':').map(Number);
     const totalCloseMins = closeH * 60 + closeM;
 
     return transactions.some(t => {
@@ -204,7 +224,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
       return totalTxMins > totalCloseMins;
     });
-  }, [selectedStaff, branch.closingTime, transactions]);
+  }, [selectedStaff, branch.closingTime, branch.shift2ClosingTime, selectedStaffData?.attendance?.shift, transactions]);
 
   // Rule: Must have a late session AND must not have been late clocking in
   const canAddOT = !staffIsCurrentlyLate && staffHasOTSession;
@@ -470,9 +490,15 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             {data.isReliever && (
                               <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
                             )}
-                            {isLate(clockInTime) && (
-                              <span className="inline-block bg-amber-500 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-400 leading-none">LATE</span>
+                            {branch.shift2OpeningTime && data.attendance?.shift && (
+                              <span className="inline-block bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 text-[10px] font-black uppercase px-1.5 py-0.5 rounded leading-none">S{data.attendance.shift}</span>
                             )}
+                            {(() => {
+                              const lateMins = getLateMinutes(clockInTime, data.attendance?.shift);
+                              return lateMins > 0 ? (
+                                <span className="inline-block bg-amber-500 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-400 leading-none">{formatLateMinutes(lateMins)}</span>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       </div>

@@ -6,13 +6,14 @@ interface OperatingHoursProps {
   openingTime: string;
   closingTime: string;
   shift2OpeningTime?: string;
+  shift2ClosingTime?: string;
   isSaving: boolean;
   isOperationalToday: boolean;
   onUpdate: (updates: Partial<Branch>) => void;
 }
 
 export const OperatingHours: React.FC<OperatingHoursProps> = ({
-  openingTime, closingTime, shift2OpeningTime, isSaving, isOperationalToday, onUpdate
+  openingTime, closingTime, shift2OpeningTime, shift2ClosingTime, isSaving, isOperationalToday, onUpdate
 }) => {
   const inputClass = (disabled: boolean) =>
     `w-full p-4 border rounded-2xl font-bold text-sm uppercase tracking-wider outline-none transition-all shadow-sm ${disabled ? 'bg-slate-100 border-transparent text-slate-400 cursor-not-allowed' : 'bg-white border-slate-100 text-slate-900 focus:border-emerald-500'}`;
@@ -72,22 +73,32 @@ export const OperatingHours: React.FC<OperatingHoursProps> = ({
             )}
           </div>
           {shift2OpeningTime ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase text-slate-500 ml-1 tracking-widest">Shift 2 Opening</label>
-                <input
-                  type="time"
-                  disabled={isSaving || isOperationalToday}
-                  value={shift2OpeningTime}
-                  onChange={(e) => onUpdate({ shift2OpeningTime: e.target.value })}
-                  className={inputClass(isSaving || isOperationalToday)}
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1 tracking-widest">Shift 2 Opening</label>
+                  <input
+                    type="time"
+                    disabled={isSaving || isOperationalToday}
+                    value={shift2OpeningTime}
+                    onChange={(e) => onUpdate({ shift2OpeningTime: e.target.value })}
+                    className={inputClass(isSaving || isOperationalToday)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1 tracking-widest">Shift 2 Closing</label>
+                  <input
+                    type="time"
+                    disabled={isSaving || isOperationalToday}
+                    value={shift2ClosingTime || ''}
+                    onChange={(e) => onUpdate({ shift2ClosingTime: e.target.value || undefined })}
+                    className={inputClass(isSaving || isOperationalToday)}
+                  />
+                </div>
               </div>
-              <div className="space-y-2 flex items-end">
-                <p className="text-xs text-slate-400 pb-4 leading-relaxed">
-                  Staff who clock in after the midpoint between Shift 1 and Shift 2 are automatically assigned to Shift 2 for late tracking.
-                </p>
-              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                When clocking in, the manager selects Shift 1 or Shift 2. Late and OT tracking uses the chosen shift's hours.
+              </p>
             </div>
           ) : (
             <button

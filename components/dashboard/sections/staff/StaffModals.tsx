@@ -24,12 +24,18 @@ interface StaffModalsProps {
   profileFile: File | null;
   fileInputRef: React.RefObject<HTMLInputElement>;
   branches: Branch[];
+  branch?: Branch;
   allEmployees?: Employee[];
   branchId: string;
   clockOutLocked?: boolean;
+  /** For dual-shift branches: which shift is pre-selected for this clock-in */
+  pendingShift?: 1 | 2;
+  onShiftChange?: (shift: 1 | 2) => void;
+  /** True when clock-in was initiated via face recognition — shift tap auto-confirms without hold */
+  isFaceInitiated?: boolean;
   onCloseModals: () => void;
   onCloseRecovery: () => void;
-  onTimeAction: () => void;
+  onTimeAction: (shiftOverride?: 1 | 2) => void;
   onSaveEmployee: () => void;
   onRefresh: (quiet?: boolean) => void;
   onSyncStatusChange: (isSyncing: boolean) => void;
@@ -239,6 +245,16 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
           <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
             <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-6 sm:p-10 text-center border border-slate-100 overflow-hidden`}>
 
+              {/* Close button row — in flow so content below stays truly centered */}
+              <div className="flex justify-end mb-1 -mt-1 -mr-1">
+                <button
+                  onClick={props.onCloseModals}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" strokeWidth={2.5} />
+                </button>
+              </div>
+
               {/* Icon */}
               <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl ${isClockIn ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
                 <Clock className="w-8 h-8 sm:w-10 sm:h-10" strokeWidth={2.5} />
@@ -251,12 +267,76 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
               <p className={`text-xs font-black uppercase tracking-wide mb-1 ${isClockIn ? 'text-emerald-600' : 'text-rose-500'}`}>
                 {label}
               </p>
-              <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed mb-8 sm:mb-10">
+              <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed mb-6 sm:mb-8">
                 {isClockIn ? 'Initializing duty shift protocol.' : 'Terminating active duty session.'}
               </p>
 
-              {/* Hold-to-confirm clock button */}
-              <div className="flex flex-col items-center gap-4 select-none">
+              {/* Shift picker — only shown on clock-in for dual-shift branches */}
+              {isClockIn && props.branch?.shift2OpeningTime && props.onShiftChange && (() => {
+                const toAmPm = (t?: string) => {
+                  if (!t) return '';
+                  const [h, m] = t.split(':').map(Number);
+                  const period = h >= 12 ? 'PM' : 'AM';
+                  const hour = h % 12 || 12;
+                  return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+                };
+                const nowMins = (() => {
+                  const now = new Date();
+                  const manila = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+                  const [h, m] = manila.split(':').map(Number);
+                  return h * 60 + m;
+                })();
+                const lateMinutesFor = (openTime?: string): number => {
+                  if (!openTime) return 0;
+                  const [h, m] = openTime.split(':').map(Number);
+                  const diff = nowMins - (h * 60 + m + 10);
+                  return diff > 0 ? diff : 0;
+                };
+                const formatLate = (mins: number) => {
+                  const h = Math.floor(mins / 60);
+                  const m = mins % 60;
+                  if (h > 0 && m > 0) return `Late ${h}h ${m}m`;
+                  if (h > 0) return `Late ${h}h`;
+                  return `Late ${m}m`;
+                };
+                return (
+                  <div className="flex gap-2 mb-6 sm:mb-8">
+                    {([1, 2] as const).map(s => {
+                      const openTime = s === 1 ? props.branch!.openingTime : props.branch!.shift2OpeningTime;
+                      const closeTime = s === 1 ? props.branch!.closingTime : (props.branch!.shift2ClosingTime || props.branch!.closingTime);
+                      const lateMins = lateMinutesFor(openTime);
+                      const selected = props.pendingShift === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            props.onShiftChange!(s);
+                            if (props.isFaceInitiated) props.onTimeAction(s);
+                          }}
+                          className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all active:scale-95 ${
+                            selected
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'
+                          }`}
+                        >
+                          <span className="block">Shift {s}</span>
+                          <span className={`block text-[10px] font-semibold mt-0.5 normal-case tracking-normal ${selected ? 'opacity-80' : 'opacity-60'}`}>
+                            {toAmPm(openTime)} – {toAmPm(closeTime)}
+                          </span>
+                          {lateMins > 0 && (
+                            <span className={`block text-[9px] font-black uppercase tracking-widest mt-1 ${selected ? 'text-amber-200' : 'text-amber-500'}`}>
+                              {formatLate(lateMins)}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Hold-to-confirm clock button — hidden for face-initiated clock-in (shift tap auto-confirms) */}
+              <div className={`flex flex-col items-center gap-4 select-none ${isClockIn && props.isFaceInitiated ? 'hidden' : ''}`}>
                 {(() => {
                   const r = 54;
                   const circ = 2 * Math.PI * r;

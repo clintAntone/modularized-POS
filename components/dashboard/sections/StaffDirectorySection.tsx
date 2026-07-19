@@ -59,6 +59,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
   const [showBranchClosedModal, setShowBranchClosedModal] = useState(false);
   const [selectedEmpForTime, setSelectedEmpForTime] = useState<Employee | null>(null);
+  const [pendingShift, setPendingShift] = useState<1 | 2>(1);
+  const [isFaceInitiated, setIsFaceInitiated] = useState(false);
   const [showFaceTimeIn, setShowFaceTimeIn] = useState(false);
   const [faceTimeInTarget, setFaceTimeInTarget] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
@@ -665,6 +667,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       return;
     }
     playSound('click');
+
+    // Pre-select shift from employee's default if this is a dual-shift branch
+    if (branch.shift2OpeningTime) {
+      const cfg = emp.branchAllowances?.[branch.id];
+      const defaultShift: 1 | 2 = (typeof cfg === 'object' && cfg !== null && (cfg as any).shift === 2) ? 2 : 1;
+      setPendingShift(defaultShift);
+    }
+
     setSelectedEmpForTime(emp);
     setIsTimeModalOpen(true);
   };
@@ -681,12 +691,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     return 'COMPLETED';
   };
 
-  const handleTimeAction = async () => {
+  const handleTimeAction = async (shiftOverride?: 1 | 2) => {
     if (!selectedEmpForTime || isSyncing || isClosedMode) return;
-    
+    const effectiveShift = shiftOverride ?? pendingShift;
+
     setIsSyncing(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
-    
+
     const state = getShiftState(selectedEmpForTime.id);
     const timestamp = getTrueManilaISOString();
 
@@ -739,9 +750,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             [DB_COLUMNS.DATE]: todayStr,
             [DB_COLUMNS.CLOCK_IN]: timestamp,
             [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL',
-            [DB_COLUMNS.STATUS]: 'REGULAR'
+            [DB_COLUMNS.STATUS]: 'REGULAR',
+            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {})
           });
-          showToast(`${selectedEmpForTime.name} is now ON DUTY`);
+          showToast(`${selectedEmpForTime.name} is now ON DUTY${branch.shift2OpeningTime ? ` (Shift ${effectiveShift})` : ''}`);
         }
       } 
       else if (state === 'ONGOING') {
@@ -797,6 +809,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       playSound('success');
       setIsTimeModalOpen(false);
+      setIsFaceInitiated(false);
 
       // If the employee being clocked in/out is a reliever, sync their payout
       // expense immediately so the SALES tab KPI reflects it without needing a sale first.
@@ -814,14 +827,16 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       // Network failure — queue the write for sync on reconnect
       try {
         let attendancePayload: any = null;
+        let queueLatestRecord: any;
         if (state === 'NOT_STARTED' || state === 'COMPLETED') {
           const todayRecords = (attendance || []).filter(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr);
           const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+          queueLatestRecord = latestRecord;
           if (latestRecord && latestRecord.isHalfDay) {
             attendancePayload = { id: latestRecord.id, [DB_COLUMNS.CLOCK_OUT]: null, [DB_COLUMNS.IS_HALF_DAY]: false, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DATE]: todayStr };
           } else {
             const attendanceId = Math.random().toString(36).substr(2, 9);
-            attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime!.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL', [DB_COLUMNS.STATUS]: 'REGULAR' };
+            attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime!.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL', [DB_COLUMNS.STATUS]: 'REGULAR', ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {}) };
           }
         } else if (state === 'ONGOING') {
           const ongoingRec = (attendance || []).find(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr && a.clockIn && !a.clockOut);
@@ -831,7 +846,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DESCRIPTION]: state === 'ONGOING' ? `Clock-out queued for ${selectedEmpForTime!.name}` : `Clock-in queued for ${selectedEmpForTime!.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
           // isNew: true marks new inserts — the queue flush must not drop these
           // thinking the record was deleted server-side (it never existed yet).
-          const isNewInsert = state !== 'ONGOING' && !(latestRecord?.isHalfDay);
+          const isNewInsert = state !== 'ONGOING' && !(queueLatestRecord?.isHalfDay);
           const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
           existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload, isNew: isNewInsert });
           localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
@@ -1231,7 +1246,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
     <div className="space-y-4">
 
-      <StaffModals 
+      <StaffModals
         isTimeModalOpen={isTimeModalOpen}
         isModalOpen={isModalOpen}
         isPullMode={isPullMode}
@@ -1240,15 +1255,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         editingEmployee={editingEmployee as any}
         recoveryEmployee={recoveryEmployee}
         branches={branches}
+        branch={branch}
         isSyncing={isSyncing}
         uploadProgress={uploadProgress}
         profileFile={profileFile}
         fileInputRef={fileInputRef}
         getShiftState={getShiftState}
         clockOutLocked={clockOutLocked}
+        pendingShift={pendingShift}
+        onShiftChange={setPendingShift}
+        isFaceInitiated={isFaceInitiated}
         onTimeAction={handleTimeAction}
         onSaveEmployee={handleSaveWithComplaintCheck}
-        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); }}
+        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); }}
         onCloseRecovery={() => setRecoveryEmployee(null)}
         onRefresh={() => onRefresh?.()}
         onSyncStatusChange={onSyncStatusChange}
@@ -1259,6 +1278,26 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         branchId={branch.id}
         isManagerView={isManagerView}
       />
+
+      {/* DEBUG: dual-shift indicator — remove after validating */}
+      {branch.shift2OpeningTime ? (
+        <div className="px-1 pb-2 flex gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+            <span className="opacity-60">S1</span>
+            <span>{branch.openingTime} – {branch.closingTime}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
+            <span className="opacity-60">S2</span>
+            <span>{branch.shift2OpeningTime} – {branch.shift2ClosingTime || branch.closingTime}</span>
+          </span>
+        </div>
+      ) : (
+        <div className="px-1 pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+            Single Shift
+          </span>
+        </div>
+      )}
 
       {/* HEADER SECTION */}
       <StaffHeader
@@ -1331,6 +1370,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                   isMainManager={isMainManager}
                   isTempManager={isTempManager}
                   shiftState={getShiftState(emp.id)}
+                  todayShift={branch.shift2OpeningTime ? (attendance || []).find(a => a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut)?.shift : undefined}
+                  clockInTime={(attendance || []).find(a => a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut)?.clockIn}
                   isClosedMode={isClosedMode}
                   onEdit={handleOpenEdit}
                   onTimeAction={handleOpenTimeModal}
@@ -1393,7 +1434,17 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         employees={employees.filter(e => e.isActive)}
         branchId={branch.id}
         targetEmployee={faceTimeInTarget ?? undefined}
-        onMatch={(emp) => { handleFaceTimeIn(emp); }}
+        onMatch={(emp) => {
+          // Dual-shift branch: face used for identification only — open shift picker instead of directly inserting
+          if (branch.shift2OpeningTime) {
+            setShowFaceTimeIn(false);
+            setFaceTimeInTarget(null);
+            setIsFaceInitiated(true);
+            handleOpenTimeModal(emp);
+          } else {
+            handleFaceTimeIn(emp);
+          }
+        }}
         onClose={() => { setShowFaceTimeIn(false); setFaceTimeInTarget(null); }}
         onManualOverride={faceTimeInTarget ? () => {
           setShowFaceTimeIn(false);
