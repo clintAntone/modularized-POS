@@ -402,11 +402,14 @@ export const useGlobalData = (auth: AuthState) => {
         queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
             const lookbackDate = getTrueDate();
-            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            // Superadmin: initial load covers 2 months (~60 days). ArchiveHub's
+            // infinite scroll fetches older records on demand as the user scrolls.
+            // Branch managers keep 90 days since they have no infinite scroll.
+            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+            lookbackDate.setDate(lookbackDate.getDate() - (isBranchManager ? 90 : 60));
             const lbd = lookbackDate;
             const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
 
-            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
             // Branch managers cap at 500 rows (90 days × 1 branch always fits in one page).
             // Superadmin uses 1000-row pages and may span multiple pages.
             const PAGE_SIZE = isBranchManager ? 500 : 1000;
