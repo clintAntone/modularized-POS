@@ -258,16 +258,6 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
 
   const visibleData = useMemo(() => sortedData.slice(0, visibleCount), [sortedData, visibleCount]);
 
-  // Fresh-fetch cache: keyed by report ID, populated lazily as rows become visible
-  const [freshReports, setFreshReports] = useState<Record<string, SalesReport>>({});
-
-  // Reset cache only when the actual set of report IDs changes (not on every array reference change)
-  const salesReportIdKey = useMemo(
-    () => salesReports.map(r => r.id).join(','),
-    [salesReports]
-  );
-  useEffect(() => { setFreshReports({}); }, [salesReportIdKey]);
-
   // Maps a raw Supabase row (snake_case) to the SalesReport shape (camelCase)
   const mapRawReport = (r: any): SalesReport => ({
     id: r[DB_COLUMNS.ID],
@@ -279,44 +269,13 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
     totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
     totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
     netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+    backfilled: r[DB_COLUMNS.BACKFILLED] === true,
     sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
     staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
     expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
     vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
   });
 
-  // Batch-fetch fresh data for newly-visible daily reports
-  useEffect(() => {
-    if (view !== 'daily' || !visibleData.length || !supabase) return;
-    const idsToFetch = visibleData
-      .map(r => r.id)
-      .filter(id => !freshReports[id] && !id.includes('-'));
-    if (!idsToFetch.length) return;
-
-    supabase
-      .from(DB_TABLES.SALES_REPORTS)
-      .select('*')
-      .in(DB_COLUMNS.ID, idsToFetch)
-      .then(({ data, error }) => {
-        if (error || !data) return;
-        setFreshReports(prev => {
-          const next = { ...prev };
-          data.forEach((raw: any) => {
-            const mapped = mapRawReport(raw);
-            next[mapped.id] = mapped;
-          });
-          return next;
-        });
-      });
-  }, [visibleData, view]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Apply fresh overrides for the daily table view
-  const visibleDataWithFresh = useMemo(
-    () => view === 'daily'
-      ? visibleData.map(r => freshReports[r.id] ?? r)
-      : visibleData,
-    [visibleData, freshReports, view]
-  );
 
   // Missing reports: days within the current weekly cycle (cycleStart → yesterday) with no report.
   // Each branch has its own cutoff day — cycle starts the day after cutoff.
@@ -518,7 +477,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
-        {isLoading ? (
+        {isLoading && salesReports.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-10 h-10 border-[3px] border-slate-100 border-t-slate-400 rounded-full animate-spin" />
             <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Loading reports…</p>
@@ -526,7 +485,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
         ) : (
           <>
             <ReportTable
-                reports={visibleDataWithFresh}
+                reports={visibleData}
                 branches={branches}
                 branchVaults={branchVaults}
                 viewMode={view}
@@ -540,7 +499,17 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 loadingRowId={fetchingRowId}
                 onSelect={async (r) => {
                   playSound('click');
-                  if (view !== 'daily') {
+                  if (view === 'daily' && supabase && !r.id.includes('-')) {
+                    // Fetch full report data (including session_data) on demand
+                    setFetchingRowId(r.id);
+                    const { data } = await supabase
+                      .from(DB_TABLES.SALES_REPORTS)
+                      .select('*')
+                      .eq(DB_COLUMNS.ID, r.id)
+                      .maybeSingle();
+                    setFetchingRowId(null);
+                    setSelectedReport(data ? mapRawReport(data) : r);
+                  } else {
                     const constituentIds = (groupedConstituents[r.id] || [])
                       .map(c => c.id)
                       .filter(id => !id.includes('-'));
@@ -555,8 +524,8 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                     } else {
                       setConstituents(groupedConstituents[r.id] || []);
                     }
+                    setSelectedReport(r);
                   }
-                  setSelectedReport(r);
                 }}
             />
 

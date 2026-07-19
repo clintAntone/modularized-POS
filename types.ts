@@ -47,6 +47,7 @@ export interface Branch {
   enableShiftTracking?: boolean;
   openingTime?: string;
   closingTime?: string;
+  shift2OpeningTime?: string;
   owners?: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;

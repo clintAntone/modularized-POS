@@ -54,6 +54,7 @@ export const DB_COLUMNS = {
   ENABLE_SHIFT_TRACKING: 'enable_shift_tracking',
   OPENING_TIME: 'opening_time',
   CLOSING_TIME: 'closing_time',
+  SHIFT2_OPENING_TIME: 'shift2_opening_time',
   OWNERS: 'owners',
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',

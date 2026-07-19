@@ -151,7 +151,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
 
     return {
       r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit,
-      isBackfill: r.id.includes('_BACKFILL_'),
+      isBackfill: r.backfilled === true || r.id.includes('_BACKFILL_'),
       branchName: r.branchId === 'all' ? 'NETWORK CONSOLIDATED' : (branches.find(b => b.id === r.branchId)?.name || 'BRANCH NODE'),
     };
   });

@@ -65,13 +65,23 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     }).format(clockInDate);
 
     const [clockH, clockM] = manilaClockIn.split(':').map(Number);
-    const [openH, openM] = branch.openingTime.split(':').map(Number);
-
     const totalClockMins = clockH * 60 + clockM;
-    const totalOpenMins = openH * 60 + openM;
 
-    // LATE means clocking in > 10 minutes after opening hour
-    return totalClockMins > (totalOpenMins + 10);
+    const [open1H, open1M] = branch.openingTime.split(':').map(Number);
+    const shift1Mins = open1H * 60 + open1M;
+
+    // If a second shift is configured, determine which shift the employee belongs to
+    // by finding which shift start they're closest to (midpoint method)
+    if (branch.shift2OpeningTime) {
+      const [open2H, open2M] = branch.shift2OpeningTime.split(':').map(Number);
+      const shift2Mins = open2H * 60 + open2M;
+      const midpointMins = Math.round((shift1Mins + shift2Mins) / 2);
+      const shiftOpenMins = totalClockMins >= midpointMins ? shift2Mins : shift1Mins;
+      return totalClockMins > shiftOpenMins + 10;
+    }
+
+    // Single shift: LATE means clocking in > 10 minutes after opening hour
+    return totalClockMins > shift1Mins + 10;
   };
 
   const sortedStaff = useMemo(() => {

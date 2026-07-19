@@ -260,6 +260,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <OperatingHours
                         openingTime={localBranch.openingTime || '09:00'}
                         closingTime={localBranch.closingTime || '22:00'}
+                        shift2OpeningTime={localBranch.shift2OpeningTime}
                         isSaving={isSaving}
                         isOperationalToday={isOperationalToday}
                         onUpdate={handleUpdateLocal}

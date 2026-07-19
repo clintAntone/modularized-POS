@@ -76,12 +76,13 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Re-fetch whenever the editor opens so newly-created custom roles are always visible
   useEffect(() => {
     supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq(DB_COLUMNS.KEY, 'custom_roles').maybeSingle()
       .then(({ data }) => {
         if (data?.value) { try { setCustomRoles(JSON.parse(data.value)); } catch {} }
       });
-  }, []);
+  }, [editingEmployee?.id]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

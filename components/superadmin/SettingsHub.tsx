@@ -224,11 +224,11 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
   const RESERVED_ROLES = ['THERAPIST', 'BONESETTER', 'MANAGER', 'TRAINEE', 'RELIEVER'];
 
   const handleAddRole = async () => {
-    const name = newRoleName.trim().toUpperCase().replace(/\s+/g, '_');
+    const name = newRoleName.trim().toUpperCase();
     if (!name) { setRoleError('Enter a role name'); return; }
     if (RESERVED_ROLES.includes(name)) { setRoleError('That name is reserved'); return; }
     if (customRoles.includes(name)) { setRoleError('Role already exists'); return; }
-    if (!/^[A-Z0-9_]+$/.test(name)) { setRoleError('Letters, numbers, underscores only'); return; }
+    if (!/^[A-Z0-9 ]+$/.test(name)) { setRoleError('Letters and numbers only'); return; }
     const updated = [...customRoles, name];
     setCustomRoles(updated);
     setNewRoleName('');

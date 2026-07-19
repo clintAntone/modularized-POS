@@ -128,16 +128,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     return () => clearTimeout(t);
   }, [deleteRevealId]);
 
-  // Realtime: always show latest requests without needing a manual refresh
-  useEffect(() => {
-    const channel = supabase
-      .channel('requests_hub_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.REQUESTS }, () => {
-        onRefresh?.();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  // Realtime for requests is already handled by useGlobalData's global channel —
+  // no local listener needed here to avoid double full-refresh on every change.
 
   const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
 
@@ -228,6 +220,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const netRoi = grossSales - totalExpenses - totalVaultProvision - totalStaffPay;
           const reportId = `${request.branchId}_${reportDate.replace(/-/g, '')}`;
           const existingReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === reportDate);
+
+          // session_data is intentionally omitted — backfills adjust totals only and should not
+          // overwrite (or clear) the original POS transaction log stored in that column
           const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert({
             [DB_COLUMNS.ID]: reportId,
             [DB_COLUMNS.BRANCH_ID]: request.branchId,
@@ -239,7 +234,6 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalVaultProvision,
             [DB_COLUMNS.NET_ROI]: netRoi,
             [DB_COLUMNS.STAFF_BREAKDOWN]: staffBreakdown,
-            [DB_COLUMNS.SESSION_DATA]: existingReport?.sessionData || [],
             [DB_COLUMNS.EXPENSE_DATA]: finalExpenseData,
             [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
             [DB_COLUMNS.BACKFILLED]: true,
@@ -378,7 +372,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         }).eq(DB_COLUMNS.ID, request.id);
         playSound('warning');
       }
-      onRefresh?.();
+      // useGlobalData's Realtime channel handles targeted refreshes for requests/employees/salesReports
     } catch (err) {
       console.error(err);
       alert('Action failed. Check connection.');
@@ -396,7 +390,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
       const { error } = await supabase.from(DB_TABLES.REQUESTS).delete().eq(DB_COLUMNS.ID, id);
       if (error) throw error;
       playSound('success');
-      onRefresh?.();
+      // Realtime DELETE event handled by useGlobalData
     } catch (err) {
       console.error(err);
       alert('Failed to delete request. Check connection.');

@@ -143,6 +143,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
   const [openGrossBreakdown, setOpenGrossBreakdown] = useState<string | null>(null);
   const [paymentTotalsCache, setPaymentTotalsCache] = useState<Record<string, { cash: number; gcash: number }>>({});
+  const [loadingPaymentKeys, setLoadingPaymentKeys] = useState<Set<string>>(new Set());
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
   const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
@@ -500,13 +501,16 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     [branches, includeTestBranches]
   );
 
+  // Shared O(1) branch lookup — used by useMemos and render to avoid O(n) find inside loops
+  const branchById = useMemo(() => new Map(branches.map(b => [b.id, b])), [branches]);
+
   const allGroupedReports = useMemo(() => {
     const groups: Record<string, { label: string; weekEnd: Date; cutoffDay: number; branchAggregates: Record<string, any> }> = {};
     const now = getTrueDate();
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     salesReports.forEach(report => {
-      const branch = activeBranches.find(b => b.id === report.branchId);
+      const branch = branchById.get(report.branchId);
       if (!branch) return;
       const date = parseDate(report.reportDate);
       const { label, weekStart, weekEnd } = getWeekRange(date, branch);
@@ -548,7 +552,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         reports: Object.values(groups[key].branchAggregates)
           .sort((a: any, b: any) => a.branchName.localeCompare(b.branchName))
       }));
-  }, [salesReports, branches]);
+  }, [salesReports, branchById, activeBranches]);
 
   const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -614,7 +618,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     const latestSeen = new Set<string>();
     allGroupedReports.forEach(group => {
       group.reports.forEach((r: any) => {
-        const branchObj = activeBranches.find(b => b.id === r.branchId);
+        const branchObj = branchById.get(r.branchId);
         const branchCutoff = Number(branchObj?.weeklyCutoff ?? 0);
         if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(branchCutoff)) return;
         if (!map[r.branchId]) {
@@ -640,7 +644,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       });
     });
     return Object.values(map).sort((a, b) => a.branchName.localeCompare(b.branchName));
-  }, [allGroupedReports, subLookup, selectedPeriods, branches]);
+  }, [allGroupedReports, subLookup, selectedPeriods, branchById]);
 
   // ── Early remitter rankings (scoped to the active cutoff-day filter) ─────────
   const branchRankings = useMemo(() => {
@@ -717,7 +721,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       const daysLate = Math.round((submittedDay.getTime() - periodEndDay.getTime()) / 86_400_000);
       results.push({
         branchId,
-        branchName: branches.find(b => b.id === branchId)?.name ?? branchId,
+        branchName: branchById.get(branchId)?.name ?? branchId,
         daysLate,
         periodLabel: latestLabel,
         submittedAt: sub.submittedAt,
@@ -819,10 +823,12 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     if (!activeBranchId) return; // Only fetch when drilled into a specific branch — prevents URL overflow
     const allReportIds: string[] = [];
     const idToPeriodKey: Record<string, string> = {};
+    const newKeys: string[] = [];
     displayGroups.forEach(group => {
       group.reports.forEach((report: any) => {
         const key = `${report.branchId}::${group.label}`;
         if (!paymentTotalsCache[key]) {
+          newKeys.push(key);
           (report.reportIds || []).forEach((id: string) => {
             allReportIds.push(id);
             idToPeriodKey[id] = key;
@@ -831,6 +837,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       });
     });
     if (!allReportIds.length || !supabase) return;
+    setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.add(k)); return next; });
     supabase
       .from(DB_TABLES.SALES_REPORTS)
       .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
@@ -852,6 +859,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           });
         });
         setPaymentTotalsCache(prev => ({ ...prev, ...totals }));
+        setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.delete(k)); return next; });
       });
   }, [activeBranchId, displayGroups.length]);
 
@@ -1371,7 +1379,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const activeFilterCount = [deductionSearch, deductionBranchFilter, deductionOwnerFilter, deductionAddedByFilter, deductionDateFrom, deductionDateTo].filter(Boolean).length;
 
         const filtered = allDeductions.filter(a => {
-          const branch = branches.find(b => b.id === a.branchId);
+          const branch = branchById.get(a.branchId);
           const name = (branch?.name || a.branchId).toLowerCase();
           const desc = a.description.toLowerCase();
           const owner = (a.targetOwner || '').toLowerCase();
@@ -1516,7 +1524,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {filtered.map(adj => {
-                        const branch = branches.find(b => b.id === adj.branchId);
+                        const branch = branchById.get(adj.branchId);
                         return (
                           <tr key={adj.id} className="hover:bg-slate-50/60 transition-colors">
                             <td className="px-5 py-3">
@@ -1548,7 +1556,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y divide-slate-50">
                   {filtered.map(adj => {
-                    const branch = branches.find(b => b.id === adj.branchId);
+                    const branch = branchById.get(adj.branchId);
                     return (
                       <div key={adj.id} className="px-5 py-4 flex items-center justify-between gap-4">
                         <div className="min-w-0">
@@ -2281,6 +2289,17 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               )}
                               {(() => {
                                 const pt = paymentTotalsCache[rKey];
+                                const isLoadingPt = loadingPaymentKeys.has(rKey);
+                                if (isLoadingPt && !pt) {
+                                  return (
+                                    <div className="pl-3 border-l-2 border-slate-200 mb-1 space-y-0.5">
+                                      <div className="flex justify-between py-0.5 items-center">
+                                        <div className="h-3 w-10 bg-slate-200 rounded animate-pulse" />
+                                        <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+                                      </div>
+                                    </div>
+                                  );
+                                }
                                 if (!pt || (pt.cash === 0 && pt.gcash === 0)) return null;
                                 return (
                                   <div className="pl-3 border-l-2 border-slate-200 mb-1 space-y-0.5">
@@ -2451,7 +2470,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 </div>
                               </button>
                               {/* Vault Deposit — only shown if branch has vault enabled */}
-                              {branches.find(b => b.id === report.branchId)?.vaultEnabled && (
+                              {branchById.get(report.branchId)?.vaultEnabled && (
                                 <button
                                   onClick={() => { setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setAdjFormKey(rKey); }}
                                   className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
@@ -2483,7 +2502,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           )}
                           {adjFormKey === rKey && (() => {
                             rKeyRef.current = rKey;
-                            const branchObj = branches.find(b => b.id === report.branchId);
+                            const branchObj = branchById.get(report.branchId);
                             const vaultEligible = adjFormMode === 'deduct' && !!branchObj?.vaultEnabled;
 
                             if (adjFormMode === 'transfer') return (

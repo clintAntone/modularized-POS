@@ -74,6 +74,7 @@ export const BranchReportsTab: React.FC<BranchReportsTabProps> = ({
           totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
           totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
           netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+          backfilled: r[DB_COLUMNS.BACKFILLED] === true,
           sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
           staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
           expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),

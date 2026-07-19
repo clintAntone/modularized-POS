@@ -22,6 +22,7 @@ const mapDbBranch = (db: any): Branch => ({
     enableShiftTracking: Boolean(db[DB_COLUMNS.ENABLE_SHIFT_TRACKING]),
     openingTime: db[DB_COLUMNS.OPENING_TIME] ?? '09:00',
     closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
+    shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
     owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
       ? JSON.parse(db[DB_COLUMNS.OWNERS])
       : (db[DB_COLUMNS.OWNERS] || []),
@@ -91,6 +92,7 @@ const SALES_REPORT_COLS = [
     DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
     DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
     DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.VAULT_DATA,
+    DB_COLUMNS.BACKFILLED,
 ].join(',');
 
 const SERVICE_CATALOG_COLS = [
@@ -255,6 +257,7 @@ export const useSalesReports = (branchId?: string) => {
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
                 totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
                 netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+                backfilled: r[DB_COLUMNS.BACKFILLED] === true,
                 sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
                 staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
