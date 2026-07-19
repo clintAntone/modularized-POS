@@ -724,8 +724,11 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
                     const getOtPay  = (p: any) => Number(p.otPay ?? p.attendance?.otPay ?? p.attendance?.ot_pay ?? 0);
                     const getLateDed = (p: any) => Number(p.lateDeduction ?? p.attendance?.lateDeduction ?? p.attendance?.late_deduction ?? 0);
-                    const newStaffPay = request.data.staffBreakdown?.reduce((s: number, p: any) =>
-                      s + (p.salary || 0) + (p.commission || 0) + getOtPay(p) + (p.allowance || 0) - getLateDed(p), 0) || 0;
+                    // Relievers are included in totalExpenses, not staffPay — matches the approval logic
+                    const newStaffPay = (request.data.staffBreakdown ?? [])
+                      .filter((p: any) => !p.isReliever)
+                      .reduce((s: number, p: any) =>
+                        s + (p.salary || 0) + (p.commission || 0) + getOtPay(p) + (p.allowance || 0) - getLateDed(p), 0);
                     const newRoi = (request.data.grossSales || 0) - (request.data.totalExpenses || 0) - (request.data.totalVaultProvision || 0) - newStaffPay;
 
                     const rows: { label: string; before: number | null; after: number; roiColor?: boolean }[] = [
@@ -821,18 +824,18 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
                                     </div>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {[
-                                        { k: 'Base', v: s.salary },
-                                        { k: 'Com', v: s.commission },
-                                        { k: 'OT', v: s.otPay },
-                                        { k: 'Allow', v: s.allowance },
+                                        { k: 'Base', v: s.salary || 0 },
+                                        { k: 'Com', v: s.commission || 0 },
+                                        { k: 'OT', v: getOt(s) },
+                                        { k: 'Allow', v: s.allowance || 0 },
                                       ].filter(x => x.v > 0).map(x => (
                                         <span key={x.k} className="px-1.5 py-0.5 bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-100 rounded text-xs font-bold">
                                           {x.k} ₱{x.v.toLocaleString()}
                                         </span>
                                       ))}
-                                      {s.lateDeduction > 0 && (
+                                      {getLate(s) > 0 && (
                                         <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 rounded text-xs font-bold">
-                                          −Late ₱{s.lateDeduction.toLocaleString()}
+                                          −Late ₱{getLate(s).toLocaleString()}
                                         </span>
                                       )}
                                     </div>
