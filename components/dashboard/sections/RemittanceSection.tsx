@@ -428,7 +428,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     return allGroups.filter(g => {
       if (g.weekEnd >= now) return false;
       const sub = allSubmissions.find(s => s.periodLabel === g.label);
-      return !sub || sub.status !== 'approved';
+      return !sub || (sub.status !== 'approved' && sub.status !== 'remitted');
     });
   }, [allGroups, allSubmissions, now]);
 
