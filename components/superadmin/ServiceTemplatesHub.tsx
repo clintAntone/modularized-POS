@@ -6,7 +6,9 @@ import { Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
-import { Search, Plus, X, Edit2, Trash2, BookOpen, LayoutGrid, List, GitBranch, Check, Zap } from 'lucide-react';
+import { Search, Plus, X, Edit2, Trash2, BookOpen, LayoutGrid, List, GitBranch, Check, Zap, Download, ChevronDown } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const CATALOG_PALETTES = [
   { dot: 'bg-emerald-500', light: 'bg-emerald-50', icon: 'text-emerald-600', tag: 'bg-emerald-100 text-emerald-700' },
@@ -83,6 +85,8 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   // Draft state for the per-service branch assignment modal
   const [draftBranchIds, setDraftBranchIds] = useState<string[]>([]);
   const [isAssignSaving, setIsAssignSaving] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [branchSearch, setBranchSearch] = useState('');
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<ServiceTemplate | null>(null);
@@ -130,6 +134,12 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handler = (e: MouseEvent) => { if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [exportOpen]);
   useEffect(() => {
     if (!openCatalogMenu) return;
     const handler = (e: MouseEvent) => {
@@ -359,55 +369,58 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       )}
 
       {/* ── Header ── */}
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 space-y-3">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-4 md:p-6 space-y-6 no-print">
         {/* Title row */}
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-black text-slate-900 leading-none tracking-tight">Service Templates</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center shadow-inner shrink-0">
+              <LayoutGrid className="w-5 h-5" strokeWidth={2} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">Service Templates</h3>
+              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                {templates.length} services · {branchServices.length} assignments
+                {totalOverrides > 0 && <span className="text-amber-500"> · {totalOverrides} price overrides</span>}
+              </p>
+            </div>
+          </div>
           {!isReadOnly && (
             <button
               onClick={() => { setNewCatalogName(''); setShowNewCatalogModal(true); playSound('click'); }}
-              className="h-8 px-3 bg-slate-900 text-white rounded-xl text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 hover:bg-emerald-600 transition-all active:scale-95 shrink-0"
+              className="h-10 sm:h-11 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0"
             >
-              <Plus className="w-3 h-3" strokeWidth={3} />
-              <span>New Catalog</span>
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              <span className="hidden sm:inline font-black text-xs uppercase tracking-widest">New Catalog</span>
             </button>
           )}
         </div>
-        {/* Stats row — separate so button never overlaps */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">{templates.length} services</span>
-          <span className="text-slate-200">·</span>
-          <span className="text-xs text-slate-400">{branchServices.length} assignments</span>
-          {totalOverrides > 0 && <>
-            <span className="text-slate-200">·</span>
-            <span className="text-xs text-amber-500">{totalOverrides} price overrides</span>
-          </>}
-        </div>
 
         {/* Search + view toggle row */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="relative flex-1 group">
+            <div className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500 group-focus-within:text-emerald-500 transition-colors pointer-events-none">
+              <Search className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
+            </div>
             <input
               value={search}
               onChange={e => setSearch(e.target.value.toUpperCase())}
-              placeholder="Search services..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-slate-400 transition-all"
+              placeholder="SEARCH SERVICES..."
+              className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-4 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-600 rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
             />
           </div>
-          <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5 shrink-0">
+          <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-0.5 gap-0.5 shrink-0">
             <button onClick={() => setViewMode('services')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
-                viewMode === 'services' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+                viewMode === 'services' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}>
-              <LayoutGrid className="w-3 h-3" strokeWidth={2.5} />
+              <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.5} />
               <span className="hidden sm:inline">Catalogs</span>
             </button>
             <button onClick={() => setViewMode('branches')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
-                viewMode === 'branches' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+                viewMode === 'branches' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}>
-              <List className="w-3 h-3" strokeWidth={2.5} />
+              <List className="w-3.5 h-3.5" strokeWidth={2.5} />
               <span className="hidden sm:inline">By Branch</span>
             </button>
           </div>
@@ -420,8 +433,8 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               <button key={c} onClick={() => setFilterCatalog(c)}
                 className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                   filterCatalog === c
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}>
                 {c === 'ALL' ? 'All' : c}
               </button>
@@ -429,6 +442,63 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
           </div>
         )}
       </div>
+
+      {/* ── Export row ── */}
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <div ref={exportRef} className="relative">
+            <div className="flex items-stretch h-8 rounded-xl overflow-hidden">
+              <button
+                onClick={() => { setExportOpen(o => !o); playSound('click'); }}
+                className="flex items-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide transition-colors"
+              >
+                <Download className="w-3 h-3" strokeWidth={2.5} />
+                <span>Export</span>
+              </button>
+              <button
+                onClick={() => { setExportOpen(o => !o); playSound('click'); }}
+                className="flex items-center px-2 bg-emerald-700 hover:bg-emerald-800 text-white transition-colors border-l border-emerald-500"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${exportOpen ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+              </button>
+            </div>
+            {exportOpen && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden min-w-[140px] animate-in fade-in zoom-in-95 duration-150">
+                {[
+                  { label: 'Excel / CSV', icon: '📊', action: () => {
+                    const rows = [
+                      ['Name', 'Catalog', 'Price', 'Duration (min)', 'Primary Role', 'Secondary Role', 'Commission Type', 'Commission Value', 'Dual Provider', 'Sec. Commission Type', 'Sec. Commission Value', 'Loyalty'],
+                      ...templates.map(t => [t.name, t.catalog_name ?? '', t.default_price, t.duration, t.primary_role, t.secondary_role ?? '', t.commission_type, t.commission_value, t.is_dual_provider ? 'Yes' : 'No', t.secondary_commission_type ?? '', t.secondary_commission_value ?? '', t.can_be_loyalty ? 'Yes' : 'No']),
+                    ];
+                    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `services_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+                    URL.revokeObjectURL(url);
+                  }},
+                  { label: 'PDF', icon: '📄', action: () => {
+                    const doc = new jsPDF({ orientation: 'landscape' });
+                    doc.setFontSize(14); doc.text('Service Templates', 14, 15);
+                    doc.setFontSize(9); doc.text(`Exported ${new Date().toLocaleDateString()}`, 14, 21);
+                    autoTable(doc, {
+                      startY: 26,
+                      head: [['Name', 'Catalog', 'Price', 'Duration', 'Primary Role', 'Commission', 'Dual', 'Loyalty']],
+                      body: templates.map(t => [t.name, t.catalog_name ?? '—', `₱${t.default_price}`, `${t.duration}m`, t.primary_role, `${t.commission_type} ${t.commission_value}`, t.is_dual_provider ? 'Yes' : 'No', t.can_be_loyalty ? 'Yes' : 'No']),
+                      styles: { fontSize: 8 }, headStyles: { fillColor: [15, 118, 110] },
+                    });
+                    doc.save(`services_${new Date().toISOString().slice(0, 10)}.pdf`);
+                  }},
+                ].map(opt => (
+                  <button key={opt.label} onClick={() => { opt.action(); setExportOpen(false); playSound('click'); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 uppercase tracking-wide hover:bg-slate-50 transition-colors text-left">
+                    <span>{opt.icon}</span><span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Branches view ── */}
       {viewMode === 'branches' && (

@@ -2551,7 +2551,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               {branchById.get(report.branchId)?.vaultEnabled && (
                                 <button
                                   onClick={() => { setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); setAdjFormKey(rKey); }}
-                                  className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
+                                  className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
                                 >
                                   <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
                                     <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
