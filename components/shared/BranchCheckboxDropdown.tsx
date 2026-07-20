@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useTransition } from 'react';
 import { Branch } from '../../types';
 
 interface BranchCheckboxDropdownProps {
@@ -19,6 +19,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -31,14 +32,13 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = branches
-    .filter(b => b.isEnabled !== false && b.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => {
-      const aChecked = selectedIds.includes(a.id);
-      const bChecked = selectedIds.includes(b.id);
-      if (aChecked !== bChecked) return aChecked ? -1 : 1;
-      return 0;
-    });
+  // Stable alphabetical order — never re-sort on check so list items don't jump
+  const filtered = useMemo(() =>
+    branches
+      .filter(b => b.isEnabled !== false && b.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [branches, search]
+  );
 
   const label =
     selectedIds.length === 0
@@ -50,11 +50,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
   const allSelected = selectedIds.length === 0;
 
   const toggleBranch = (id: string) => {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter(x => x !== id));
-    } else {
-      onChange([...selectedIds, id]);
-    }
+    const next = selectedIds.includes(id)
+      ? selectedIds.filter(x => x !== id)
+      : [...selectedIds, id];
+    // startTransition lets the checkbox respond instantly; parent re-render is non-blocking
+    startTransition(() => onChange(next));
   };
 
   return (

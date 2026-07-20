@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useTransition, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Branch, SalesReport } from '../../types';
@@ -49,6 +49,172 @@ function toTitleCase(str: string): string {
     part === '-' || part.trim() === '' ? part : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
   ).join('');
 }
+
+type BranchSummary = {
+  branchId: string; branchName: string; cutoffDay: number; totalPeriods: number;
+  pending: number; approved: number; rejected: number; totalRoi: number;
+  grossSales: number; totalStaffPay: number; totalExpenses: number;
+  latestPeriodRoi: number; latestPeriodLabel: string;
+  latestGrossSales: number; latestStaffPay: number; latestExpenses: number;
+  latestVaultProvision: number;
+  latestAdjustments: { description: string; amount: number }[];
+  owners: { name: string; percentage: number }[];
+  latestOwnerShares: { name: string; percentage: number; share: number }[];
+};
+
+interface BranchListTableProps {
+  sorted: BranchSummary[];
+  tableSortKey: 'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending';
+  tableSortDir: 'asc' | 'desc';
+  onSort: (key: 'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending') => void;
+  onBranchClick: (branchId: string) => void;
+}
+
+const BranchListTable = React.memo(({ sorted, tableSortKey, tableSortDir, onSort, onBranchClick }: BranchListTableProps) => {
+  const SortIcon = ({ k }: { k: typeof tableSortKey }) => (
+    tableSortKey === k ? <span className="ml-0.5 text-xs">{tableSortDir === 'asc' ? '▲' : '▼'}</span> : null
+  );
+  return (
+    <>
+      {/* Desktop table */}
+      <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50/50">
+              <th onClick={() => onSort('branch')} className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Branch<SortIcon k="branch" /></th>
+              <th onClick={() => onSort('pending')} className="text-center px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Status<SortIcon k="pending" /></th>
+              <th onClick={() => onSort('gross')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Gross<SortIcon k="gross" /></th>
+              <th onClick={() => onSort('salary')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Salary<SortIcon k="salary" /></th>
+              <th onClick={() => onSort('expenses')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Expenses<SortIcon k="expenses" /></th>
+              <th className="text-left px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide select-none">Owners</th>
+              <th onClick={() => onSort('roi')} className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Latest ROI<SortIcon k="roi" /></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {sorted.map(b => (
+              <tr
+                key={b.branchId}
+                onClick={() => onBranchClick(b.branchId)}
+                className="hover:bg-slate-50 cursor-pointer transition-colors group"
+              >
+                <td className="px-6 py-3.5">
+                  <p className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors">
+                    {b.branchName.replace(' BRANCH', '')}
+                  </p>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">{b.totalPeriods} week{b.totalPeriods !== 1 ? 's' : ''}</p>
+                </td>
+                <td className="text-center px-3 py-3.5">
+                  <div className="inline-flex items-center gap-2">
+                    {b.pending > 0 && <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /><span className="text-xs font-black text-amber-600">{b.pending}</span></span>}
+                    {b.approved > 0 && <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /><span className="text-xs font-black text-emerald-600">{b.approved}</span></span>}
+                    {b.pending === 0 && b.approved === 0 && <span className="text-slate-300">—</span>}
+                  </div>
+                </td>
+                <td className="text-right px-3 py-3.5 text-xs font-bold text-slate-700 tabular-nums">{fmt(b.latestGrossSales)}</td>
+                <td className="text-right px-3 py-3.5 text-xs font-bold text-rose-500 tabular-nums">{fmt(b.latestStaffPay)}</td>
+                <td className="text-right px-3 py-3.5 text-xs font-bold text-rose-500 tabular-nums">{fmt(b.latestExpenses)}</td>
+                <td className="px-3 py-3.5">
+                  {b.owners.length === 0
+                    ? <span className="text-xs text-slate-300">—</span>
+                    : <div className="flex flex-col gap-1.5">
+                        {b.latestOwnerShares.map((o, i) => {
+                          const share = o.share;
+                          return (
+                            <div key={i} className="flex items-center justify-between gap-3">
+                              <span className="text-[10px] font-medium text-slate-300 uppercase tracking-widest whitespace-nowrap">{o.name.trim().toUpperCase()}</span>
+                              <span className={`text-base font-black tabular-nums ${share < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{fmt(share)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                  }
+                </td>
+                <td className="text-right px-6 py-3.5">
+                  <span className={`text-xs font-black tabular-nums block ${b.latestPeriodRoi < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{fmt(b.latestPeriodRoi)}</span>
+                  {b.latestPeriodLabel && <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{b.latestPeriodLabel}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {sorted.length === 0 && (
+          <div className="p-16 text-center">
+            <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile cards */}
+      <div className="lg:hidden space-y-3">
+        {sorted.map(b => (
+          <button
+            key={b.branchId}
+            onClick={() => onBranchClick(b.branchId)}
+            className="w-full text-left bg-white rounded-2xl border border-slate-100 px-5 py-4 hover:bg-slate-50 active:bg-slate-100 transition-colors shadow-sm"
+          >
+            {/* Header row */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{b.branchName.replace(' BRANCH', '')}</p>
+                {b.latestPeriodLabel && <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mt-0.5">{b.latestPeriodLabel}</p>}
+              </div>
+              <div className="text-right shrink-0">
+                <span className={`text-sm font-black tabular-nums block ${b.latestGrossSales < 0 ? 'text-rose-600' : 'text-slate-800'}`}>{fmt(b.latestGrossSales)}</span>
+                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Gross</span>
+              </div>
+            </div>
+
+            {/* Stats list */}
+            <div className="divide-y divide-slate-50 -mx-5 px-5 mb-3">
+              {[
+                { label: 'Gross', value: fmt(b.latestGrossSales), color: 'text-slate-700' },
+                { label: 'Salary', value: fmt(b.latestStaffPay), color: 'text-rose-500' },
+                { label: 'Expenses', value: fmt(b.latestExpenses), color: 'text-rose-500' },
+                { label: 'Vault', value: fmt(b.latestVaultProvision), color: 'text-violet-500' },
+              ].map(s => (
+                <div key={s.label} className="flex items-center justify-between py-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{s.label}</span>
+                  <span className={`text-xs font-black tabular-nums ${s.color}`}>{s.value}</span>
+                </div>
+              ))}
+              {b.latestAdjustments.slice(0, 2).map((a, i) => (
+                <div key={i} className="flex items-center justify-between py-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide truncate max-w-[55%]">{a.description}</span>
+                  <span className={`text-xs font-black tabular-nums ${a.amount < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{fmt(a.amount)}</span>
+                </div>
+              ))}
+              {b.latestAdjustments.length > 2 && (
+                <div className="py-2">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">+{b.latestAdjustments.length - 2} more adjustment{b.latestAdjustments.length - 2 !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Owners */}
+            {b.owners.length > 0 && (
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+                {b.latestOwnerShares.map((o, i) => {
+                  const share = o.share;
+                  return (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-[10px] font-medium text-slate-300 uppercase tracking-widest">{o.name.trim().toUpperCase()}</span>
+                      <span className={`text-base font-black tabular-nums underline decoration-1 underline-offset-2 ${share < 0 ? 'text-rose-500 decoration-rose-300' : 'text-emerald-500 decoration-emerald-300'}`}>{fmt(share)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </button>
+        ))}
+        {sorted.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
+            <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+});
 
 export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ branches, salesReports: _salesReportsProp, onRefresh, isReadOnly, addedBy }) => {
   // Fetch ALL reports with scalar fields only (no JSON blobs) — paginated to bypass PostgREST row cap
@@ -110,6 +276,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [branchSearch, setBranchSearch] = useState('');
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
+  const [, startTransition] = useTransition();
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const branchDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
@@ -154,13 +321,25 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const [tableSortKey, setTableSortKey] = useState<'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending'>('branch');
   const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Stable callbacks so BranchListTable (React.memo) skips re-render when dropdowns open/close
+  const handleBranchListSort = useCallback((key: 'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending') => {
+    setTableSortKey(prev => {
+      if (prev !== key) { setTableSortDir('desc'); return key; }
+      setTableSortDir(d => d === 'asc' ? 'desc' : 'asc');
+      return prev;
+    });
+    playSound('click');
+  }, []);
+
+  const handleBranchCardClick = useCallback((branchId: string) => {
+    setActiveBranchId(branchId);
+    setBranchSearch('');
+    playSound('click');
+  }, []);
+
   const [mainView, setMainView] = useState<'remittances' | 'deductions' | 'owners'>('remittances');
-  const [deductionSearch, setDeductionSearch] = useState('');
-  const [deductionBranchFilter, setDeductionBranchFilter] = useState('');
-  const [deductionOwnerFilter, setDeductionOwnerFilter] = useState('');
-  const [deductionAddedByFilter, setDeductionAddedByFilter] = useState('');
-  const [deductionDateFrom, setDeductionDateFrom] = useState('');
-  const [deductionDateTo, setDeductionDateTo] = useState('');
+  const [deductionAmountSearch, setDeductionAmountSearch] = useState('');
   const [ownerSearch, setOwnerSearch] = useState('');
   const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set());
 
@@ -613,16 +792,23 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   // Branch summary for the branch list view — respects cutoff filter
   const branchSummaries = useMemo(() => {
     const selectedCutoffs = selectedPeriods.map(Number);
-    const map: Record<string, { branchId: string; branchName: string; cutoffDay: number; totalPeriods: number; pending: number; approved: number; rejected: number; totalRoi: number; grossSales: number; totalStaffPay: number; totalExpenses: number; latestPeriodRoi: number; latestPeriodLabel: string; latestGrossSales: number; latestStaffPay: number; latestExpenses: number }> = {};
-    // allGroupedReports is sorted most-recent first — first encounter per branch = latest period
+    const now = getTrueDate();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const map: Record<string, BranchSummary> = {};
+    // allGroupedReports is sorted most-recent first.
+    // We only use a completed week (weekEnd < today) as the "latest" snapshot — branches
+    // that already have day-1 reports for the current in-progress week would otherwise
+    // show the new week's label even though the previous week is still pending.
     const latestSeen = new Set<string>();
     allGroupedReports.forEach(group => {
+      const weekEndMidnight = new Date(group.weekEnd.getFullYear(), group.weekEnd.getMonth(), group.weekEnd.getDate());
+      const weekCompleted = weekEndMidnight < todayMidnight;
       group.reports.forEach((r: any) => {
         const branchObj = branchById.get(r.branchId);
         const branchCutoff = Number(branchObj?.weeklyCutoff ?? 0);
         if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(branchCutoff)) return;
         if (!map[r.branchId]) {
-          map[r.branchId] = { branchId: r.branchId, branchName: r.branchName, cutoffDay: branchCutoff, totalPeriods: 0, pending: 0, approved: 0, rejected: 0, totalRoi: 0, grossSales: 0, totalStaffPay: 0, totalExpenses: 0, latestPeriodRoi: 0, latestPeriodLabel: '', latestGrossSales: 0, latestStaffPay: 0, latestExpenses: 0 };
+          map[r.branchId] = { branchId: r.branchId, branchName: r.branchName, cutoffDay: branchCutoff, totalPeriods: 0, pending: 0, approved: 0, rejected: 0, totalRoi: 0, grossSales: 0, totalStaffPay: 0, totalExpenses: 0, latestPeriodRoi: 0, latestPeriodLabel: '', latestGrossSales: 0, latestStaffPay: 0, latestExpenses: 0, latestVaultProvision: 0, latestAdjustments: [], latestOwnerShares: [], owners: Array.isArray(branchObj?.owners) ? branchObj.owners : [] };
         }
         map[r.branchId].totalPeriods += 1;
         map[r.branchId].totalRoi += r.netRoi || 0;
@@ -633,18 +819,34 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         if (sub?.status === 'approved') map[r.branchId].approved += 1;
         else if (sub?.status === 'rejected') map[r.branchId].rejected += 1;
         else map[r.branchId].pending += 1;
-        if (!latestSeen.has(r.branchId)) {
+        // Only snapshot financials from a fully-completed week so the label always
+        // reflects a settled period, not today's partial in-progress data.
+        if (!latestSeen.has(r.branchId) && weekCompleted) {
           latestSeen.add(r.branchId);
           map[r.branchId].latestPeriodRoi = r.netRoi || 0;
           map[r.branchId].latestPeriodLabel = group.label;
           map[r.branchId].latestGrossSales = r.grossSales || 0;
           map[r.branchId].latestStaffPay = r.totalStaffPay || 0;
           map[r.branchId].latestExpenses = r.totalExpenses || 0;
+          map[r.branchId].latestVaultProvision = r.totalVaultProvision || 0;
+          const branchAdjs = adjustments.filter(a => a.branchId === r.branchId && a.periodLabel === group.label);
+          const globalAdjs = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
+          const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
+          map[r.branchId].latestAdjustments = globalAdjs.map(a => ({ description: a.description || 'Adjustment', amount: a.amount }));
+          const globalAdjSum = globalAdjs.reduce((s, a) => s + a.amount, 0);
+          const adjustedRoi = (r.netRoi || 0) + globalAdjSum;
+          const levy = branchObj?.groupLevy as { name?: string; percentage?: number } | null;
+          const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+          const distributableRoi = adjustedRoi - levyCut;
+          map[r.branchId].latestOwnerShares = (Array.isArray(branchObj?.owners) ? branchObj!.owners : []).map((o: { name: string; percentage: number }) => {
+            const ownerAdj = ownerAdjs.filter(a => a.targetOwner === o.name).reduce((s, a) => s + a.amount, 0);
+            return { name: o.name, percentage: o.percentage, share: distributableRoi * (o.percentage / 100) + ownerAdj };
+          });
         }
       });
     });
     return Object.values(map).sort((a, b) => a.branchName.localeCompare(b.branchName));
-  }, [allGroupedReports, subLookup, selectedPeriods, branchById]);
+  }, [allGroupedReports, subLookup, selectedPeriods, branchById, adjustments]);
 
   // ── Early remitter rankings (scoped to the active cutoff-day filter) ─────────
   const branchRankings = useMemo(() => {
@@ -1110,6 +1312,64 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     return { remitted, pending, nothingToRemit, totalRoi, ownerEntries };
   }, [activeBranches, allGroupedReports, subLookup, adjustments]);
 
+  // All approved submissions with computed distributable ROI — the primary data source for Deposits tab
+  const remittedDeposits = useMemo(() => {
+    const result: { branchId: string; branchName: string; periodLabel: string; amount: number; submittedAt: string }[] = [];
+    for (const sub of submissions) {
+      if (sub.status !== 'approved') continue;
+      const branch = branchById.get(sub.branchId);
+      if (!branch) continue;
+      const group = allGroupedReports.find(g => g.label === sub.periodLabel);
+      if (!group) continue;
+      const report = (group.reports as any[]).find((r: any) => r.branchId === sub.branchId);
+      if (!report) continue;
+      const branchAdjs = adjustments.filter(a => a.branchId === sub.branchId && a.periodLabel === sub.periodLabel);
+      const globalAdj = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+      const adjustedRoi = report.netRoi + globalAdj;
+      const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
+      const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+      const distributableRoi = adjustedRoi - levyCut;
+      result.push({ branchId: sub.branchId, branchName: (branch.name || '').replace(/BRANCH\s*-\s*/i, '').trim(), periodLabel: sub.periodLabel, amount: distributableRoi, submittedAt: sub.submittedAt });
+    }
+    // Sort by period order then branch name
+    const periodOrder = new Map<string, number>(allGroupedReports.map((g, i) => [g.label, i] as [string, number]));
+    return result.sort((a, b) => {
+      const pi = (periodOrder.get(a.periodLabel) ?? 9999) - (periodOrder.get(b.periodLabel) ?? 9999);
+      return pi !== 0 ? pi : a.branchName.localeCompare(b.branchName);
+    });
+  }, [submissions, branchById, allGroupedReports, adjustments]);
+
+  // Flat list of every owner's computed share per approved period — used for amount search in Deposits tab
+  const ownerDistributions = useMemo(() => {
+    const result: { branchId: string; branchName: string; periodLabel: string; ownerName: string; amount: number }[] = [];
+    const now = getTrueDate();
+    for (const branch of activeBranches) {
+      const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+      if (owners.length === 0) continue;
+      const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
+      for (const group of allGroupedReports) {
+        if (group.weekEnd >= now) continue;
+        const report = (group.reports as any[]).find((r: any) => r.branchId === branch.id);
+        if (!report) continue;
+        const sub = subLookup[`${branch.id}::${group.label}`];
+        if (sub?.status !== 'approved') continue;
+        const branchAdjs = adjustments.filter(a => a.branchId === branch.id && a.periodLabel === group.label);
+        const globalAdj = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+        const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
+        const adjustedRoi = report.netRoi + globalAdj;
+        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const distributableRoi = adjustedRoi - levyCut;
+        for (const owner of owners) {
+          const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
+          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          if (share <= 0) continue;
+          result.push({ branchId: branch.id, branchName: branch.name.replace(/BRANCH\s*-\s*/i, '').trim(), periodLabel: group.label, ownerName: owner.name.trim(), amount: share });
+        }
+      }
+    }
+    return result.sort((a, b) => b.periodLabel.localeCompare(a.periodLabel));
+  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+
   // Owner ROI data — aggregated across ALL approved periods (not just last week)
   const ownerRoiData = useMemo(() => {
     const ownerMap: Record<string, { displayName: string; totalShare: number; entries: { branchName: string; period: string; share: number }[] }> = {};
@@ -1158,6 +1418,30 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       }))
       .sort((a, b) => b.totalShare - a.totalShare);
   }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+
+  // Lifted out of the render IIFE so the array reference is stable between
+  // renders that only change dropdown-open state (no data change).
+  const sortedBranchList = useMemo(() => {
+    const filtered = branchSummaries.filter(b => {
+      if (effectiveBranchIds.length > 0 && !effectiveBranchIds.includes(b.branchId)) return false;
+      if (branchSearch.trim() && !b.branchName.toLowerCase().includes(branchSearch.trim().toLowerCase())) return false;
+      if (lastWeekOnly && !lastWeekUnremittedIds.has(b.branchId)) return false;
+      if (lastWeekSubmittedOnly && !lastWeekSubmittedIds.has(b.branchId)) return false;
+      return true;
+    });
+    const dir = tableSortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      switch (tableSortKey) {
+        case 'branch': return dir * a.branchName.localeCompare(b.branchName);
+        case 'gross': return dir * (a.latestGrossSales - b.latestGrossSales);
+        case 'salary': return dir * (a.latestStaffPay - b.latestStaffPay);
+        case 'expenses': return dir * (a.latestExpenses - b.latestExpenses);
+        case 'roi': return dir * (a.latestPeriodRoi - b.latestPeriodRoi);
+        case 'pending': return dir * (a.pending - b.pending);
+        default: return 0;
+      }
+    });
+  }, [branchSummaries, effectiveBranchIds, branchSearch, lastWeekOnly, lastWeekUnremittedIds, lastWeekSubmittedOnly, lastWeekSubmittedIds, tableSortKey, tableSortDir]);
 
   const handleSendEmailReport = async () => {
     if (!emailReportAddr || emailReportSending) return;
@@ -1351,14 +1635,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
         {/* View toggle */}
         {!activeBranchId && (
-          <div className="flex w-full lg:w-fit bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner mt-3">
-            {(['remittances', 'owners'] as const).map(v => (
+          <div className="flex w-full lg:w-fit bg-white/5 p-1 rounded-2xl border border-white/10 mt-3">
+            {(['remittances', 'deductions'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => { setMainView(v); playSound('click'); }}
-                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white/15 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
               >
-                {v === 'remittances' ? 'Remittances' : 'Owners'}
+                {v === 'remittances' ? 'Remittances' : 'Deposits'}
               </button>
             ))}
           </div>
@@ -1366,212 +1650,107 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
       </div>
 
-      {/* ── Deductions View ── */}
+      {/* ── Adjustments View ── */}
       {!activeBranchId && mainView === 'deductions' && (() => {
-        const allDeductions = adjustments
-          .filter(a => a.amount < 0)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-        // Derive unique options for dropdowns
-        const uniqueOwners = Array.from(new Set(allDeductions.map(a => a.targetOwner?.trim().toUpperCase()).filter(Boolean) as string[])).sort();
-        const uniqueAddedBy = Array.from(new Set(allDeductions.map(a => a.addedBy?.trim().toLowerCase()).filter(Boolean) as string[])).sort();
-
-        const activeFilterCount = [deductionSearch, deductionBranchFilter, deductionOwnerFilter, deductionAddedByFilter, deductionDateFrom, deductionDateTo].filter(Boolean).length;
-
-        const filtered = allDeductions.filter(a => {
-          const branch = branchById.get(a.branchId);
-          const name = (branch?.name || a.branchId).toLowerCase();
-          const desc = a.description.toLowerCase();
-          const owner = (a.targetOwner || '').toLowerCase();
-          if (deductionSearch.trim() && !desc.includes(deductionSearch.toLowerCase())) return false;
-          if (deductionBranchFilter && a.branchId !== deductionBranchFilter) return false;
-          if (deductionOwnerFilter && (a.targetOwner?.trim().toUpperCase() || '') !== deductionOwnerFilter) return false;
-          if (deductionAddedByFilter && (a.addedBy?.trim().toLowerCase() || '') !== deductionAddedByFilter) return false;
-          if (deductionDateFrom) {
-            const created = a.createdAt.slice(0, 10);
-            if (created < deductionDateFrom) return false;
-          }
-          if (deductionDateTo) {
-            const created = a.createdAt.slice(0, 10);
-            if (created > deductionDateTo) return false;
-          }
-          return true;
-        });
-
-        const totalDeducted = filtered.reduce((s, a) => s + a.amount, 0);
-
-        const clearAllFilters = () => {
-          setDeductionSearch('');
-          setDeductionBranchFilter('');
-          setDeductionOwnerFilter('');
-          setDeductionAddedByFilter('');
-          setDeductionDateFrom('');
-          setDeductionDateTo('');
+        const normalizeAmt = (s: string) => s.replace(/[^0-9.]/g, '');
+        const needle = normalizeAmt(deductionAmountSearch.trim());
+        const matchesNeedle = (amount: number) => {
+          if (!needle) return true;
+          const haystack = normalizeAmt(Math.abs(amount).toFixed(2));
+          return haystack.startsWith(needle) || haystack.replace('.', '').startsWith(needle);
         };
+
+        const matchedRemitted = deductionAmountSearch.trim() ? remittedDeposits.filter(d => matchesNeedle(d.amount)) : remittedDeposits;
+        const matchedDists    = deductionAmountSearch.trim() ? ownerDistributions.filter(d => matchesNeedle(d.amount)) : [];
+        const totalMatches    = matchedRemitted.length + matchedDists.length;
+        const dot = <span className="text-white/20 text-xs">·</span>;
+
+        // Group remitted deposits by period
+        const periodGroups = new Map<string, typeof remittedDeposits>();
+        for (const d of matchedRemitted) {
+          if (!periodGroups.has(d.periodLabel)) periodGroups.set(d.periodLabel, []);
+          periodGroups.get(d.periodLabel)!.push(d);
+        }
 
         return (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Filters panel */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Filters</p>
-                {activeFilterCount > 0 && (
-                  <button onClick={clearAllFilters} className="text-xs font-black text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-colors">
-                    Clear all ({activeFilterCount})
+            {/* Search input */}
+            <div className="bg-white/5 rounded-2xl border border-white/10 px-5 py-5">
+              <p className="text-xs font-black text-white/30 uppercase tracking-widest mb-3">Search by amount</p>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-black text-white/40 pointer-events-none">₱</span>
+                <input
+                  autoFocus
+                  type="text"
+                  inputMode="numeric"
+                  value={deductionAmountSearch}
+                  onChange={e => setDeductionAmountSearch(e.target.value)}
+                  placeholder="Type an amount..."
+                  className={`w-full pl-9 pr-10 py-3.5 border-2 rounded-xl text-base font-black tabular-nums outline-none transition-all placeholder:font-normal placeholder:text-sm placeholder:tracking-normal placeholder:normal-case ${
+                    deductionAmountSearch
+                      ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-300 placeholder:text-emerald-500/40'
+                      : 'bg-white/5 border-white/10 text-white focus:border-white/30 placeholder:text-white/20'
+                  }`}
+                />
+                {deductionAmountSearch && (
+                  <button onClick={() => setDeductionAmountSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                    <XCircle className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                {/* Description */}
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Description</p>
-                  <input
-                    type="text"
-                    value={deductionSearch}
-                    onChange={e => setDeductionSearch(e.target.value)}
-                    placeholder="Type to search..."
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionSearch ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500 focus:bg-white'}`}
-                  />
-                </div>
-                {/* Branch */}
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Branch</p>
-                  <select
-                    value={deductionBranchFilter}
-                    onChange={e => setDeductionBranchFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionBranchFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                  >
-                    <option value="">All Branches</option>
-                    {branches.filter(b => allDeductions.some(a => a.branchId === b.id)).map(b => (
-                      <option key={b.id} value={b.id}>{b.name.replace('BRANCH - ', '')}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Deducted From */}
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Deducted From</p>
-                  <select
-                    value={deductionOwnerFilter}
-                    onChange={e => setDeductionOwnerFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionOwnerFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                  >
-                    <option value="">All Owners</option>
-                    {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                {/* Added By */}
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Added By</p>
-                  <select
-                    value={deductionAddedByFilter}
-                    onChange={e => setDeductionAddedByFilter(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 transition-all ${deductionAddedByFilter ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                  >
-                    <option value="">All</option>
-                    {uniqueAddedBy.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                {/* Date range */}
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Date Range</p>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="date"
-                      value={deductionDateFrom}
-                      onChange={e => setDeductionDateFrom(e.target.value)}
-                      className={`w-full px-2.5 py-2.5 border rounded-xl text-xs font-bold outline-none focus:border-slate-400 transition-all ${deductionDateFrom ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                    />
-                    <input
-                      type="date"
-                      value={deductionDateTo}
-                      onChange={e => setDeductionDateTo(e.target.value)}
-                      className={`w-full px-2.5 py-2.5 border rounded-xl text-xs font-bold outline-none focus:border-slate-400 transition-all ${deductionDateTo ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                    />
-                  </div>
-                </div>
-              </div>
+              {deductionAmountSearch && (
+                <p className="mt-2 text-xs font-medium text-white/40">
+                  {totalMatches} {totalMatches === 1 ? 'match' : 'matches'} for <span className="font-black text-emerald-400">₱{deductionAmountSearch}</span>
+                </p>
+              )}
             </div>
 
-            {/* Summary stats */}
-            <div className="flex items-center gap-3">
-              <div className="bg-rose-50 border border-rose-100 rounded-2xl px-4 py-2.5">
-                <p className="text-xs font-black text-rose-400 uppercase tracking-widest leading-none mb-0.5">Total Deducted</p>
-                <p className="text-base font-black text-rose-600 tabular-nums">{fmt(Math.abs(totalDeducted))}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2.5">
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-none mb-0.5">Entries</p>
-                <p className="text-base font-black text-slate-700 tabular-nums">{filtered.length}</p>
-              </div>
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No deductions found</p>
+            {/* Results */}
+            {deductionAmountSearch.trim() && totalMatches === 0 ? (
+              <div className="bg-white/5 rounded-2xl border border-white/10 p-16 text-center">
+                <p className="text-xs font-black text-white/20 uppercase tracking-widest">No entries found for that amount</p>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100">
-                        <th className="px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</th>
-                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Period</th>
-                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Description</th>
-                        <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Deducted From</th>
-                        <th className="px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {filtered.map(adj => {
-                        const branch = branchById.get(adj.branchId);
-                        return (
-                          <tr key={adj.id} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="px-5 py-3">
-                              <p className="text-xs font-black text-slate-800 uppercase tracking-tight leading-none">{branch?.name?.replace('BRANCH - ', '') || adj.branchId}</p>
-                              <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">{adj.branchId.toUpperCase()}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{adj.periodLabel}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-xs font-semibold text-slate-700 uppercase">{adj.description}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              {adj.targetOwner
-                                ? <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{adj.targetOwner}</span>
-                                : <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">All Owners</span>
-                              }
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              <span className="text-sm font-black text-rose-500 tabular-nums">{fmt(adj.amount)}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="md:hidden divide-y divide-slate-50">
-                  {filtered.map(adj => {
-                    const branch = branchById.get(adj.branchId);
-                    return (
-                      <div key={adj.id} className="px-5 py-4 flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{branch?.name?.replace('BRANCH - ', '') || adj.branchId}</p>
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{adj.periodLabel}</p>
-                          <p className="text-xs font-semibold text-slate-500 uppercase mt-0.5">{adj.description}</p>
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">
-                            From: <span className="text-slate-600">{adj.targetOwner || 'All Owners'}</span>
-                          </p>
+              <div className="space-y-3">
+                {/* Remitted branches grouped by period */}
+                {Array.from(periodGroups.entries()).map(([period, entries]) => (
+                  <div key={period} className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                    <div className="px-5 py-2.5 bg-white/5 border-b border-white/10 flex items-center justify-between">
+                      <p className="text-xs font-black text-white/60 uppercase tracking-widest">{period}</p>
+                      <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">{entries.length} {entries.length === 1 ? 'branch' : 'branches'}</p>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {entries.map((d, i) => (
+                        <div key={i} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/5 transition-colors">
+                          <span className="text-sm font-black text-white uppercase tracking-tight flex-1 min-w-0 truncate">{d.branchName}</span>
+                          <span className="shrink-0 text-base font-black tabular-nums text-emerald-400">{fmt(d.amount)}</span>
                         </div>
-                        <span className="text-sm font-black text-rose-500 tabular-nums shrink-0">{fmt(adj.amount)}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Owner distributions — only shown when searching */}
+                {matchedDists.length > 0 && (
+                  <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden divide-y divide-white/5">
+                    <div className="px-5 py-2.5 bg-white/5 border-b border-white/10">
+                      <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Owner distributions — {matchedDists.length}</p>
+                    </div>
+                    {matchedDists.map((d, i) => (
+                      <div key={i} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/5 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm font-black text-white uppercase tracking-tight">{d.branchName}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-mono text-white/40">{d.periodLabel}</span>
+                            {dot}
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-tight">{d.ownerName.toUpperCase()}</span>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-base font-black tabular-nums text-indigo-400">{fmt(d.amount)}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1709,33 +1888,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
       {/* ── Branch List View ── */}
       {!activeBranchId && mainView === 'remittances' && (() => {
-        const filtered = branchSummaries.filter(b => {
-          if (effectiveBranchIds.length > 0 && !effectiveBranchIds.includes(b.branchId)) return false;
-          if (branchSearch.trim() && !b.branchName.toLowerCase().includes(branchSearch.trim().toLowerCase())) return false;
-          if (lastWeekOnly && !lastWeekUnremittedIds.has(b.branchId)) return false;
-          if (lastWeekSubmittedOnly && !lastWeekSubmittedIds.has(b.branchId)) return false;
-          return true;
-        });
-        const sorted = [...filtered].sort((a, b) => {
-          const dir = tableSortDir === 'asc' ? 1 : -1;
-          switch (tableSortKey) {
-            case 'branch': return dir * a.branchName.localeCompare(b.branchName);
-            case 'gross': return dir * (a.latestGrossSales - b.latestGrossSales);
-            case 'salary': return dir * (a.latestStaffPay - b.latestStaffPay);
-            case 'expenses': return dir * (a.latestExpenses - b.latestExpenses);
-            case 'roi': return dir * (a.latestPeriodRoi - b.latestPeriodRoi);
-            case 'pending': return dir * (a.pending - b.pending);
-            default: return 0;
-          }
-        });
-        const toggleSort = (key: typeof tableSortKey) => {
-          if (tableSortKey === key) setTableSortDir(d => d === 'asc' ? 'desc' : 'asc');
-          else { setTableSortKey(key); setTableSortDir('desc'); }
-          playSound('click');
-        };
-        const SortIcon = ({ k }: { k: typeof tableSortKey }) => (
-          tableSortKey === k ? <span className="ml-0.5 text-xs">{tableSortDir === 'asc' ? '▲' : '▼'}</span> : null
-        );
+        const sorted = sortedBranchList;
         return (
         <div className="space-y-4">
           {/* Filters panel */}
@@ -1769,13 +1922,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${selectedPeriods.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 group-hover:border-indigo-400'}`}>
                             {selectedPeriods.length === 0 && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" /></svg>}
                           </span>
-                          <input type="checkbox" checked={selectedPeriods.length === 0} onChange={() => setSelectedPeriods([])} className="sr-only" />
+                          <input type="checkbox" checked={selectedPeriods.length === 0} onChange={() => { playSound('click'); startTransition(() => setSelectedPeriods([])); }} className="sr-only" />
                           <span className={`text-xs font-semibold uppercase tracking-wide ${selectedPeriods.length === 0 ? 'text-indigo-600' : 'text-slate-500'}`}>All Cutoffs</span>
                         </label>
                         {cutoffTabs.map(tab => {
                           const key = String(tab.day);
                           const checked = selectedPeriods.includes(key);
-                          const toggle = () => { playSound('click'); setSelectedPeriods(prev => checked ? prev.filter(p => p !== key) : [...prev, key]); };
+                          const toggle = () => { playSound('click'); startTransition(() => setSelectedPeriods(prev => checked ? prev.filter(p => p !== key) : [...prev, key])); };
                           return (
                             <label key={key} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer group hover:bg-slate-50">
                               <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 group-hover:border-indigo-400'}`}>
@@ -1792,7 +1945,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       </div>
                       {selectedPeriods.length > 0 && (
                         <div className="border-t border-slate-100 px-4 py-2">
-                          <button onClick={() => { setSelectedPeriods([]); playSound('click'); }} className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors">Clear selection</button>
+                          <button onClick={() => { playSound('click'); startTransition(() => setSelectedPeriods([])); }} className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors">Clear selection</button>
                         </div>
                       )}
                     </div>
@@ -1820,7 +1973,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {effectiveBranchIds.length > 0 && (
                         <span
                           role="button"
-                          onClick={e => { e.stopPropagation(); setSelectedBranchIds([]); setBranchSearch(''); playSound('click'); }}
+                          onClick={e => { e.stopPropagation(); startTransition(() => setSelectedBranchIds([])); setBranchSearch(''); playSound('click'); }}
                           className="w-4 h-4 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center leading-none hover:bg-rose-700 transition-colors cursor-pointer"
                         >✕</span>
                       )}
@@ -1841,7 +1994,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       <div className="max-h-56 overflow-y-auto overscroll-contain">
                         {!branchSearch && (
                           <button
-                            onClick={() => { setSelectedBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
+                            onClick={() => { setBranchDropdownOpen(false); setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds([])); }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 border-b border-slate-100 ${effectiveBranchIds.length === 0 ? 'bg-slate-50' : ''}`}
                           >
                             <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${effectiveBranchIds.length === 0 ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
@@ -1855,7 +2008,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           return (
                             <button
                               key={b.id}
-                              onClick={() => { setSelectedBranchIds([b.id]); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
+                              onClick={() => { setBranchDropdownOpen(false); setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds([b.id])); }}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 ${selected ? 'bg-slate-50' : ''}`}
                             >
                               <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
@@ -1891,88 +2044,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             </div>
           </div>
 
-          {/* Desktop table */}
-          <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th onClick={() => toggleSort('branch')} className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Branch<SortIcon k="branch" /></th>
-                  <th onClick={() => toggleSort('pending')} className="text-center px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Status<SortIcon k="pending" /></th>
-                  <th onClick={() => toggleSort('gross')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Gross<SortIcon k="gross" /></th>
-                  <th onClick={() => toggleSort('salary')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Salary<SortIcon k="salary" /></th>
-                  <th onClick={() => toggleSort('expenses')} className="text-right px-3 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Expenses<SortIcon k="expenses" /></th>
-                  <th onClick={() => toggleSort('roi')} className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none">Latest ROI<SortIcon k="roi" /></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {sorted.map(b => (
-                  <tr
-                    key={b.branchId}
-                    onClick={() => { setActiveBranchId(b.branchId); setBranchSearch(''); playSound('click'); }}
-                    className="hover:bg-slate-50 cursor-pointer transition-colors group"
-                  >
-                    <td className="px-6 py-3.5">
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors">
-                        {b.branchName.replace(' BRANCH', '')}
-                      </p>
-                      <p className="text-xs font-bold text-slate-400 mt-0.5">{b.totalPeriods} week{b.totalPeriods !== 1 ? 's' : ''}</p>
-                    </td>
-                    <td className="text-center px-3 py-3.5">
-                      <div className="inline-flex items-center gap-2">
-                        {b.pending > 0 && <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /><span className="text-xs font-black text-amber-600">{b.pending}</span></span>}
-                        {b.approved > 0 && <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /><span className="text-xs font-black text-emerald-600">{b.approved}</span></span>}
-                        {b.pending === 0 && b.approved === 0 && <span className="text-slate-300">—</span>}
-                      </div>
-                    </td>
-                    <td className="text-right px-3 py-3.5 text-xs font-bold text-slate-700 tabular-nums">{fmt(b.latestGrossSales)}</td>
-                    <td className="text-right px-3 py-3.5 text-xs font-bold text-rose-500 tabular-nums">{fmt(b.latestStaffPay)}</td>
-                    <td className="text-right px-3 py-3.5 text-xs font-bold text-rose-500 tabular-nums">{fmt(b.latestExpenses)}</td>
-                    <td className="text-right px-6 py-3.5">
-                      <span className={`text-xs font-black tabular-nums block ${b.latestPeriodRoi < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{fmt(b.latestPeriodRoi)}</span>
-                      {b.latestPeriodLabel && <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{b.latestPeriodLabel}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {sorted.length === 0 && (
-              <div className="p-16 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile list */}
-          <div className="lg:hidden bg-white rounded-2xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
-            {filtered.map(b => (
-              <button
-                key={b.branchId}
-                onClick={() => { setActiveBranchId(b.branchId); setBranchSearch(''); playSound('click'); }}
-                className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 transition-colors active:bg-slate-100"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">
-                    {b.branchName.replace(' BRANCH', '')}
-                  </p>
-                  <div className="flex items-center gap-2.5 mt-1">
-                    <span className="text-xs font-bold text-slate-400">{b.totalPeriods} week{b.totalPeriods !== 1 ? 's' : ''}</span>
-                    {b.pending > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /><span className="text-xs font-black text-amber-600">{b.pending}</span></span>}
-                    {b.approved > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /><span className="text-xs font-black text-emerald-600">{b.approved}</span></span>}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className={`text-xs font-black tabular-nums block ${b.latestPeriodRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(b.latestPeriodRoi)}</span>
-                  {b.latestPeriodLabel && <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{b.latestPeriodLabel}</span>}
-                </div>
-                <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <div className="p-12 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No branches found</p>
-              </div>
-            )}
-          </div>
+          <BranchListTable
+            sorted={sorted}
+            tableSortKey={tableSortKey}
+            tableSortDir={tableSortDir}
+            onSort={handleBranchListSort}
+            onBranchClick={handleBranchCardClick}
+          />
 
           {/* ── Early Remitter Rankings ── */}
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -2047,7 +2125,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         {/* Back + Branch Name header */}
         <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 flex items-center gap-3">
           <button
-            onClick={() => { setActiveBranchId(null); setSelectedBranchIds([]); playSound('click'); }}
+            onClick={() => { setActiveBranchId(null); playSound('click'); startTransition(() => setSelectedBranchIds([])); }}
             className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0"
           >
             <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -2374,9 +2452,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
                               return (
                                 <div key={oIdx} className="flex justify-between py-1.5">
-                                  <span className="text-slate-600">
-                                    {owner.name} <span className="text-slate-400">({owner.percentage}%)</span>
-                                    {ownerTargeted !== 0 && <span className="text-rose-400 text-xs ml-1">adj {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}</span>}
+                                  <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
+                                    {owner.name.trim().toUpperCase()} <span className="text-slate-400 font-medium normal-case tracking-normal">({owner.percentage}%)</span>
+                                    {ownerTargeted !== 0 && <span className="text-rose-400 text-xs ml-1 normal-case tracking-normal font-semibold">adj {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}</span>}
                                   </span>
                                   <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
                                 </div>
@@ -2719,12 +2797,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   {emailPreview.ownerEntries.length > 0 && (
                     <div className="border-t border-slate-700 pt-3 space-y-1.5">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Owner Distribution</p>
-                      {emailPreview.ownerEntries.map((o, i) => (
+                      {emailPreview.ownerEntries.map((o) => (
                         <div key={o.displayName} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-600">{i + 1}.</span>
-                            <span className="text-xs font-semibold text-slate-300">{toTitleCase(o.displayName)}</span>
-                          </div>
+                          <span className="text-xs font-black text-slate-300 uppercase tracking-wide">{o.displayName.trim().toUpperCase()}:</span>
                           <span className="text-xs font-black text-white tabular-nums">{fmt(o.amount)}</span>
                         </div>
                       ))}
