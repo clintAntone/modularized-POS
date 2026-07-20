@@ -134,16 +134,6 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     };
 
     const handleUpdateLocal = (updates: Partial<Branch>) => {
-        // ENFORCEMENT: Block time updates if operational
-        if (isOperationalToday) {
-            const timeUpdated = (updates.openingTime && updates.openingTime !== branch.openingTime) ||
-                (updates.closingTime && updates.closingTime !== branch.closingTime);
-            if (timeUpdated) {
-                playSound('warning');
-                showToast(`Branch Active: Time window is immutable for today.`, 'error');
-                return;
-            }
-        }
         setLocalBranch(prev => ({ ...prev, ...updates }));
     };
 
@@ -263,7 +253,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         shift2OpeningTime={localBranch.shift2OpeningTime}
                         shift2ClosingTime={localBranch.shift2ClosingTime}
                         isSaving={isSaving}
-                        isOperationalToday={isOperationalToday}
+                        isOperationalToday={false}
                         onUpdate={handleUpdateLocal}
                     />
 
