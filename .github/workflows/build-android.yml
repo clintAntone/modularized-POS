@@ -26,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -82,6 +82,10 @@ jobs:
         run: npx cap sync android
         env:
           CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
+
+      - name: Generate app icon and splash
+        run: npx @capacitor/assets generate --android --iconPath src/assets/icon.png --splashPath src/assets/splash.png
+        continue-on-error: true
 
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Decode keystore
