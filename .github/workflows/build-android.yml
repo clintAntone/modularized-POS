@@ -83,17 +83,18 @@ jobs:
         env:
           CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
 
-      - name: Generate app icon and splash
+      - name: Stamp app icons into Android res
         run: |
-          mkdir -p assets
-          cp src/assets/icon.png assets/icon-only.png
-          if [ -f src/assets/splash.png ]; then
-            cp src/assets/splash.png assets/splash-only.png
-          else
-            cp src/assets/icon.png assets/splash-only.png
-          fi
-          npx @capacitor/assets generate --android
-        continue-on-error: true
+          for entry in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
+            dir="${entry%%:*}"
+            size="${entry##*:}"
+            convert src/assets/icon.png -resize ${size}x${size} \
+              android/app/src/main/res/${dir}/ic_launcher.png
+            convert src/assets/icon.png -resize ${size}x${size} \
+              android/app/src/main/res/${dir}/ic_launcher_round.png
+            convert src/assets/icon.png -resize ${size}x${size} \
+              android/app/src/main/res/${dir}/ic_launcher_foreground.png
+          done
 
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Decode keystore
