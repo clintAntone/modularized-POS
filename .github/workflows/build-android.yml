@@ -85,16 +85,25 @@ jobs:
 
       - name: Stamp app icons into Android res
         run: |
-          for entry in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
-            dir="${entry%%:*}"
-            size="${entry##*:}"
-            convert src/assets/icon.png -resize ${size}x${size} \
-              android/app/src/main/res/${dir}/ic_launcher.png
-            convert src/assets/icon.png -resize ${size}x${size} \
-              android/app/src/main/res/${dir}/ic_launcher_round.png
-            convert src/assets/icon.png -resize ${size}x${size} \
-              android/app/src/main/res/${dir}/ic_launcher_foreground.png
-          done
+          python3 - <<'EOF'
+          from PIL import Image
+          import os
+
+          sizes = {
+            "mipmap-mdpi": 48,
+            "mipmap-hdpi": 72,
+            "mipmap-xhdpi": 96,
+            "mipmap-xxhdpi": 144,
+            "mipmap-xxxhdpi": 192,
+          }
+          src = Image.open("src/assets/icon.png").convert("RGBA")
+          for folder, size in sizes.items():
+            resized = src.resize((size, size), Image.LANCZOS)
+            base = f"android/app/src/main/res/{folder}"
+            for name in ("ic_launcher.png", "ic_launcher_round.png", "ic_launcher_foreground.png"):
+              resized.save(os.path.join(base, name))
+              print(f"  wrote {base}/{name} @ {size}x{size}")
+          EOF
 
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Decode keystore
