@@ -1058,7 +1058,6 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                         const resolvedName = resolvedEmployee?.name || s.name || 'Unknown Staff';
                         const resolvedProfile = s.profile || resolvedEmployee?.profile || null;
 
-                        const isPaidDaily = s.attendance?.isPaidDaily || s.attendance?.is_paid_daily || false;
                         const isHalfDay = s.attendance?.isHalfDay || s.attendance?.is_half_day || false;
 
                         const isReliever = typeof s.isReliever === 'boolean' ? s.isReliever : (s.employeeId && report.branchId !== 'all' && resolvedEmployee?.branchId !== report.branchId);
@@ -1068,20 +1067,6 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             key={s.employeeId || s.name}
                             className={`${isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 group relative overflow-hidden cursor-default`}
                           >
-                            {isPaidDaily && (
-                              <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
-                                <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                              </div>
-                            )}
-                            
-                            {isPaidDaily && (
-                            <div className="absolute top-0 left-0 right-0 flex flex-wrap gap-1 px-3 sm:px-4 pt-2 sm:pt-3 z-20 pointer-events-none">
-                                <div className="bg-emerald-600 text-white text-xs font-bold uppercase px-2 py-0.5 rounded-full shadow-lg border border-emerald-400 flex items-center gap-1">
-                                  <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
-                                  Paid
-                                </div>
-                            </div>
-                            )}
 
                             <div className="flex flex-col gap-3 sm:gap-6">
                               <div className="flex justify-between items-start">

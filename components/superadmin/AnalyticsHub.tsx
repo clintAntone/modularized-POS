@@ -538,14 +538,22 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   const topScore = top10Data[0].score;
                   const pct      = topScore > 0 ? (d.score / topScore) * 100 : 0;
                   const rowBg    = rank === 1 ? 'bg-amber-50 border-amber-200'
-                                 : rank === 2 ? 'bg-slate-50 border-slate-200'
+                                 : rank === 2 ? 'bg-indigo-50 border-indigo-200'
                                  : rank === 3 ? 'bg-orange-50 border-orange-200'
-                                 : isTop10    ? 'bg-white border-slate-100'
+                                 : rank === 4 ? 'bg-emerald-50 border-emerald-200'
+                                 : rank === 5 ? 'bg-sky-50 border-sky-200'
+                                 : rank === 6 ? 'bg-violet-50 border-violet-200'
+                                 : rank === 7 ? 'bg-rose-50 border-rose-200'
+                                 : isTop10    ? 'bg-teal-50 border-teal-200'
                                  :              'bg-white border-slate-50 opacity-50';
                   const barColor = rank === 1 ? 'bg-amber-400'
-                                 : rank === 2 ? 'bg-slate-400'
+                                 : rank === 2 ? 'bg-indigo-400'
                                  : rank === 3 ? 'bg-orange-400'
-                                 : isTop10    ? 'bg-slate-200'
+                                 : rank === 4 ? 'bg-emerald-400'
+                                 : rank === 5 ? 'bg-sky-400'
+                                 : rank === 6 ? 'bg-violet-400'
+                                 : rank === 7 ? 'bg-rose-400'
+                                 : isTop10    ? 'bg-teal-400'
                                  :              'bg-slate-100';
                   return (
                     <React.Fragment key={d.shortName}>
@@ -595,9 +603,9 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           </div>
                           <div className="flex gap-3">
                             <span className={`text-xs font-bold ${isTop10 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
-                            <span className="text-xs text-slate-200">+</span>
+                            <span className="text-xs text-slate-400">+</span>
                             <span className={`text-xs font-bold ${isTop10 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
-                            <span className="text-xs text-slate-200">÷ 2</span>
+                            <span className="text-xs text-slate-400">÷ 2</span>
                           </div>
                         </div>
                       </div>}

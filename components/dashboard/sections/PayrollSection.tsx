@@ -297,10 +297,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         const ot = Number(att?.otPay || att?.ot_pay || 0);
         const late = Number(att?.lateDeduction || att?.late_deduction || 0);
         const adv = Number(att?.cashAdvance || att?.cash_advance || 0);
-        const isPaidDaily = !!(att?.isPaidDaily || att?.is_paid_daily);
-        const settledUnits = Number(att?.settledUnits || att?.settled_units || 0);
-        const isDaySettled = isPaidDaily && count > 0 && count === settledUnits;
-
         const breakdownName = (s.staffName || s.name || '').trim();
         const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
           ? breakdownName.toUpperCase()
@@ -310,7 +306,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           employeeId: empId,
           name: resolvedName,
           count, totalCommission: comm, allowance: allw, ot, late, advance: adv,
-          isPaidDaily, isDaySettled,
         };
       });
 
@@ -348,8 +343,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     // Step 2 & 3: for each employee, find their record on each day
     return Object.values(employeeMap).map(({ name, employeeId: empId }) => {
       let sessions = 0, commission = 0, allowance = 0, ot = 0, late = 0, advance = 0;
-      let isPaidDaily = false;
-      let isAllDaysSettled: boolean | undefined = undefined;
       const dailyBreakdown: any[] = [];
 
       groupedCycleData.forEach(({ date: dateKey, staff }) => {
@@ -363,12 +356,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         late += dayRecord.late;
         advance += dayRecord.advance;
 
-        if (dayRecord.isPaidDaily) {
-          isPaidDaily = true;
-          if (isAllDaysSettled === undefined) isAllDaysSettled = true;
-          if (!dayRecord.isDaySettled) isAllDaysSettled = false;
-        }
-
         dailyBreakdown.push({
           date: dateKey,
           commission: dayRecord.totalCommission,
@@ -376,8 +363,6 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           ot: dayRecord.ot,
           late: dayRecord.late,
           advance: dayRecord.advance,
-          isPaidDaily: dayRecord.isPaidDaily,
-          isDaySettled: dayRecord.isDaySettled,
           net: (dayRecord.totalCommission + dayRecord.allowance + dayRecord.ot - dayRecord.late) - dayRecord.advance,
         });
       });
@@ -398,10 +383,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         sessions, commission, allowance, ot, late, advance, netPay,
         branchName: branch.name,
         period: `${selectedCycle.start} - ${selectedCycle.end}`,
-        isPaidDaily,
-        isAllDaysSettled,
         dailyBreakdown,
-        isSettled: isPaidDaily ? (isAllDaysSettled === true && sessions > 0) : false,
+        isSettled: false,
       };
     }).sort((a, b) => b.netPay - a.netPay);
   }, [selectedCycle, groupedCycleData, branch.name, employees]);

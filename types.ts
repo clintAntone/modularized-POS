@@ -44,8 +44,9 @@ export interface Branch {
   weeklyCutoff: number;
   cycleStartDate: string;
   dailyProvisionAmount?: number;
-  enableShiftTracking?: boolean;
   openingTime?: string;
+  address?: string;
+  pinLocation?: string;
   closingTime?: string;
   shift2OpeningTime?: string;
   shift2ClosingTime?: string;
@@ -154,8 +155,6 @@ export interface Attendance {
   cashAdvance: number;
   createdAt: string;
   isHalfDay?: boolean;
-  isPaidDaily?: boolean;
-  settledUnits?: number;
   /** Which shift the employee was clocked in for (dual-shift branches only). 1 = morning, 2 = afternoon. */
   shift?: 1 | 2;
 }

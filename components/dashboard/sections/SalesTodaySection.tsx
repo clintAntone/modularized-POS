@@ -208,8 +208,6 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             allowance: getEmployeeAllowance(emp, branch.id),
             role: role,
             isReliever,
-            isPaidDaily: attRecord?.isPaidDaily || attRecord?.is_paid_daily || false,
-            settledUnits: Number(attRecord?.settledUnits || attRecord?.settled_units || 0),
             attendance: attRecord || null,
             txs: []
           };
@@ -246,8 +244,6 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             allowance: getEmployeeAllowance(emp, branch.id),
             role: role,
             isReliever,
-            isPaidDaily: attRecord?.isPaidDaily || attRecord?.is_paid_daily || false,
-            settledUnits: Number(attRecord?.settledUnits || attRecord?.settled_units || 0),
             attendance: attRecord || null,
             txs: []
           };

@@ -49,7 +49,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     cashAdvance: 0,
     baseAllowance: 0,
     isHalfDay: false,
-    isPaidDaily: false
   });
 
   // CRITICAL: Check lateness using Manila Time comparison to avoid browser timezone drift
@@ -133,8 +132,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
         [DB_COLUMNS.OT_PAY]: attendanceForm.otPay,
         [DB_COLUMNS.CASH_ADVANCE]: summaryData.isReliever ? 0 : attendanceForm.cashAdvance,
         [DB_COLUMNS.IS_HALF_DAY]: attendanceForm.isHalfDay,
-        [DB_COLUMNS.IS_PAID_DAILY]: attendanceForm.isPaidDaily,
-        [DB_COLUMNS.SETTLED_UNITS]: attendanceForm.isPaidDaily ? (staffSummary[selectedStaff]?.count || 0) : 0
       };
 
       if (existingAtt) {
@@ -400,7 +397,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             const finalPay = data.finalPay;
 
             const clockInTime = data.attendance?.clockIn;
-            const isSettled = data.isPaidDaily && data.count === data.settledUnits;
             const showOTRibbon = ot > 0;
 
             return (
@@ -414,19 +410,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     onMouseUp={cancelLongPress}
                     onMouseLeave={cancelLongPress}
                 >
-                    {isSettled && (
-                      <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
-                        <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                      </div>
-                    )}
-                    {isSettled && (
-                    <div className="absolute top-0 left-0 right-0 flex flex-wrap gap-1 px-3 sm:px-4 pt-2 sm:pt-3 z-20 pointer-events-none">
-                        <div className="bg-emerald-600 text-white text-xs font-bold uppercase px-2 py-0.5 rounded-full shadow-lg border border-emerald-400 flex items-center gap-1">
-                          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
-                          Paid
-                        </div>
-                    </div>
-                    )}
 
                   {/* Long-press remove overlay */}
                   {revealedDeleteId === name && (
@@ -554,7 +537,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                                 cashAdvance: adv,
                                 baseAllowance: data.baseAllowance,
                                 isHalfDay: !!data.attendance?.isHalfDay,
-                                isPaidDaily: !!(data.attendance?.isPaidDaily || data.attendance?.is_paid_daily)
                               });
                             }}
                             className="w-9 h-9 sm:w-12 sm:h-12 bg-slate-900 text-white rounded-xl sm:rounded-2xl hover:bg-emerald-600 transition-all shadow-lg active:scale-90 flex items-center justify-center group-hover:scale-110 border-2 border-slate-800 hover:border-emerald-500"

@@ -156,11 +156,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     setConfirmState(p => ({ ...p, isOpen: false }));
                     const payload = {
                         ...localBranch,
+                        name: localBranch.name.toUpperCase(),
                         // FIX: Allow 0 as a valid number, only fallback to 800 if null/undefined
                         dailyProvisionAmount: (localBranch.dailyProvisionAmount !== undefined && localBranch.dailyProvisionAmount !== null)
                             ? Number(localBranch.dailyProvisionAmount)
                             : 800,
-                        enableShiftTracking: false // Forced off globally while upcoming
                     };
                     await onSave(payload);
                     // Reset localBranch to exactly what was saved so isDirty becomes false
@@ -179,7 +179,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex items-end justify-center sm:items-center lg:justify-end animate-in fade-in duration-300"
+            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex items-end justify-center sm:items-center animate-in fade-in duration-300"
             onClick={handleBackdropClick}
         >
             {toast && (
@@ -191,27 +191,23 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
             <div
                 ref={sidebarRef}
-                className="bg-white w-full max-w-lg flex flex-col shadow-xl relative
-                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-2xl lg:rounded-none lg:h-full lg:max-h-full lg:max-w-xl lg:border-l lg:border-slate-100
-                  animate-in slide-in-from-bottom-4 lg:slide-in-from-right lg:slide-in-from-bottom-0 duration-300 lg:duration-500"
+                className="bg-white w-full max-w-2xl flex flex-col shadow-2xl relative
+                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-3xl
+                  animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
             >
-                <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-[28px] lg:rounded-t-none">
-                    <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-xl shadow-lg">🏢</div>
-                        <div className="min-w-0">
-                            <h2 className="text-[15px] sm:text-lg font-bold text-slate-900 uppercase tracking-tighter leading-none truncate max-w-[150px] sm:max-w-[250px]">
-                                {localBranch.name || 'New Branch'}
-                            </h2>
-                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mt-1">Branch Calibration</p>
-                        </div>
+                <div className="px-6 py-4 border-b flex items-center gap-4 sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-3xl">
+                    <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-lg shadow-lg shrink-0">🏢</div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none truncate">
+                            {localBranch.name || 'New Branch'}
+                        </h2>
+                        <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Branch Calibration</p>
                     </div>
-
                     <button
                         onClick={handleManualClose}
-                        className="group flex items-center gap-2 p-3 bg-slate-50 hover:bg-rose-600 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-inner"
+                        className="shrink-0 w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-rose-600 rounded-xl text-slate-400 hover:text-white transition-all active:scale-90"
                     >
-                        <span className="hidden sm:inline text-xs font-medium uppercase tracking-wide ml-1">Close Editor</span>
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -229,10 +225,43 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                                 <input
                                     type="text"
                                     value={localBranch.name}
-                                    onChange={(e) => handleUpdateLocal({ name: e.target.value.toUpperCase() })}
-                                    className="w-full bg-white border border-slate-200 px-5 py-4 rounded-2xl text-lg font-bold text-slate-900 uppercase tracking-tighter focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                    onChange={(e) => handleUpdateLocal({ name: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-bold text-slate-900 uppercase tracking-tight focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
                                     placeholder="Enter Branch Name"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Branch Address</label>
+                                <input
+                                    type="text"
+                                    value={localBranch.address || ''}
+                                    onChange={(e) => handleUpdateLocal({ address: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-medium text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                    placeholder="Street address, city, province"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Pin Location (Google Maps URL)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={localBranch.pinLocation || ''}
+                                        onChange={(e) => handleUpdateLocal({ pinLocation: e.target.value })}
+                                        className="flex-1 bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-medium text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                        placeholder="https://maps.google.com/..."
+                                    />
+                                    {localBranch.pinLocation && (
+                                        <a
+                                            href={localBranch.pinLocation}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="shrink-0 flex items-center gap-1.5 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide rounded-2xl transition-all active:scale-95"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            View
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -411,7 +440,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                 </div>
 
                 {!isReadOnly && (
-                  <div className="p-5 sm:p-6 bg-white border-t shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170] lg:rounded-b-none">
+                  <div className="p-5 sm:p-6 bg-white border-t shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170] rounded-b-none sm:rounded-b-3xl">
                     <button
                         onClick={handleSaveTrigger}
                         disabled={isSaving || !isDirty}

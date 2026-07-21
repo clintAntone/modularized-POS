@@ -9,6 +9,7 @@ interface PaginationProps {
   itemsPerPage: number;
   onItemsPerPageChange?: (n: number) => void;
   itemsPerPageOptions?: number[];
+  rightSlot?: React.ReactNode;
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -19,6 +20,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   itemsPerPage,
   onItemsPerPageChange,
   itemsPerPageOptions = [10, 25, 50, 100],
+  rightSlot,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -51,7 +53,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   const maxVisiblePages = isMobile ? 2 : 5;
 
   return (
-    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-visible">
+    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-visible dark:bg-slate-800 dark:border-slate-700">
 
       {/* Items-per-page custom dropdown */}
       <div className="flex items-center gap-2 shrink-0">
@@ -167,6 +169,12 @@ export const Pagination: React.FC<PaginationProps> = ({
             All pages displayed
           </span>
         </div>
+      )}
+      {rightSlot && (
+        <>
+          <div className="w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0 mx-1" />
+          {rightSlot}
+        </>
       )}
     </div>
   );
