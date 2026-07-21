@@ -85,6 +85,7 @@ jobs:
 
       - name: Stamp app icons into Android res
         run: |
+          pip install -q Pillow
           python3 - <<'EOF'
           from PIL import Image
           import os
