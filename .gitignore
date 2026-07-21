@@ -39,3 +39,4 @@ yarn-error.log*
 # Capacitor
 android/
 ios/
+hilot.jks

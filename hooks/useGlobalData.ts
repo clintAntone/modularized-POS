@@ -375,7 +375,8 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000, // polling fallback if realtime drops on mobile
     });
 
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
@@ -398,7 +399,9 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
+        refetchOnWindowFocus: true,
     });
 
     const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
