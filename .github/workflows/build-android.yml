@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches:
-      - modularized-POS
+      - modularized-vault
   workflow_dispatch:
     inputs:
       app_name_override:
@@ -84,7 +84,15 @@ jobs:
           CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
 
       - name: Generate app icon and splash
-        run: npx @capacitor/assets generate --android --icon src/assets/icon.png --splash src/assets/splash.png
+        run: |
+          mkdir -p assets
+          cp src/assets/icon.png assets/icon-only.png
+          if [ -f src/assets/splash.png ]; then
+            cp src/assets/splash.png assets/splash-only.png
+          else
+            cp src/assets/icon.png assets/splash-only.png
+          fi
+          npx @capacitor/assets generate --android
         continue-on-error: true
 
       # ── Keystore setup ─────────────────────────────────────────────────────
