@@ -6,8 +6,9 @@ import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { supabase } from '../../lib/supabase';
 import { UI_THEME } from '../../constants/ui_designs';
-import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Save, X, FileText, Share2, Search, BookOpen, Settings, AlertTriangle, Check, Download, LayoutGrid, List, GitBranch } from 'lucide-react';
 import { Pagination } from '../dashboard/sections/common/Pagination';
+import { getTrueISOString, getTrueDate } from '../../lib/time';
 
 export interface CatalogGroup {
   id: string;
@@ -51,7 +52,7 @@ const CardShell: React.FC<{
     onClick={onClick}
     className={`
       w-full text-left flex flex-col transition-all duration-300 group relative overflow-hidden
-      bg-white border shadow-sm cursor-pointer active:scale-[0.98] p-3 sm:p-7 rounded-2xl sm:rounded-[40px]
+      bg-white border shadow-sm cursor-pointer active:scale-[0.98] p-3 sm:p-7 rounded-2xl sm:rounded-3xl
       ${isActive ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100 hover:border-emerald-200 hover:shadow-md'}
       ${className}
     `}
@@ -77,6 +78,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
   const [editingCatalogName, setEditingCatalogName] = useState('');
+  const [branchAssignModal, setBranchAssignModal] = useState<{ id: string; name: string } | null>(null);
 
   const activeCatalog = useMemo(() =>
     localCatalogs.find(c => c.id === activeCatalogId) || null
@@ -314,7 +316,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
           [DB_COLUMNS.SERVICES]: cat.services,
           [DB_COLUMNS.BRANCH_IDS]: cat.branchIds,
           [DB_COLUMNS.CAN_BE_LOYALTY]: cat.can_be_loyalty || false,
-          [DB_COLUMNS.UPDATED_AT]: new Date().toISOString()
+          [DB_COLUMNS.UPDATED_AT]: getTrueISOString()
         });
       }
 
@@ -381,7 +383,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
     playSound('click');
 
     const doc = new jsPDF();
-    const timestamp = new Date().toLocaleString();
+    const timestamp = getTrueDate().toLocaleString('en-PH');
 
     doc.setFontSize(20);
     doc.setTextColor(15, 23, 42);
@@ -447,8 +449,8 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Service Catalogs</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Master Distribution Control</p>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Service Catalogs</h3>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Master Distribution Control</p>
                 </div>
               </div>
 
@@ -460,7 +462,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                   value={globalServiceSearch}
                   onChange={e => setGlobalServiceSearch(e.target.value)}
                   placeholder="SEARCH SERVICE..."
-                  className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-[11px] font-bold uppercase tracking-widest outline-none focus:border-emerald-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
+                  className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-xs font-medium uppercase tracking-wide outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
                 />
                 {globalServiceSearch && (
                   <button onClick={() => setGlobalServiceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
@@ -473,21 +475,21 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
             {/* ── Stats strip ─────────────────────────────────────────── */}
             <div className="mt-5 pt-5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="flex flex-col gap-0.5">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Catalogs</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Catalogs</p>
                 <p className="text-[20px] font-black text-slate-900 tabular-nums leading-none">{networkStats.totalCatalogs}</p>
               </div>
               <div className="flex flex-col gap-0.5">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Services</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Services</p>
                 <p className="text-[20px] font-black text-emerald-600 tabular-nums leading-none">{networkStats.totalServices}</p>
               </div>
               <div className="flex flex-col gap-0.5">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Branches Covered</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branches Covered</p>
                 <p className="text-[20px] font-black text-slate-900 tabular-nums leading-none">
-                  {networkStats.coveredBranches}<span className="text-[12px] font-bold text-slate-400">/{networkStats.totalBranches}</span>
+                  {networkStats.coveredBranches}<span className="text-xs font-bold text-slate-400">/{networkStats.totalBranches}</span>
                 </p>
               </div>
               <div className="flex flex-col gap-0.5">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No Catalog</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No Catalog</p>
                 <p className={`text-[20px] font-black tabular-nums leading-none ${networkStats.uncoveredBranches > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
                   {networkStats.uncoveredBranches}
                 </p>
@@ -501,14 +503,14 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
               <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 shadow-inner border border-slate-200/80">
                 <button
                   onClick={() => { setListView('catalogs'); playSound('click'); }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${listView === 'catalogs' ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${listView === 'catalogs' ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
                   Catalogs
                 </button>
                 <button
                   onClick={() => { setListView('branches'); playSound('click'); }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${listView === 'branches' ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${listView === 'branches' ? 'bg-white text-slate-900 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   <List className="w-3.5 h-3.5" />
                   By Branch
@@ -521,13 +523,13 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
           {globalServiceSearch.trim() && (
             <div className="px-1">
               {globalSearchResults.length === 0 ? (
-                <div className="bg-white rounded-[28px] border border-slate-100 py-12 text-center">
-                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No services found matching "{globalServiceSearch}"</p>
+                <div className="bg-white rounded-2xl border border-slate-100 py-12 text-center">
+                  <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">No services found matching "{globalServiceSearch}"</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{globalSearchResults.length} result{globalSearchResults.length !== 1 ? 's' : ''} across {new Set(globalSearchResults.map(r => r.catalog.id)).size} catalog{new Set(globalSearchResults.map(r => r.catalog.id)).size !== 1 ? 's' : ''}</span>
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{globalSearchResults.length} result{globalSearchResults.length !== 1 ? 's' : ''} across {new Set(globalSearchResults.map(r => r.catalog.id)).size} catalog{new Set(globalSearchResults.map(r => r.catalog.id)).size !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="divide-y divide-slate-50 max-h-[480px] overflow-y-auto">
                     {globalSearchResults.map(({ service: s, catalog: cat }) => {
@@ -542,12 +544,12 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                             <BookOpen className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-emerald-700 transition-colors">{s.name}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{cat.name}</p>
+                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-emerald-700 transition-colors">{s.name}</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate">{cat.name}</p>
                           </div>
                           <div className="shrink-0 text-right space-y-0.5">
-                            <p className="text-[11px] font-black text-emerald-600 tabular-nums">₱{s.price.toLocaleString()}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{s.duration}M</p>
+                            <p className="text-xs font-black text-emerald-600 tabular-nums">₱{s.price.toLocaleString()}</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{s.duration}M</p>
                           </div>
                           <Settings className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
                         </div>
@@ -603,9 +605,9 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
                       {/* Catalog name */}
                       <div>
-                        <h4 className="font-black text-slate-900 text-[14px] uppercase tracking-tight leading-tight">{cat.name}</h4>
+                        <h4 className="font-black text-slate-900 text-sm uppercase tracking-tight leading-tight">{cat.name}</h4>
                         {priceRange && (
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
                             ₱{priceRange.min.toLocaleString()} – ₱{priceRange.max.toLocaleString()}
                           </p>
                         )}
@@ -616,45 +618,60 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         <div className="flex flex-col gap-1">
                           {previewServices.map(s => (
                             <div key={s.id} className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight truncate pr-2">{s.name}</span>
-                              <span className="text-[9px] font-bold text-slate-400 shrink-0 tabular-nums">₱{s.price.toLocaleString()}</span>
+                              <span className="text-xs font-bold text-slate-600 uppercase tracking-tight truncate pr-2">{s.name}</span>
+                              <span className="text-xs font-bold text-slate-400 shrink-0 tabular-nums">₱{s.price.toLocaleString()}</span>
                             </div>
                           ))}
                           {(cat.services || []).length > 3 && (
-                            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">+{cat.services.length - 3} more</p>
+                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">+{cat.services.length - 3} more</p>
                           )}
                         </div>
                       )}
                       {previewServices.length === 0 && (
-                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">No services yet</p>
+                        <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No services yet</p>
                       )}
 
-                      {/* Branch chips */}
+                      {/* Branch chips + quick assign */}
                       <div className="mt-auto pt-3 border-t border-slate-50 space-y-2">
                         {linkedBranches.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {linkedBranches.slice(0, 3).map(b => (
-                              <span key={b.id} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[8px] font-black uppercase tracking-widest truncate max-w-[100px]">{b.name}</span>
+                              <span key={b.id} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs font-semibold uppercase tracking-wide truncate max-w-[100px]">{b.name}</span>
                             ))}
                             {linkedBranches.length > 3 && (
-                              <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded-md text-[8px] font-black uppercase tracking-widest">+{linkedBranches.length - 3}</span>
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded-md text-xs font-semibold uppercase tracking-wide">+{linkedBranches.length - 3}</span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">No branches linked</span>
+                          <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">No branches linked</span>
                         )}
 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
-                            <span className={`text-[10px] font-bold uppercase tracking-tight ${color.icon}`}>{(cat.services || []).length} services</span>
+                            <span className={`text-xs font-bold uppercase tracking-tight ${color.icon}`}>{(cat.services || []).length} services</span>
                           </div>
                           <div className="flex items-center gap-1">
                             {cat.can_be_loyalty && (
-                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[7px] font-black uppercase tracking-widest">Loyalty</span>
+                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-xs font-semibold uppercase tracking-wide">Loyalty</span>
                             )}
-                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{linkedBranches.length} branches</span>
                           </div>
+                        </div>
+
+                        {/* Quick branch-assign shortcut */}
+                        <div onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setActiveCatalogId(cat.id); playSound('click'); }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border transition-all active:scale-95 ${linkedBranches.length === 0 ? 'bg-rose-50 border-rose-100 hover:bg-rose-100' : 'bg-slate-50 border-slate-100 hover:bg-emerald-50 hover:border-emerald-200'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <GitBranch className={`w-3 h-3 shrink-0 ${linkedBranches.length === 0 ? 'text-rose-400' : 'text-slate-400'}`} />
+                              <span className={`text-xs font-semibold uppercase tracking-wide ${linkedBranches.length === 0 ? 'text-rose-500' : 'text-slate-500'}`}>
+                                {linkedBranches.length === 0 ? 'No branches linked' : `${linkedBranches.length} branch${linkedBranches.length !== 1 ? 'es' : ''}`}
+                              </span>
+                            </div>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">Manage →</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -672,7 +689,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                 </div>
                 <div className="text-center space-y-1">
                   <p className="text-sm font-bold text-slate-400 uppercase tracking-tight group-hover:text-emerald-700">New Catalog</p>
-                  <p className="text-[9px] font-semibold text-slate-300 uppercase tracking-widest">Initialize distribution set</p>
+                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Initialize distribution set</p>
                 </div>
               </button>
             </div>
@@ -684,7 +701,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
               {networkStats.uncoveredBranches > 0 && (
                 <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl">
                   <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                  <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest">
+                  <p className="text-xs font-black text-rose-700 uppercase tracking-widest">
                     {networkStats.uncoveredBranches} branch{networkStats.uncoveredBranches !== 1 ? 'es have' : ' has'} no catalog assigned
                   </p>
                 </div>
@@ -692,50 +709,48 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 {/* Table header */}
-                <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
-                  <p className="hidden sm:block text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Catalogs</p>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Services</p>
+                <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto_auto] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</p>
+                  <p className="hidden sm:block text-xs font-medium text-slate-400 uppercase tracking-wide">Assigned Catalogs</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Services</p>
+                  <p className="hidden sm:block text-xs font-medium text-slate-400 uppercase tracking-wide"></p>
                 </div>
 
                 {branchCoverageData.map(({ branch: b, catalogs: assigned, totalServices }) => (
                   <div
                     key={b.id}
-                    className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto] gap-4 items-center px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                    onClick={() => { setBranchAssignModal({ id: b.id, name: b.name }); playSound('click'); }}
+                    className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_2fr_auto_auto] gap-4 items-center px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors cursor-pointer group"
                   >
                     {/* Branch name */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-black text-slate-600">{b.name.charAt(0)}</span>
+                      <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-emerald-50 transition-colors">
+                        <span className="text-xs font-black text-slate-600 group-hover:text-emerald-600 transition-colors">{b.name.charAt(0)}</span>
                       </div>
                       <div className="min-w-0">
-                        <p className="font-black text-[12px] text-slate-900 uppercase tracking-tight truncate leading-none">{b.name}</p>
-                        {!b.isEnabled && <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Disabled</p>}
+                        <p className="font-black text-xs text-slate-900 uppercase tracking-tight truncate leading-none">{b.name}</p>
+                        {!b.isEnabled && <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-0.5">Disabled</p>}
                       </div>
                     </div>
 
                     {/* Catalog chips */}
                     <div className="hidden sm:flex flex-wrap gap-1.5">
                       {assigned.length === 0 ? (
-                        <button
-                          onClick={() => { setListView('catalogs'); playSound('click'); }}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-500 border border-rose-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
-                        >
+                        <span className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-500 border border-rose-100 rounded-lg text-xs font-semibold uppercase tracking-wide">
                           <AlertTriangle className="w-2.5 h-2.5" />
-                          Assign catalog
-                        </button>
+                          No catalog
+                        </span>
                       ) : (
                         assigned.map(c => {
                           const color = getCatalogColor(c.id);
                           return (
-                            <button
+                            <span
                               key={c.id}
-                              onClick={() => { setActiveCatalogId(c.id); playSound('click'); }}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 ${color.tag} rounded-lg text-[8px] font-black uppercase tracking-widest hover:opacity-80 transition-all`}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 ${color.tag} rounded-lg text-xs font-semibold uppercase tracking-wide`}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
                               {c.name}
-                            </button>
+                            </span>
                           );
                         })
                       )}
@@ -744,11 +759,19 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     {/* Service count */}
                     <div className="text-right shrink-0">
                       {totalServices > 0 ? (
-                        <p className="text-[13px] font-black text-emerald-600 tabular-nums leading-none">{totalServices}</p>
+                        <p className="text-sm font-black text-emerald-600 tabular-nums leading-none">{totalServices}</p>
                       ) : (
-                        <p className="text-[13px] font-black text-slate-200 tabular-nums leading-none">—</p>
+                        <p className="text-sm font-black text-slate-200 tabular-nums leading-none">—</p>
                       )}
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">svcs</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">svcs</p>
+                    </div>
+
+                    {/* Manage button */}
+                    <div className="shrink-0 hidden sm:flex">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-semibold uppercase tracking-wide group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-all">
+                        <Pencil className="w-2.5 h-2.5" />
+                        Manage
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -780,7 +803,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     {isRenaming ? (
                       <input
                         autoFocus
-                        className="text-[14px] font-black text-slate-900 uppercase tracking-tighter bg-slate-50 border-b border-emerald-500 outline-none w-full max-w-sm"
+                        className="text-sm font-black text-slate-900 uppercase tracking-tighter bg-slate-50 border-b border-emerald-500 outline-none w-full max-w-sm"
                         value={activeCatalog.name}
                         onChange={e => updateCatalog(activeCatalog.id, { name: e.target.value.toUpperCase() })}
                         onBlur={() => setIsRenaming(false)}
@@ -788,11 +811,11 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       />
                     ) : (
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter truncate leading-none">{activeCatalog.name}</h3>
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter truncate leading-none">{activeCatalog.name}</h3>
                         <button onClick={() => setIsRenaming(true)} className="p-1 text-slate-300 hover:text-slate-600 transition-colors shrink-0"><Pencil className="w-3 h-3" /></button>
                       </div>
                     )}
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Catalog Configuration</p>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Catalog Configuration</p>
                   </div>
                 </div>
 
@@ -810,8 +833,8 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm ${activeCatalog.can_be_loyalty ? 'translate-x-5' : ''}`}></div>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest leading-none">Loyalty Reward</span>
-                      <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1">Eligible for POS Rewards</span>
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">Loyalty Reward</span>
+                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Eligible for POS Rewards</span>
                     </div>
                   </label>
                 </div>
@@ -821,7 +844,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                 <button onClick={handleCatalogDelete} className="h-10 sm:h-12 w-10 sm:w-12 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-100 transition-all shadow-sm active:scale-95 shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </button>
-                <button onClick={() => { setEditingServiceId('new'); playSound('click'); }} className="h-10 sm:h-12 px-6 rounded-2xl bg-slate-900 text-white flex items-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg active:scale-95 shrink-0 flex-1 sm:flex-none justify-center">
+                <button onClick={() => { setEditingServiceId('new'); playSound('click'); }} className="h-10 sm:h-12 px-6 rounded-2xl bg-slate-900 text-white flex items-center gap-3 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all shadow-lg active:scale-95 shrink-0 flex-1 sm:flex-none justify-center">
                   <Plus className="w-4 h-4" />
                   <span className="font-black">Add Service</span>
                 </button>
@@ -843,9 +866,9 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
                       />
                     </div>
-                    <button onClick={() => handleExportPDF()} className="h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0">
+                    <button onClick={() => handleExportPDF()} className="h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0">
                       <Download className="w-5 h-5 sm:w-4 sm:h-4" />
-                      <span className="hidden sm:inline font-black text-[10px] uppercase tracking-widest">Export PDF</span>
+                      <span className="hidden sm:inline font-black text-xs uppercase tracking-widest">Export PDF</span>
                     </button>
                   </div>
                   <div className="relative">
@@ -855,7 +878,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       value={serviceSearch}
                       onChange={e => setServiceSearch(e.target.value)}
                       placeholder="Search services…"
-                      className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-[11px] font-bold uppercase tracking-widest outline-none focus:border-slate-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
+                      className="w-full h-10 bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 text-xs font-medium uppercase tracking-wide outline-none focus:border-slate-400 focus:bg-white transition-colors placeholder:normal-case placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
                     />
                     {serviceSearch && (
                       <button onClick={() => setServiceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
@@ -874,9 +897,9 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         <div className="space-y-1">
                           <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight leading-none">{srv.name}</h4>
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{srv.duration} MINS</span>
+                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{srv.duration} MINS</span>
                             <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                            <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">₱{srv.price.toLocaleString()}</span>
+                            <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">₱{srv.price.toLocaleString()}</span>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -890,35 +913,35 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                       </div>
                       <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
                         <div className="space-y-1">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Lead Pay</p>
-                          <p className={`text-[11px] font-bold uppercase tracking-tighter ${color.icon}`}>{srv.commissionType === 'percentage' ? `${srv.commissionValue}%` : `₱${srv.commissionValue}`}</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Lead Pay</p>
+                          <p className={`text-xs font-bold uppercase tracking-tighter ${color.icon}`}>{srv.commissionType === 'percentage' ? `${srv.commissionValue}%` : `₱${srv.commissionValue}`}</p>
                         </div>
                         {srv.isDualProvider && (
                           <div className="space-y-1">
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Support Pay</p>
-                            <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-tighter">{srv.secondaryCommissionType === 'percentage' ? `${srv.secondaryCommissionValue}%` : `₱${srv.secondaryCommissionValue}`}</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Support Pay</p>
+                            <p className="text-xs font-bold text-indigo-600 uppercase tracking-tighter">{srv.secondaryCommissionType === 'percentage' ? `${srv.secondaryCommissionValue}%` : `₱${srv.secondaryCommissionValue}`}</p>
                           </div>
                         )}
                       </div>
                     </div>
                   )) : (
                     <div className="py-12 text-center bg-white rounded-3xl border border-dashed border-slate-200 opacity-40">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">No Services Defined</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">No Services Defined</p>
                     </div>
                   )}
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden sm:block bg-white rounded-[32px] sm:rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="hidden sm:block bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto no-scrollbar">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-100">
-                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service</th>
-                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Duration</th>
-                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Price</th>
-                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Commission</th>
-                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                          <th className="px-6 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide">Service</th>
+                          <th className="px-6 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide hidden sm:table-cell">Duration</th>
+                          <th className="px-6 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide">Price</th>
+                          <th className="px-6 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide hidden md:table-cell">Commission</th>
+                          <th className="px-6 py-5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
@@ -928,27 +951,27 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                               <div className="flex items-center gap-3">
                                 <div className={`w-1 h-8 rounded-full ${color.dot} shrink-0`} />
                                 <div className="flex flex-col">
-                                  <span className="font-bold text-slate-900 uppercase text-[13px] tracking-tight leading-none">{srv.name}</span>
-                                  {srv.isDualProvider && <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest mt-1">Dual Provider</span>}
+                                  <span className="font-bold text-slate-900 uppercase text-sm tracking-tight leading-none">{srv.name}</span>
+                                  {srv.isDualProvider && <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-1">Dual Provider</span>}
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-5 hidden sm:table-cell">
-                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest tabular-nums">{srv.duration}M</span>
+                              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide tabular-nums">{srv.duration}M</span>
                             </td>
                             <td className="px-6 py-5">
-                              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest whitespace-nowrap tabular-nums">₱{srv.price.toLocaleString()}</span>
+                              <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest whitespace-nowrap tabular-nums">₱{srv.price.toLocaleString()}</span>
                             </td>
                             <td className="px-6 py-5 hidden md:table-cell">
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Lead:</span>
-                                  <span className={`text-[10px] font-bold tabular-nums ${color.icon}`}>{srv.commissionType === 'percentage' ? `${srv.commissionValue}%` : `₱${srv.commissionValue}`}</span>
+                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Lead:</span>
+                                  <span className={`text-xs font-bold tabular-nums ${color.icon}`}>{srv.commissionType === 'percentage' ? `${srv.commissionValue}%` : `₱${srv.commissionValue}`}</span>
                                 </div>
                                 {srv.isDualProvider && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Support:</span>
-                                    <span className="text-[10px] font-bold text-indigo-600 tabular-nums">{srv.secondaryCommissionType === 'percentage' ? `${srv.secondaryCommissionValue}%` : `₱${srv.secondaryCommissionValue}`}</span>
+                                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Support:</span>
+                                    <span className="text-xs font-bold text-indigo-600 tabular-nums">{srv.secondaryCommissionType === 'percentage' ? `${srv.secondaryCommissionValue}%` : `₱${srv.secondaryCommissionValue}`}</span>
                                   </div>
                                 )}
                               </div>
@@ -967,7 +990,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         )) : (
                           <tr>
                             <td colSpan={5} className="py-20 text-center opacity-30">
-                              <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-400">No services — add one above</p>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">No services — add one above</p>
                             </td>
                           </tr>
                         )}
@@ -979,16 +1002,45 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
               {/* RIGHT: BRANCH SUBSCRIPTION SIDEBAR */}
               <div className="w-full lg:w-96 shrink-0 space-y-6 sm:space-y-8 relative lg:sticky lg:top-10">
-                <div className="bg-slate-900 rounded-3xl sm:rounded-[48px] p-5 sm:p-10 shadow-2xl relative overflow-hidden text-white border border-white/5">
+                <div className="bg-slate-900 rounded-3xl sm:rounded-[48px] p-5 sm:p-10 shadow-xl relative overflow-hidden text-white border border-slate-100">
                   <div className={`absolute top-0 left-0 right-0 h-1 ${color.dot}`} />
                   <div className="absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-emerald-500/10 blur-[90px] rounded-full translate-x-1/4 -translate-y-1/4"></div>
                   <div className="relative z-10 space-y-6 sm:space-y-8">
                     <div className="flex justify-between items-center h-10">
                       <div className="flex flex-col">
-                        <h4 className={`text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.2em] leading-none ${color.icon}`}>Branch Assignment</h4>
-                        <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1.5 sm:mt-2">Toggle to link / unlink</p>
+                        <h4 className={`text-xs sm:text-xs font-bold uppercase tracking-wider leading-none ${color.icon}`}>Branch Assignment</h4>
+                        <p className="text-xs sm:text-xs font-bold text-slate-500 uppercase tracking-wide mt-1.5 sm:mt-2">Toggle to link / unlink</p>
                       </div>
-                      <span className="bg-white/10 px-3 sm:px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold border border-white/5 shadow-inner shrink-0">{(activeCatalog.branchIds || []).length} linked</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="bg-white/10 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-xs font-bold border border-slate-100 shadow-inner">{(activeCatalog.branchIds || []).length} linked</span>
+                        {(activeCatalog.branchIds || []).length < branches.filter(b => b.isEnabled !== false).length ? (
+                          <button
+                            onClick={() => {
+                              setLocalCatalogs(prev => prev.map(c =>
+                                c.id === activeCatalog.id ? { ...c, branchIds: branches.filter(b => b.isEnabled !== false).map(b => b.id) } : c
+                              ));
+                              setHasUnsavedChanges(true);
+                              playSound('click');
+                            }}
+                            className="h-7 px-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
+                          >
+                            All
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setLocalCatalogs(prev => prev.map(c =>
+                                c.id === activeCatalog.id ? { ...c, branchIds: [] } : c
+                              ));
+                              setHasUnsavedChanges(true);
+                              playSound('click');
+                            }}
+                            className="h-7 px-3 rounded-full bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold uppercase tracking-wide transition-all active:scale-95"
+                          >
+                            None
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="relative group">
@@ -996,7 +1048,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         value={branchSearch}
                         onChange={e => setBranchSearch(e.target.value)}
                         placeholder="Filter branches..."
-                        className="w-full bg-white/5 border border-white/10 rounded-[18px] sm:rounded-[22px] pl-12 sm:pl-14 pr-4 sm:pr-6 py-3.5 sm:py-4 text-[12px] sm:text-sm font-bold uppercase tracking-wide focus:border-emerald-500 outline-none transition-all placeholder:text-white/20 shadow-inner"
+                        className="w-full bg-white/5 border border-slate-200 rounded-[18px] sm:rounded-[22px] pl-12 sm:pl-14 pr-4 sm:pr-6 py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-wide focus:border-emerald-500 outline-none transition-all placeholder:text-white/20 shadow-inner"
                       />
                       <div className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-emerald-500 transition-colors">
                         <Search className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1010,20 +1062,20 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                           <button
                             key={b.id}
                             onClick={() => toggleBranchLink(activeCatalog.id, b.id)}
-                            className={`w-full flex items-center justify-between p-4 sm:p-5 rounded-[18px] sm:rounded-[22px] transition-all border group active:scale-[0.97] ${isLinked ? `${color.dot.replace('bg-', 'bg-')} bg-emerald-600 border-emerald-500 text-white shadow-xl scale-[1.02]` : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            className={`w-full flex items-center justify-between p-4 sm:p-5 rounded-[18px] sm:rounded-[22px] transition-all border group active:scale-[0.97] ${isLinked ? `${color.dot.replace('bg-', 'bg-')} bg-emerald-600 border-emerald-500 text-white shadow-xl scale-[1.02]` : 'bg-white/5 border-slate-100 text-slate-400 hover:bg-white/10 hover:text-white'}`}
                           >
                             <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
                               <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isLinked ? 'bg-white/20 text-white' : 'bg-white/5 text-slate-500'}`}>
-                                <span className="text-[10px] font-black">{b.name.charAt(0)}</span>
+                                <span className="text-xs font-black">{b.name.charAt(0)}</span>
                               </div>
-                              <span className="font-bold uppercase text-[11px] sm:text-[12px] tracking-tight truncate leading-none">{b.name}</span>
+                              <span className="font-bold uppercase text-xs sm:text-xs tracking-tight truncate leading-none">{b.name}</span>
                             </div>
                             {isLinked && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-in zoom-in shrink-0" />}
                           </button>
                         );
                       }) : (
                         <div className="py-12 sm:py-20 text-center opacity-30">
-                          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.4em]">No matching branches</p>
+                          <p className="text-xs sm:text-xs font-bold uppercase tracking-wide">No matching branches</p>
                         </div>
                       )}
                     </div>
@@ -1037,21 +1089,21 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
       {/* ── UNSAVED CHANGES BAR ─────────────────────────────────────────── */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-24 lg:bottom-12 left-4 right-4 sm:left-6 sm:right-6 z-[400] bg-white/95 backdrop-blur-md border border-amber-200 p-4 sm:p-5 rounded-[28px] sm:rounded-[36px] shadow-[0_30px_70px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom-12 flex items-center justify-center">
+        <div className="fixed bottom-24 lg:bottom-12 left-4 right-4 sm:left-6 sm:right-6 z-[400] bg-white/95 backdrop-blur-md border border-amber-200 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-[0_30px_70px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom-12 flex items-center justify-center">
           <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 px-2 sm:px-6">
             <div className="flex items-center gap-3 sm:gap-5">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-amber-50 text-amber-500 animate-pulse flex items-center justify-center border border-amber-200 shadow-inner text-lg sm:text-xl shrink-0">⚠️</div>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold uppercase text-slate-900 tracking-tight leading-none">Unsaved Catalog Changes</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Save to sync changes to all linked branches</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-2">Save to sync changes to all linked branches</p>
               </div>
               <div className="sm:hidden text-center">
-                <p className="text-[10px] font-bold uppercase text-slate-900 leading-tight">Unsaved Changes</p>
+                <p className="text-xs font-bold uppercase text-slate-900 leading-tight">Unsaved Changes</p>
               </div>
             </div>
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-              <button onClick={() => { setLocalCatalogs(JSON.parse(JSON.stringify(initialCatalogs))); setHasUnsavedChanges(false); playSound('warning'); }} className="flex-1 sm:flex-none px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-[10px] sm:text-[11px] uppercase text-slate-400 hover:text-rose-600 transition-colors">Discard</button>
-              <button onClick={handleGlobalSave} disabled={isSaving} className="flex-1 sm:flex-none bg-emerald-600 text-white px-6 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-[10px] sm:text-[12px] uppercase tracking-widest shadow-xl shadow-emerald-200 active:scale-95 transition-all flex items-center justify-center gap-2 sm:gap-4">
+              <button onClick={() => { setLocalCatalogs(JSON.parse(JSON.stringify(initialCatalogs))); setHasUnsavedChanges(false); playSound('warning'); }} className="flex-1 sm:flex-none px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-xs uppercase text-slate-400 hover:text-rose-600 transition-colors">Discard</button>
+              <button onClick={handleGlobalSave} disabled={isSaving} className="flex-1 sm:flex-none bg-emerald-600 text-white px-6 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-xs uppercase tracking-widest shadow-xl shadow-emerald-200 active:scale-95 transition-all flex items-center justify-center gap-2 sm:gap-4">
                 {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : '⚡'}
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -1060,14 +1112,101 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
         </div>
       )}
 
+      {/* ── BRANCH ASSIGN MODAL ─────────────────────────────────────────── */}
+      {branchAssignModal && (() => {
+        const assignedIds = localCatalogs
+          .filter(c => (c.branchIds || []).includes(branchAssignModal.id))
+          .map(c => c.id);
+        return (
+          <div className="fixed inset-0 z-[1100] bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200">
+            <div className="bg-white w-full sm:max-w-lg rounded-t-[40px] sm:rounded-3xl shadow-xl border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300 max-h-[90vh]">
+              {/* Header */}
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-900 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <GitBranch className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Assign Catalogs to</p>
+                    <h3 className="text-sm font-bold text-slate-900 leading-none mt-0.5">{branchAssignModal.name}</h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBranchAssignModal(null)}
+                  className="p-2.5 bg-slate-100 rounded-xl text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-90"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Subtitle */}
+              <div className="px-8 py-3 bg-slate-50 border-b border-slate-100 shrink-0">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  {assignedIds.length} of {localCatalogs.length} catalog{localCatalogs.length !== 1 ? 's' : ''} assigned
+                </p>
+              </div>
+
+              {/* Catalog list */}
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                {localCatalogs.length === 0 ? (
+                  <div className="py-16 text-center opacity-40">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No catalogs yet</p>
+                  </div>
+                ) : localCatalogs.map(cat => {
+                  const color = getCatalogColor(cat.id);
+                  const isAssigned = assignedIds.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => toggleBranchLink(cat.id, branchAssignModal.id)}
+                      className={`w-full flex items-center gap-4 px-8 py-5 text-left transition-all active:scale-[0.99] ${isAssigned ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50'}`}
+                    >
+                      {/* Color dot + icon */}
+                      <div className={`w-10 h-10 ${color.light} ${color.icon} rounded-xl flex items-center justify-center shrink-0`}>
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight leading-none truncate">{cat.name}</p>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">
+                          {(cat.services || []).length} service{(cat.services || []).length !== 1 ? 's' : ''}
+                          {cat.can_be_loyalty && <span className="ml-2 text-amber-500">· Loyalty</span>}
+                        </p>
+                      </div>
+
+                      {/* Toggle indicator */}
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isAssigned ? 'bg-emerald-500 border-emerald-500' : 'border-slate-200'}`}>
+                        {isAssigned && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between gap-4 shrink-0 bg-white">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Changes save with the catalog</p>
+                <button
+                  onClick={() => setBranchAssignModal(null)}
+                  className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 active:scale-95 transition-all shadow-sm"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── RENAME MODAL ────────────────────────────────────────────────── */}
       {editingCatalogId && (
         <div className="fixed inset-0 z-[1100] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <div>
                 <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Rename Catalog</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Update catalog identity</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mt-1">Update catalog identity</p>
               </div>
               <button onClick={() => setEditingCatalogId(null)} className="p-3 bg-white rounded-xl text-slate-400 hover:text-rose-600 transition-all active:scale-90 border border-slate-100 shadow-sm">
                 <X className="w-5 h-5" />
@@ -1075,7 +1214,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Catalog Name</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Catalog Name</label>
                 <input
                   autoFocus
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-wide focus:border-emerald-500 outline-none transition-all"
@@ -1086,7 +1225,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
               </div>
               <button
                 onClick={handleConfirmRename}
-                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-[12px] uppercase tracking-[0.3em] shadow-xl hover:bg-emerald-600 transition-all active:scale-95"
+                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-xs uppercase tracking-wide shadow-xl hover:bg-emerald-600 transition-all active:scale-95"
               >
                 Confirm Rename
               </button>
@@ -1098,11 +1237,11 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
       {/* ── SERVICE EDITOR MODAL ────────────────────────────────────────── */}
       {editingServiceId && editingServiceData && (
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[40px] sm:rounded-[56px] shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
+          <div className="bg-white w-full max-w-2xl rounded-3xl sm:rounded-[56px] shadow-xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
             <div className="p-8 sm:p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <div>
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-900 uppercase tracking-tight">{editingServiceId === 'new' ? 'Add Service' : 'Edit Service'}</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">{activeCatalog?.name}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mt-1">{activeCatalog?.name}</p>
               </div>
               <button onClick={() => setEditingServiceId(null)} className="p-4 bg-white rounded-2xl text-slate-400 hover:text-rose-600 transition-all active:scale-90 border border-slate-100 shadow-sm">
                 <X className="w-6 h-6" />
@@ -1111,7 +1250,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
             <div className="flex-1 overflow-y-auto p-8 sm:p-10 space-y-8 no-scrollbar">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Service Name</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Service Name</label>
                 <input
                   autoFocus
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-wide focus:border-emerald-500 outline-none transition-all"
@@ -1123,7 +1262,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Price (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Price (₱)</label>
                   <input
                     type="number"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold tabular-nums focus:border-emerald-500 outline-none transition-all"
@@ -1132,7 +1271,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Duration (mins)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Duration (mins)</label>
                   <input
                     type="number"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold tabular-nums focus:border-emerald-500 outline-none transition-all"
@@ -1144,9 +1283,9 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
               <div className="space-y-6 pt-4 border-t border-slate-50">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">Lead Provider</h4>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest">Lead Provider</h4>
                   <select
-                    className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest outline-none"
+                    className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-medium uppercase tracking-wide outline-none"
                     value={editingServiceData.primaryRole}
                     onChange={e => setEditingServiceData({ ...editingServiceData, primaryRole: e.target.value as ProviderRole })}
                   >
@@ -1159,7 +1298,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Pay Model</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Pay Model</label>
                     <select
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-wide outline-none"
                       value={editingServiceData.commissionType}
@@ -1170,7 +1309,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Pay Value</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Pay Value</label>
                     <input
                       type="number"
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold tabular-nums focus:border-emerald-500 outline-none transition-all"
@@ -1205,17 +1344,17 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                     <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 shadow-md ${editingServiceData.isDualProvider ? 'translate-x-6' : ''}`}></div>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">Dual Provider</span>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enable secondary support commission</span>
+                    <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Dual Provider</span>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Enable secondary support commission</span>
                   </div>
                 </label>
 
                 {editingServiceData.isDualProvider && (
                   <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">Support Provider</h4>
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest">Support Provider</h4>
                       <select
-                        className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest outline-none"
+                        className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-medium uppercase tracking-wide outline-none"
                         value={editingServiceData.secondaryRole || 'BONESETTER'}
                         onChange={e => setEditingServiceData({ ...editingServiceData, secondaryRole: e.target.value as ProviderRole })}
                       >
@@ -1228,7 +1367,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Support Pay Model</label>
+                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Support Pay Model</label>
                         <select
                           className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-wide outline-none"
                           value={editingServiceData.secondaryCommissionType || 'fixed'}
@@ -1239,7 +1378,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Support Pay Value</label>
+                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Support Pay Value</label>
                         <input
                           type="number"
                           className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold tabular-nums focus:border-emerald-500 outline-none transition-all"
@@ -1256,7 +1395,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ branches, catalo
             <div className="p-8 sm:p-10 bg-slate-50/50 border-t border-slate-50">
               <button
                 onClick={handleSaveService}
-                className="w-full bg-slate-900 text-white py-6 rounded-[24px] sm:rounded-[32px] font-bold text-[12px] uppercase tracking-[0.3em] shadow-xl hover:bg-emerald-600 transition-all active:scale-95"
+                className="w-full bg-slate-900 text-white py-6 rounded-2xl sm:rounded-2xl font-bold text-xs uppercase tracking-wide shadow-xl hover:bg-emerald-600 transition-all active:scale-95"
               >
                 {editingServiceId === 'new' ? 'Add Service' : 'Save Changes'}
               </button>

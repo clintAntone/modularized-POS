@@ -66,7 +66,7 @@ const STATS = [
 export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) => {
   return (
     <div className="w-full max-w-lg mx-auto px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="rounded-[28px] overflow-hidden shadow-2xl border border-white/5">
+      <div className="rounded-2xl overflow-hidden shadow-xl border border-white/5">
 
         {/* ── HERO ─────────────────────────────────────── */}
         <div
@@ -85,23 +85,23 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
 
           <div className="relative z-10 space-y-3">
             <div
-              className="inline-flex items-center justify-center w-16 h-16 rounded-[18px] shadow-2xl select-none"
+              className="inline-flex items-center justify-center w-16 h-16 rounded-[18px] shadow-xl select-none"
               style={{ background: 'linear-gradient(135deg, #6366f1, #10b981)' }}
             >
               <span className="text-xl font-black text-white tracking-tighter">CA</span>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white uppercase tracking-tighter leading-none">
+              <h1 className="text-xl font-bold text-slate-900 tracking-tighter leading-none">
                 Clint Antone Raro
               </h1>
-              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.25em]"
+              <p className="mt-1 text-xs font-bold uppercase tracking-[0.25em]"
                 style={{ color: 'rgba(167,243,208,0.8)' }}>
                 System Architect &amp; Lead Engineer
               </p>
             </div>
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">
+              <span className="text-xs font-black text-white/60 uppercase tracking-widest">
                 Node Network · v{version || '1.0.0'}
               </span>
             </div>
@@ -111,7 +111,7 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
               {STATS.map((s, i) => (
                 <div key={i} className={`py-3 text-center ${i < STATS.length - 1 ? 'border-r border-white/5' : ''}`}>
                   <p className="text-sm font-black text-white leading-none tabular-nums">{s.value}</p>
-                  <p className="mt-0.5 text-[7px] font-bold text-white/40 uppercase tracking-wider leading-tight">{s.label}</p>
+                  <p className="mt-0.5 text-xs font-bold text-white/40 uppercase tracking-wider leading-tight">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -123,10 +123,10 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
 
           {/* Tech stack — neutral */}
           <div>
-            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-2">Built With</p>
+            <p className="text-xs font-black text-slate-300 uppercase tracking-widest mb-2">Built With</p>
             <div className="flex flex-wrap gap-1.5">
               {STACK.map((label) => (
-                <span key={label} className="px-2.5 py-1 rounded-lg text-[9px] font-bold border uppercase tracking-wider bg-slate-50 text-slate-500 border-slate-100">
+                <span key={label} className="px-2.5 py-1 rounded-lg text-xs font-bold border uppercase tracking-wider bg-slate-50 text-slate-500 border-slate-100">
                   {label}
                 </span>
               ))}
@@ -138,7 +138,7 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
 
           {/* Core features */}
           <div>
-            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-3">Core Features</p>
+            <p className="text-xs font-black text-slate-300 uppercase tracking-widest mb-3">Core Features</p>
             <div className="space-y-2">
               {FEATURES.map((f) => (
                 <div key={f.label} className="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -148,8 +148,8 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
                     </svg>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight leading-none">{f.label}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">{f.desc}</p>
+                    <p className="text-xs font-black text-slate-700 uppercase tracking-tight leading-none">{f.label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{f.desc}</p>
                   </div>
                 </div>
               ))}
@@ -159,7 +159,7 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
           {/* Footer */}
           <div className="flex items-center gap-3 pt-1">
             <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Handcrafted with Excellence</span>
+            <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Handcrafted with Excellence</span>
             <div className="h-px flex-1 bg-slate-100" />
           </div>
         </div>

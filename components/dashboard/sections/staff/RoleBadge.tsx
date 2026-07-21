@@ -33,7 +33,7 @@ export const RoleBadge = ({ role, centered = false }: RoleBadgeProps) => {
           : 'bg-amber-50 text-amber-700 border-amber-100';
 
         return (
-          <span key={r} className={`px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-widest border ${styles[r] || fallbackStyle}`}>
+          <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-medium uppercase tracking-wide border ${styles[r] || fallbackStyle}`}>
             {r}
           </span>
         );

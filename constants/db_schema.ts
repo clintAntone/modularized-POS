@@ -26,6 +26,7 @@ export const DB_TABLES = {
   EMPLOYEE_COMPLAINTS: 'employee_complaints',
   SERVICE_TEMPLATES: 'service_templates',
   BRANCH_SERVICES: 'branch_services',
+  TIME_SYNC_LOGS: 'time_sync_logs',
 };
 
 export const DB_COLUMNS = {
@@ -50,9 +51,12 @@ export const DB_COLUMNS = {
   WEEKLY_CUTOFF: 'weekly_cutoff',
   CYCLE_START_DATE: 'cycle_start_date',
   DAILY_PROVISION_AMOUNT: 'daily_provision_amount',
-  ENABLE_SHIFT_TRACKING: 'enable_shift_tracking',
+  ADDRESS: 'address',
+  PIN_LOCATION: 'pin_location',
   OPENING_TIME: 'opening_time',
   CLOSING_TIME: 'closing_time',
+  SHIFT2_OPENING_TIME: 'shift2_opening_time',
+  SHIFT2_CLOSING_TIME: 'shift2_closing_time',
   OWNERS: 'owners',
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',
@@ -101,6 +105,13 @@ export const DB_COLUMNS = {
   MIDDLE_NAME: 'middle_name',
   LAST_NAME: 'last_name',
   DETAILS: 'details',
+  FACE_DESCRIPTORS: 'face_descriptors',
+
+  // Employee Leave
+  ON_LEAVE: 'on_leave',
+  LEAVE_TYPE: 'leave_type',
+  LEAVE_START_DATE: 'leave_start_date',
+  LEAVE_END_DATE: 'leave_end_date',
 
   // Attendance & Shift
   STAFF_NAME: 'staff_name',
@@ -108,15 +119,14 @@ export const DB_COLUMNS = {
   EMPLOYEE_NAME: 'employee_name',
   CLOCK_IN: 'clock_in',
   CLOCK_OUT: 'clock_out',
+  CLOCK_IN_METHOD: 'clock_in_method',
   STATUS: 'status',
-  DATE_STR: 'date_str',
   DATE: 'date',
   LATE_DEDUCTION: 'late_deduction',
   OT_PAY: 'ot_pay',
   CASH_ADVANCE: 'cash_advance',
   IS_HALF_DAY: 'is_half_day',
-  IS_PAID_DAILY: 'is_paid_daily',
-  SETTLED_UNITS: 'settled_units',
+  SHIFT: 'shift',
 
   // Service Catalogs
   BRANCH_IDS: 'branch_ids',
@@ -141,6 +151,7 @@ export const DB_COLUMNS = {
   STAFF_BREAKDOWN: 'staff_breakdown',
   EXPENSE_DATA: 'expense_data',
   VAULT_DATA: 'vault_data',
+  BACKFILLED: 'backfilled',
 
   // System Config
   KEY: 'key',

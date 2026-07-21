@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getManilaYear } from '../../../lib/time';
 import { Branch, Transaction, Expense } from '../../../types';
 
 export const useBranchData = (branch: Branch, transactions: Transaction[], expenses: Expense[]) => {
@@ -7,7 +8,7 @@ export const useBranchData = (branch: Branch, transactions: Transaction[], expen
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     
-    const anchorDateString = branch.cycleStartDate || `${new Date().getFullYear()}-01-01`;
+    const anchorDateString = branch.cycleStartDate || `${getManilaYear()}-01-01`;
     const [year, month, day] = anchorDateString.split('-').map(v => parseInt(v, 10));
     let iter = new Date(year, month - 1, day);
     iter.setHours(0, 0, 0, 0);

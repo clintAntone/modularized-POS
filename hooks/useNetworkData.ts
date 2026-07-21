@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
+import { getTrueDate, getTrueISOString } from '../lib/time';
 import { Branch, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, UserRole, AuthState } from '../types';
 
 // Mappers
@@ -18,9 +19,12 @@ const mapDbBranch = (db: any): Branch => ({
     weeklyCutoff: Number(db[DB_COLUMNS.WEEKLY_CUTOFF] ?? 0),
     cycleStartDate: db[DB_COLUMNS.CYCLE_START_DATE] ?? '',
     dailyProvisionAmount: Number(db[DB_COLUMNS.DAILY_PROVISION_AMOUNT] ?? 800),
-    enableShiftTracking: Boolean(db[DB_COLUMNS.ENABLE_SHIFT_TRACKING]),
     openingTime: db[DB_COLUMNS.OPENING_TIME] ?? '09:00',
+    address: db[DB_COLUMNS.ADDRESS] ?? undefined,
+    pinLocation: db[DB_COLUMNS.PIN_LOCATION] ?? undefined,
     closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
+    shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
+    shift2ClosingTime: db[DB_COLUMNS.SHIFT2_CLOSING_TIME] || undefined,
     owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
       ? JSON.parse(db[DB_COLUMNS.OWNERS])
       : (db[DB_COLUMNS.OWNERS] || []),
@@ -48,8 +52,56 @@ const mapDbEmployee = (db: any): Employee => ({
     isActive: db[DB_COLUMNS.IS_ACTIVE] !== false,
     profile: db[DB_COLUMNS.PROFILE],
     branchAllowances: typeof db[DB_COLUMNS.BRANCH_ALLOWANCES] === 'string' ? JSON.parse(db[DB_COLUMNS.BRANCH_ALLOWANCES]) : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {}),
-    timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
+    timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
+    ...(() => {
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
+        const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
+        const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
+        const onLeave = dbOnLeave && (!endDate || endDate >= today);
+        return { onLeave, leaveType: db[DB_COLUMNS.LEAVE_TYPE] ?? undefined, leaveStartDate: db[DB_COLUMNS.LEAVE_START_DATE] ?? undefined, leaveEndDate: endDate ?? undefined };
+    })(),
 });
+
+const BRANCH_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.NAME, DB_COLUMNS.PIN, DB_COLUMNS.IS_PIN_CHANGED,
+    DB_COLUMNS.IS_ENABLED, DB_COLUMNS.IS_OPEN, DB_COLUMNS.IS_OPEN_DATE,
+    DB_COLUMNS.MANAGER, DB_COLUMNS.TEMP_MANAGER, DB_COLUMNS.SERVICES,
+    DB_COLUMNS.WEEKLY_CUTOFF, DB_COLUMNS.CYCLE_START_DATE, DB_COLUMNS.DAILY_PROVISION_AMOUNT,
+    DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
+    DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
+    DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
+    DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED,
+].join(',');
+
+// face_descriptors intentionally excluded — large blob not needed for any list view
+const EMPLOYEE_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.NAME, DB_COLUMNS.FIRST_NAME,
+    DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
+    DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
+    DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
+    DB_COLUMNS.ON_LEAVE, DB_COLUMNS.LEAVE_TYPE, DB_COLUMNS.LEAVE_START_DATE, DB_COLUMNS.LEAVE_END_DATE,
+].join(',');
+
+const TRANSACTION_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CLIENT_NAME,
+    DB_COLUMNS.THERAPIST_NAME, DB_COLUMNS.THERAPIST_ID, DB_COLUMNS.BONESETTER_NAME, DB_COLUMNS.BONESETTER_ID,
+    DB_COLUMNS.SERVICE_ID, DB_COLUMNS.SERVICE_NAME, DB_COLUMNS.BASE_PRICE, DB_COLUMNS.DISCOUNT,
+    DB_COLUMNS.VOUCHER_VALUE, DB_COLUMNS.PRIMARY_COMMISSION, DB_COLUMNS.SECONDARY_COMMISSION,
+    DB_COLUMNS.TOTAL, DB_COLUMNS.PAYMENT_METHOD, DB_COLUMNS.PAYMENT_STATUS,
+    DB_COLUMNS.PAYMONGO_LINK_ID, DB_COLUMNS.NOTE,
+].join(',');
+
+const SALES_REPORT_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
+    DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
+    DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
+    DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.VAULT_DATA,
+    DB_COLUMNS.BACKFILLED,
+].join(',');
+
+const SERVICE_CATALOG_COLS = [
+    DB_COLUMNS.ID, DB_COLUMNS.NAME, DB_COLUMNS.SERVICES, DB_COLUMNS.BRANCH_IDS, DB_COLUMNS.CAN_BE_LOYALTY,
+].join(',');
 
 // Queries
 export const useBranches = () => {
@@ -58,7 +110,7 @@ export const useBranches = () => {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from(DB_TABLES.BRANCHES)
-                .select('*')
+                .select(BRANCH_COLS)
                 .order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbBranch);
@@ -70,7 +122,7 @@ export const useEmployees = (branchId?: string) => {
     return useQuery({
         queryKey: ['employees', branchId],
         queryFn: async () => {
-            let query = supabase.from(DB_TABLES.EMPLOYEES).select('*').order(DB_COLUMNS.NAME, { ascending: true });
+            let query = supabase.from(DB_TABLES.EMPLOYEES).select(EMPLOYEE_COLS).order(DB_COLUMNS.NAME, { ascending: true });
             if (branchId) query = query.eq(DB_COLUMNS.BRANCH_ID, branchId);
             const { data, error } = await query;
             if (error) throw error;
@@ -83,12 +135,12 @@ export const useTransactions = (branchId?: string) => {
     return useQuery({
         queryKey: ['transactions', branchId],
         queryFn: async () => {
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
             let query = supabase.from(DB_TABLES.TRANSACTIONS)
-                .select('*')
+                .select(TRANSACTION_COLS)
                 .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
                 .gte(DB_COLUMNS.TIMESTAMP, lookbackIso)
                 .limit(2000);
@@ -118,27 +170,32 @@ export const useBranchServiceTemplates = (branchId: string) => {
     return useQuery({
         queryKey: ['branch_service_templates', branchId],
         queryFn: async () => {
-            // Step 1: get branch→template assignments with price overrides
-            const { data: bsData, error: bsError } = await supabase
-                .from(DB_TABLES.BRANCH_SERVICES)
-                .select('template_id, price')
-                .eq(DB_COLUMNS.BRANCH_ID, branchId);
+            // Fetch branch assignments, template definitions, and PRIO config in parallel
+            const [{ data: bsData, error: bsError }, { data: tAllData, error: tAllError }, { data: cfgData }] = await Promise.all([
+                supabase.from(DB_TABLES.BRANCH_SERVICES).select('template_id, price').eq(DB_COLUMNS.BRANCH_ID, branchId),
+                supabase.from(DB_TABLES.SERVICE_TEMPLATES).select('*'),
+                supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq('key', 'prio_service_catalogs').maybeSingle(),
+            ]);
             if (bsError) throw bsError;
+            if (tAllError) throw tAllError;
             if (!bsData || bsData.length === 0) return [];
 
-            const templateIds = bsData.map((r: any) => r.template_id);
-
-            // Step 2: fetch the canonical service definitions
-            const { data: tData, error: tError } = await supabase
-                .from(DB_TABLES.SERVICE_TEMPLATES)
-                .select('*')
-                .in('id', templateIds);
-            if (tError) throw tError;
-
+            const assignedIds = new Set(bsData.map((r: any) => r.template_id));
             const priceMap: Record<string, number | null> = {};
             bsData.forEach((r: any) => { priceMap[r.template_id] = r.price; });
 
-            return (tData || []).map((t: any) => ({
+            let prioCatalogs: string[] = [];
+            try { prioCatalogs = cfgData?.value ? JSON.parse(cfgData.value) : []; } catch { /* ignore */ }
+
+            const allAssigned = (tAllData || []).filter((t: any) => assignedIds.has(t.id));
+
+            // If any assigned service belongs to a PRIO catalog, show only PRIO catalog services
+            const hasPrioAssigned = prioCatalogs.length > 0 && allAssigned.some((t: any) => t.catalog_name && prioCatalogs.includes(t.catalog_name));
+            const visible = hasPrioAssigned
+                ? allAssigned.filter((t: any) => t.catalog_name && prioCatalogs.includes(t.catalog_name))
+                : allAssigned;
+
+            return visible.map((t: any) => ({
                 id: t.id,
                 name: t.name,
                 price: priceMap[t.id] != null ? priceMap[t.id] : t.default_price,
@@ -166,7 +223,7 @@ export const useServiceCatalogs = () => {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from(DB_TABLES.SERVICE_CATALOGS)
-                .select('*')
+                .select(SERVICE_CATALOG_COLS)
                 .order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(d => ({
@@ -184,12 +241,12 @@ export const useSalesReports = (branchId?: string) => {
     return useQuery({
         queryKey: ['salesReports', branchId],
         queryFn: async () => {
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(lookbackDate);
 
             let query = supabase.from(DB_TABLES.SALES_REPORTS)
-                .select('*')
+                .select(SALES_REPORT_COLS)
                 .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
                 .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
                 .limit(2000);
@@ -204,6 +261,7 @@ export const useSalesReports = (branchId?: string) => {
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
                 totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
                 netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+                backfilled: r[DB_COLUMNS.BACKFILLED] === true,
                 sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
                 staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
@@ -229,7 +287,7 @@ export const useAddTransaction = () => {
                 const optimisticTx = {
                     ...newTx,
                     id: 'temp-' + Date.now(),
-                    timestamp: new Date().toISOString(),
+                    timestamp: getTrueISOString(),
                     total: Number(newTx.total || 0),
                     clientName: newTx.client_name,
                     serviceName: newTx.service_name,
@@ -253,13 +311,25 @@ export const useUpdateTransaction = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (tx: any) => {
-            const { data, error } = await supabase.from(DB_TABLES.TRANSACTIONS).upsert(tx).select().single();
+            const { data, error } = await supabase.from(DB_TABLES.TRANSACTIONS).upsert(tx).select(TRANSACTION_COLS).single();
             if (error) throw error;
             return data;
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['transactions', data.branch_id] });
-        }
+        onMutate: async (tx) => {
+            const key = ['transactions', tx.branch_id];
+            await queryClient.cancelQueries({ queryKey: key });
+            const previous = queryClient.getQueryData(key);
+            queryClient.setQueryData(key, (old: any[]) =>
+                (old || []).map(t => t.id === tx.id ? { ...t, ...tx } : t)
+            );
+            return { previous, branchId: tx.branch_id };
+        },
+        onError: (_err, _tx, context: any) => {
+            queryClient.setQueryData(['transactions', context.branchId], context.previous);
+        },
+        onSettled: (_data, _err, tx) => {
+            queryClient.invalidateQueries({ queryKey: ['transactions', tx.branch_id] });
+        },
     });
 };
 
@@ -271,9 +341,19 @@ export const useDeleteTransaction = () => {
             if (error) throw error;
             return { id, branchId };
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['transactions', data.branchId] });
-        }
+        onMutate: async ({ id, branchId }) => {
+            const key = ['transactions', branchId];
+            await queryClient.cancelQueries({ queryKey: key });
+            const previous = queryClient.getQueryData(key);
+            queryClient.setQueryData(key, (old: any[]) => (old || []).filter(t => t.id !== id));
+            return { previous, branchId };
+        },
+        onError: (_err, _vars, context: any) => {
+            queryClient.setQueryData(['transactions', context.branchId], context.previous);
+        },
+        onSettled: (_data, _err, { branchId }) => {
+            queryClient.invalidateQueries({ queryKey: ['transactions', branchId] });
+        },
     });
 };
 
@@ -299,9 +379,19 @@ export const useDeleteExpense = () => {
             if (error) throw error;
             return { id, branchId };
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['expenses', data.branchId] });
-        }
+        onMutate: async ({ id, branchId }) => {
+            const key = ['expenses', branchId];
+            await queryClient.cancelQueries({ queryKey: key });
+            const previous = queryClient.getQueryData(key);
+            queryClient.setQueryData(key, (old: any[]) => (old || []).filter(e => e.id !== id));
+            return { previous, branchId };
+        },
+        onError: (_err, _vars, context: any) => {
+            queryClient.setQueryData(['expenses', context.branchId], context.previous);
+        },
+        onSettled: (_data, _err, { branchId }) => {
+            queryClient.invalidateQueries({ queryKey: ['expenses', branchId] });
+        },
     });
 };
 
@@ -342,8 +432,10 @@ export const useUpdateAttendance = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['attendance', data.branch_id] });
+        onSuccess: () => {
+            // Invalidate all attendance queries (branch-scoped and global) so both
+            // manager and superadmin dashboards reflect the change immediately.
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
         }
     });
 };
@@ -378,13 +470,24 @@ export const useAddEmployee = () => {
 export const useUpdateEmployee = () => {
     const queryClient = useQueryClient();
     return useMutation({
+        onMutate: async (employee) => {
+            await queryClient.cancelQueries({ queryKey: ['employees'] });
+            const previous = queryClient.getQueryData(['employees']);
+            queryClient.setQueryData(['employees'], (old: any[]) =>
+                (old || []).map(e => e.id === employee.id ? { ...e, ...employee } : e)
+            );
+            return { previous };
+        },
+        onError: (_err, _emp, context: any) => {
+            queryClient.setQueryData(['employees'], context.previous);
+        },
         mutationFn: async (employee: any) => {
             const { id, ...updates } = employee;
             
             // Fetch current employee state to compare role/branch
             const { data: currentEmployee } = await supabase
                 .from(DB_TABLES.EMPLOYEES)
-                .select('*')
+                .select(`${DB_COLUMNS.ROLE},${DB_COLUMNS.BRANCH_ID},${DB_COLUMNS.NAME}`)
                 .eq(DB_COLUMNS.ID, id)
                 .single();
 
@@ -429,7 +532,7 @@ export const useUpdateEmployee = () => {
 
             return data;
         },
-        onSuccess: () => {
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['employees'] });
             queryClient.invalidateQueries({ queryKey: ['branches'] });
         }
@@ -439,11 +542,20 @@ export const useUpdateEmployee = () => {
 export const useDeleteEmployee = () => {
     const queryClient = useQueryClient();
     return useMutation({
+        onMutate: async (id: string) => {
+            await queryClient.cancelQueries({ queryKey: ['employees'] });
+            const previous = queryClient.getQueryData(['employees']);
+            queryClient.setQueryData(['employees'], (old: any[]) => (old || []).filter(e => e.id !== id));
+            return { previous };
+        },
+        onError: (_err, _id, context: any) => {
+            queryClient.setQueryData(['employees'], context.previous);
+        },
         mutationFn: async (id: string) => {
             // Fetch employee to check role and branch before deletion
             const { data: employee } = await supabase
                 .from(DB_TABLES.EMPLOYEES)
-                .select('*')
+                .select(`${DB_COLUMNS.ROLE},${DB_COLUMNS.BRANCH_ID}`)
                 .eq(DB_COLUMNS.ID, id)
                 .single();
 
@@ -481,7 +593,7 @@ export const useDeleteEmployee = () => {
             if (error) throw error;
             return id;
         },
-        onSuccess: () => {
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['employees'] });
             queryClient.invalidateQueries({ queryKey: ['branches'] });
         }
@@ -496,8 +608,8 @@ export const useAddAttendance = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['attendance', data.branch_id] });
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
         }
     });
 };
@@ -505,16 +617,27 @@ export const useAddAttendance = () => {
 export const useUpdateBranch = () => {
     const queryClient = useQueryClient();
     return useMutation({
+        onMutate: async (branch) => {
+            await queryClient.cancelQueries({ queryKey: ['branches'] });
+            const previous = queryClient.getQueryData(['branches']);
+            queryClient.setQueryData(['branches'], (old: any[]) =>
+                (old || []).map(b => b.id === branch.id ? { ...b, ...branch } : b)
+            );
+            return { previous };
+        },
+        onError: (_err, _branch, context: any) => {
+            queryClient.setQueryData(['branches'], context.previous);
+        },
         mutationFn: async (branch: any) => {
             const { id, ...updates } = branch;
-            const { data, error } = await supabase.from(DB_TABLES.BRANCHES).update(updates).eq(DB_COLUMNS.ID, id).select().single();
+            const { data, error } = await supabase.from(DB_TABLES.BRANCHES).update(updates).eq(DB_COLUMNS.ID, id).select(BRANCH_COLS).single();
             if (error) {
                 console.error('[useUpdateBranch] Error updating branch:', error);
                 throw error;
             }
             return data;
         },
-        onSuccess: () => {
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['branches'] });
         }
     });
@@ -523,6 +646,15 @@ export const useUpdateBranch = () => {
 export const useDeleteBranch = () => {
     const queryClient = useQueryClient();
     return useMutation({
+        onMutate: async (id: string) => {
+            await queryClient.cancelQueries({ queryKey: ['branches'] });
+            const previous = queryClient.getQueryData(['branches']);
+            queryClient.setQueryData(['branches'], (old: any[]) => (old || []).filter(b => b.id !== id));
+            return { previous };
+        },
+        onError: (_err, _id, context: any) => {
+            queryClient.setQueryData(['branches'], context.previous);
+        },
         mutationFn: async (id: string) => {
             // Nullify branch_id in related tables to avoid foreign key constraint errors
             // We do this because the live database might not have ON DELETE CASCADE configured
@@ -575,7 +707,7 @@ export const useDeleteBranch = () => {
             if (error) throw error;
             return id;
         },
-        onSuccess: () => {
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['branches'] });
             queryClient.invalidateQueries({ queryKey: ['service_catalogs'] });
         }

@@ -41,7 +41,7 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
 
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[36px] w-full max-w-sm shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+      <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
         <div className="p-8 space-y-6">
           {/* Icon */}
           <div className="flex items-center gap-4">
@@ -54,18 +54,18 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
               <h3 className="text-base font-black text-slate-900 uppercase tracking-tight leading-none">
                 {required ? 'Email Required' : 'Add Your Email'}
               </h3>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">For account recovery</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">For account recovery</p>
             </div>
           </div>
 
-          <p className="text-[12px] text-slate-500 leading-relaxed">
+          <p className="text-xs text-slate-500 leading-relaxed">
             {required
               ? 'Managers are required to register a Gmail for PIN self-recovery and security verification.'
               : 'Register your Gmail so you can reset your PIN yourself without waiting for an admin.'}
           </p>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail Address</label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Gmail Address</label>
             <input
               type="email"
               value={email}
@@ -79,14 +79,14 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
                 'border-transparent focus:border-emerald-500 focus:bg-white'
               }`}
             />
-            {error && <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest ml-1">{error}</p>}
+            {error && <p className="text-xs font-black text-rose-600 uppercase tracking-widest ml-1">{error}</p>}
           </div>
 
           <div className="space-y-2">
             <button
               onClick={handleSave}
               disabled={!isValidEmail || saving}
-              className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[11px] shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
+              className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
             >
               {saving
                 ? <><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Saving...</>
@@ -95,7 +95,7 @@ export const GmailPromptModal: React.FC<GmailPromptModalProps> = ({ employee, re
             {!required && (
               <button
                 onClick={onSkip}
-                className="w-full text-[9px] font-black text-slate-400 uppercase tracking-widest py-3 active:text-slate-600 transition-colors"
+                className="w-full text-xs font-medium text-slate-400 uppercase tracking-wide py-3 active:text-slate-600 transition-colors"
               >
                 Skip for now
               </button>

@@ -55,13 +55,9 @@ export const playSound = (type: 'success' | 'warning' | 'click' | 'delete' | 'de
   try {
     const ctx = getAudioContext();
 
-    // For click, fire synchronously — no async resume to avoid queuing delay on rapid taps
-    if (type === 'click') {
-      if (ctx.state !== 'running') return;
-      const now = ctx.currentTime;
-      makeNote(ctx, 420, now, 0.06, 0.04);
-      return;
-    }
+    // Click sound removed — Web Audio context suspension on mobile caused audible delay on rapid taps.
+    // Visual button feedback (active:scale, transitions) is sufficient for click confirmation.
+    if (type === 'click') return;
 
     // For all other sounds, resume context if needed then play
     const playAsync = async () => {

@@ -18,13 +18,14 @@ interface ReportTableProps {
   sortField: string;
   sortOrder: 'asc' | 'desc';
   onSort: (field: any) => void;
-  onSelect: (report: SalesReport) => void;
+  onSelect: (report: SalesReport) => void | Promise<void>;
   vaultStartDate?: string | null;
   canDelete?: boolean;
   onDeleted?: () => void;
+  loadingRowId?: string | null;
 }
 
-export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, branchVaults = [], viewMode, currentBranchId, sortField, sortOrder, onSort, onSelect, vaultStartDate, canDelete = false, onDeleted }) => {
+export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, branchVaults = [], viewMode, currentBranchId, sortField, sortOrder, onSort, onSelect, vaultStartDate, canDelete = false, onDeleted, loadingRowId }) => {
   const HOLD_MS = 5000;
   const TICK_MS = 30;
   const [holdingId, setHoldingId] = useState<string | null>(null);
@@ -150,7 +151,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
 
     return {
       r, label, sublabel, isLegacy, pureOperational, legacyProvision, vaultDeposit,
-      isBackfill: r.id.includes('_BACKFILL_'),
+      isBackfill: r.backfilled === true || r.id.includes('_BACKFILL_'),
       branchName: r.branchId === 'all' ? 'NETWORK CONSOLIDATED' : (branches.find(b => b.id === r.branchId)?.name || 'BRANCH NODE'),
     };
   });
@@ -188,6 +189,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                 net={r.netRoi}
                 onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
               />
+              {loadingRowId === r.id && (
+                <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-inherit z-20">
+                  <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                </div>
+              )}
             </div>
           );
         })}
@@ -196,39 +202,39 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
       {/* Desktop table — horizontally scrollable at min 1000px */}
       <div className="hidden md:block overflow-x-auto no-scrollbar">
         <div className="min-w-[1100px]">
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-slate-100 dark:border-slate-700/50">
             <div className="px-8 py-4 w-[15%]">
-              <button onClick={() => onSort('identity')} className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('identity')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Registry Date <SortIndicator field="identity" />
               </button>
             </div>
             <div className="px-6 py-4 w-[17%]">
-              <button onClick={() => onSort('terminal')} className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('terminal')} className="flex items-center text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Branch Node <SortIndicator field="terminal" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('yield')} className="flex items-center justify-end w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('yield')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Gross <SortIndicator field="yield" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('payroll')} className="flex items-center justify-end w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('payroll')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Salary <SortIndicator field="payroll" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('expenses')} className="flex items-center justify-end w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('expenses')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Expenses <SortIndicator field="expenses" />
               </button>
             </div>
             <div className="px-6 py-4 w-[13%]">
-              <button onClick={() => onSort('reserve')} className="flex items-center justify-end w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('reserve')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 Provision <SortIndicator field="reserve" />
               </button>
             </div>
             <div className="px-8 py-4 w-[16%]">
-              <button onClick={() => onSort('roi')} className="flex items-center justify-end w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+              <button onClick={() => onSort('roi')} className="flex items-center justify-end w-full text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                 NET ROI <SortIndicator field="roi" />
               </button>
             </div>
@@ -262,6 +268,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                   net={r.netRoi}
                   onClick={() => { if (!holdFiredRef.current) onSelect(r); }}
                 />
+                {loadingRowId === r.id && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-20">
+                    <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -276,7 +287,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
         onClick={() => !isDeleting && setReportToDelete(null)}
       >
         <div
-          className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+          className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"
           onClick={e => e.stopPropagation()}
         >
           <div className="bg-rose-600 px-6 pt-6 pb-5 text-white">
@@ -286,53 +297,53 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
               </svg>
             </div>
             <h3 className="text-[15px] font-black uppercase tracking-tight">Delete Sales Report?</h3>
-            <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest mt-1">This action cannot be undone</p>
+            <p className="text-xs font-bold text-white/70 uppercase tracking-widest mt-1">This action cannot be undone</p>
           </div>
 
           <div className="px-6 py-5 space-y-3">
             {/* Identity */}
             <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
-                <span className="text-[11px] font-black text-slate-800 uppercase truncate max-w-[160px]">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</span>
+                <span className="text-xs font-black text-slate-800 uppercase truncate max-w-[160px]">
                   {branches.find(b => b.id === reportToDelete.branchId)?.name ?? reportToDelete.branchId}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</span>
-                <span className="text-[11px] font-black text-slate-800">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date</span>
+                <span className="text-xs font-black text-slate-800">
                   {new Date(reportToDelete.reportDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trace ID</span>
-                <span className="text-[10px] font-black text-slate-500 font-mono">{reportToDelete.id.slice(-8).toUpperCase()}</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Trace ID</span>
+                <span className="text-xs font-black text-slate-500 font-mono">{reportToDelete.id.slice(-8).toUpperCase()}</span>
               </div>
             </div>
 
             {/* KPI Grid */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-slate-50 rounded-xl p-3 space-y-0.5">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Gross Sales</p>
-                <p className="text-[13px] font-black text-slate-800 tabular-nums">₱{reportToDelete.grossSales.toLocaleString()}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Gross Sales</p>
+                <p className="text-sm font-black text-slate-800 tabular-nums">₱{reportToDelete.grossSales.toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 space-y-0.5">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Staff Pay</p>
-                <p className="text-[13px] font-black text-slate-800 tabular-nums">₱{reportToDelete.totalStaffPay.toLocaleString()}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Staff Pay</p>
+                <p className="text-sm font-black text-slate-800 tabular-nums">₱{reportToDelete.totalStaffPay.toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 space-y-0.5">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Expenses</p>
-                <p className="text-[13px] font-black text-slate-800 tabular-nums">₱{reportToDelete.totalExpenses.toLocaleString()}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Expenses</p>
+                <p className="text-sm font-black text-slate-800 tabular-nums">₱{reportToDelete.totalExpenses.toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 space-y-0.5">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Vault Reserve</p>
-                <p className="text-[13px] font-black text-slate-800 tabular-nums">₱{(reportToDelete.totalVaultProvision || 0).toLocaleString()}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Vault Reserve</p>
+                <p className="text-sm font-black text-slate-800 tabular-nums">₱{(reportToDelete.totalVaultProvision || 0).toLocaleString()}</p>
               </div>
             </div>
 
             {/* Net ROI — full width highlight */}
             <div className={`rounded-xl p-3 flex justify-between items-center ${reportToDelete.netRoi >= 0 ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-              <p className={`text-[9px] font-black uppercase tracking-widest ${reportToDelete.netRoi >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>Net ROI</p>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${reportToDelete.netRoi >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>Net ROI</p>
               <p className={`text-[16px] font-black tabular-nums ${reportToDelete.netRoi >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                 {reportToDelete.netRoi < 0 ? '−' : ''}₱{Math.abs(reportToDelete.netRoi).toLocaleString()}
               </p>
@@ -349,10 +360,10 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
                   className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${refundVault ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}
                 >
                   <div className="text-left">
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${refundVault ? 'text-indigo-700' : 'text-slate-500'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${refundVault ? 'text-indigo-700' : 'text-slate-500'}`}>
                       Refund Vault Deposit
                     </p>
-                    <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${refundVault ? 'text-indigo-400' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 ${refundVault ? 'text-indigo-400' : 'text-slate-400'}`}>
                       Deduct ₱{vaultDeposit.toLocaleString()} from vault balance
                     </p>
                   </div>
@@ -367,7 +378,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
               );
             })()}
 
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center">
               Report record will be permanently removed. Expenses logged that day remain intact.
             </p>
           </div>
@@ -376,14 +387,14 @@ export const ReportTable: React.FC<ReportTableProps> = ({ reports, branches, bra
             <button
               onClick={() => setReportToDelete(null)}
               disabled={isDeleting}
-              className="h-12 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
+              className="h-12 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40"
             >
               Cancel
             </button>
             <button
               onClick={handleDeleteReport}
               disabled={isDeleting}
-              className="h-12 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-700 shadow-lg"
+              className="h-12 bg-rose-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-700 shadow-lg"
             >
               {isDeleting ? 'Deleting…' : 'Delete Report'}
             </button>

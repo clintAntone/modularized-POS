@@ -11,7 +11,17 @@ export function normalizeDateStr(raw: string | null | undefined): string {
     return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-export function toDateStr(d: Date): string {
+// Always pass timeZone when calling with a "now" date to avoid device timezone drift.
+// For historical Date objects already parsed from Manila-date strings, omitting timeZone is safe.
+export function toDateStr(d: Date, timeZone?: string): string {
+    if (timeZone) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(d);
+    }
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');

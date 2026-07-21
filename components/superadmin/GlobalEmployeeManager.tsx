@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
+import { Shield } from 'lucide-react';
 import { Branch, Employee } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { UI_THEME } from '../../constants/ui_designs';
@@ -8,10 +10,11 @@ import { deleteFileByUrl } from '../../lib/storage';
 import { supabase } from '../../lib/supabase';
 import { useAddEmployee, useUpdateEmployee, useUpdateBranch, useAddAuditLog, useDeleteEmployee } from '../../hooks/useNetworkData';
 import { getEmployeeRole } from '../../lib/payroll';
-import { getManilaTodayStr } from '../../lib/time';
+import { getManilaTodayStr, getTrueISOString, getTrueDate } from '../../lib/time';
 import { invalidateBranchSessions } from '../../lib/audit';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { Pagination } from '../dashboard/sections/common/Pagination';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
@@ -33,6 +36,7 @@ interface GlobalEmployeeManagerProps {
 
 export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
@@ -43,12 +47,16 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
   const [showAdminWipeConfirm, setShowAdminWipeConfirm] = useState<Employee | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
+  const [showEndLeaveConfirm, setShowEndLeaveConfirm] = useState<Employee | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
   const [showPrintConfirm, setShowPrintConfirm] = useState(false);
   
   const [resettingEmployee, setResettingEmployee] = useState<Employee | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
@@ -68,11 +76,20 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Re-fetch whenever the editor opens so newly-created custom roles are always visible
+  useEffect(() => {
+    supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq(DB_COLUMNS.KEY, 'custom_roles').maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) { try { setCustomRoles(JSON.parse(data.value)); } catch {} }
+      });
+  }, [editingEmployee?.id]);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) setIsRoleDropdownOpen(false);
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) setIsStatusDropdownOpen(false);
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) setIsSortDropdownOpen(false);
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) setExportDropdownOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -101,8 +118,8 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         return isTarget && isStatusValid && isRoleMatch && isResetMatch;
     });
 
-    if (searchTerm.trim()) {
-      const raw = searchTerm.toUpperCase().trim();
+    if (debouncedSearch.trim()) {
+      const raw = debouncedSearch.toUpperCase().trim();
       // Strip EMP-MM-DD- prefix if typed, so searching "EMP-04-05-abc" or just "abc" both work
       const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
       const stripPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
@@ -110,7 +127,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         const name = (e.name || '').toUpperCase();
         const id = (e.id || '').toUpperCase();
         const formattedId = e.timestamp
-          ? (() => { const d = new Date(e.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${e.id}`.toUpperCase(); })()
+          ? (() => { const d = new Date(e.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${e.id}`.toUpperCase(); })()
           : '';
         return (
           name.includes(term) ||
@@ -128,11 +145,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       if (sortBy === 'pay_desc') return (b.allowance || 0) - (a.allowance || 0);
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [employees, selectedBranchIds, searchTerm, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
+  }, [employees, selectedBranchIds, debouncedSearch, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
+  }, [debouncedSearch, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
 
   const resetRequestedCount = useMemo(() => 
     employees.filter(e => e.requestReset).length
@@ -201,6 +218,36 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     }
   };
 
+  const handleEndLeave = async () => {
+    if (!showEndLeaveConfirm || isSaving) return;
+    const target = showEndLeaveConfirm;
+    setIsSaving(true);
+    try {
+      await updateEmployee.mutateAsync({
+        id: target.id,
+        [DB_COLUMNS.ON_LEAVE]: false,
+        [DB_COLUMNS.LEAVE_TYPE]: null,
+        [DB_COLUMNS.LEAVE_START_DATE]: null,
+        [DB_COLUMNS.LEAVE_END_DATE]: null,
+      });
+      await addAuditLog.mutateAsync({
+        activity_type: 'UPDATE',
+        entity_type: 'EMPLOYEE',
+        entity_id: target.id,
+        description: `Admin override: returned ${target.name} from leave`,
+        performer_name: 'SUPERADMIN',
+      });
+      playSound('success');
+      setShowEndLeaveConfirm(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to end leave');
+      playSound('warning');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleAdminCredentialWipe = async () => {
     if (!showAdminWipeConfirm || isSaving) return;
     const target = showAdminWipeConfirm;
@@ -231,7 +278,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
         await addAuditLog.mutateAsync({
             [DB_COLUMNS.BRANCH_ID]: null,
-            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
             [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
             [DB_COLUMNS.ENTITY_ID]: target.id,
@@ -424,7 +471,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
       await addAuditLog.mutateAsync({
         [DB_COLUMNS.BRANCH_ID]: null,
-        [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+        [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee?.id ? 'UPDATE' : 'CREATE',
         [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
         [DB_COLUMNS.ENTITY_ID]: id,
@@ -467,6 +514,28 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
         [DB_COLUMNS.PROFILE]: profileUrl,
         [DB_COLUMNS.DETAILS]: payload.details ?? null,
       });
+
+      // If the name changed, sync it to any branch where this employee is listed
+      // as the manager or temp manager — otherwise their login breaks because
+      // branches.manager is compared against employees.name during authentication.
+      const oldName = (editingEmployee.name || '').toUpperCase().trim();
+      const newName = (payload.name || '').toUpperCase().trim();
+      if (oldName !== newName) {
+        const branchSyncs = branches
+          .filter(b => {
+            const bMgr = (b.manager || '').toUpperCase().trim();
+            const bTemp = (b.tempManager || '').toUpperCase().trim();
+            return bMgr === oldName || bTemp === oldName;
+          })
+          .map(b => {
+            const updates: Record<string, string> = { id: b.id };
+            if ((b.manager || '').toUpperCase().trim() === oldName) updates[DB_COLUMNS.MANAGER] = payload.name;
+            if ((b.tempManager || '').toUpperCase().trim() === oldName) updates[DB_COLUMNS.TEMP_MANAGER] = payload.name;
+            return updateBranch.mutateAsync(updates);
+          });
+        await Promise.all(branchSyncs);
+      }
+
       playSound('success');
       setEditingEmployee(null);
       if (onRefresh) onRefresh();
@@ -493,7 +562,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     try {
       const doc = new jsPDF({ orientation: 'landscape' });
       const pageWidth = doc.internal.pageSize.getWidth();
-      const now = new Date();
+      const now = getTrueDate();
 
       // 1. Header bar
       doc.setFillColor(15, 23, 42);
@@ -548,7 +617,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             .join(', ') || '—';
           const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
           const empId = emp.timestamp
-            ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+            ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
             : emp.id;
 
           return [
@@ -607,6 +676,57 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     }
   };
 
+  const handleExportCSV = () => {
+    if (isExporting || filteredEmployees.length === 0) return;
+    setIsExporting(true);
+    playSound('click');
+    try {
+      const rows = filteredEmployees.map(emp => {
+        const empNameUpper = (emp.name || '').toUpperCase();
+        const homeBranch = branches.find(b => b.id === emp.branchId)?.name || '—';
+        const relieverBranches = branches
+          .filter(b => b.id !== emp.branchId && (
+            b.manager?.toUpperCase() === empNameUpper ||
+            b.tempManager?.toUpperCase() === empNameUpper ||
+            (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in emp.branchAllowances)
+          ))
+          .map(b => b.name)
+          .join(', ') || '—';
+        const specialization = getEmployeeRole(emp, emp.branchId)
+          .split(',')
+          .filter(r => !['MANAGER', 'RELIEVER'].includes(r.trim().toUpperCase()))
+          .join(', ') || '—';
+        const isManager = branches.some(b => b.manager?.toUpperCase() === empNameUpper);
+        const empId = emp.timestamp
+          ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
+          : emp.id;
+        return {
+          'FIRST NAME': (emp.firstName || '').toUpperCase(),
+          'MIDDLE NAME': (emp.middleName || '').toUpperCase(),
+          'LAST NAME': (emp.lastName || '').toUpperCase(),
+          'FULL NAME': empNameUpper,
+          'EMP ID': empId.toUpperCase(),
+          'HOME BRANCH': homeBranch.toUpperCase(),
+          'RELIEVER BRANCHES': relieverBranches.toUpperCase(),
+          'SPECIALIZATION': specialization.toUpperCase(),
+          'STATUS': emp.isActive ? 'ACTIVE' : 'INACTIVE',
+          'POSITION': isManager ? 'MANAGER' : 'REGULAR',
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff Directory');
+      XLSX.writeFile(wb, `STAFF_DIRECTORY_${getManilaTodayStr()}.xlsx`);
+      playSound('success');
+    } catch (error) {
+      console.error('CSV Export failed:', error);
+      alert('Failed to generate spreadsheet.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className={`animate-in fade-in duration-300 ${UI_THEME.layout.maxContent} pb-32`}>
 
@@ -614,23 +734,25 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       {showAdminWipeConfirm && (
         <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
            <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
-              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner text-4xl">🛡️</div>
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+                <Shield className="w-8 h-8 text-rose-500" />
+              </div>
               <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Authorize Data Wipe?</h4>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
-                Wiping credentials for <span className="text-slate-900">{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed mb-10">
+                Wiping credentials for <span className="text-slate-900 truncate" title={showAdminWipeConfirm.name || 'UNNAMED'}>{showAdminWipeConfirm.name || 'UNNAMED'}</span>. Account will revert to setup mode and require a new terminal handshake.
               </p>
               <div className="flex flex-col gap-3">
-                 <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[12px] shadow-lg active:scale-95 transition-all">
+                 <button onClick={handleAdminCredentialWipe} disabled={isSaving} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">
                     {isSaving ? 'Establishing Link...' : 'Confirm Identity Wipe'}
                  </button>
-                 <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest">Abort</button>
+                 <button onClick={() => setShowAdminWipeConfirm(null)} disabled={isSaving} className="w-full py-4 text-slate-400 font-black text-xs uppercase tracking-widest">Abort</button>
               </div>
            </div>
         </div>
       )}
 
       {/* HEADER + FILTER SECTION */}
-      <div className="bg-white p-4 sm:p-6 rounded-[24px] border border-slate-200 shadow-sm mb-6 space-y-6 no-print">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 space-y-6 no-print">
         <div className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
@@ -639,8 +761,8 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
               </svg>
             </div>
             <div>
-              <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Identity Management</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Global Identity Management</p>
             </div>
           </div>
 
@@ -648,7 +770,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             {!isReadOnly && (
               <button
                 onClick={() => handleOpenEdit()}
-                className="h-10 sm:h-11 rounded-[24px] bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+                className="h-10 sm:h-11 rounded-2xl bg-emerald-500 px-4 sm:px-6 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-emerald-600 transition-all active:scale-95"
               >
                 <span className="text-lg leading-none">+</span>
                 <span className="hidden sm:inline">Register Staff</span>
@@ -666,13 +788,13 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             <input 
               type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} 
               placeholder="SEARCH NAME OR EMPLOYEE ID..."
-              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-[11px] sm:text-[13px] uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
+              className={`w-full h-full pl-10 sm:pl-14 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wider outline-none focus:bg-white focus:border-emerald-500 transition-all placeholder:text-slate-300 shadow-inner`}
             />
           </div>
 
           <button
             onClick={() => { setShowFilters(!showFilters); playSound('click'); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-[24px] border transition-all text-[10px] font-black uppercase tracking-widest shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
           >
             <svg className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
             <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
@@ -723,11 +845,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 className={`h-11 sm:h-12 px-5 rounded-2xl border transition-all flex items-center gap-3 ${resetRequestedOnly ? 'bg-rose-600 border-rose-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600'}`}
               >
                 <div className={`w-2 h-2 rounded-full ${resetRequestedOnly ? 'bg-white animate-pulse' : 'bg-rose-500'}`}></div>
-                <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                <span className="text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
                   {resetRequestedOnly ? 'Showing Requests' : 'Filter Requests'}
                 </span>
                 {resetRequestedCount > 0 && !resetRequestedOnly && (
-                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-[9px] font-black">
+                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-xs font-black">
                     {resetRequestedCount}
                   </span>
                 )}
@@ -798,30 +920,42 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       </div>
 
       <div className="px-1 space-y-4 no-print">
-        <div className="flex flex-row items-center justify-between gap-4 px-1 sm:px-2">
-          <div className="flex-1 min-w-0">
-            <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredEmployees.length}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-            />
-          </div>
-
-          <button
-            onClick={() => handleExportPDF()}
-            disabled={isExporting || filteredEmployees.length === 0}
-            className={`h-14 w-14 sm:w-auto px-0 sm:px-6 rounded-2xl bg-emerald-600 text-white flex items-center justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg active:scale-95 shrink-0 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            )}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
-          </button>
+        <div className="px-1 sm:px-2">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredEmployees.length}
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
+            rightSlot={
+              <div ref={exportDropdownRef} className="relative shrink-0">
+                <div className={`flex h-8 rounded-xl overflow-hidden ${isExporting || filteredEmployees.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <button onClick={() => { setExportDropdownOpen(false); handleExportPDF(); }} className="flex items-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold uppercase tracking-wide transition-all active:scale-95">
+                    {isExporting ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                    <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+                  </button>
+                  <div className="w-px bg-emerald-700" />
+                  <button onClick={() => setExportDropdownOpen(o => !o)} className="px-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95">
+                    <svg className={`w-3 h-3 transition-transform ${exportDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                </div>
+                {exportDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50">
+                    <button onMouseDown={e => e.stopPropagation()} onClick={() => { setExportDropdownOpen(false); handleExportPDF(); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                      <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                      Export PDF
+                    </button>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700" />
+                    <button onMouseDown={e => e.stopPropagation()} onClick={() => { setExportDropdownOpen(false); handleExportCSV(); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                      <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Export Excel
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
+          />
         </div>
 
         {showPrintConfirm && (
@@ -831,19 +965,19 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 17h2a2 2-0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               </div>
               <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Export Employees?</h4>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
                 Generate and download the global staff directory report?
               </p>
               <div className="flex flex-col gap-4 mt-10">
                 <button
                   onClick={() => handleExportPDF(true)}
-                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
                   Confirm Export
                 </button>
                 <button
                   onClick={() => setShowPrintConfirm(false)}
-                  className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                  className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
                 >
                   Cancel
                 </button>
@@ -858,7 +992,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
-          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
+          onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
         <EmployeeMobileList
@@ -867,7 +1001,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onEdit={isReadOnly ? undefined : handleOpenEdit}
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
-          onViewID={(emp) => { setIdCardEmployee(emp); playSound('click'); }}
+          onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
       </div>
@@ -901,13 +1035,39 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             branches={branches}
             isSaving={isSaving}
             error={error}
+            customRoles={customRoles}
             onClose={() => setEditingEmployee(null)}
             onSave={handleSaveEmployee}
             onSavePersonalDetails={handleSavePersonalDetails}
             onWipe={(target) => { setShowAdminWipeConfirm(target as Employee); }}
             onReset={handleOpenResetModal}
             onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
+            onViewID={(emp) => { setEditingEmployee(null); setIdCardEmployee(emp); playSound('click'); }}
           />
+        </div>
+      )}
+
+      {showEndLeaveConfirm && (
+        <div className={UI_THEME.layout.modalWrapper}>
+          <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
+            <div className="w-16 h-16 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner text-3xl">🏥</div>
+            <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">End Leave?</h4>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
+              Return <span className="text-purple-600 truncate" title={showEndLeaveConfirm.name}>{showEndLeaveConfirm.name}</span> from leave and restore their active status.
+            </p>
+            <div className="flex flex-col gap-4 mt-10">
+              <button
+                onClick={handleEndLeave}
+                disabled={isSaving}
+                className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : 'Confirm Return from Leave'}
+              </button>
+              <button onClick={() => setShowEndLeaveConfirm(null)} className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -920,20 +1080,20 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
               </svg>
             </div>
             <h4 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter">Delete Personnel?</h4>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
-              Are you sure you want to permanently delete <span className="text-rose-600">{showDeleteConfirm.name}</span>? This action cannot be undone.
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide leading-relaxed">
+              Are you sure you want to permanently delete <span className="text-rose-600 truncate" title={showDeleteConfirm.name}>{showDeleteConfirm.name}</span>? This action cannot be undone.
             </p>
             <div className="flex flex-col gap-4 mt-10">
               <button
                 onClick={handleDeleteEmployee}
                 disabled={isSaving}
-                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Confirm Deletion'}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="w-full text-slate-400 font-black py-4 rounded-xl text-[12px] uppercase tracking-widest"
+                className="w-full text-slate-400 font-black py-4 rounded-xl text-xs uppercase tracking-widest"
               >
                 Cancel
               </button>

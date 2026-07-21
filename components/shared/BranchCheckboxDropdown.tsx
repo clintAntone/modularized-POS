@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useTransition } from 'react';
 import { Branch } from '../../types';
 
 interface BranchCheckboxDropdownProps {
@@ -19,6 +19,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -31,18 +32,13 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = branches
-    .filter(b => b.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => {
-      const aChecked = selectedIds.includes(a.id);
-      const bChecked = selectedIds.includes(b.id);
-      if (aChecked !== bChecked) return aChecked ? -1 : 1;
-      // Active branches above inactive
-      const aInactive = a.isEnabled === false;
-      const bInactive = b.isEnabled === false;
-      if (aInactive !== bInactive) return aInactive ? 1 : -1;
-      return 0;
-    });
+  // Stable alphabetical order — never re-sort on check so list items don't jump
+  const filtered = useMemo(() =>
+    branches
+      .filter(b => b.isEnabled !== false && b.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [branches, search]
+  );
 
   const label =
     selectedIds.length === 0
@@ -54,11 +50,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
   const allSelected = selectedIds.length === 0;
 
   const toggleBranch = (id: string) => {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter(x => x !== id));
-    } else {
-      onChange([...selectedIds, id]);
-    }
+    const next = selectedIds.includes(id)
+      ? selectedIds.filter(x => x !== id)
+      : [...selectedIds, id];
+    // startTransition lets the checkbox respond instantly; parent re-render is non-blocking
+    startTransition(() => onChange(next));
   };
 
   return (
@@ -66,7 +62,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(o => !o)}
-        className={`h-10 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all outline-none ${
+        className={`h-11 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
           isOpen
             ? 'bg-white border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900'
             : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'
@@ -83,13 +79,13 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
 
       {/* Active filter badge */}
       {selectedIds.length > 0 && (
-        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-[8px] font-black flex items-center justify-center leading-none">
+        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center leading-none">
           {selectedIds.length}
         </span>
       )}
 
       {isOpen && (
-        <div className="absolute z-[200] top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+        <div className="absolute z-50 top-[calc(100%+6px)] left-0 min-w-[220px] w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
           {/* Search */}
           <div className="p-2 border-b border-slate-100">
             <div className="relative">
@@ -101,7 +97,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search branches..."
-                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold uppercase tracking-wider text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-emerald-400 transition-all"
+                className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-emerald-400 transition-all"
               />
             </div>
           </div>
@@ -110,7 +106,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
           <div className="max-h-56 overflow-y-auto overscroll-contain">
             {/* All Branches option */}
             {!search && (
-              <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 border-b border-slate-100 group">
+              <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 group">
                 <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                   allSelected ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'
                 }`}>
@@ -121,7 +117,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                   )}
                 </span>
                 <input type="checkbox" checked={allSelected} onChange={() => onChange([])} className="sr-only" />
-                <span className={`text-[10px] font-black uppercase tracking-widest ${allSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${allSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
                   All Branches
                 </span>
               </label>
@@ -129,11 +125,10 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
 
             {filtered.map(branch => {
               const checked = selectedIds.includes(branch.id);
-              const inactive = branch.isEnabled === false;
               return (
                 <label
                   key={branch.id}
-                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 group ${inactive ? 'opacity-60' : ''}`}
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 group"
                 >
                   <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                     checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 group-hover:border-emerald-400'
@@ -145,20 +140,15 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
                     )}
                   </span>
                   <input type="checkbox" checked={checked} onChange={() => toggleBranch(branch.id)} className="sr-only" />
-                  <span className={`text-[10px] font-bold uppercase tracking-widest truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
+                  <span className={`text-xs font-medium uppercase tracking-wide truncate ${checked ? 'text-slate-900' : 'text-slate-500'}`}>
                     {branch.name}
                   </span>
-                  {inactive && (
-                    <span className="ml-auto shrink-0 text-[7px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                      Inactive
-                    </span>
-                  )}
                 </label>
               );
             })}
 
             {filtered.length === 0 && (
-              <div className="px-4 py-6 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="px-4 py-6 text-center text-xs font-medium text-slate-400 uppercase tracking-wide">
                 No branches found
               </div>
             )}
@@ -169,7 +159,7 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
             <div className="border-t border-slate-100 px-4 py-2">
               <button
                 onClick={() => onChange([])}
-                className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors"
+                className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors"
               >
                 Clear selection
               </button>

@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Branch, SalesReport } from '../../../types';
+import { getTrueDate } from '../../../lib/time';
 
 interface WeeklySectionProps {
   branch: Branch;
@@ -19,7 +20,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
   };
 
   const processedCycles = useMemo(() => {
-    const now = new Date();
+    const now = getTrueDate();
     const filteredReports = salesReports.filter(r => r.branchId === branch.id);
 
     return cycles.map(cycle => {
@@ -109,27 +110,27 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
     const zeroY = getY(0);
 
     return (
-      <div className="bg-white p-4 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-6 px-1">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-slate-900"></div>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Gross</span>
+            <div className="w-3 h-3 rounded bg-slate-700"></div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Gross</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-amber-500"></div>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Final Pay</span>
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Final Pay</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-rose-500"></div>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">OpEx</span>
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">OpEx</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-indigo-600"></div>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">R&B</span>
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">R&B</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-emerald-500"></div>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">ROI</span>
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">ROI</span>
           </div>
         </div>
 
@@ -201,37 +202,40 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
   if (selectedCycle) {
     return (
       <div className="max-w-screen-md mx-auto space-y-6 animate-in fade-in duration-300 pb-12 px-2">
-        <button onClick={() => setSelectedCycleId(null)} className="no-print flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 bg-white border border-slate-200 px-5 py-3 rounded-full hover:bg-slate-50 transition-all">← Back to cycles</button>
+        <button onClick={() => setSelectedCycleId(null)} className="no-print flex items-center gap-2 text-xs font-black uppercase text-slate-500 bg-white border border-slate-200 px-5 py-3 rounded-full hover:bg-slate-50 transition-all">← Back to cycles</button>
         
-        <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-2xl">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xl">
           <div className="p-6 sm:p-10 border-b bg-slate-50/50 backdrop-blur-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
               <div>
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tighter">Week {selectedCycle.id} (Finalized)</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">{selectedCycle.start} - {selectedCycle.end}</p>
+                <p className="text-xs text-slate-400 font-black uppercase mt-1 tracking-widest">{selectedCycle.start} - {selectedCycle.end}</p>
               </div>
-              <button onClick={() => exportCSV(selectedCycle)} className="no-print w-full sm:w-auto bg-slate-900 text-white p-4 rounded-2xl active:scale-95 flex items-center justify-center gap-2 px-8 text-[10px] font-black uppercase tracking-widest shadow-xl">CSV Export</button>
+              <button onClick={() => exportCSV(selectedCycle)} className="no-print w-full sm:w-auto bg-emerald-600 text-white h-12 rounded-2xl active:scale-95 flex items-center justify-center gap-2 px-5 text-xs font-semibold uppercase tracking-wide shadow-lg hover:bg-emerald-700 transition-all">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-10">
               <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Sales</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Gross Sales</p>
                 <p className="text-lg font-black text-slate-900 tracking-tighter">₱{selectedCycle.gross.toLocaleString()}</p>
               </div>
               <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Staff Payout</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Staff Payout</p>
                 <p className="text-lg font-black text-amber-600 tracking-tighter">₱{selectedCycle.comm.toLocaleString()}</p>
               </div>
               <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Expenses</p>
                 <p className="text-lg font-black text-rose-600 tracking-tighter">₱{selectedCycle.exp.toLocaleString()}</p>
               </div>
               <div className="bg-indigo-50 p-4 rounded-3xl border border-indigo-100 shadow-sm">
-                <p className="text-[7px] font-black text-indigo-700 uppercase tracking-widest mb-1">R&B Reserve</p>
+                <p className="text-xs font-black text-indigo-700 uppercase tracking-widest mb-1">R&B Reserve</p>
                 <p className="text-lg font-black text-indigo-800 tracking-tighter">₱{selectedCycle.vaultTotal.toLocaleString()}</p>
               </div>
               <div className={`p-4 rounded-3xl border shadow-sm ${selectedCycle.net >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                <p className={`text-[7px] font-black uppercase tracking-widest mb-1 ${selectedCycle.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>ROI</p>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${selectedCycle.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>ROI</p>
                 <p className={`text-lg font-black tracking-tighter ${selectedCycle.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {selectedCycle.net < 0 ? '−' : ''}₱{Math.abs(selectedCycle.net).toLocaleString()}
                 </p>
@@ -246,7 +250,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
           <div className="overflow-x-auto no-scrollbar border-t">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="text-[9px] font-black text-slate-900 uppercase tracking-[0.2em] bg-slate-100 border-b border-slate-200">
+                <tr className="text-xs font-black text-slate-900 uppercase tracking-wider bg-slate-100 border-b border-slate-100">
                   <th className="px-8 py-6">Day / Date</th>
                   <th className="px-8 py-6 text-center">Status</th>
                   <th className="px-8 py-6 text-right">Gross</th>
@@ -264,12 +268,12 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
                     <tr key={day.date} className="group hover:bg-slate-50/50 transition-all duration-200">
                       <td className="px-8 py-6">
                         <div className="flex flex-col">
-                          <span className="font-black text-slate-900 text-[11px] uppercase tracking-tight">{dateObj.toLocaleDateString(undefined, { weekday: 'long' })}</span>
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                          <span className="font-black text-slate-900 text-xs uppercase tracking-tight">{dateObj.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                         </div>
                       </td>
                       <td className="px-8 py-6 text-center">
-                         <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${day.isFinalized ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400 animate-pulse'}`}>
+                         <span className={`px-2 py-1 rounded-lg text-xs font-black uppercase ${day.isFinalized ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400 animate-pulse'}`}>
                             {day.isFinalized ? 'Finalized' : 'Pending'}
                          </span>
                       </td>
@@ -284,26 +288,26 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
                   );
                 })}
               </tbody>
-              <tfoot className="border-t-4 border-slate-900 bg-slate-900 text-white">
-                <tr className="divide-x divide-white/5">
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                <tr className="divide-x divide-slate-100">
                   <td colSpan={2} className="px-8 py-8">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Weekly Totals</span>
-                    <span className="text-xs font-black uppercase tracking-widest">Aggregate Archive</span>
+                    <span className="text-xs font-semibold uppercase text-slate-400 block mb-1">Weekly Totals</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Aggregate Archive</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-[12px] font-black tracking-tighter">₱{selectedCycle.gross.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-slate-900 tabular-nums">₱{selectedCycle.gross.toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-[12px] font-black tracking-tighter text-amber-400">₱{selectedCycle.comm.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-amber-600 tabular-nums">₱{selectedCycle.comm.toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-8 text-right">
-                    <span className="text-[12px] font-black tracking-tighter text-rose-400">₱{selectedCycle.exp.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-rose-500 tabular-nums">₱{selectedCycle.exp.toLocaleString()}</span>
                   </td>
-                  <td className="px-8 py-8 text-right bg-indigo-900/40">
-                    <span className="text-[16px] font-black tracking-tighter text-indigo-200">₱{selectedCycle.vaultTotal.toLocaleString()}</span>
+                  <td className="px-8 py-8 text-right bg-indigo-50">
+                    <span className="text-[16px] font-black text-indigo-600 tabular-nums">₱{selectedCycle.vaultTotal.toLocaleString()}</span>
                   </td>
-                  <td className="px-8 py-8 text-right bg-emerald-900/50">
-                    <span className={`text-[20px] font-black tracking-tighter ${selectedCycle.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <td className="px-8 py-8 text-right bg-emerald-50">
+                    <span className={`text-[20px] font-black tabular-nums ${selectedCycle.net >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {selectedCycle.net < 0 ? '−' : ''}₱{Math.abs(selectedCycle.net).toLocaleString()}
                     </span>
                   </td>
@@ -320,7 +324,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
     <div className="max-w-screen-md mx-auto space-y-6 no-print pb-24 px-2">
       <div className="px-4 space-y-1.5">
         <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Weekly Archive</h2>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Historical finalized performance data</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Historical finalized performance data</p>
       </div>
       
       <div className="grid gap-3">
@@ -328,7 +332,7 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
           <div 
             key={cycle.id} 
             onClick={() => setSelectedCycleId(cycle.id)} 
-            className={`p-4 md:p-6 rounded-[32px] border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group cursor-pointer transition-all active:scale-[0.98] hover:shadow-xl ${cycle.isCurrent ? 'bg-white border-emerald-500 ring-1 ring-emerald-500/10' : 'bg-white border-slate-100 hover:border-emerald-500'}`}
+            className={`p-4 md:p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group cursor-pointer transition-all active:scale-[0.98] hover:shadow-xl ${cycle.isCurrent ? 'bg-white border-emerald-500 ring-1 ring-emerald-500/10' : 'bg-white border-slate-100 hover:border-emerald-500'}`}
           >
             <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
               <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-slate-50 flex items-center justify-center font-black transition-all text-lg shrink-0 shadow-inner ${cycle.isCurrent ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-300 group-hover:bg-emerald-600 group-hover:text-white'}`}>
@@ -336,29 +340,29 @@ export const WeeklySection: React.FC<WeeklySectionProps> = ({ branch, salesRepor
               </div>
               <div className="space-y-0.5">
                 <h3 className={`font-black text-lg md:text-xl uppercase tracking-tighter leading-none transition-colors ${cycle.isCurrent ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>Week {cycle.id}</h3>
-                <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">{cycle.start} — {cycle.end}</p>
+                <p className="text-xs md:text-xs font-medium text-slate-400 uppercase tracking-wide">{cycle.start} — {cycle.end}</p>
               </div>
             </div>
             
             <div className="w-full md:flex-1 grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 md:pt-0 border-t md:border-t-0 border-slate-50">
               <div className="text-left md:text-center">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Gross</p>
                 <p className="text-sm font-black text-slate-900">₱{cycle.gross.toLocaleString()}</p>
               </div>
               <div className="text-left md:text-center">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Pay</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Pay</p>
                 <p className="text-sm font-black text-amber-600">₱{cycle.comm.toLocaleString()}</p>
               </div>
               <div className="text-left md:text-center">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Expenses</p>
                 <p className="text-sm font-black text-rose-600">₱{cycle.exp.toLocaleString()}</p>
               </div>
               <div className="text-left md:text-center">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">R&B</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">R&B</p>
                 <p className="text-sm font-black text-indigo-600">₱{cycle.vaultTotal.toLocaleString()}</p>
               </div>
               <div className="text-left md:text-right">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">ROI</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">ROI</p>
                 <p className={`text-sm font-black ${cycle.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   {cycle.net < 0 ? '−' : ''}₱{Math.abs(cycle.net).toLocaleString()}
                 </p>

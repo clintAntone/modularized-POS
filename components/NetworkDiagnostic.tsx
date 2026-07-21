@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getTrueDate } from '../lib/time';
 import { Wifi, WifiOff, ShieldAlert, Activity, CheckCircle2, XCircle } from 'lucide-react';
 
 export const NetworkDiagnostic: React.FC = () => {
@@ -16,7 +17,7 @@ export const NetworkDiagnostic: React.FC = () => {
   });
 
   const addDetail = (msg: string) => {
-    setStatus(prev => ({ ...prev, details: [...prev.details, `${new Date().toLocaleTimeString()}: ${msg}`] }));
+    setStatus(prev => ({ ...prev, details: [...prev.details, `${getTrueDate().toLocaleTimeString()}: ${msg}`] }));
   };
 
   const runDiagnostic = async () => {
@@ -104,7 +105,7 @@ export const NetworkDiagnostic: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg p-3 font-mono text-[10px] text-green-400 max-h-40 overflow-y-auto">
+      <div className="bg-gray-900 rounded-lg p-3 font-mono text-xs text-green-400 max-h-40 overflow-y-auto">
         {status.details.map((d, i) => (
           <div key={i} className="mb-1">{d}</div>
         ))}

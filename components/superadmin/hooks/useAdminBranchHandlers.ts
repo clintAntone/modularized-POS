@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
 import { toDateStr } from '@/src/utils/reportUtils';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../../lib/time';
 import { useUpdateBranch, useDeleteBranch, useAddBranch, useUpdateEmployee } from '../../../hooks/useNetworkData';
 import type { ConfirmState } from '../modals/ConfirmModal';
 
@@ -14,6 +14,7 @@ interface UseAdminBranchHandlersParams {
   onRefresh?: (quiet?: boolean) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   setConfirmState: React.Dispatch<React.SetStateAction<ConfirmState>>;
+  fetchSystemConfig?: () => Promise<void>;
 }
 
 export function useAdminBranchHandlers({
@@ -22,6 +23,7 @@ export function useAdminBranchHandlers({
   onRefresh,
   onSyncStatusChange,
   setConfirmState,
+  fetchSystemConfig,
 }: UseAdminBranchHandlersParams) {
   const [isSaving, setIsSaving] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
@@ -76,9 +78,12 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.WEEKLY_CUTOFF]: updated.weeklyCutoff.toString(),
         [DB_COLUMNS.CYCLE_START_DATE]: updated.cycleStartDate,
         [DB_COLUMNS.DAILY_PROVISION_AMOUNT]: updated.dailyProvisionAmount,
-        [DB_COLUMNS.ENABLE_SHIFT_TRACKING]: updated.enableShiftTracking,
         [DB_COLUMNS.OPENING_TIME]: updated.openingTime,
+        [DB_COLUMNS.ADDRESS]: updated.address ?? null,
+        [DB_COLUMNS.PIN_LOCATION]: updated.pinLocation ?? null,
         [DB_COLUMNS.CLOSING_TIME]: updated.closingTime,
+        [DB_COLUMNS.SHIFT2_OPENING_TIME]: updated.shift2OpeningTime || null,
+        [DB_COLUMNS.SHIFT2_CLOSING_TIME]: updated.shift2ClosingTime || null,
         [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || []),
         [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null,
         [DB_COLUMNS.VAULT_ENABLED]: updated.vaultEnabled ?? false,
@@ -123,9 +128,20 @@ export function useAdminBranchHandlers({
             const currentRoles = (newManager.role || '').split(',').filter(Boolean);
             if (!currentRoles.includes('MANAGER')) currentRoles.push('MANAGER');
             const nextAllowances = { ...(newManager.branchAllowances || {}) };
+
+            // Ensure all OTHER branch entries have an explicit role so getEmployeeRole()
+            // never falls back to the global MANAGER role for reliever branches.
+            const baseRole = (newManager.role || 'THERAPIST').split(',').filter(r => r !== 'MANAGER')[0] || 'THERAPIST';
+            for (const [bid, config] of Object.entries(nextAllowances)) {
+              if (bid === branchId) continue;
+              if (typeof config === 'object' && config !== null && (config as any).role) continue;
+              const existingAllowance = typeof config === 'object' && config !== null ? (config as any).allowance : (Number(config) || 0);
+              nextAllowances[bid] = { allowance: existingAllowance, role: baseRole };
+            }
+
             const currentAllowance = nextAllowances[branchId];
             const allowanceVal = typeof currentAllowance === 'object' && currentAllowance !== null
-              ? currentAllowance.allowance
+              ? (currentAllowance as any).allowance
               : (Number(currentAllowance) || newManager.allowance || 0);
             nextAllowances[branchId] = { allowance: allowanceVal, role: 'MANAGER' };
             employeeUpdates.push(updateEmployee.mutateAsync({
@@ -278,7 +294,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
         [DB_COLUMNS.IS_PIN_CHANGED]: false,
         [DB_COLUMNS.IS_ENABLED]: true,
-        [DB_COLUMNS.CYCLE_START_DATE]: toDateStr(getTrueDate()),
+        [DB_COLUMNS.CYCLE_START_DATE]: getManilaTodayStr(),
         [DB_COLUMNS.WEEKLY_CUTOFF]: '0',
       });
       setNewBranchName('');
@@ -316,7 +332,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
         [DB_COLUMNS.IS_PIN_CHANGED]: false,
         [DB_COLUMNS.IS_ENABLED]: true,
-        [DB_COLUMNS.CYCLE_START_DATE]: toDateStr(getTrueDate()),
+        [DB_COLUMNS.CYCLE_START_DATE]: getManilaTodayStr(),
         [DB_COLUMNS.WEEKLY_CUTOFF]: '0',
       }));
       const { error } = await supabase.from(DB_TABLES.BRANCHES).insert(newBranches);
@@ -335,6 +351,28 @@ export function useAdminBranchHandlers({
     }
   };
 
+  const handleToggleFaceId = async (branchId: string, currentlyEnabled: boolean) => {
+    if (!supabase) return;
+    try {
+      const { data } = await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .select(DB_COLUMNS.VALUE)
+        .eq(DB_COLUMNS.KEY, 'face_id_disabled_branches')
+        .maybeSingle();
+      const current: string[] = data?.[DB_COLUMNS.VALUE] ? JSON.parse(data[DB_COLUMNS.VALUE]) : [];
+      const next = currentlyEnabled
+        ? [...current.filter((id: string) => id !== branchId), branchId]  // disable → add to list
+        : current.filter((id: string) => id !== branchId);                // enable → remove from list
+      await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .upsert({ [DB_COLUMNS.KEY]: 'face_id_disabled_branches', [DB_COLUMNS.VALUE]: JSON.stringify(next) }, { onConflict: DB_COLUMNS.KEY });
+      if (fetchSystemConfig) await fetchSystemConfig();
+      else if (onRefresh) onRefresh(true);
+    } catch (e) {
+      console.error('Failed to toggle face ID:', e);
+    }
+  };
+
   return {
     isSaving,
     newBranchName,
@@ -347,6 +385,7 @@ export function useAdminBranchHandlers({
     setBulkInput,
     handleSaveBranch,
     handleToggleBranch,
+    handleToggleFaceId,
     handleResetPin,
     handleDeleteBranch,
     handleForceLogout,

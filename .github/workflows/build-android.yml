@@ -1,0 +1,154 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      app_name_override:
+        description: 'Override app name (leave blank to fetch from system_config)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Fetch app name from system_config ──────────────────────────────────
+      - name: Fetch app name from Supabase
+        id: app_name
+        run: |
+          OVERRIDE="${{ github.event.inputs.app_name_override }}"
+          if [ -n "$OVERRIDE" ]; then
+            echo "name=$OVERRIDE" >> $GITHUB_OUTPUT
+            echo "App name (override): $OVERRIDE"
+          else
+            RESPONSE=$(curl -sf \
+              "${SUPABASE_URL}/rest/v1/system_config?key=eq.app_name&select=value" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" || echo "[]")
+            APP_NAME=$(echo "$RESPONSE" | jq -r '.[0].value // empty')
+            if [ -z "$APP_NAME" ]; then
+              APP_NAME="Point-Of-Sales (HC)"
+              echo "Warning: app_name not found in system_config, using default"
+            fi
+            echo "name=$APP_NAME" >> $GITHUB_OUTPUT
+            echo "App name: $APP_NAME"
+          fi
+
+      # ── Web build ──────────────────────────────────────────────────────────
+      - name: Build web app
+        run: npm run build
+        env:
+          CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      # ── Capacitor setup ────────────────────────────────────────────────────
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Add Capacitor Android platform
+        run: npx cap add android
+        env:
+          CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
+          CAPACITOR_APP_ID: ${{ secrets.CAPACITOR_APP_ID || 'com.hilotcenter.pos' }}
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+        env:
+          CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
+
+      # ── Keystore setup ─────────────────────────────────────────────────────
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+
+      # ── Build APK ──────────────────────────────────────────────────────────
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      # ── Sign APK ───────────────────────────────────────────────────────────
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      # ── Rename APK with app name + SHA ────────────────────────────────────
+      - name: Rename APK
+        run: |
+          APP_NAME="${{ steps.app_name.outputs.name }}"
+          SAFE_NAME=$(echo "$APP_NAME" | tr ' ()/' '----' | tr -s '-')
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*-signed.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          fi
+          NEW_NAME="${SAFE_NAME}-${SHORT_SHA}.apk"
+          mv "$APK_PATH" "android/app/build/outputs/apk/release/${NEW_NAME}"
+          echo "apk_name=${NEW_NAME}" >> $GITHUB_ENV
+          echo "APK: ${NEW_NAME}"
+
+      # ── Upload artifact ────────────────────────────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.apk_name }}
+          path: android/app/build/outputs/apk/release/${{ env.apk_name }}
+          retention-days: 30
+
+      # ── Upload to Supabase Storage ─────────────────────────────────────────
+      - name: Upload APK to Supabase Storage
+        run: |
+          APK_FILE="android/app/build/outputs/apk/release/${{ env.apk_name }}"
+          curl -sf -X POST \
+            "${SUPABASE_URL}/storage/v1/object/apk/${{ env.apk_name }}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@${APK_FILE}"
+
+      - name: Update apk_filename in system_config
+        run: |
+          curl -sf -X POST \
+            "${SUPABASE_URL}/rest/v1/system_config" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d "{\"key\": \"apk_filename\", \"value\": \"${{ env.apk_name }}\"}"

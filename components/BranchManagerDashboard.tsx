@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole, VaultTransaction, Request, EmployeeComplaint } from '../types';
 import { UI_THEME } from '../constants/ui_designs';
 import { useBranchData } from './dashboard/hooks/useBranchData';
 
 // Lazy-loaded tab sections — each becomes its own chunk, loaded on first visit
-const POSSection             = React.lazy(() => import('./dashboard/sections/POSSection').then(m => ({ default: m.POSSection })));
-const ExpensesManagerSection = React.lazy(() => import('./dashboard/sections/ExpensesManagerSection').then(m => ({ default: m.ExpensesManagerSection })));
-const BranchVaultSection     = React.lazy(() => import('./dashboard/sections/BranchVaultSection').then(m => ({ default: m.BranchVaultSection })));
-const ExpenseLedgerSection   = React.lazy(() => import('./dashboard/sections/ExpenseLedgerSection').then(m => ({ default: m.ExpenseLedgerSection })));
-const PayrollSection         = React.lazy(() => import('./dashboard/sections/PayrollSection').then(m => ({ default: m.PayrollSection })));
-const SalesTodaySection      = React.lazy(() => import('./dashboard/sections/SalesTodaySection').then(m => ({ default: m.SalesTodaySection })));
-const StaffDirectorySection  = React.lazy(() => import('./dashboard/sections/StaffDirectorySection').then(m => ({ default: m.StaffDirectorySection })));
-const ReportsMasterSection   = React.lazy(() => import('./dashboard/sections/ReportsMasterSection').then(m => ({ default: m.ReportsMasterSection })));
-const BranchReportsTab       = React.lazy(() => import('./dashboard/sections/BranchReportsTab').then(m => ({ default: m.BranchReportsTab })));
-const SettingsSection        = React.lazy(() => import('./dashboard/sections/SettingsSection').then(m => ({ default: m.SettingsSection })));
-const BackfillRequestSection = React.lazy(() => import('./dashboard/sections/BackfillRequestSection').then(m => ({ default: m.BackfillRequestSection })));
-const HowToSection           = React.lazy(() => import('./dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection })));
-const ClientHistorySection   = React.lazy(() => import('./dashboard/sections/ClientHistorySection').then(m => ({ default: m.ClientHistorySection })));
-const RemittanceSection      = React.lazy(() => import('./dashboard/sections/RemittanceSection').then(m => ({ default: m.RemittanceSection })));
-const InsightsHub            = React.lazy(() => import('./superadmin/InsightsHub').then(m => ({ default: m.InsightsHub })));
-const ComplaintsSection      = React.lazy(() => import('./dashboard/sections/ComplaintsSection').then(m => ({ default: m.ComplaintsSection })));
+const POSSection             = React.memo(React.lazy(() => import('./dashboard/sections/POSSection').then(m => ({ default: m.POSSection }))));
+const ExpensesManagerSection = React.memo(React.lazy(() => import('./dashboard/sections/ExpensesManagerSection').then(m => ({ default: m.ExpensesManagerSection }))));
+const BranchVaultSection     = React.memo(React.lazy(() => import('./dashboard/sections/BranchVaultSection').then(m => ({ default: m.BranchVaultSection }))));
+const ExpenseLedgerSection   = React.memo(React.lazy(() => import('./dashboard/sections/ExpenseLedgerSection').then(m => ({ default: m.ExpenseLedgerSection }))));
+const PayrollSection         = React.memo(React.lazy(() => import('./dashboard/sections/PayrollSection').then(m => ({ default: m.PayrollSection }))));
+const SalesTodaySection      = React.memo(React.lazy(() => import('./dashboard/sections/SalesTodaySection').then(m => ({ default: m.SalesTodaySection }))));
+const StaffDirectorySection  = React.memo(React.lazy(() => import('./dashboard/sections/StaffDirectorySection').then(m => ({ default: m.StaffDirectorySection }))));
+const ReportsMasterSection   = React.memo(React.lazy(() => import('./dashboard/sections/ReportsMasterSection').then(m => ({ default: m.ReportsMasterSection }))));
+const BranchReportsTab       = React.memo(React.lazy(() => import('./dashboard/sections/BranchReportsTab').then(m => ({ default: m.BranchReportsTab }))));
+const SettingsSection        = React.memo(React.lazy(() => import('./dashboard/sections/SettingsSection').then(m => ({ default: m.SettingsSection }))));
+const BackfillRequestSection = React.memo(React.lazy(() => import('./dashboard/sections/BackfillRequestSection').then(m => ({ default: m.BackfillRequestSection }))));
+const HowToSection           = React.memo(React.lazy(() => import('./dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection }))));
+const ClientHistorySection   = React.memo(React.lazy(() => import('./dashboard/sections/ClientHistorySection').then(m => ({ default: m.ClientHistorySection }))));
+const RemittanceSection      = React.memo(React.lazy(() => import('./dashboard/sections/RemittanceSection').then(m => ({ default: m.RemittanceSection }))));
+const InsightsHub            = React.memo(React.lazy(() => import('./superadmin/InsightsHub').then(m => ({ default: m.InsightsHub }))));
+const ComplaintsSection      = React.memo(React.lazy(() => import('./dashboard/sections/ComplaintsSection').then(m => ({ default: m.ComplaintsSection }))));
 
 import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole } from '../lib/payroll';
 import { supabase } from '../lib/supabase';
-import { getTrueDate, formatManilaDate, formatManilaTime } from '../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr } from '../lib/time';
 import { DB_TABLES } from '../constants/db_schema';
 import { Clock, Store, ChevronRight } from 'lucide-react';
 
@@ -66,6 +66,7 @@ interface BranchManagerDashboardProps {
   onRefresh?: (quiet?: boolean) => void;
   onSwitchBranch?: (branchId: string) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
+  isPreview?: boolean;
 }
 
 export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill' | 'insights' | 'complaints';
@@ -78,9 +79,9 @@ const LiveClock = memo(() => {
     return () => clearInterval(t);
   }, []);
   return (
-    <span className="text-[10px] sm:text-[11px] font-bold font-mono tabular-nums tracking-tighter text-slate-100">
+    <span className="text-xs font-semibold font-mono tabular-nums tracking-tight text-slate-500">
       {formatManilaDate(now, { day: '2-digit', month: 'short' })}
-      {' • '}
+      {' · '}
       {formatManilaTime(now)}
     </span>
   );
@@ -101,9 +102,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   const [highlightDeposit, setHighlightDeposit] = useState(false);
   const [hiddenStaffNames, setHiddenStaffNames] = useState<Set<string>>(() => {
     try {
-      const todayDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date());
+      const todayDate = getManilaTodayStr();
       const saved = localStorage.getItem(`hidden_staff_${props.branch.id}`);
       if (!saved) return new Set();
       const parsed = JSON.parse(saved);
@@ -121,9 +120,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   // Persist hidden staff names with today's date so they auto-clear on a new day
   useEffect(() => {
     try {
-      const todayDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date());
+      const todayDate = getManilaTodayStr();
       localStorage.setItem(`hidden_staff_${props.branch.id}`, JSON.stringify({ date: todayDate, names: [...hiddenStaffNames] }));
     } catch { /* storage quota exceeded — ignore */ }
   }, [hiddenStaffNames, props.branch.id]);
@@ -195,7 +192,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   });
 
   const todayVaultTxs = useMemo(() =>
-    (props.vaultTransactions ?? []).filter(t => t.branchId === props.branch.id && t.timestamp?.startsWith(todayStr)),
+    (props.vaultTransactions ?? []).filter(t => t.branchId === props.branch.id && toManilaDateStr(t.timestamp) === todayStr),
   [props.vaultTransactions, props.branch.id, todayStr]);
 
   const { autoSyncStatus, forceSync } = useAutoSaveReport({
@@ -212,6 +209,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     hiddenStaffNames,
     todayReportExists,
     loading: props.loading,
+    isPreview: props.isPreview,
   });
 
   const {
@@ -240,7 +238,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     if (!props.branch.vaultEnabled) return;
     const hasTarget = (props.branchVault?.target ?? 0) > 0;
     if (hasTarget) { setShowVaultUnconfiguredNotif(false); return; }
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const today = getManilaTodayStr();
     const key = `vault_notif_${props.branch.id}_${today}`;
     if (!localStorage.getItem(key)) setShowVaultUnconfiguredNotif(true);
   }, [props.branch.id, props.branch.vaultEnabled, props.branchVault]);
@@ -275,6 +273,11 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     });
   }, [props.branches, props.branch.id, props.employees, props.user.employeeId, props.user.username]);
 
+  const branchSalesReports = useMemo(
+    () => props.salesReports.filter(r => r.branchId === props.branch.id),
+    [props.salesReports, props.branch.id]
+  );
+
   const changeTab = (tabId: TabID) => {
     resumeAudioContext();
     if (tabId !== activeTab) {
@@ -286,13 +289,17 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     }
   };
 
+  const handleRefresh = useCallback(() => { props.onRefresh?.(); }, [props.onRefresh]);
+  const handleRefreshForce = useCallback(() => { props.onRefresh?.(true); }, [props.onRefresh]);
+  const handleNavigateToComplaints = useCallback(() => changeTab('complaints'), [changeTab]);
+
   return (
-    <div className="pb-24 bg-slate-50">
+    <div className="pb-24 bg-slate-50 dark:bg-slate-900">
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {showClosingWarning && (
         <ClosingWarningModal
-          closingTime={props.branch.closingTime || ''}
+          closingTime={props.branch.shift2ClosingTime || props.branch.closingTime || ''}
           todayReportExists={todayReportExists}
           vaultEnabled={props.branch.vaultEnabled}
           branchVault={props.branchVault}
@@ -331,48 +338,44 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       )}
 
       {/* ── Sticky header ────────────────────────────────────────────────────── */}
-      <div className="sticky top-[72px] sm:top-20 left-0 right-0 z-[60] no-print shadow-lg">
-        <div className="bg-slate-800 text-white">
-          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} py-1 flex flex-row justify-between items-center gap-2`}>
-            <div className="flex flex-row items-center gap-2 sm:gap-5 text-slate-500 overflow-hidden shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <Clock className="w-3 h-3 text-emerald-500" strokeWidth={3} />
-                <LiveClock />
-              </div>
+      <div className="sticky top-14 sm:top-16 left-0 right-0 z-[60] no-print bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+        <div>
+          <div className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-10 flex flex-row justify-between items-center gap-2`}>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />
+              <LiveClock />
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0" ref={dropdownRef}>
+            <div className="flex items-center gap-2 shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => { playSound('click'); setShowToggleConfirm(true); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all active:scale-[0.96] shadow-md ${props.branch.isOpen ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${props.branch.isOpen ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-600'}`}
               >
-                <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px] ${props.branch.isOpen ? 'bg-emerald-400 shadow-emerald-400 animate-pulse' : 'bg-rose-50 shadow-rose-500'}`} />
-                <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest ${props.branch.isOpen ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {props.branch.isOpen ? 'STATUS: OPEN' : 'STATUS: CLOSE'}
-                </span>
+                <div className={`w-1.5 h-1.5 rounded-full ${props.branch.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`} />
+                {props.branch.isOpen ? 'Open' : 'Closed'}
               </button>
 
               {managedNodes.length > 0 && (
                 <div className="relative">
                   <button
                     onClick={() => { setIsSwitchingOpen(!isSwitchingOpen); playSound('click'); }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all text-[8px] sm:text-[9px] font-bold uppercase tracking-widest active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-700 border-white/20 text-white' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all active:scale-[0.96] ${isSwitchingOpen ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}
                   >
-                    <Store className="w-3.5 h-3.5" strokeWidth={3} />
+                    <Store className="w-3 h-3" strokeWidth={2.5} />
                     <span className="hidden sm:inline">Switch</span>
-                    <span className="bg-white/10 px-1 rounded-md ml-0.5">{managedNodes.length}</span>
+                    <span className={`text-xs font-black px-1 rounded ${isSwitchingOpen ? 'text-slate-300' : 'text-slate-500'}`}>{managedNodes.length}</span>
                   </button>
                   {isSwitchingOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-60 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
-                      <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest px-3 py-1 mb-1">Managed Nodes</p>
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 p-1.5 z-[70]">
+                      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 px-3 py-1.5 mb-0.5">Managed Branches</p>
                       {managedNodes.map(n => (
                         <button
                           key={n.id}
                           onClick={() => { setPendingSwitchBranchId(n.id); setShowUnlockModal(true); setIsSwitchingOpen(false); playSound('click'); }}
-                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all flex items-center justify-between group"
+                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center justify-between group"
                         >
-                          <p className="text-[10px] font-bold text-white uppercase truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
-                          <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-500 transition-colors" strokeWidth={3} />
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate pr-4">{n.name.replace(/BRANCH - /i, '')}</p>
+                          <ChevronRight className="w-3 h-3 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 transition-colors" strokeWidth={2.5} />
                         </button>
                       ))}
                     </div>
@@ -395,8 +398,8 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className={`${UI_THEME.layout.mainPadding} ${UI_THEME.layout.maxContent} py-4 md:py-8`}>
-        <div className="space-y-6">
+      <div className={`${UI_THEME.layout.mainPadding} ${UI_THEME.layout.maxContent} py-4 md:py-6 pb-28`}>
+        <div className="space-y-4">
           <RemittanceBanners
             branchId={props.branch.id}
             showCloseReminder={showRemittanceCloseReminder}
@@ -411,17 +414,17 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           <React.Suspense fallback={null}>
             {mountedTabs.has('pos')            && <div className={activeTab !== 'pos'            ? 'hidden' : ''}><POSSection {...props} attendance={props.attendance} todayStr={todayStr} isClosedMode={!props.branch.isOpen} isPaymongoEnabled={props.isPaymongoEnabled} onSyncStatusChange={props.onSyncStatusChange} loading={props.loading} hiddenStaffNames={hiddenStaffNames} onForceSync={forceSync} /></div>}
             {mountedTabs.has('sales')          && <div className={activeTab !== 'sales'          ? 'hidden' : ''}><SalesTodaySection {...props} user={props.user} todayStr={todayStr} setActiveTab={changeTab as any} connStatus={props.connStatus} pendingSyncCount={props.pendingSyncCount} hiddenStaffNames={hiddenStaffNames} setHiddenStaffNames={setHiddenStaffNames} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} loading={props.loading} totalBillsAmount={totalBillsAmount} vaultTransactions={props.vaultTransactions} autoSyncStatus={autoSyncStatus} onForceSync={forceSync} /></div>}
-            {mountedTabs.has('staff')          && <div className={activeTab !== 'staff'          ? 'hidden' : ''}><StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} isManagerView onNavigateToComplaints={!props.isRelief ? () => changeTab('complaints') : undefined} /></div>}
+            {mountedTabs.has('staff')          && <div className={activeTab !== 'staff'          ? 'hidden' : ''}><StaffDirectorySection branch={props.branch} branches={props.branches} employees={props.employees} attendance={props.attendance} transactions={props.transactions} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} isSetupRequired={isSetupRequired} onSyncStatusChange={props.onSyncStatusChange} isDelegate={props.isRelief} isManagerView onNavigateToComplaints={!props.isRelief ? handleNavigateToComplaints : undefined} complaints={props.complaints ?? []} /></div>}
             {mountedTabs.has('clients')        && <div className={activeTab !== 'clients'        ? 'hidden' : ''}><ClientHistorySection branch={props.branch} /></div>}
             {mountedTabs.has('remittance')     && <div className={activeTab !== 'remittance'     ? 'hidden' : ''}><RemittanceSection branch={props.branch} salesReports={props.salesReports} vaultTransactions={props.vaultTransactions} performedBy={props.user.username ?? null} canDepositToVault={props.user.role === UserRole.BRANCH_MANAGER || props.user.role === UserRole.SUPERADMIN} isDelegate={props.isRelief} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('expenses_hub')   && <div className={activeTab !== 'expenses_hub'   ? 'hidden' : ''}><ExpensesManagerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} isClosedMode={!props.branch.isOpen} onRefresh={props.onRefresh} onSyncStatusChange={props.onSyncStatusChange} /></div>}
             {mountedTabs.has('monthly_bills')  && <div className={activeTab !== 'monthly_bills'  ? 'hidden' : ''}><BranchVaultSection branch={props.branch} branchVault={props.branchVault} salesReports={props.salesReports} isClosedMode={!props.branch.isOpen} todayNetRoi={totals.net} todayStr={todayStr} performedBy={props.user.username ?? null} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('expense_reports') && <div className={activeTab !== 'expense_reports' ? 'hidden' : ''}><ExpenseLedgerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} /></div>}
-            {mountedTabs.has('salaries')       && <div className={activeTab !== 'salaries'       ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={() => props.onRefresh?.(true)} /></div>}
+            {mountedTabs.has('salaries')       && <div className={activeTab !== 'salaries'       ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={handleRefreshForce} /></div>}
             {mountedTabs.has('sales_reports')  && <div className={activeTab !== 'sales_reports'  ? 'hidden' : ''}><BranchReportsTab branch={props.branch} salesReports={props.salesReports} salesReportsLoading={props.salesReportsLoading} branches={props.branches} employees={props.employees} branchVault={props.branchVault} /></div>}
             {mountedTabs.has('backfill')       && <div className={activeTab !== 'backfill'       ? 'hidden' : ''}><BackfillRequestSection branch={props.branch} branchVault={props.branchVault} employees={branchEmployees} transactions={props.transactions} expenses={props.expenses} attendance={props.attendance} salesReports={props.salesReports} vaultTransactions={props.vaultTransactions} requests={props.requests ?? []} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('settings')       && <div className={activeTab !== 'settings'       ? 'hidden' : ''}><SettingsSection user={props.user} branch={props.branch} branches={props.branches} todayTxs={todayTxs} todayAtt={todayAtt} todayReportExists={todayReportExists} employees={props.employees} branchVault={props.branchVault} isRelief={props.isRelief} onRefresh={props.onRefresh} /></div>}
-            {mountedTabs.has('insights')        && <div className={activeTab !== 'insights'        ? 'hidden' : ''}><InsightsHub branches={[props.branch]} salesReports={props.salesReports.filter(r => r.branchId === props.branch.id)} isBranchView /></div>}
+            {mountedTabs.has('insights')        && <div className={activeTab !== 'insights'        ? 'hidden' : ''}><InsightsHub branches={[props.branch]} salesReports={branchSalesReports} isBranchView /></div>}
             {mountedTabs.has('complaints')      && <div className={activeTab !== 'complaints'      ? 'hidden' : ''}><ComplaintsSection branch={props.branch} employees={props.employees} complaints={props.complaints ?? []} filedById={props.user.employeeId ?? props.user.username ?? ''} filedByName={props.employees.find(e => e.id === props.user.employeeId)?.name || props.user.username || ''} managerPin={props.user.loginPin} isDelegate={props.isRelief || props.user.role === UserRole.PORTAL_USER} /></div>}
             {mountedTabs.has('how_to')         && <div className={activeTab !== 'how_to'         ? 'hidden' : ''}><HowToSection role={UserRole.BRANCH_MANAGER} /></div>}
           </React.Suspense>

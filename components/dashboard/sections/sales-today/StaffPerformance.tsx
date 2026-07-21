@@ -33,7 +33,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                                                                     todayStr,
                                                                     transactions,
                                                                     employees,
-                                                                    hiddenStaffNames
+                                                                    hiddenStaffNames,
                                                                   }) => {
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [showAddStaffSelector, setShowAddStaffSelector] = useState(false);
@@ -41,6 +41,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
   const [revealedDeleteId, setRevealedDeleteId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const justLongPressed = useRef(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [attendanceForm, setAttendanceForm] = useState({
     lateDeduction: 0,
@@ -48,12 +49,12 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     cashAdvance: 0,
     baseAllowance: 0,
     isHalfDay: false,
-    isPaidDaily: false
   });
 
   // CRITICAL: Check lateness using Manila Time comparison to avoid browser timezone drift
-  const isLate = (clockInStr?: string) => {
-    if (!clockInStr || !branch.openingTime) return false;
+  // Returns minutes late (0 = on time)
+  const getLateMinutes = (clockInStr?: string, recordedShift?: 1 | 2): number => {
+    if (!clockInStr || !branch.openingTime) return 0;
 
     const clockInDate = new Date(clockInStr);
     const manilaClockIn = new Intl.DateTimeFormat('en-GB', {
@@ -64,13 +65,38 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     }).format(clockInDate);
 
     const [clockH, clockM] = manilaClockIn.split(':').map(Number);
-    const [openH, openM] = branch.openingTime.split(':').map(Number);
-
     const totalClockMins = clockH * 60 + clockM;
-    const totalOpenMins = openH * 60 + openM;
 
-    // LATE means clocking in > 10 minutes after opening hour
-    return totalClockMins > (totalOpenMins + 10);
+    const [open1H, open1M] = branch.openingTime.split(':').map(Number);
+    const shift1Mins = open1H * 60 + open1M;
+
+    let shiftOpenMins = shift1Mins;
+
+    if (branch.shift2OpeningTime) {
+      const [open2H, open2M] = branch.shift2OpeningTime.split(':').map(Number);
+      const shift2Mins = open2H * 60 + open2M;
+
+      if (recordedShift) {
+        shiftOpenMins = recordedShift === 2 ? shift2Mins : shift1Mins;
+      } else {
+        // Fallback: midpoint auto-detection for older records without an explicit shift
+        const midpointMins = Math.round((shift1Mins + shift2Mins) / 2);
+        shiftOpenMins = totalClockMins >= midpointMins ? shift2Mins : shift1Mins;
+      }
+    }
+
+    const diff = totalClockMins - (shiftOpenMins + 10);
+    return diff > 0 ? diff : 0;
+  };
+
+  const isLate = (clockInStr?: string, recordedShift?: 1 | 2) => getLateMinutes(clockInStr, recordedShift) > 0;
+
+  const formatLateMinutes = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `Late ${h}h ${m}m`;
+    if (h > 0) return `Late ${h}h`;
+    return `Late ${m}m`;
   };
 
   const sortedStaff = useMemo(() => {
@@ -106,8 +132,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
         [DB_COLUMNS.OT_PAY]: attendanceForm.otPay,
         [DB_COLUMNS.CASH_ADVANCE]: summaryData.isReliever ? 0 : attendanceForm.cashAdvance,
         [DB_COLUMNS.IS_HALF_DAY]: attendanceForm.isHalfDay,
-        [DB_COLUMNS.IS_PAID_DAILY]: attendanceForm.isPaidDaily,
-        [DB_COLUMNS.SETTLED_UNITS]: attendanceForm.isPaidDaily ? (staffSummary[selectedStaff]?.count || 0) : 0
       };
 
       if (existingAtt) {
@@ -143,27 +167,40 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     }
   };
 
-  const startLongPress = (name: string) => {
+  const startLongPress = (name: string, x?: number, y?: number) => {
+    touchStartPos.current = x != null && y != null ? { x, y } : null;
     longPressTimer.current = setTimeout(() => {
       setRevealedDeleteId(name);
       justLongPressed.current = true;
       playSound('click');
       longPressTimer.current = null;
-    }, 600);
+    }, 700);
   };
 
   const cancelLongPress = () => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    touchStartPos.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current || !longPressTimer.current) return;
+    const dx = e.touches[0].clientX - touchStartPos.current.x;
+    const dy = e.touches[0].clientY - touchStartPos.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 8) cancelLongPress();
   };
 
   const selectedStaffData = selectedStaff ? staffSummary[selectedStaff] : null;
   const staffClockIn = selectedStaffData?.attendance?.clockIn;
-  const staffIsCurrentlyLate = isLate(staffClockIn);
+  const staffIsCurrentlyLate = isLate(staffClockIn, selectedStaffData?.attendance?.shift);
 
   // VALIDATION: Staff only eligible for OT if they have a session that ended AFTER closing time (Manila Time)
   const staffHasOTSession = useMemo(() => {
     if (!selectedStaff || !branch.closingTime) return false;
-    const [closeH, closeM] = branch.closingTime.split(':').map(Number);
+    // For Shift 2 staff, use shift2ClosingTime if set; otherwise fall back to branch closing time
+    const effectiveClosingTime = (selectedStaffData?.attendance?.shift === 2 && branch.shift2ClosingTime)
+      ? branch.shift2ClosingTime
+      : branch.closingTime;
+    const [closeH, closeM] = effectiveClosingTime.split(':').map(Number);
     const totalCloseMins = closeH * 60 + closeM;
 
     return transactions.some(t => {
@@ -184,7 +221,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
       return totalTxMins > totalCloseMins;
     });
-  }, [selectedStaff, branch.closingTime, transactions]);
+  }, [selectedStaff, branch.closingTime, branch.shift2ClosingTime, selectedStaffData?.attendance?.shift, transactions]);
 
   // Rule: Must have a late session AND must not have been late clocking in
   const canAddOT = !staffIsCurrentlyLate && staffHasOTSession;
@@ -193,18 +230,18 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
       <div className="space-y-4">
         {showAddStaffSelector && (
             <div className="fixed inset-0 z-[2000] bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4">
-              <div className={`bg-white ${UI_THEME.radius.card} w-full max-w-lg shadow-2xl flex flex-col animate-in zoom-in duration-300 overflow-hidden max-h-[85vh] border border-slate-100`}>
+              <div className={`bg-white ${UI_THEME.radius.card} w-full max-w-lg shadow-xl flex flex-col animate-in zoom-in duration-300 overflow-hidden max-h-[85vh] border border-slate-100`}>
                 <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
                   <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Archived Roster</h4>
                   <button onClick={() => setShowAddStaffSelector(false)} className="p-2 text-slate-300 hover:text-slate-900 transition-all"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-2 no-scrollbar">
                   {hiddenRosterStaff.length > 0 ? hiddenRosterStaff.map(emp => (
-                      <button key={emp.id} onClick={() => { handleRestoreStaff(emp.name); setShowAddStaffSelector(false); }} className="w-full p-4 rounded-[20px] border border-slate-100 bg-white hover:border-emerald-500 hover:bg-emerald-50/20 transition-all flex items-center justify-between group">
-                        <div className="flex items-center gap-3"><span className="font-bold text-slate-700 uppercase text-[12px] tracking-tight">{emp.name}</span></div>
+                      <button key={emp.id} onClick={() => { handleRestoreStaff(emp.name); setShowAddStaffSelector(false); }} className="w-full p-4 rounded-xl border border-slate-100 bg-white hover:border-emerald-500 hover:bg-emerald-50/20 transition-all flex items-center justify-between group">
+                        <div className="flex items-center gap-3"><span className="font-bold text-slate-700 uppercase text-xs tracking-tight">{emp.name}</span></div>
                         <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                       </button>
-                  )) : (<div className="py-20 text-center font-bold uppercase text-[10px]">No hidden profiles</div>)}
+                  )) : (<div className="py-20 text-center font-bold uppercase text-xs">No hidden profiles</div>)}
                 </div>
               </div>
             </div>
@@ -212,7 +249,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
         {selectedStaff && createPortal(
             <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto no-scrollbar">
-              <div className="bg-white rounded-[32px] sm:rounded-[44px] w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in duration-300 overflow-hidden my-auto max-h-[95vh] sm:max-h-[90vh] border border-slate-100">
+              <div className="bg-white rounded-2xl sm:rounded-[44px] w-full max-w-xl shadow-xl flex flex-col animate-in zoom-in duration-300 overflow-hidden my-auto max-h-[95vh] sm:max-h-[90vh] border border-slate-100">
                 <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-slate-100 flex justify-between items-center bg-white">
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base sm:text-lg">
@@ -220,7 +257,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     </div>
                     <div>
                       <h4 className="text-base sm:text-lg font-bold text-slate-900 uppercase tracking-tighter leading-none">{selectedStaff}</h4>
-                      <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Adjustment Hub</p>
+                      <p className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide mt-1">Adjustment Hub</p>
                     </div>
                   </div>
                   <button onClick={() => setSelectedStaff(null)} className="p-2 text-slate-300 hover:text-slate-900 active:scale-90 transition-colors">
@@ -232,11 +269,11 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                   <div className="space-y-4 sm:space-y-6">
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cash Advance (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Cash Advance (₱)</label>
                         {selectedStaffData?.isReliever ? (
-                          <span className="text-[7px] sm:text-[8px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded uppercase tracking-widest">Not Allowed for Relievers</span>
+                          <span className="text-xs sm:text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded uppercase tracking-widest">Not Allowed for Relievers</span>
                         ) : (
-                          <span className="text-[7px] sm:text-[8px] font-bold text-slate-300 bg-slate-50 px-2 py-0.5 rounded uppercase tracking-widest">Weekly Settlement</span>
+                          <span className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-widest">Weekly settlement</span>
                         )}
                       </div>
                       <div className="relative group">
@@ -251,26 +288,27 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             placeholder="0"
                         />
                       </div>
-                      <p className="text-[7px] sm:text-[9px] font-semibold text-slate-400 uppercase tracking-tight ml-1">
+                      <p className="text-xs sm:text-xs font-semibold text-slate-400 uppercase tracking-tight ml-1">
                         {selectedStaffData?.isReliever ? 'Relievers are paid daily and are ineligible for cash advances.' : 'Advances are recorded for weekly audit and do not impact today\'s performance display.'}
                       </p>
                     </div>
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Late Deduction (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">Late Deduction (₱)</label>
                         {!staffIsCurrentlyLate && (
-                          <span className="text-[7px] sm:text-[8px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">On Time</span>
+                          <span className="text-xs sm:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">On Time</span>
                         )}
                       </div>
                       <div className="relative group">
-                        <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-rose-600">₱</span>
+                        <span className={`absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold transition-colors ${staffIsCurrentlyLate ? 'text-slate-300 group-focus-within:text-rose-600' : 'text-slate-200'}`}>₱</span>
                         <input
                             type="number"
                             min={0}
+                            disabled={!staffIsCurrentlyLate}
                             value={attendanceForm.lateDeduction || ''}
                             onChange={e => setAttendanceForm({...attendanceForm, lateDeduction: Math.max(0, Number(e.target.value))})}
-                            className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-rose-600 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner tabular-nums"
+                            className={`w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-rose-600 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner tabular-nums ${!staffIsCurrentlyLate ? 'opacity-40 cursor-not-allowed' : ''}`}
                             placeholder="0"
                         />
                       </div>
@@ -278,7 +316,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex justify-between items-center ml-1">
-                        <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">OT Pay Addition (₱)</label>
+                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">OT Pay Addition (₱)</label>
                       </div>
                       <div className="relative group">
                         <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-emerald-600">₱</span>
@@ -299,8 +337,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <div className="flex items-center gap-3">
                           <span className="text-xl sm:text-2xl">{attendanceForm.isHalfDay ? '🌗' : '☀️'}</span>
                           <div className="text-left">
-                            <p className={`text-[11px] sm:text-[12px] font-black uppercase tracking-widest ${attendanceForm.isHalfDay ? 'text-amber-700' : 'text-slate-600'}`}>Half Day</p>
-                            <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${attendanceForm.isHalfDay ? 'text-amber-400' : 'text-slate-400'}`}>
+                            <p className={`text-xs sm:text-xs font-semibold uppercase tracking-wide ${attendanceForm.isHalfDay ? 'text-amber-700' : 'text-slate-600'}`}>Half Day</p>
+                            <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 ${attendanceForm.isHalfDay ? 'text-amber-400' : 'text-slate-400'}`}>
                               {attendanceForm.isHalfDay ? 'Applied — 50% allowance' : 'Tap to apply'}
                             </p>
                           </div>
@@ -315,14 +353,14 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                       </button>
                     </div>
 
-                    <div className="p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-slate-100 flex items-center justify-between bg-slate-50/50 shadow-inner">
+                    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between bg-slate-100 dark:bg-slate-700 shadow-inner">
                       <div className="space-y-0.5 sm:space-y-1">
-                        <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Take-Home Impact</p>
-                        <p className={`text-lg sm:text-2xl font-bold tracking-tighter leading-none ${estimatedImpact < 0 ? 'text-rose-600' : estimatedImpact > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        <p className="text-xs sm:text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wide">Take-Home Impact</p>
+                        <p className={`text-lg sm:text-2xl font-bold tracking-tighter leading-none ${estimatedImpact < 0 ? 'text-rose-600' : estimatedImpact > 0 ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-300'}`}>
                           {estimatedImpact < 0 ? '−' : estimatedImpact > 0 ? '+' : ''}₱{Math.abs(estimatedImpact).toLocaleString()}
                         </p>
                       </div>
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-sm sm:text-lg">📊</div>
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-slate-600 flex items-center justify-center shadow-sm text-sm sm:text-lg">📊</div>
                     </div>
                   </div>
 
@@ -330,7 +368,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     <button
                         onClick={handleUpdateAttendance}
                         disabled={isSyncing}
-                        className="w-full bg-slate-900 text-white font-bold py-4 sm:py-6 rounded-[18px] sm:rounded-[22px] uppercase tracking-[0.25em] text-[10px] sm:text-[12px] shadow-xl hover:bg-emerald-600 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                        className="w-full bg-slate-900 text-white font-bold py-4 sm:py-6 rounded-[18px] sm:rounded-[22px] uppercase tracking-[0.25em] text-xs sm:text-xs shadow-xl hover:bg-emerald-600 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
                     >
                       {isSyncing ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Apply Adjustment'}
                     </button>
@@ -342,12 +380,11 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
 
         <div className="flex items-center justify-between px-4">
           <div>
-            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-none">STAFF PERFORMANCE</h4>
-            <p className="text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Staff allowances and commissions</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">STAFF PERFORMANCE</h4>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Allowance plus commissions</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Live Audit</span>
           </div>
         </div>
 
@@ -360,36 +397,19 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
             const finalPay = data.finalPay;
 
             const clockInTime = data.attendance?.clockIn;
-            const isSettled = data.isPaidDaily && data.count === data.settledUnits;
             const showOTRibbon = ot > 0;
 
             return (
                 <div
                     key={data.employeeId || name}
-                    className={`${data.isReliever ? 'bg-purple-50/50 border-purple-100 shadow-sm' : 'bg-white'} p-3 sm:p-5 ${UI_THEME.radius.card} border ${data.isReliever ? 'border-purple-100' : 'border-slate-100'} flex flex-col transition-all duration-300 hover:shadow-xl ${data.isReliever ? 'hover:border-purple-300' : 'hover:border-emerald-200'} group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
-                    onTouchStart={() => startLongPress(name)}
+                    className={`${data.isReliever ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/40 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'} p-3 sm:p-5 ${UI_THEME.radius.card} border flex flex-col transition-all duration-300 group relative overflow-hidden active:scale-[0.99] cursor-default select-none`}
+                    onTouchStart={evt => { startLongPress(name, evt.touches[0].clientX, evt.touches[0].clientY); }}
                     onTouchEnd={cancelLongPress}
-                    onTouchMove={cancelLongPress}
+                    onTouchMove={handleTouchMove}
                     onMouseDown={() => startLongPress(name)}
                     onMouseUp={cancelLongPress}
                     onMouseLeave={cancelLongPress}
                 >
-                    {isSettled && (
-                      <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
-                        <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                      </div>
-                    )}
-                    <div className="absolute top-0 left-0 right-0 flex flex-wrap gap-1 px-3 sm:px-4 pt-2 sm:pt-3 z-20 pointer-events-none">
-                    {data.isReliever && (
-                        <div className="bg-purple-600 text-white text-[7px] font-black uppercase px-2 py-1 rounded-md shadow-lg border border-purple-400">RELIEVER</div>
-                    )}
-                    {isSettled && (
-                        <div className="bg-emerald-600 text-white text-[7px] font-bold uppercase px-2 py-0.5 rounded-full shadow-lg border border-emerald-400 flex items-center gap-1">
-                          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
-                          Paid
-                        </div>
-                    )}
-                  </div>
 
                   {/* Long-press remove overlay */}
                   {revealedDeleteId === name && (
@@ -401,7 +421,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             <div className="w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center">
                               <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center px-4">Has {data.count} session{data.count !== 1 ? 's' : ''} — cannot remove</p>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center px-4">Has {data.count} session{data.count !== 1 ? 's' : ''} — cannot remove</p>
                           </>
                         ) : (
                           <>
@@ -412,7 +432,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             >
                               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
                             </button>
-                            <p className="text-[9px] font-black text-white uppercase tracking-widest">Remove from today</p>
+                            <p className="text-xs font-semibold text-slate-700">Remove from today</p>
                           </>
                         )}
                       </div>
@@ -421,7 +441,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <button
                           onMouseDown={e => e.stopPropagation()}
                           onClick={e => { e.stopPropagation(); setRevealedDeleteId(null); }}
-                          className="w-full py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all text-[10px] font-black text-slate-200 uppercase tracking-widest"
+                          className="w-full py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all text-xs font-black text-slate-200 uppercase tracking-widest"
                         >
                           Cancel
                         </button>
@@ -429,10 +449,10 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-3 sm:gap-6">
+                  <div className="flex flex-col gap-3 sm:gap-6 flex-1">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 text-purple-600' : data.attendance ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shadow-inner shrink-0 transition-all duration-500 overflow-hidden ${data.isReliever ? 'bg-purple-50 dark:bg-purple-800/40 text-purple-600 dark:text-purple-300' : data.attendance ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-300'}`}>
                           {data.profile ? (
                               <img
                                 src={data.profile}
@@ -448,65 +468,75 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-bold text-slate-900 uppercase text-[12px] sm:text-[14px] tracking-tight truncate leading-none mb-1 group-hover:text-emerald-700 transition-colors">{data.name || name}</h3>
+                          <h3 className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight truncate leading-none mb-1 group-hover:text-emerald-700 transition-colors">{data.name || name}</h3>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {data.isReliever && (
+                              <span className="inline-block bg-purple-600 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-purple-400 leading-none">RELIEVER</span>
+                            )}
+                            {branch.shift2OpeningTime && data.attendance?.shift && (
+                              <span className="inline-block bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 text-[10px] font-black uppercase px-1.5 py-0.5 rounded leading-none">S{data.attendance.shift}</span>
+                            )}
+                            {(() => {
+                              const lateMins = getLateMinutes(clockInTime, data.attendance?.shift);
+                              return lateMins > 0 ? (
+                                <span className="inline-block bg-amber-500 text-white text-[10px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-400 leading-none">{formatLateMinutes(lateMins)}</span>
+                              ) : null;
+                            })()}
+                          </div>
                         </div>
                       </div>
 
-                        <div className="text-right min-w-0 pr-1 sm:pr-2">
-                          <p className={`font-bold text-slate-900 tracking-tighter leading-none tabular-nums ${
-                            finalPay.toLocaleString().length > 9 ? 'text-sm sm:text-lg' : 
-                            finalPay.toLocaleString().length > 7 ? 'text-base sm:text-xl' : 
-                            'text-[18px] sm:text-[26px]'
-                          }`}>₱{isNaN(finalPay) ? '0' : finalPay.toLocaleString()}</p>
-                          <p className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-widest mt-0.5 sm:mt-1 ${data.isReliever ? 'text-purple-600' : 'text-emerald-600'}`}>Take Home</p>
+                        <div className="text-right shrink-0 pl-2 flex flex-col items-end">
+                          <p className="font-bold text-slate-900 tracking-tighter leading-none tabular-nums text-[18px] sm:text-[22px] whitespace-nowrap">₱{isNaN(finalPay) ? '0' : finalPay.toLocaleString()}</p>
+                          <p className={`text-[10px] font-semibold uppercase tracking-wider mt-0.5 whitespace-nowrap ${data.isReliever ? 'text-purple-500 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>Take Home</p>
                         </div>
                     </div>
 
                     <div className="space-y-1 sm:space-y-2">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Service Track</span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-900">{data.count} units</span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Service Track</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{data.count} units</span>
                       </div>
                       <div className="flex gap-0.5 sm:gap-1 h-1 sm:h-1.5 px-0.5">
                         {Array.from({ length: 10 }).map((_, i) => (
                             <div
                                 key={i}
-                                className={`flex-1 rounded-full transition-all duration-700 ${i < data.count ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-slate-100'}`}
+                                className={`flex-1 rounded-full transition-all duration-700 ${i < data.count ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-slate-200 dark:bg-slate-600'}`}
                             ></div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1 sm:gap-2">
-                      <div className="bg-slate-50/80 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-100/50">
-                        <p className="text-[7px] sm:text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Allowance</p>
-                        <p className="text-[10px] sm:text-[11px] font-bold text-slate-600 tabular-nums">₱{data.allowance.toLocaleString()}</p>
+                    <div className={`grid gap-1 sm:gap-2 ${adv > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className="bg-slate-100 dark:bg-slate-700 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-slate-200 dark:border-slate-600">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-200 uppercase tracking-wide mb-0.5">Allowance</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-white tabular-nums">₱{data.allowance.toLocaleString()}</p>
                       </div>
-                      <div className={`p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border transition-all ${adv > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50/80 border-slate-100/50'}`}>
-                        <p className={`text-[7px] sm:text-[8px] font-bold uppercase tracking-widest mb-0.5 ${adv > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>Advances</p>
-                        <p className={`text-[10px] sm:text-[11px] font-bold tabular-nums ${adv > 0 ? 'text-indigo-700' : 'text-slate-300'}`}>
-                          {adv > 0 ? `−₱${adv.toLocaleString()}` : '₱0'}
-                        </p>
-                      </div>
+                      {adv > 0 && (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/40 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-0.5">Advances</p>
+                          <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">−₱{adv.toLocaleString()}</p>
+                        </div>
+                      )}
                     </div>
+                  </div>
 
-                    <div className="flex items-center justify-between pt-0.5">
+                  <div className="flex items-center justify-between mt-3 sm:mt-4">
                       <div className="flex gap-1 sm:gap-1.5 flex-wrap">
-                        {late > 0 && <span className="text-[8px] sm:text-[9px] font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-rose-50 text-rose-700 border-rose-100">−₱{late}</span>}
-                        {ot > 0 && <span className="text-[8px] sm:text-[9px] font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-100">+₱{ot}</span>}
-                        {data.attendance?.isHalfDay && <span className="text-[8px] sm:text-[9px] font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-amber-50 text-amber-700 border-amber-100">Half</span>}
+                        {late > 0 && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-rose-50 text-rose-700 border-rose-100">−₱{late}</span>}
+                        {ot > 0 && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-100">+₱{ot}</span>}
+                        {data.attendance?.isHalfDay && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-amber-50 text-amber-700 border-amber-100">Half</span>}
                       </div>
                       <div className="flex items-center gap-1.5 no-print">
                         <button
                             onClick={() => {
                               setSelectedStaff(name);
-                              setAttendanceForm({ 
-                                lateDeduction: late, 
-                                otPay: ot, 
-                                cashAdvance: adv, 
+                              setAttendanceForm({
+                                lateDeduction: late,
+                                otPay: ot,
+                                cashAdvance: adv,
                                 baseAllowance: data.baseAllowance,
                                 isHalfDay: !!data.attendance?.isHalfDay,
-                                isPaidDaily: !!(data.attendance?.isPaidDaily || data.attendance?.is_paid_daily)
                               });
                             }}
                             className="w-9 h-9 sm:w-12 sm:h-12 bg-slate-900 text-white rounded-xl sm:rounded-2xl hover:bg-emerald-600 transition-all shadow-lg active:scale-90 flex items-center justify-center group-hover:scale-110 border-2 border-slate-800 hover:border-emerald-500"
@@ -514,7 +544,6 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                         </button>
                       </div>
-                    </div>
                   </div>
                 </div>
             );
@@ -528,8 +557,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
             </div>
             <div className="text-center space-y-0.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-emerald-700">Restore Profiles</p>
-              <p className="text-[7px] font-semibold text-slate-300 uppercase tracking-tight">Access Hidden Registry</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide group-hover:text-emerald-700">Restore Profiles</p>
+              <p className="text-xs font-semibold text-slate-300 uppercase tracking-tight">Access Hidden Registry</p>
             </div>
           </button>
         </div>

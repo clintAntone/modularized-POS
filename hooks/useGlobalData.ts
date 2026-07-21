@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branch, BranchVault, Transaction, Expense, Employee, SalesReport, AuditLog, Attendance, AuthState, UserRole, EmployeeComplaint } from '../types';
 import { APP_NAME } from '../constants';
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { getTrueDate } from '../lib/time';
 import { normalizeDateStr } from '../src/utils/reportUtils';
+import { withOfflineCache, putOne, putBatch, getAll, setLastSync, STORES } from '../lib/offlineDb';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
@@ -18,7 +19,9 @@ const COLS = {
         DB_COLUMNS.IS_ENABLED, DB_COLUMNS.IS_OPEN, DB_COLUMNS.IS_OPEN_DATE,
         DB_COLUMNS.MANAGER, DB_COLUMNS.TEMP_MANAGER, DB_COLUMNS.SERVICES,
         DB_COLUMNS.WEEKLY_CUTOFF, DB_COLUMNS.CYCLE_START_DATE, DB_COLUMNS.DAILY_PROVISION_AMOUNT,
-        DB_COLUMNS.ENABLE_SHIFT_TRACKING, DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
+        DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
+        DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
+        DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
         DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
     ].join(','),
     employees: [
@@ -26,7 +29,8 @@ const COLS = {
         DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
         DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
         DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
-        DB_COLUMNS.DETAILS,
+        DB_COLUMNS.DETAILS, DB_COLUMNS.FACE_DESCRIPTORS,
+        DB_COLUMNS.ON_LEAVE, DB_COLUMNS.LEAVE_TYPE, DB_COLUMNS.LEAVE_START_DATE, DB_COLUMNS.LEAVE_END_DATE,
     ].join(','),
     transactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -46,8 +50,7 @@ const COLS = {
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
         DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
-        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.EXPENSE_DATA,
-        DB_COLUMNS.VAULT_DATA,
+        DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.BACKFILLED,
     ].join(','),
     vaultTransactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
@@ -62,8 +65,8 @@ const COLS = {
     attendance: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
         DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
-        DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
-        DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT,
+        DB_COLUMNS.CLOCK_IN_METHOD, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
+        DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT, DB_COLUMNS.SHIFT,
     ].join(','),
     requests: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -99,9 +102,14 @@ export const useGlobalData = (auth: AuthState) => {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
     const [displayChanges, setDisplayChanges] = useState(false);
+    const [faceIdDisabledBranches, setFaceIdDisabledBranches] = useState<string[]>([]);
     // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
     // loading to avoid a network congestion spike on login.
     const [deferredEnabled, setDeferredEnabled] = useState(false);
+    // Sales reports are the heaviest query (paginated, thousands of rows). Delay them 1.5s
+    // after the POS-critical data (transactions, expenses, attendance) has started loading,
+    // so the POS tab is interactive before the Reports tab data arrives.
+    const [historyEnabled, setHistoryEnabled] = useState(false);
 
     const isSyncingQueue = useRef(false);
 
@@ -124,7 +132,7 @@ export const useGlobalData = (auth: AuthState) => {
         }
 
         try {
-            const queue: { table: string; data: any; audit?: any }[] = JSON.parse(saved);
+            const queue: { table: string; data: any; audit?: any; conflictKey?: string; isNew?: boolean }[] = JSON.parse(saved);
             if (queue.length === 0) {
                 setPendingSyncCount(0);
                 return;
@@ -138,19 +146,38 @@ export const useGlobalData = (auth: AuthState) => {
             for (let i = 0; i < remainingQueue.length; i++) {
                 const item = remainingQueue[i];
                 try {
-                    const conflictTarget = item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id';
+                    // Branch-scoped validation: non-superadmin users may only sync
+                    // items that belong to their own branch. Drop anything that doesn't match.
+                    const userBranchId = auth.user?.branchId;
+                    const itemBranchId = item.data?.[DB_COLUMNS.BRANCH_ID];
+                    if (
+                        auth.user?.role !== UserRole.SUPERADMIN &&
+                        userBranchId &&
+                        itemBranchId &&
+                        itemBranchId !== userBranchId
+                    ) {
+                        console.warn('[offlineQueue] Dropped item — branchId mismatch:', item.table, itemBranchId);
+                        processedIndices.push(i);
+                        continue;
+                    }
 
-                    // Skip if the record was deleted server-side while we were offline
-                    // (prevents re-inserting records that an admin intentionally removed)
-                    const itemId = item.data?.id ?? item.data?.key;
-                    if (itemId && item.table !== DB_TABLES.SYSTEM_CONFIG) {
+                    const conflictTarget = item.conflictKey ?? (item.table === DB_TABLES.SYSTEM_CONFIG ? 'key' : 'id');
+
+                    // Skip if the record was deleted server-side while we were offline —
+                    // BUT only for update-style items (isNew: false), not for new inserts.
+                    // New records (isNew: true or unset for backwards compat) always proceed.
+                    // This prevents accidentally dropping offline clock-ins and other new records.
+                    const itemId = item.data?.[conflictTarget];
+                    const isNewRecord = item.isNew === true;
+                    if (!isNewRecord && itemId && item.table !== DB_TABLES.SYSTEM_CONFIG && item.table !== DB_TABLES.BRANCH_VAULTS) {
                         const { data: existing } = await supabase
                             .from(item.table)
-                            .select('id')
+                            .select(conflictTarget)
                             .eq(conflictTarget, itemId)
                             .maybeSingle();
                         // If the record no longer exists (was deleted), drop this queue item silently
                         if (existing === null) {
+                            console.warn('[offlineQueue] Dropping item — record deleted server-side:', item.table, itemId);
                             processedIndices.push(i);
                             continue;
                         }
@@ -209,9 +236,12 @@ export const useGlobalData = (auth: AuthState) => {
             weeklyCutoff: Number(db[DB_COLUMNS.WEEKLY_CUTOFF] ?? 0),
             cycleStartDate: db[DB_COLUMNS.CYCLE_START_DATE] ?? '',
             dailyProvisionAmount: Number(db[DB_COLUMNS.DAILY_PROVISION_AMOUNT] ?? 800),
-            enableShiftTracking: Boolean(db[DB_COLUMNS.ENABLE_SHIFT_TRACKING]),
             openingTime: db[DB_COLUMNS.OPENING_TIME] ?? '09:00',
+            address: db[DB_COLUMNS.ADDRESS] ?? undefined,
+            pinLocation: db[DB_COLUMNS.PIN_LOCATION] ?? undefined,
             closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
+            shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
+            shift2ClosingTime: db[DB_COLUMNS.SHIFT2_CLOSING_TIME] || undefined,
             owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
                 ? JSON.parse(db[DB_COLUMNS.OWNERS])
                 : (db[DB_COLUMNS.OWNERS] || []),
@@ -238,7 +268,7 @@ export const useGlobalData = (auth: AuthState) => {
                 : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {});
             if (typeof branchAllowances !== 'object' || branchAllowances === null) branchAllowances = {};
         } catch (e) {
-            console.error("Failed to parse branchAllowances for employee", db[DB_COLUMNS.ID], e);
+            console.warn("branchAllowances is null or invalid for employee", db[DB_COLUMNS.ID], "— defaulting to {}");
             branchAllowances = {};
         }
 
@@ -260,19 +290,33 @@ export const useGlobalData = (auth: AuthState) => {
             profile: db[DB_COLUMNS.PROFILE],
             branchAllowances,
             details: db[DB_COLUMNS.DETAILS] || null,
-            timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT]
+            faceDescriptors: db[DB_COLUMNS.FACE_DESCRIPTORS] || undefined,
+            timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
+            ...(() => {
+                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
+                const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
+                const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
+                // Auto-return: if leave_end_date is set and has passed, treat as no longer on leave
+                const onLeave = dbOnLeave && (!endDate || endDate >= today);
+                return {
+                    onLeave,
+                    leaveType: db[DB_COLUMNS.LEAVE_TYPE] ?? undefined,
+                    leaveStartDate: db[DB_COLUMNS.LEAVE_START_DATE] ?? undefined,
+                    leaveEndDate: endDate ?? undefined,
+                };
+            })(),
         };
     };
 
     // React Query Queries
     const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
         queryKey: ['branches'],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.BRANCHES, async () => {
             if (!supabase) return [];
             const { data, error } = await supabase.from(DB_TABLES.BRANCHES).select(COLS.branches).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbBranch);
-        },
+        }),
         enabled: !!supabase,
         staleTime: 0,
         gcTime: 0,
@@ -280,29 +324,34 @@ export const useGlobalData = (auth: AuthState) => {
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
         queryKey: ['employees', auth.user?.branchId, auth.user?.employeeId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.EMPLOYEES, async () => {
             if (!supabase) return [];
             // Fetch all employees to ensure we get those authorized via branch_allowances
             // Filtering is handled client-side in the components
             const { data, error } = await supabase.from(DB_TABLES.EMPLOYEES).select(COLS.employees).order(DB_COLUMNS.NAME, { ascending: true });
             if (error) throw error;
             return data.map(mapDbEmployee);
-        },
+        }),
         enabled: !!supabase,
         staleTime: 5 * 60 * 1000
     });
 
     // Reset deferred flag on logout; enable it once the lightweight core queries settle.
     useEffect(() => {
-        if (!auth.user) { setDeferredEnabled(false); return; }
-        if (!branchesLoading && !employeesLoading) setDeferredEnabled(true);
+        if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
+        if (!branchesLoading && !employeesLoading) {
+            setDeferredEnabled(true);
+            // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
+            const t = setTimeout(() => setHistoryEnabled(true), 1500);
+            return () => clearTimeout(t);
+        }
     }, [auth.user, branchesLoading, employeesLoading]);
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -324,16 +373,16 @@ export const useGlobalData = (auth: AuthState) => {
                 paymongoLinkId: t[DB_COLUMNS.PAYMONGO_LINK_ID],
                 note: t[DB_COLUMNS.NOTE]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
         queryKey: ['expenses', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.EXPENSES, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -347,28 +396,29 @@ export const useGlobalData = (auth: AuthState) => {
                 id: e[DB_COLUMNS.ID], branchId: e[DB_COLUMNS.BRANCH_ID], timestamp: e[DB_COLUMNS.TIMESTAMP],
                 name: e[DB_COLUMNS.NAME], amount: Number(e[DB_COLUMNS.AMOUNT] || 0), category: e[DB_COLUMNS.CATEGORY], receiptImage: e[DB_COLUMNS.RECEIPT_IMAGE]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
         queryKey: ['salesReports', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
-            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            const lookbackDate = getTrueDate();
+            // Superadmin: initial load covers 2 months (~60 days). ArchiveHub's
+            // infinite scroll fetches older records on demand as the user scrolls.
+            // Branch managers keep 90 days since they have no infinite scroll.
+            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+            lookbackDate.setDate(lookbackDate.getDate() - (isBranchManager ? 90 : 60));
             const lbd = lookbackDate;
             const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
 
-            // Paginate in 1000-row pages with a stable secondary sort (submitted_at)
-            // so that rows with the same report_date don't flip in/out across queries
-            // or get skipped at page boundaries. The 90-day gte filter keeps each page
-            // small; branch managers cap at one page (500 rows is enough for one branch).
-            const PAGE_SIZE = auth.user?.role === UserRole.BRANCH_MANAGER ? 500 : 1000;
-            const allRows: any[] = [];
-            let from = 0;
-            while (true) {
+            // Branch managers cap at 500 rows (90 days × 1 branch always fits in one page).
+            // Superadmin uses 1000-row pages and may span multiple pages.
+            const PAGE_SIZE = isBranchManager ? 500 : 1000;
+
+            const buildPage = (from: number) => {
                 let q = supabase
                     .from(DB_TABLES.SALES_REPORTS)
                     .select(COLS.salesReports)
@@ -376,38 +426,72 @@ export const useGlobalData = (auth: AuthState) => {
                     .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
                     .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
                     .range(from, from + PAGE_SIZE - 1);
-                if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
+                if (isBranchManager && auth.user?.branchId) {
                     q = q.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
                 }
-                const { data: pageData, error: pageError } = await q;
-                if (pageError) throw pageError;
-                if (pageData && pageData.length > 0) allRows.push(...pageData);
-                if (!pageData || pageData.length < PAGE_SIZE) break;
-                from += PAGE_SIZE;
+                return q;
+            };
+
+            let allRows: any[] = [];
+
+            if (isBranchManager) {
+                // Single-page fetch — one branch always fits within 500 rows
+                const { data, error } = await buildPage(0);
+                if (error) throw error;
+                allRows = data || [];
+            } else {
+                // Superadmin: fetch the first 3 pages in parallel, then continue
+                // sequentially if the last parallel page came back full (rare).
+                const PARALLEL_BATCH = 3;
+                const results = await Promise.all(
+                    Array.from({ length: PARALLEL_BATCH }, (_, i) => buildPage(i * PAGE_SIZE))
+                );
+                for (const { data, error } of results) {
+                    if (error) throw error;
+                    if (data && data.length > 0) allRows.push(...data);
+                }
+                // If the last parallel page was full there may be a 4th+ page
+                const lastBatch = results[PARALLEL_BATCH - 1];
+                if ((lastBatch.data?.length ?? 0) === PAGE_SIZE) {
+                    let from = PARALLEL_BATCH * PAGE_SIZE;
+                    while (true) {
+                        const { data, error } = await buildPage(from);
+                        if (error) throw error;
+                        if (data && data.length > 0) allRows.push(...data);
+                        if (!data || data.length < PAGE_SIZE) break;
+                        from += PAGE_SIZE;
+                    }
+                }
             }
+
             return allRows.map(r => ({
                 id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
                 grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
                 totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
                 netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+                backfilled: r[DB_COLUMNS.BACKFILLED] === true,
                 sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
                 staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
                 expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
                 vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
             }));
-        },
-        enabled: !!supabase && deferredEnabled,
+        }),
+        enabled: !!supabase && historyEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: vaultTransactions = [] } = useQuery({
         queryKey: ['vaultTransactions', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.VAULT_TRANSACTIONS, async () => {
             if (!supabase) return [];
+            const vtLookback = getTrueDate();
+            vtLookback.setDate(vtLookback.getDate() - 90);
+            const vtLookbackIso = vtLookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.VAULT_TRANSACTIONS)
                 .select(COLS.vaultTransactions)
                 .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+                .gte(DB_COLUMNS.TIMESTAMP, vtLookbackIso)
                 .limit(1000);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
@@ -426,16 +510,16 @@ export const useGlobalData = (auth: AuthState) => {
                 receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
                 createdAt: r[DB_COLUMNS.CREATED_AT],
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
 
     const { data: auditLogs = [], isLoading: auditLogsLoading, error: auditLogsError } = useQuery({
         queryKey: ['auditLogs', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.AUDIT_LOGS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -450,16 +534,16 @@ export const useGlobalData = (auth: AuthState) => {
                 activityType: au[DB_COLUMNS.ACTIVITY_TYPE], entityType: au[DB_COLUMNS.ENTITY_TYPE], entityId: au[DB_COLUMNS.ENTITY_ID],
                 description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000
     });
 
     const { data: attendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
         queryKey: ['attendance', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.ATTENDANCE, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -472,25 +556,30 @@ export const useGlobalData = (auth: AuthState) => {
             return data.map(att => ({
                 id: att[DB_COLUMNS.ID], branchId: att[DB_COLUMNS.BRANCH_ID], employeeId: att[DB_COLUMNS.EMPLOYEE_ID],
                 staffName: att[DB_COLUMNS.STAFF_NAME], date: att[DB_COLUMNS.DATE], clockIn: att[DB_COLUMNS.CLOCK_IN],
-                clockOut: att[DB_COLUMNS.CLOCK_OUT], status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
-                otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0), 
+                clockOut: att[DB_COLUMNS.CLOCK_OUT], clockInMethod: att[DB_COLUMNS.CLOCK_IN_METHOD] ?? undefined,
+                status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
+                otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0),
                 isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
-                createdAt: att[DB_COLUMNS.CREATED_AT]
+                createdAt: att[DB_COLUMNS.CREATED_AT],
+                shift: att[DB_COLUMNS.SHIFT] ? Number(att[DB_COLUMNS.SHIFT]) as 1 | 2 : undefined
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        // Attendance is clock-in/out sensitive — poll every 30s as a safety net behind
+        // the realtime subscription (missed WebSocket events won't leave the UI stale).
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
     });
 
     const { data: requests = [], isLoading: requestsLoading, error: requestsError } = useQuery({
         queryKey: ['requests', auth.user?.branchId],
-        queryFn: async () => {
+        queryFn: () => withOfflineCache(STORES.REQUESTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = new Date();
+            const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.REQUESTS).select(COLS.requests).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso);
+            let query = supabase.from(DB_TABLES.REQUESTS).select(COLS.requests).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
             }
@@ -509,27 +598,35 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewNote: r[DB_COLUMNS.REVIEW_NOTE],
                 updatedAt: r[DB_COLUMNS.UPDATED_AT]
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
     });
 
     const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({
         queryKey: ['employeeComplaints', auth.user?.branchId],
-        queryFn: async (): Promise<EmployeeComplaint[]> => {
+        queryFn: (): Promise<EmployeeComplaint[]> => withOfflineCache(STORES.EMPLOYEE_COMPLAINTS, async () => {
             if (!supabase) return [];
+            const ecLookback = getTrueDate();
+            ecLookback.setDate(ecLookback.getDate() - 90);
+            const ecLookbackIso = ecLookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.EMPLOYEE_COMPLAINTS)
                 .select(COLS.employeeComplaints)
-                .order(DB_COLUMNS.FILED_AT, { ascending: false });
+                .order(DB_COLUMNS.FILED_AT, { ascending: false })
+                .gte(DB_COLUMNS.FILED_AT, ecLookbackIso)
+                .limit(500);
             if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
                 const branchId = auth.user.branchId;
-                // Also include complaints filed by other branches about employees who belong here
-                const { data: branchEmps } = await supabase
-                    .from(DB_TABLES.EMPLOYEES)
-                    .select(DB_COLUMNS.ID)
-                    .eq(DB_COLUMNS.BRANCH_ID, branchId);
-                const empIds = (branchEmps || []).map((e: any) => e[DB_COLUMNS.ID]);
+                // Reuse the already-loaded employees from React Query cache — avoids an
+                // extra round trip since employeeComplaints only runs after employees are loaded.
+                const cachedEmployees = queryClient.getQueryData<Employee[]>(
+                    ['employees', auth.user.branchId, auth.user.employeeId]
+                );
+                const empIds = (cachedEmployees || [])
+                    .filter(e => e.branchId === branchId)
+                    .map(e => e.id);
                 if (empIds.length > 0) {
                     query = query.or(
                         `${DB_COLUMNS.BRANCH_ID}.eq.${branchId},${DB_COLUMNS.EMPLOYEE_ID}.in.(${empIds.join(',')})`
@@ -558,7 +655,7 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewedBy: c[DB_COLUMNS.REVIEWED_BY] ?? undefined,
                 reviewedAt: c[DB_COLUMNS.REVIEWED_AT] ?? undefined,
             }));
-        },
+        }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 2 * 60 * 1000,
     });
@@ -567,22 +664,37 @@ export const useGlobalData = (auth: AuthState) => {
     const { data: branchVault = null } = useQuery<BranchVault | null>({
         queryKey: ['branchVault', auth.user?.branchId],
         queryFn: async (): Promise<BranchVault | null> => {
-            if (!supabase || !auth.user?.branchId) return null;
-            const { data, error } = await supabase
-                .from(DB_TABLES.BRANCH_VAULTS)
-                .select(COLS.branchVault)
-                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
-                .maybeSingle();
-            if (error) throw error;
-            if (!data) return null;
-            return {
-                branchId: data[DB_COLUMNS.BRANCH_ID],
-                target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
-                balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
-                initialBalance: Number(data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
-                lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
-                startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
-            };
+            const branchId = auth.user?.branchId;
+            if (!supabase || !branchId) return null;
+
+            if (!navigator.onLine) {
+                const cached = await getAll<BranchVault>(STORES.BRANCH_VAULTS);
+                return cached.find(v => v.branchId === branchId) ?? null;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from(DB_TABLES.BRANCH_VAULTS)
+                    .select(COLS.branchVault)
+                    .eq(DB_COLUMNS.BRANCH_ID, branchId)
+                    .maybeSingle();
+                if (error) throw error;
+                if (!data) return null;
+                const mapped: BranchVault = {
+                    branchId: data[DB_COLUMNS.BRANCH_ID],
+                    target: Number(data[DB_COLUMNS.VAULT_TARGET] ?? 0),
+                    balance: Number(data[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+                    initialBalance: Number(data[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
+                    lastDepositedDate: data[DB_COLUMNS.VAULT_LAST_DEPOSITED_DATE] ?? null,
+                    startDate: data[DB_COLUMNS.VAULT_START_DATE] ?? null,
+                };
+                // Write-through
+                putOne(STORES.BRANCH_VAULTS, mapped).catch(console.warn);
+                return mapped;
+            } catch (err) {
+                const cached = await getAll<BranchVault>(STORES.BRANCH_VAULTS);
+                return cached.find(v => v.branchId === branchId) ?? null;
+            }
         },
         enabled: !!supabase && !!auth.user && auth.user.role === UserRole.BRANCH_MANAGER,
         staleTime: 2 * 60 * 1000
@@ -590,8 +702,43 @@ export const useGlobalData = (auth: AuthState) => {
 
     const fetchSystemConfig = useCallback(async () => {
         if (!supabase) return;
-        const { data: configData } = await supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*');
+
+        // Offline: restore system config from IndexedDB cache
+        if (!navigator.onLine) {
+            const cachedRows = await getAll<{ key: string; value: string }>(STORES.SYSTEM_CONFIG);
+            if (cachedRows.length > 0) {
+                const find = (k: string) => cachedRows.find(c => c.key === k)?.value;
+                const nameVal = find('app_name');
+                const fontVal = find('font_family');
+                const paymongoEnabledVal = find('paymongo_enabled');
+                const latestVal = find('latest');
+                const displayChangesVal = find('display_changes');
+                const faceIdDisabledVal = find('face_id_disabled_branches');
+                const logoutRegistryVal = find('force_logout_registry');
+                const refreshTimeVal = find('auto_refresh_daily_audit');
+                const version = find('version');
+                setDisplayChanges(displayChangesVal === 'true');
+                try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+                if (nameVal) setDynamicAppName(nameVal);
+                if (version) setSystemVersion(version);
+                if (fontVal) setFontFamily(fontVal);
+                if (paymongoEnabledVal) setIsPaymongoEnabled(paymongoEnabledVal === 'true');
+                if (latestVal) setSystemLatest(latestVal !== 'false');
+                if (logoutRegistryVal) { try { setForceLogoutRegistry(JSON.parse(logoutRegistryVal)); } catch { setForceLogoutRegistry({}); } }
+                if (refreshTimeVal) setAutoRefreshTime(refreshTimeVal);
+            }
+            return;
+        }
+
+        // Fetch config rows and APK storage listing in parallel — they're independent
+        const [{ data: configData }, { data: apkFiles }] = await Promise.all([
+            supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*'),
+            supabase.storage.from('apk').list().catch(() => ({ data: null })),
+        ]);
         if (configData) {
+            // Write-through: persist config rows to IDB for offline use
+            putBatch(STORES.SYSTEM_CONFIG, configData.map((c: any) => ({ key: c[DB_COLUMNS.KEY], value: c.value }))).catch(console.warn);
+
             let logoVal = configData.find(c => c[DB_COLUMNS.KEY] === 'logo')?.value;
             const version = configData.find(c => c[DB_COLUMNS.KEY] === 'version')?.value;
             const nameVal = configData.find(c => c[DB_COLUMNS.KEY] === 'app_name')?.value;
@@ -603,37 +750,34 @@ export const useGlobalData = (auth: AuthState) => {
             const apkFilenameVal = configData.find(c => c[DB_COLUMNS.KEY] === 'apk_filename')?.value;
             const displayChangesVal = configData.find(c => c[DB_COLUMNS.KEY] === 'display_changes')?.value;
             setDisplayChanges(displayChangesVal === 'true');
-            if (nameVal) setDynamicAppName(nameVal);
+            const faceIdDisabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'face_id_disabled_branches')?.value;
+            try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+            if (nameVal) { setDynamicAppName(nameVal); localStorage.setItem('hilot_cached_app_name', nameVal); }
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
             if (paymongoEnabledVal) setIsPaymongoEnabled(paymongoEnabledVal === 'true');
             if (latestVal) setSystemLatest(latestVal !== 'false');
 
-            // Fetch APK URL
+            // Resolve APK URL using the already-fetched storage listing
             try {
-                const { data: files } = await supabase.storage.from('apk').list();
+                const files = apkFiles;
                 let targetFilename = null;
-
                 if (files && files.length > 0) {
-                    // Prioritize file with "Latest" in name
-                    const latestFile = files.find(f => f.name.includes('Latest'));
+                    const latestFile = files.find((f: any) => f.name.includes('Latest'));
                     if (latestFile) {
                         targetFilename = latestFile.name;
                     } else if (apkFilenameVal) {
-                        // Fallback to config value
                         targetFilename = apkFilenameVal;
                     } else {
-                        // Fallback to first file
                         targetFilename = files[0].name;
                     }
                 }
-
                 if (targetFilename) {
                     const { data } = supabase.storage.from('apk').getPublicUrl(targetFilename);
                     setApkUrl(data.publicUrl);
                 }
             } catch (err) {
-                console.error('Failed to fetch APK URL:', err);
+                console.error('Failed to resolve APK URL:', err);
             }
             if (logoutRegistryVal) {
                 try { setForceLogoutRegistry(JSON.parse(logoutRegistryVal)); } catch { setForceLogoutRegistry({}); }
@@ -721,8 +865,10 @@ export const useGlobalData = (auth: AuthState) => {
                 }
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: DB_TABLES.REQUESTS }, () => refreshDatabase('requests'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEE_COMPLAINTS }, () => refreshDatabase('employeeComplaints'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.VAULT_TRANSACTIONS }, () => refreshDatabase('vaultTransactions'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DB_TABLES.BRANCH_VAULTS }, () => refreshDatabase('branchVault'))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DB_TABLES.AUDIT_LOGS }, () => refreshDatabase('auditLogs'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SYSTEM_CONFIG }, () => fetchSystemConfig())
             .subscribe((status) => {
@@ -735,7 +881,9 @@ export const useGlobalData = (auth: AuthState) => {
         };
     }, [refreshDatabase, fetchSystemConfig, queryClient]);
 
-    const loading = branchesLoading || employeesLoading;
+    // Only block the splash on branches — Login only needs branches to render.
+    // Employees load in the background; the dashboard handles its own loading state.
+    const loading = branchesLoading;
     const error = branchesError || employeesError || transactionsError || expensesError || salesReportsError || auditLogsError || attendanceError || requestsError;
 
     // Sentinel removed — employee time-out is manual only via STAFF tab
@@ -745,11 +893,16 @@ export const useGlobalData = (auth: AuthState) => {
         }
     }, [loading, branchesLoading, employeesLoading, transactionsLoading, expensesLoading, salesReportsLoading, auditLogsLoading, attendanceLoading]);
 
+    const branchesWithFaceId = useMemo(() =>
+        branches.map(b => ({ ...b, faceIdEnabled: !faceIdDisabledBranches.includes(b.id) })),
+        [branches, faceIdDisabledBranches]
+    );
+
     return {
-        branches, transactions, expenses, attendance, employees,
+        branches: branchesWithFaceId, fetchSystemConfig, transactions, expenses, attendance, employees,
         salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,
-        pendingSyncCount, forceLogoutRegistry, displayChanges, refreshDatabase
+        pendingSyncCount, forceLogoutRegistry, refreshDatabase
     };
 };

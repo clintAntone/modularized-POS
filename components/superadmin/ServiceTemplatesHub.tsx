@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
-import { Search, Plus, X, Edit2, Trash2, BookOpen, LayoutGrid, List } from 'lucide-react';
+import { Search, Plus, X, Edit2, Trash2, BookOpen, LayoutGrid, List, GitBranch, Check, Zap, Download, ChevronDown } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const CATALOG_PALETTES = [
   { dot: 'bg-emerald-500', light: 'bg-emerald-50', icon: 'text-emerald-600', tag: 'bg-emerald-100 text-emerald-700' },
@@ -67,31 +71,85 @@ const BLANK: Omit<ServiceTemplate, 'id'> = {
 };
 
 export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branches, isReadOnly = false, onRefresh }) => {
+  const queryClient = useQueryClient();
   const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
   const [branchServices, setBranchServices] = useState<BranchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [filterCatalog, setFilterCatalog] = useState('ALL');
   const [viewMode, setViewMode] = useState<'services' | 'branches'>('services');
   const [editingTemplate, setEditingTemplate] = useState<ServiceTemplate | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [managingTemplate, setManagingTemplate] = useState<ServiceTemplate | null>(null);
+  // Draft state for the per-service branch assignment modal
+  const [draftBranchIds, setDraftBranchIds] = useState<string[]>([]);
+  const [isAssignSaving, setIsAssignSaving] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [branchSearch, setBranchSearch] = useState('');
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<ServiceTemplate | null>(null);
   const [saveConfirm, setSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Bulk assign: assign all services in a catalog group to selected branches
+  const [bulkAssign, setBulkAssign] = useState<{ catalogName: string; templateIds: string[] } | null>(null);
+  const [bulkSelectedBranches, setBulkSelectedBranches] = useState<string[]>([]);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'assign' | 'unassign'>('assign');
+  const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
+  // Import Services state
+  const [importTo, setImportTo] = useState<string | null>(null);
+  const [importSelected, setImportSelected] = useState<string[]>([]);
+  const [importPrices, setImportPrices] = useState<Record<string, string>>({});
+  const [importStep, setImportStep] = useState<1 | 2>(1);
+  const [isImportSaving, setIsImportSaving] = useState(false);
+  // PRIO catalogs — stored in system_config under key 'prio_service_catalogs'
+  const [prioCatalogs, setPrioCatalogs] = useState<string[]>([]);
+  // Per-catalog overflow menu
+  const [openCatalogMenu, setOpenCatalogMenu] = useState<string | null>(null);
+  const catalogMenuRef = useRef<HTMLDivElement | null>(null);
+  // New catalog creation
+  const [showNewCatalogModal, setShowNewCatalogModal] = useState(false);
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [localCatalogNames, setLocalCatalogNames] = useState<string[]>([]); // empty catalogs (not yet in DB)
+  // Branch-centric assign: pick services for a branch
+  const [branchManage, setBranchManage] = useState<Branch | null>(null);
+  // Long-press to delete
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+  const [longPressingId, setLongPressingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
-    const [{ data: tData }, { data: bsData }] = await Promise.all([
+    const [{ data: tData }, { data: bsData }, { data: cfgData }] = await Promise.all([
       supabase.from(DB_TABLES.SERVICE_TEMPLATES).select('*').order('catalog_name').order('name'),
       supabase.from(DB_TABLES.BRANCH_SERVICES).select('*'),
+      supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq('key', 'prio_service_catalogs').maybeSingle(),
     ]);
     setTemplates(tData || []);
     setBranchServices(bsData || []);
+    try { setPrioCatalogs(cfgData?.value ? JSON.parse(cfgData.value) : []); } catch { setPrioCatalogs([]); }
     setIsLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handler = (e: MouseEvent) => { if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [exportOpen]);
+  useEffect(() => {
+    if (!openCatalogMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (catalogMenuRef.current && !catalogMenuRef.current.contains(e.target as Node)) {
+        setOpenCatalogMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openCatalogMenu]);
 
   const catalogGroups = useMemo(() => {
     const groups: Record<string, ServiceTemplate[]> = {};
@@ -103,21 +161,32 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     return groups;
   }, [templates]);
 
-  const catalogNames = useMemo(() => ['ALL', ...Object.keys(catalogGroups)], [catalogGroups]);
+  const catalogNames = useMemo(() => {
+    const fromTemplates = Object.keys(catalogGroups);
+    const extras = localCatalogNames.filter(n => !fromTemplates.includes(n));
+    return ['ALL', ...fromTemplates, ...extras];
+  }, [catalogGroups, localCatalogNames]);
 
   const filteredGroups = useMemo(() => {
     const result: Record<string, ServiceTemplate[]> = {};
+    // Real groups from templates
     (Object.entries(catalogGroups) as [string, ServiceTemplate[]][]).forEach(([group, items]) => {
       if (filterCatalog !== 'ALL' && filterCatalog !== group) return;
       const filtered = items.filter(t =>
-        !search ||
-        t.name.includes(search) ||
-        t.default_price.toString().includes(search)
+        !debouncedSearch ||
+        t.name.includes(debouncedSearch) ||
+        t.default_price.toString().includes(debouncedSearch)
       );
       if (filtered.length > 0) result[group] = filtered;
     });
+    // Empty local catalogs (no services yet)
+    localCatalogNames
+      .filter(n => !catalogGroups[n])
+      .forEach(n => {
+        if (filterCatalog === 'ALL' || filterCatalog === n) result[n] = [];
+      });
     return result;
-  }, [catalogGroups, filterCatalog, search]);
+  }, [catalogGroups, localCatalogNames, filterCatalog, debouncedSearch]);
 
   const branchCount = (templateId: string) =>
     branchServices.filter(bs => bs.template_id === templateId).length;
@@ -141,6 +210,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       playSound('success');
       setEditingTemplate(null);
       await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
       onRefresh?.();
     } catch (err) {
       console.error(err);
@@ -158,6 +228,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       playSound('success');
       setDeleteConfirm(null);
       await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
       onRefresh?.();
     } catch (err) {
       console.error(err);
@@ -174,6 +245,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       await supabase.from(DB_TABLES.BRANCH_SERVICES).insert({ branch_id: branchId, template_id: templateId, price: null });
     }
     await load();
+    queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
   };
 
   const handleUpdatePrice = async (branchId: string, templateId: string, raw: string) => {
@@ -186,124 +258,315 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     ));
   };
 
+  const togglePrioCatalog = async (catalogName: string) => {
+    const next = prioCatalogs.includes(catalogName)
+      ? prioCatalogs.filter(n => n !== catalogName)
+      : [...prioCatalogs, catalogName];
+    setPrioCatalogs(next);
+    await supabase.from(DB_TABLES.SYSTEM_CONFIG).upsert(
+      { key: 'prio_service_catalogs', value: JSON.stringify(next) },
+      { onConflict: 'key' }
+    );
+    // Bust all branch service template caches so POS picks up the PRIO change immediately
+    queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
+    playSound('click');
+  };
+
+  // Bulk-assign all templates in a catalog group to the selected branches
+  const handleBulkAssign = async () => {
+    if (!bulkAssign || bulkSelectedBranches.length === 0) return;
+    setIsBulkSaving(true);
+    try {
+      if (bulkMode === 'assign') {
+        // Always additive — PRIO only affects POS display filtering, not assignment storage
+        const rows: { branch_id: string; template_id: string; price: number | null }[] = [];
+        for (const branchId of bulkSelectedBranches) {
+          for (const templateId of bulkAssign.templateIds) {
+            rows.push({ branch_id: branchId, template_id: templateId, price: null });
+          }
+        }
+        if (rows.length > 0) {
+          await supabase.from(DB_TABLES.BRANCH_SERVICES)
+            .upsert(rows, { onConflict: 'branch_id,template_id', ignoreDuplicates: true });
+        }
+      } else if (bulkMode === 'unassign') {
+        for (const branchId of bulkSelectedBranches) {
+          await supabase.from(DB_TABLES.BRANCH_SERVICES)
+            .delete()
+            .eq('branch_id', branchId)
+            .in('template_id', bulkAssign.templateIds);
+        }
+      }
+      playSound('success');
+      const msg = bulkMode === 'assign'
+        ? `Assigned ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} to ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+        : `Removed ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} from ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`;
+      setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign');
+      setBulkSuccessMsg(msg);
+      setTimeout(() => setBulkSuccessMsg(null), 4000);
+      await load();
+      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importTo || importSelected.length === 0) return;
+    setIsImportSaving(true);
+    try {
+      const toInsert = importSelected.map(tid => {
+        const tmpl = templates.find(t => t.id === tid)!;
+        const priceStr = importPrices[tid];
+        const price = priceStr !== undefined && priceStr !== '' ? parseFloat(priceStr) : tmpl.default_price;
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          name: tmpl.name,
+          catalog_name: importTo,
+          default_price: price,
+          duration: tmpl.duration,
+          primary_role: tmpl.primary_role,
+          secondary_role: tmpl.secondary_role,
+          commission_type: tmpl.commission_type,
+          commission_value: tmpl.commission_value,
+          is_dual_provider: tmpl.is_dual_provider,
+          secondary_commission_type: tmpl.secondary_commission_type,
+          secondary_commission_value: tmpl.secondary_commission_value,
+          can_be_loyalty: tmpl.can_be_loyalty,
+        };
+      });
+      const { error } = await supabase.from(DB_TABLES.SERVICE_TEMPLATES).insert(toInsert);
+      if (error) throw error;
+      playSound('success');
+      // Catalog now has real services — remove from local-only list
+      setLocalCatalogNames(prev => prev.filter(n => n !== importTo));
+      setFilterCatalog(importTo); // navigate to the newly populated catalog
+      setImportTo(null);
+      setImportSelected([]);
+      setImportPrices({});
+      setImportStep(1);
+      await load();
+    } catch (err) {
+      console.error(err);
+      playSound('warning');
+    } finally {
+      setIsImportSaving(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+
+      {/* ── Bulk assign success toast ── */}
+      {bulkSuccessMsg && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 bg-slate-900 text-white text-xs font-semibold rounded-2xl shadow-xl flex items-center gap-2.5 animate-in slide-in-from-bottom-4 duration-300 whitespace-nowrap">
+          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          {bulkSuccessMsg}
+        </div>
+      )}
 
       {/* ── Header ── */}
-      <div className="bg-slate-900 rounded-[24px] p-5 sm:p-6 text-white">
-        <div className="flex items-center justify-between gap-3 mb-5">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-lg shrink-0">🗂️</div>
-            <div className="min-w-0">
-              <h3 className="text-[13px] font-black uppercase tracking-tighter leading-none text-white truncate">Service Templates</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">Normalized Service Registry</p>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-4 md:p-6 space-y-6 no-print">
+        {/* Title row */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center shadow-inner shrink-0">
+              <LayoutGrid className="w-5 h-5" strokeWidth={2} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">Service Templates</h3>
+              <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                {templates.length} services · {branchServices.length} assignments
+                {totalOverrides > 0 && <span className="text-amber-500"> · {totalOverrides} price overrides</span>}
+              </p>
             </div>
           </div>
           {!isReadOnly && (
             <button
-              onClick={() => { setEditingTemplate({ id: '', ...BLANK }); setIsNew(true); playSound('click'); }}
-              className="h-9 w-9 sm:w-auto sm:px-4 bg-white text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-100 transition-all active:scale-95 shrink-0"
+              onClick={() => { setNewCatalogName(''); setShowNewCatalogModal(true); playSound('click'); }}
+              className="h-10 sm:h-11 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600 px-4 sm:px-6 flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0"
             >
-              <Plus className="w-3.5 h-3.5 shrink-0" strokeWidth={3} />
-              <span className="hidden sm:inline">New Service</span>
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              <span className="hidden sm:inline font-black text-xs uppercase tracking-widest">New Catalog</span>
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          {[
-            { label: 'Templates', value: templates.length },
-            { label: 'Assignments', value: branchServices.length },
-            { label: 'Price Overrides', value: totalOverrides },
-          ].map(kpi => (
-            <div key={kpi.label} className="bg-white/5 rounded-2xl p-3 text-center">
-              <p className="text-lg font-black tabular-nums text-white leading-none">{kpi.value}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{kpi.label}</p>
+        {/* Search + view toggle row */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="relative flex-1 group">
+            <div className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500 group-focus-within:text-emerald-500 transition-colors pointer-events-none">
+              <Search className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
             </div>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          {/* Row 1: search (full width on mobile) + catalog pills (beside on desktop) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value.toUpperCase())}
-                placeholder="SEARCH SERVICES..."
-                className="w-full pl-9 pr-4 py-2.5 bg-white/10 border border-white/10 rounded-xl text-[11px] font-black text-white placeholder:text-slate-500 outline-none focus:border-white/30 transition-all uppercase tracking-wider"
-              />
-            </div>
-            <div className="flex bg-white/10 rounded-2xl p-1 gap-0.5 overflow-x-auto no-scrollbar shrink-0">
-              {catalogNames.map(c => (
-                <button key={c} onClick={() => setFilterCatalog(c)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all shrink-0 ${
-                    filterCatalog === c ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
-                  }`}>
-                  {c === 'ALL' ? 'All' : c}
-                </button>
-              ))}
-            </div>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value.toUpperCase())}
+              placeholder="SEARCH SERVICES..."
+              className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3.5 md:py-4 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-600 rounded-2xl text-xs md:text-sm font-medium uppercase tracking-wide focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-8 focus:ring-emerald-500/5 transition-all outline-none shadow-inner placeholder:text-slate-300"
+            />
           </div>
-          {/* Row 2: view mode toggle */}
-          <div className="flex bg-white/10 rounded-2xl p-1 gap-0.5 self-start w-fit">
+          <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-0.5 gap-0.5 shrink-0">
             <button onClick={() => setViewMode('services')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === 'services' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+                viewMode === 'services' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}>
               <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.5} />
-              Catalogs
+              <span className="hidden sm:inline">Catalogs</span>
             </button>
             <button onClick={() => setViewMode('branches')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === 'branches' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+                viewMode === 'branches' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}>
               <List className="w-3.5 h-3.5" strokeWidth={2.5} />
-              By Branch
+              <span className="hidden sm:inline">By Branch</span>
             </button>
           </div>
         </div>
+
+        {/* Catalog filter pills */}
+        {viewMode === 'services' && (
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {catalogNames.map(c => (
+              <button key={c} onClick={() => setFilterCatalog(c)}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  filterCatalog === c
+                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}>
+                {c === 'ALL' ? 'All' : c}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* ── Export row ── */}
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <div ref={exportRef} className="relative">
+            <div className="flex items-stretch h-8 rounded-xl overflow-hidden">
+              <button
+                onClick={() => { setExportOpen(o => !o); playSound('click'); }}
+                className="flex items-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide transition-colors"
+              >
+                <Download className="w-3 h-3" strokeWidth={2.5} />
+                <span>Export</span>
+              </button>
+              <button
+                onClick={() => { setExportOpen(o => !o); playSound('click'); }}
+                className="flex items-center px-2 bg-emerald-700 hover:bg-emerald-800 text-white transition-colors border-l border-emerald-500"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${exportOpen ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+              </button>
+            </div>
+            {exportOpen && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden min-w-[140px] animate-in fade-in zoom-in-95 duration-150">
+                {[
+                  { label: 'Excel / CSV', icon: '📊', action: () => {
+                    const rows = [
+                      ['Name', 'Catalog', 'Price', 'Duration (min)', 'Primary Role', 'Secondary Role', 'Commission Type', 'Commission Value', 'Dual Provider', 'Sec. Commission Type', 'Sec. Commission Value', 'Loyalty'],
+                      ...templates.map(t => [t.name, t.catalog_name ?? '', t.default_price, t.duration, t.primary_role, t.secondary_role ?? '', t.commission_type, t.commission_value, t.is_dual_provider ? 'Yes' : 'No', t.secondary_commission_type ?? '', t.secondary_commission_value ?? '', t.can_be_loyalty ? 'Yes' : 'No']),
+                    ];
+                    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `services_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+                    URL.revokeObjectURL(url);
+                  }},
+                  { label: 'PDF', icon: '📄', action: () => {
+                    const doc = new jsPDF({ orientation: 'landscape' });
+                    doc.setFontSize(14); doc.text('Service Templates', 14, 15);
+                    doc.setFontSize(9); doc.text(`Exported ${new Date().toLocaleDateString()}`, 14, 21);
+                    autoTable(doc, {
+                      startY: 26,
+                      head: [['Name', 'Catalog', 'Price', 'Duration', 'Primary Role', 'Commission', 'Dual', 'Loyalty']],
+                      body: templates.map(t => [t.name, t.catalog_name ?? '—', `₱${t.default_price}`, `${t.duration}m`, t.primary_role, `${t.commission_type} ${t.commission_value}`, t.is_dual_provider ? 'Yes' : 'No', t.can_be_loyalty ? 'Yes' : 'No']),
+                      styles: { fontSize: 8 }, headStyles: { fillColor: [15, 118, 110] },
+                    });
+                    doc.save(`services_${new Date().toISOString().slice(0, 10)}.pdf`);
+                  }},
+                ].map(opt => (
+                  <button key={opt.label} onClick={() => { opt.action(); setExportOpen(false); playSound('click'); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 uppercase tracking-wide hover:bg-slate-50 transition-colors text-left">
+                    <span>{opt.icon}</span><span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Branches view ── */}
       {viewMode === 'branches' && (
         <div className="space-y-3">
           {branches.filter(branch =>
-            !search || branch.name.toUpperCase().includes(search)
+            !debouncedSearch || branch.name.toUpperCase().includes(debouncedSearch)
           ).map(branch => {
-            const assignedTemplates = templates.filter(t =>
+            const totalAssigned = templates.filter(t =>
               branchServices.some(bs => bs.template_id === t.id && bs.branch_id === branch.id)
-            ).filter(t =>
-              filterCatalog === 'ALL' || t.catalog_name === filterCatalog
-            );
+            ).length;
             return (
-              <div key={branch.id} className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-tight text-slate-900">{branch.name}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{assignedTemplates.length} service{assignedTemplates.length !== 1 ? 's' : ''} assigned</p>
+              <div key={branch.id} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                {/* Branch header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                      <span className="text-xs font-black text-slate-600">{branch.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-tight text-slate-900 leading-none">{branch.name}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">{totalAssigned} of {templates.length} services assigned</p>
+                    </div>
                   </div>
-                  <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">🏢</div>
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => { setBranchManage(branch); playSound('click'); }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all active:scale-95"
+                    >
+                      <GitBranch className="w-3 h-3" />
+                      Manage
+                    </button>
+                  )}
                 </div>
-                {assignedTemplates.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {assignedTemplates.map(t => {
-                      const palette = getCatalogPalette(t.catalog_name);
-                      const bs = branchServices.find(b => b.branch_id === branch.id && b.template_id === t.id);
-                      const price = bs?.price != null ? bs.price : t.default_price;
+                {/* Catalog groups for this branch */}
+                <div className="divide-y divide-slate-50">
+                  {(Object.entries(catalogGroups) as [string, ServiceTemplate[]][])
+                    .filter(([, items]) => filterCatalog === 'ALL' || filterCatalog === items[0]?.catalog_name)
+                    .map(([group, items]) => {
+                      const assignedInGroup = items.filter(t =>
+                        branchServices.some(bs => bs.template_id === t.id && bs.branch_id === branch.id)
+                      );
+                      const allAssigned = assignedInGroup.length === items.length;
+                      const partiallyAssigned = assignedInGroup.length > 0 && !allAssigned;
+                      const palette = getCatalogPalette(group);
                       return (
-                        <div key={t.id} className={`flex items-center gap-1.5 ${palette.light} ${palette.icon} px-2.5 py-1.5 rounded-xl border border-white/50`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${palette.dot} shrink-0`} />
-                          <span className="text-[10px] font-black uppercase tracking-tight">{t.name}</span>
-                          <span className="text-[9px] font-bold opacity-70">₱{price.toLocaleString()}</span>
+                        <div key={group} className="flex items-center gap-4 px-5 py-3">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${allAssigned ? palette.dot : partiallyAssigned ? 'bg-amber-400' : 'bg-slate-200'}`} />
+                          <p className="flex-1 text-xs font-black uppercase tracking-tight text-slate-700">{group}</p>
+                          <span className={`text-xs font-bold ${allAssigned ? 'text-emerald-600' : partiallyAssigned ? 'text-amber-500' : 'text-slate-300'} uppercase tracking-widest`}>
+                            {assignedInGroup.length}/{items.length}
+                          </span>
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => {
+                                setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
+                                setBulkSelectedBranches([branch.id]);
+                                setBulkMode('assign');
+                                playSound('click');
+                              }}
+                              className="text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-emerald-600 transition-colors"
+                            >
+                              {allAssigned ? 'All assigned' : 'Assign all →'}
+                            </button>
+                          )}
                         </div>
                       );
                     })}
-                  </div>
-                ) : (
-                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">No services match current filters</p>
-                )}
+                </div>
               </div>
             );
           })}
@@ -317,111 +580,193 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
         </div>
       ) : viewMode === 'services' && Object.keys(filteredGroups).length === 0 ? (
         <div className="text-center py-16 text-slate-400">
-          <p className="text-[11px] font-bold uppercase tracking-widest">No services found</p>
+          <p className="text-xs font-medium uppercase tracking-wide">No services found</p>
         </div>
       ) : viewMode === 'services' ? (
         (Object.entries(filteredGroups) as [string, ServiceTemplate[]][]).map(([group, items]) => (
           <div key={group} className="space-y-3">
             {/* Group header */}
-            <div className="flex items-center gap-3 px-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{group}</p>
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">{items.length} service{items.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center gap-2 px-1">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400 whitespace-nowrap shrink-0">{group}</p>
+              {prioCatalogs.includes(group) && (
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 text-xs font-semibold uppercase tracking-wide shrink-0">PRIO</span>
+              )}
+              <div className="flex-1 h-px bg-slate-200 min-w-0" />
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest whitespace-nowrap shrink-0">{items.length} service{items.length !== 1 ? 's' : ''}</span>
+              {!isReadOnly && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* ⋯ overflow menu */}
+                  <div className="relative" ref={openCatalogMenu === group ? catalogMenuRef : null}>
+                    <button
+                      onClick={() => { setOpenCatalogMenu(openCatalogMenu === group ? null : group); playSound('click'); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm font-bold"
+                    >
+                      ···
+                    </button>
+                    {openCatalogMenu === group && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] z-50 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setEditingTemplate({ id: '', ...BLANK, catalog_name: group });
+                            setIsNew(true);
+                            setOpenCatalogMenu(null);
+                            playSound('click');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Plus className="w-3 h-3 text-slate-400" strokeWidth={3} />
+                          Add Service
+                        </button>
+                        <button
+                          onClick={() => {
+                            setImportTo(group);
+                            setImportSelected([]);
+                            setImportPrices({});
+                            setImportStep(1);
+                            setOpenCatalogMenu(null);
+                            playSound('click');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <BookOpen className="w-3 h-3 text-slate-400" />
+                          Import Services
+                        </button>
+                        <div className="my-1 border-t border-slate-100" />
+                        <button
+                          onClick={() => { togglePrioCatalog(group); setOpenCatalogMenu(null); }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-xs font-bold transition-colors ${prioCatalogs.includes(group) ? 'text-amber-600 hover:bg-amber-50' : 'text-slate-700 hover:bg-slate-50'}`}
+                        >
+                          <span className="text-xs">★</span>
+                          {prioCatalogs.includes(group) ? 'Remove PRIO' : 'Mark as PRIO'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Assign — primary action stays visible */}
+                  {items.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
+                        setBulkSelectedBranches([]);
+                        setBulkMode('assign');
+                        playSound('click');
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all active:scale-95"
+                    >
+                      <Zap className="w-2.5 h-2.5 shrink-0" />
+                      <span className="hidden sm:inline">Assign</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            {/* Cards grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
-              {items.map(t => {
-                const tComm = t.is_dual_provider
-                  ? (t.primary_role === 'THERAPIST' ? t.commission_value : (t.secondary_commission_value ?? 0))
-                  : (t.primary_role === 'THERAPIST' ? t.commission_value : null);
-                const bComm = t.is_dual_provider
-                  ? (t.primary_role === 'BONESETTER' ? t.commission_value : (t.secondary_commission_value ?? 0))
-                  : (t.primary_role === 'BONESETTER' ? t.commission_value : null);
+            {/* Empty catalog placeholder */}
+            {items.length === 0 && (
+              <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+                <BookOpen className="w-7 h-7 text-slate-200" />
+                <div>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Empty Catalog</p>
+                  <p className="text-xs text-slate-300 mt-1">Use <span className="font-bold text-indigo-400">Import</span> to pull services from other catalogs, or <span className="font-bold text-slate-500">Add</span> to create a new service.</p>
+                </div>
+              </div>
+            )}
+            {/* Service rows */}
+            {items.length > 0 && (
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+              {items.map((t, idx) => {
                 const bc = branchCount(t.id);
                 const oc = overrideCount(t.id);
                 const palette = getCatalogPalette(t.catalog_name);
                 const assignedBranches = branches.filter(b =>
                   branchServices.some(bs => bs.template_id === t.id && bs.branch_id === b.id)
                 );
-                const typeLabel = t.can_be_loyalty ? 'Loyalty' : t.is_dual_provider ? 'Dual Provider' : 'Standard';
-                const typeDot = t.can_be_loyalty ? 'bg-emerald-500' : t.is_dual_provider ? 'bg-violet-500' : 'bg-slate-400';
-                const typeText = t.can_be_loyalty ? 'text-emerald-600' : t.is_dual_provider ? 'text-violet-600' : 'text-slate-400';
+                const isLongPressing = longPressingId === t.id;
                 return (
-                  <div key={t.id} className="bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-200 transition-all overflow-hidden flex flex-col">
-                    {/* Colored accent bar */}
-                    <div className={`h-1 ${palette.dot}`} />
-
-                    <div className="p-4 flex flex-col flex-1 gap-3">
-                      {/* Icon + actions */}
-                      <div className="flex justify-between items-start">
-                        <div className={`w-9 h-9 ${palette.light} ${palette.icon} rounded-xl flex items-center justify-center shrink-0`}>
-                          <BookOpen className="w-4 h-4" />
-                        </div>
-                        {!isReadOnly && (
-                          <div className="flex gap-1.5">
-                            <button onClick={() => { setEditingTemplate(t); setIsNew(false); playSound('click'); }} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-100 shadow-sm">
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => { setDeleteConfirm(t); playSound('warning'); }} className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-100 shadow-sm">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Name + price */}
-                      <div>
-                        <h4 className="font-black text-slate-900 text-[13px] uppercase tracking-tight leading-tight">{t.name}</h4>
-                        <p className={`text-[15px] font-black mt-0.5 ${palette.icon}`}>₱{t.default_price.toLocaleString()}</p>
-                      </div>
-
-                      {/* Details */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Duration</span>
-                          <span className="text-[12px] font-bold text-slate-700">{t.duration} min</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Therapist Commission</span>
-                          <span className="text-[12px] font-bold text-slate-700">{tComm !== null ? `₱${tComm}` : '₱0'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bonesetter Commission</span>
-                          <span className="text-[12px] font-bold text-slate-700">{bComm !== null ? `₱${bComm}` : '₱0'}</span>
-                        </div>
-                      </div>
-
-                      {/* Branch chips + footer */}
-                      <div className="mt-auto pt-3 border-t border-slate-50 space-y-2">
-                        {assignedBranches.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {assignedBranches.slice(0, 3).map(b => (
-                              <span key={b.id} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[8px] font-black uppercase tracking-widest truncate max-w-[90px]">{b.name}</span>
-                            ))}
-                            {assignedBranches.length > 3 && (
-                              <button onClick={() => { setManagingTemplate(t); playSound('click'); }} className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors">
-                                +{assignedBranches.length - 3}
-                              </button>
-                            )}
-                          </div>
+                  <div
+                    key={t.id}
+                    className={`px-4 py-3 transition-colors select-none ${idx > 0 ? 'border-t border-slate-50' : ''} ${isLongPressing ? 'bg-rose-50' : 'hover:bg-slate-50/50'} ${!isReadOnly ? 'cursor-pointer active:bg-slate-100' : ''}`}
+                    onClick={() => {
+                      if (longPressTriggered.current) { longPressTriggered.current = false; return; }
+                      if (isReadOnly) return;
+                      setEditingTemplate(t); setIsNew(false); playSound('click');
+                    }}
+                    onMouseDown={() => {
+                      if (isReadOnly) return;
+                      longPressTriggered.current = false;
+                      setLongPressingId(t.id);
+                      longPressTimer.current = setTimeout(() => {
+                        longPressTriggered.current = true;
+                        setLongPressingId(null);
+                        setDeleteConfirm(t);
+                        playSound('warning');
+                      }, 700);
+                    }}
+                    onMouseUp={() => { clearTimeout(longPressTimer.current!); setLongPressingId(null); }}
+                    onMouseLeave={() => { clearTimeout(longPressTimer.current!); setLongPressingId(null); }}
+                    onTouchStart={() => {
+                      if (isReadOnly) return;
+                      longPressTriggered.current = false;
+                      setLongPressingId(t.id);
+                      longPressTimer.current = setTimeout(() => {
+                        longPressTriggered.current = true;
+                        setLongPressingId(null);
+                        setDeleteConfirm(t);
+                        playSound('warning');
+                      }, 700);
+                    }}
+                    onTouchEnd={() => { clearTimeout(longPressTimer.current!); setLongPressingId(null); }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Long-press progress indicator / color dot */}
+                      <div className="relative shrink-0 w-4 h-4 flex items-center justify-center">
+                        {isLongPressing ? (
+                          <svg className="w-4 h-4 -rotate-90" viewBox="0 0 16 16">
+                            <circle cx="8" cy="8" r="6" fill="none" stroke="#fca5a5" strokeWidth="2" />
+                            <circle cx="8" cy="8" r="6" fill="none" stroke="#ef4444" strokeWidth="2"
+                              strokeDasharray="37.7" strokeDashoffset="37.7"
+                              style={{ animation: 'dash 0.7s linear forwards' }}
+                            />
+                          </svg>
                         ) : (
-                          <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">No branches assigned</span>
+                          <div className={`w-2 h-2 rounded-full ${palette.dot}`} />
                         )}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${typeDot}`} />
-                            <span className={`text-[9px] font-bold uppercase tracking-tight ${typeText}`}>{typeLabel}</span>
-                          </div>
-                          <button onClick={() => { setManagingTemplate(t); playSound('click'); }} className="text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">
-                            {bc} branches{oc > 0 ? ` · ${oc} custom` : ''}
-                          </button>
-                        </div>
                       </div>
+
+                      {/* Name + meta stacked */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-black uppercase tracking-tight truncate leading-none transition-colors ${isLongPressing ? 'text-rose-600' : 'text-slate-900'}`} title={t.name}>
+                          {t.name}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1 leading-none">
+                          {t.duration} min · <span className={`font-bold ${palette.icon}`}>₱{t.default_price.toLocaleString()}</span>
+                        </p>
+                        {isLongPressing && (
+                          <p className="text-xs font-black text-rose-400 uppercase tracking-widest mt-1 animate-pulse">Hold to delete…</p>
+                        )}
+                      </div>
+
+                      {/* Assign button */}
+                      {!isReadOnly && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setManagingTemplate(t); setDraftBranchIds(assignedBranches.map(b => b.id)); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
+                          onMouseDown={e => e.stopPropagation()}
+                          onTouchStart={e => e.stopPropagation()}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all shrink-0 ${
+                            bc === 0
+                              ? 'bg-rose-50 text-rose-400 hover:bg-rose-100'
+                              : 'bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'
+                          }`}
+                        >
+                          <GitBranch className="w-3.5 h-3.5" />
+                          <span className="text-xs font-black tabular-nums">{bc}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
+            )}
           </div>
         ))
       ) : null}
@@ -429,36 +774,36 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Create / Edit Modal ── */}
       {editingTemplate && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-[13px] font-black text-white uppercase tracking-tight">{isNew ? 'New Service' : 'Edit Service'}</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Template Definition</p>
+                <h3 className="text-sm font-bold text-slate-900">{isNew ? 'New Service' : 'Edit Service'}</h3>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Template Definition</p>
               </div>
-              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Name</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Name</label>
                 <input
                   value={editingTemplate.name}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, name: e.target.value.toUpperCase() }))}
                   maxLength={80}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
                   placeholder="SERVICE NAME"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Catalog Group</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Catalog Group</label>
                 <input
                   value={editingTemplate.catalog_name || ''}
                   onChange={e => setEditingTemplate(t => t && ({ ...t, catalog_name: e.target.value.toUpperCase() }))}
                   list="catalog-suggestions"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase"
                   placeholder="E.G. HILOT SERVICES"
                 />
                 <datalist id="catalog-suggestions">
@@ -475,7 +820,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       {suggestions.map(s => (
                         <button key={s} type="button"
                           onClick={() => setEditingTemplate(t => t && ({ ...t, catalog_name: s }))}
-                          className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all">
+                          className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold uppercase tracking-wide hover:bg-emerald-100 transition-all">
                           {s}
                         </button>
                       ))}
@@ -486,30 +831,30 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Default Price (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Default Price (₱)</label>
                   <input type="number" min="0"
                     value={editingTemplate.default_price}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, default_price: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration (min)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Duration (min)</label>
                   <input type="number" min="0"
                     value={editingTemplate.duration}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, duration: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Primary Role</label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Primary Role</label>
                 <div className="grid grid-cols-2 gap-2">
                   {['THERAPIST', 'BONESETTER'].map(role => (
                     <button key={role}
                       onClick={() => setEditingTemplate(t => t && ({ ...t, primary_role: role }))}
-                      className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                      className={`py-3 rounded-xl text-xs font-semibold uppercase tracking-wide border transition-all ${
                         editingTemplate.primary_role === role
                           ? 'bg-slate-900 text-white border-slate-900'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
@@ -522,8 +867,8 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-[11px] font-bold text-slate-700">Dual Provider</p>
-                  <p className="text-[9px] text-slate-400">Requires both therapist &amp; bonesetter</p>
+                  <p className="text-xs font-bold text-slate-700">Dual Provider</p>
+                  <p className="text-xs text-slate-400">Requires both therapist &amp; bonesetter</p>
                 </div>
                 <button
                   onClick={() => setEditingTemplate(t => t && ({
@@ -541,20 +886,20 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Commission (₱)</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Commission (₱)</label>
                   <input type="number" min="0"
                     value={editingTemplate.commission_value}
                     onChange={e => setEditingTemplate(t => t && ({ ...t, commission_value: Number(e.target.value) }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                   />
                 </div>
                 {editingTemplate.is_dual_provider && (
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">2nd Commission (₱)</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">2nd Commission (₱)</label>
                     <input type="number" min="0"
                       value={editingTemplate.secondary_commission_value ?? 0}
                       onChange={e => setEditingTemplate(t => t && ({ ...t, secondary_commission_value: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all tabular-nums"
                     />
                   </div>
                 )}
@@ -562,8 +907,8 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
               <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-[11px] font-bold text-slate-700">Loyalty Eligible</p>
-                  <p className="text-[9px] text-slate-400">Can be redeemed as a loyalty reward</p>
+                  <p className="text-xs font-bold text-slate-700">Loyalty Eligible</p>
+                  <p className="text-xs text-slate-400">Can be redeemed as a loyalty reward</p>
                 </div>
                 <button
                   onClick={() => setEditingTemplate(t => t && ({ ...t, can_be_loyalty: !t.can_be_loyalty }))}
@@ -578,16 +923,16 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             <div className="px-6 py-4 border-t border-slate-100 shrink-0">
               {saveConfirm ? (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">
+                  <p className="text-xs font-bold text-slate-500 text-center uppercase tracking-widest">
                     {isNew ? 'Create this service template?' : 'Save changes to this service?'}
                   </p>
                   <div className="flex gap-3">
                     <button onClick={() => setSaveConfirm(false)}
-                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                       Go Back
                     </button>
                     <button onClick={() => { setSaveConfirm(false); handleSaveTemplate(); }} disabled={isSaving}
-                      className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                      className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-800 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                       {isSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                       {isSaving ? 'Saving...' : 'Yes, Confirm'}
                     </button>
@@ -596,11 +941,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
               ) : (
                 <div className="flex gap-3">
                   <button onClick={() => { setSaveConfirm(false); setEditingTemplate(null); }}
-                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                     Cancel
                   </button>
                   <button onClick={() => setSaveConfirm(true)} disabled={!editingTemplate.name.trim()}
-                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-40">
+                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-800 transition-all disabled:opacity-40">
                     {isNew ? 'Create Service' : 'Save Changes'}
                   </button>
                 </div>
@@ -613,63 +958,693 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
       {/* ── Branch Assignments Modal ── */}
       {managingTemplate && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200"
+          onClick={() => branchDropdownOpen && setBranchDropdownOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-slate-900 leading-tight">{managingTemplate.name}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Default price: <span className="font-bold text-slate-600">₱{managingTemplate.default_price.toLocaleString()}</span></p>
+                </div>
+                <button
+                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); }}
+                  className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Branch picker — dropdown trigger */}
+              {!isReadOnly && (
+                <div className="mt-3 relative">
+                  <button
+                    onClick={() => { setBranchDropdownOpen(o => !o); setBranchSearch(''); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 border rounded-xl text-left transition-all ${
+                      branchDropdownOpen ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h12M3 17h6" />
+                    </svg>
+                    <span className="flex-1 text-xs font-semibold text-slate-500">
+                      {draftBranchIds.length === 0 ? 'Select branches…' : `${draftBranchIds.length} branch${draftBranchIds.length !== 1 ? 'es' : ''} selected`}
+                    </span>
+                    {draftBranchIds.length > 0 && (
+                      <span
+                        role="button"
+                        onClick={e => { e.stopPropagation(); setDraftBranchIds([]); }}
+                        className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors mr-1"
+                      >
+                        Clear
+                      </span>
+                    )}
+                    <svg className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${branchDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown panel */}
+                  {branchDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-20 flex flex-col max-h-64">
+                      {/* Search inside dropdown */}
+                      <div className="px-3 pt-3 pb-2 border-b border-slate-100 shrink-0">
+                        <div className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                          </svg>
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Search branches..."
+                            value={branchSearch}
+                            onChange={e => setBranchSearch(e.target.value)}
+                            className="flex-1 bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 outline-none"
+                          />
+                          {branchSearch && (
+                            <button onClick={() => setBranchSearch('')} className="text-slate-400 hover:text-slate-600">
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Branch list */}
+                      <div className="overflow-y-auto flex-1">
+                        {branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).length === 0 ? (
+                          <div className="px-4 py-4 text-xs text-slate-400 italic text-center">No branches match</div>
+                        ) : (
+                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
+                            const inDraft = draftBranchIds.includes(b.id);
+                            return (
+                              <button
+                                key={b.id}
+                                onClick={() => setDraftBranchIds(prev =>
+                                  prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                                )}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-slate-50 last:border-0 transition-colors ${
+                                  inDraft ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                  inDraft ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'
+                                }`}>
+                                  {inDraft && (
+                                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className={`flex-1 text-xs font-semibold truncate ${inDraft ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                  {b.name}
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Selected branches list */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {draftBranchIds.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5" />
+                    </svg>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-400">No branches selected</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Use the picker above to add branches</p>
+                </div>
+              ) : (
+                branches.filter(b => draftBranchIds.includes(b.id)).map(b => {
+                  const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
+                  return (
+                    <div key={b.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                      <div className="flex items-center gap-3 px-3 py-2.5">
+                        <span className="flex-1 text-xs font-bold text-slate-800 truncate">{b.name}</span>
+                        {assignment?.price != null && (
+                          <span className="text-xs font-black text-amber-500 shrink-0">₱{assignment.price.toLocaleString()} custom</span>
+                        )}
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => setDraftBranchIds(prev => prev.filter(id => id !== b.id))}
+                            className="w-5 h-5 rounded-full bg-slate-100 hover:bg-rose-100 hover:text-rose-500 flex items-center justify-center text-slate-400 transition-colors shrink-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 px-3 pb-2.5 border-t border-slate-100 pt-2">
+                        <span className="text-xs text-slate-400 shrink-0">Custom price</span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <span className="text-xs text-slate-400">₱</span>
+                          <input
+                            type="number"
+                            min="0"
+                            disabled={isReadOnly || !assignment}
+                            value={assignment?.price ?? ''}
+                            onChange={e => assignment && handleUpdatePrice(b.id, managingTemplate.id, e.target.value)}
+                            placeholder={String(managingTemplate.default_price)}
+                            className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
+                        </div>
+                        {!assignment && <span className="text-xs text-slate-300 italic">Save first</span>}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            {!isReadOnly && (
+              <div className="px-4 py-4 border-t border-slate-100 shrink-0 flex gap-2">
+                <button
+                  onClick={() => { setManagingTemplate(null); setDraftBranchIds([]); setBranchSearch(''); setBranchDropdownOpen(false); }}
+                  className="flex-1 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isAssignSaving}
+                  onClick={async () => {
+                    if (!managingTemplate) return;
+                    setIsAssignSaving(true);
+                    try {
+                      const originalIds = branches
+                        .filter(b => branchServices.some(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id))
+                        .map(b => b.id);
+                      const toAdd = draftBranchIds.filter(id => !originalIds.includes(id));
+                      const toRemove = originalIds.filter(id => !draftBranchIds.includes(id));
+                      if (toAdd.length > 0) {
+                        await supabase.from(DB_TABLES.BRANCH_SERVICES)
+                          .upsert(
+                            toAdd.map(branch_id => ({ branch_id, template_id: managingTemplate.id, price: null })),
+                            { onConflict: 'branch_id,template_id', ignoreDuplicates: true }
+                          );
+                      }
+                      for (const branchId of toRemove) {
+                        await supabase.from(DB_TABLES.BRANCH_SERVICES).delete()
+                          .eq('branch_id', branchId).eq('template_id', managingTemplate.id);
+                      }
+                      playSound('success');
+                      setManagingTemplate(null);
+                      setDraftBranchIds([]);
+                      await load();
+                      queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
+                    } catch (err) {
+                      console.error(err);
+                      playSound('warning');
+                    } finally {
+                      setIsAssignSaving(false);
+                    }
+                  }}
+                  className="flex-[2] py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {isAssignSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                  {isAssignSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── New Catalog Modal ── */}
+      {showNewCatalogModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[28px] shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
-            <div className="bg-slate-900 rounded-t-[28px] px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-slate-900">New Catalog</h3>
+                </div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Give your catalog a name</p>
+              </div>
+              <button onClick={() => setShowNewCatalogModal(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <input
+                autoFocus
+                value={newCatalogName}
+                onChange={e => setNewCatalogName(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newCatalogName.trim() && !catalogNames.includes(newCatalogName.trim())) {
+                    const name = newCatalogName.trim();
+                    setLocalCatalogNames(prev => [...prev, name]);
+                    setShowNewCatalogModal(false);
+                    setImportTo(name);
+                    setImportSelected([]);
+                    setImportPrices({});
+                    setImportStep(1);
+                    playSound('success');
+                  }
+                }}
+                placeholder="E.G. BER SEASON RATES"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all uppercase tracking-wide"
+              />
+              {newCatalogName.trim() && catalogNames.includes(newCatalogName.trim()) && (
+                <p className="text-xs font-bold text-rose-500 uppercase tracking-widest">A catalog with this name already exists.</p>
+              )}
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => {
+                  const name = newCatalogName.trim();
+                  if (!name || catalogNames.includes(name)) return;
+                  setLocalCatalogNames(prev => [...prev, name]);
+                  setShowNewCatalogModal(false);
+                  setImportTo(name);
+                  setImportSelected([]);
+                  setImportPrices({});
+                  setImportStep(1);
+                  playSound('success');
+                }}
+                disabled={!newCatalogName.trim() || catalogNames.includes(newCatalogName.trim())}
+                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-600 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                Create Catalog &amp; Import Services
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Import Services Modal ── */}
+      {importTo !== null && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+
+            {/* Header */}
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-4">
-                <h3 className="text-[13px] font-black text-white uppercase tracking-tight truncate">{managingTemplate.name}</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                  Branch Assignments — Default ₱{managingTemplate.default_price.toLocaleString()}
+                <div className="flex items-center gap-2 mb-0.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {importStep === 1 ? 'Import Services' : 'Set Prices'}
+                  </h3>
+                </div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate">
+                  Into: {importTo}{importStep === 2 ? ` · ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''}` : ''}
                 </p>
               </div>
-              <button onClick={() => setManagingTemplate(null)} className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
+              <button
+                onClick={() => { setImportTo(null); setImportSelected([]); setImportPrices({}); setImportStep(1); setFilterCatalog('ALL'); }}
+                className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
-              {branches.map(b => {
-                const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
-                const assigned = !!assignment;
-                return (
-                  <div key={b.id} className="flex items-center gap-3 px-5 py-3.5">
+            {/* Step 1 — Pick services */}
+            {importStep === 1 && (() => {
+              const otherGroups = Object.entries(
+                templates
+                  .filter(t => t.catalog_name !== importTo)
+                  .reduce<Record<string, ServiceTemplate[]>>((acc, t) => {
+                    const key = t.catalog_name || 'Uncategorized';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(t);
+                    return acc;
+                  }, {})
+              ) as [string, ServiceTemplate[]][];
+
+              return (
+                <>
+                  <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 shrink-0">
+                    <p className="text-xs font-bold text-indigo-700 uppercase tracking-widest">
+                      Select services to copy into <span className="text-indigo-900">{importTo}</span>. You'll set prices in the next step.
+                    </p>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {otherGroups.map(([catalogName, catalogItems]) => {
+                      const allSelected = catalogItems.every(t => importSelected.includes(t.id));
+                      const someSelected = catalogItems.some(t => importSelected.includes(t.id));
+                      return (
+                        <div key={catalogName}>
+                          {/* Catalog sub-header with select-all */}
+                          <button
+                            onClick={() => {
+                              if (allSelected) {
+                                setImportSelected(prev => prev.filter(id => !catalogItems.map(t => t.id).includes(id)));
+                              } else {
+                                setImportSelected(prev => [...new Set([...prev, ...catalogItems.map(t => t.id)])]);
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-5 py-2.5 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors text-left"
+                          >
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${allSelected ? 'bg-indigo-600 border-indigo-600' : someSelected ? 'bg-indigo-200 border-indigo-400' : 'border-slate-300'}`}>
+                              {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                              {!allSelected && someSelected && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm" />}
+                            </div>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{catalogName}</p>
+                            <span className="ml-auto text-xs font-bold text-slate-400">{catalogItems.length} services</span>
+                          </button>
+                          {/* Service rows */}
+                          {catalogItems.map(t => {
+                            const isSelected = importSelected.includes(t.id);
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setImportSelected(prev =>
+                                  prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                                )}
+                                className={`w-full flex items-center gap-3 px-5 py-3 border-b border-slate-50 transition-colors text-left ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                                  {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <p className="flex-1 text-xs font-bold text-slate-700 min-w-0 truncate">{t.name}</p>
+                                <span className="text-xs font-bold text-slate-400 shrink-0">₱{t.default_price.toLocaleString()}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-100 shrink-0">
                     <button
-                      disabled={isReadOnly}
-                      onClick={() => handleToggleBranch(b.id, managingTemplate.id, assigned)}
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${assigned ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400'}`}
+                      onClick={() => setImportStep(2)}
+                      disabled={importSelected.length === 0}
+                      className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                     >
-                      {assigned && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                      {importSelected.length === 0 ? 'Select services above' : `Next: Set Prices → (${importSelected.length} selected)`}
                     </button>
-                    <p className="flex-1 text-[11px] font-bold text-slate-700 min-w-0 truncate">{b.name}</p>
-                    {assigned && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[9px] font-bold text-slate-400">₱</span>
-                        <input
-                          type="number"
-                          min="0"
-                          disabled={isReadOnly}
-                          value={assignment.price ?? ''}
-                          onChange={e => handleUpdatePrice(b.id, managingTemplate.id, e.target.value)}
-                          placeholder={String(managingTemplate.default_price)}
-                          className="w-20 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-900 outline-none focus:border-emerald-500 tabular-nums transition-all"
-                        />
-                        {assignment.price !== null && (
-                          <span className="text-[7px] font-black text-amber-500 uppercase tracking-widest">Override</span>
-                        )}
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* Step 2 — Set prices */}
+            {importStep === 2 && (
+              <>
+                <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 shrink-0">
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-widest">
+                    Set a custom price for each service in <span className="text-indigo-900">{importTo}</span>. Leave blank to keep the original price.
+                  </p>
+                </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                  {importSelected.map(tid => {
+                    const tmpl = templates.find(t => t.id === tid);
+                    if (!tmpl) return null;
+                    return (
+                      <div key={tid} className="flex items-center gap-4 px-5 py-3.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{tmpl.name}</p>
+                          <p className="text-xs text-slate-400 font-semibold mt-0.5">Original: ₱{tmpl.default_price.toLocaleString()}</p>
+                        </div>
+                        <div className="shrink-0 relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₱</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={String(tmpl.default_price)}
+                            value={importPrices[tid] ?? ''}
+                            onChange={e => setImportPrices(prev => ({ ...prev, [tid]: e.target.value }))}
+                            className="w-28 pl-7 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
+                          />
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+                <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
+                  <button
+                    onClick={() => setImportStep(1)}
+                    className="px-5 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide hover:bg-slate-200 transition-all shrink-0"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={isImportSaving}
+                    className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-indigo-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {isImportSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                    {isImportSaving ? 'Importing...' : `Import ${importSelected.length} service${importSelected.length !== 1 ? 's' : ''} into ${importTo}`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Bulk Assign Modal ── */}
+      {bulkAssign && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+
+            {/* Header */}
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
+              <div className="min-w-0 pr-4">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Bulk Assign
+                  </h3>
+                </div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  {bulkAssign.catalogName} · {bulkAssign.templateIds.length} service{bulkAssign.templateIds.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button onClick={() => { setBulkAssign(null); setBulkSelectedBranches([]); setBulkMode('assign'); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="px-6 py-3 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2">
+              <button
+                onClick={() => { setBulkMode('assign'); setBulkSelectedBranches([]); }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${bulkMode === 'assign' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+              >
+                Assign
+              </button>
+              <button
+                onClick={() => { setBulkMode('unassign'); setBulkSelectedBranches([]); }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${bulkMode === 'unassign' ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+              >
+                Unassign
+              </button>
+            </div>
+
+            {/* PRIO warning banner */}
+            {bulkMode === 'assign' && prioCatalogs.includes(bulkAssign.catalogName) && (
+              <div className="px-6 py-3 bg-amber-400 shrink-0 flex items-start gap-2">
+                <span className="text-white text-xs leading-none shrink-0 mt-0.5">★</span>
+                <p className="text-xs font-semibold text-slate-700 leading-relaxed">
+                  PRIO catalog — assigning will replace ALL existing services on selected branches with only this catalog's services.
+                </p>
+              </div>
+            )}
+
+            {/* Info banner */}
+            <div className={`px-6 py-3 border-b shrink-0 ${
+              bulkMode === 'assign' ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'
+            }`}>
+              <p className={`text-xs font-medium uppercase tracking-wide ${
+                bulkMode === 'assign' ? 'text-amber-700' : 'text-rose-700'
+              }`}>
+                {bulkMode === 'assign'
+                  ? `Select branches to assign all ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} in this catalog.`
+                  : `Select branches to remove all ${bulkAssign.templateIds.length} service${bulkAssign.templateIds.length !== 1 ? 's' : ''} from.`
+                }
+              </p>
+            </div>
+
+            {/* Branch picker */}
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+              <button
+                onClick={() => {
+                  const ids = branches.filter(b => b.isEnabled !== false).map(b => b.id);
+                  if (bulkSelectedBranches.length === ids.length) setBulkSelectedBranches([]);
+                  else setBulkSelectedBranches(ids);
+                }}
+                className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+              >
+                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length ? 'bg-slate-900 border-slate-900' : 'border-slate-300'}`}>
+                  {bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length && <Check className="w-3 h-3 text-white" />}
+                  {bulkSelectedBranches.length > 0 && bulkSelectedBranches.length < branches.filter(b => b.isEnabled !== false).length && (
+                    <div className="w-2 h-2 bg-slate-400 rounded-sm" />
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                  {bulkSelectedBranches.length === branches.filter(b => b.isEnabled !== false).length ? 'Deselect All' : 'Select All Branches'}
+                </p>
+              </button>
+
+              {branches.filter(b => b.isEnabled !== false).map(b => {
+                const isSelected = bulkSelectedBranches.includes(b.id);
+                const assignedCount = bulkAssign.templateIds.filter(tid =>
+                  branchServices.some(bs => bs.branch_id === b.id && bs.template_id === tid)
+                ).length;
+                const allAssigned = assignedCount === bulkAssign.templateIds.length;
+                const noneAssigned = assignedCount === 0;
+                return (
+                  <button
+                    key={b.id}
+                    onClick={() => {
+                      setBulkSelectedBranches(prev =>
+                        prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                      );
+                    }}
+                    className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
+                      isSelected
+                        ? bulkMode === 'assign' ? 'bg-emerald-50' : 'bg-rose-50'
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                      isSelected
+                        ? bulkMode === 'assign' ? 'bg-emerald-500 border-emerald-500' : 'bg-rose-500 border-rose-500'
+                        : 'border-slate-300'
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <p className="flex-1 text-xs font-bold text-slate-700 min-w-0 truncate">{b.name}</p>
+                    {bulkMode === 'assign' ? (
+                      allAssigned ? (
+                        <span className="text-xs font-black text-emerald-500 uppercase tracking-widest shrink-0">All assigned</span>
+                      ) : assignedCount > 0 ? (
+                        <span className="text-xs font-black text-amber-500 uppercase tracking-widest shrink-0">{assignedCount} assigned</span>
+                      ) : null
+                    ) : (
+                      noneAssigned ? (
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0">None assigned</span>
+                      ) : (
+                        <span className="text-xs font-black text-rose-400 uppercase tracking-widest shrink-0">{assignedCount} will remove</span>
+                      )
                     )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
+              <button
+                onClick={handleBulkAssign}
+                disabled={bulkSelectedBranches.length === 0 || isBulkSaving}
+                className={`flex-1 py-3.5 rounded-2xl text-white text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-40 flex items-center justify-center gap-2 ${
+                  bulkMode === 'assign' ? 'bg-slate-900 hover:bg-emerald-600' : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {isBulkSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                {isBulkSaving
+                  ? bulkMode === 'assign' ? 'Assigning...' : 'Removing...'
+                  : bulkSelectedBranches.length === 0
+                    ? 'Select branches above'
+                    : bulkMode === 'assign'
+                      ? `Assign to ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+                      : `Remove from ${bulkSelectedBranches.length} branch${bulkSelectedBranches.length !== 1 ? 'es' : ''}`
+                }
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Branch Manage Modal (all services for a branch) ── */}
+      {branchManage && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between shrink-0">
+              <div className="min-w-0 pr-4">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-slate-900 truncate">{branchManage.name}</h3>
+                </div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Assignments</p>
+              </div>
+              <button onClick={() => setBranchManage(null)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {(Object.entries(catalogGroups) as [string, ServiceTemplate[]][]).map(([group, items]) => {
+                const assignedInGroup = items.filter(t =>
+                  branchServices.some(bs => bs.template_id === t.id && bs.branch_id === branchManage.id)
+                );
+                const allAssigned = assignedInGroup.length === items.length;
+                const palette = getCatalogPalette(group);
+                return (
+                  <div key={group}>
+                    {/* Catalog group header with assign-all toggle */}
+                    <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100 border-t">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${palette.dot}`} />
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{group}</p>
+                        <span className="text-xs font-bold text-slate-400">{assignedInGroup.length}/{items.length}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setBulkAssign({ catalogName: group, templateIds: items.map(t => t.id) });
+                          setBulkSelectedBranches([branchManage.id]);
+                          setBulkMode('assign');
+                          setBranchManage(null);
+                          playSound('click');
+                        }}
+                        disabled={allAssigned}
+                        className={`text-xs font-semibold uppercase tracking-wide transition-colors ${allAssigned ? 'text-emerald-400 cursor-default' : 'text-slate-400 hover:text-emerald-600'}`}
+                      >
+                        {allAssigned ? '✓ All assigned' : 'Assign all →'}
+                      </button>
+                    </div>
+                    {/* Individual service rows */}
+                    {items.map(t => {
+                      const assignment = branchServices.find(bs => bs.branch_id === branchManage.id && bs.template_id === t.id);
+                      const assigned = !!assignment;
+                      return (
+                        <div key={t.id} className="flex items-center gap-3 px-5 py-3 border-b border-slate-50">
+                          <button
+                            onClick={() => handleToggleBranch(branchManage.id, t.id, assigned)}
+                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${assigned ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400'}`}
+                          >
+                            {assigned && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                          <p className="flex-1 text-xs font-bold text-slate-700 min-w-0 truncate uppercase" title={t.name}>{t.name}</p>
+                          <span className="text-xs font-bold text-slate-400 shrink-0">₱{t.default_price.toLocaleString()}</span>
+                          {assigned && assignment.price !== null && (
+                            <span className="text-xs font-black text-amber-500 uppercase tracking-widest shrink-0">Override</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
             </div>
 
             <div className="px-6 py-4 border-t border-slate-100 shrink-0">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">
-                Leave price blank to use default (₱{managingTemplate.default_price.toLocaleString()})
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center">
+                {branchServices.filter(bs => bs.branch_id === branchManage.id).length} of {templates.length} services assigned to this branch
               </p>
             </div>
           </div>
@@ -680,21 +1655,21 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       {/* ── Delete Confirm ── */}
       {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/90 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-[32px] p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-8 text-center shadow-xl animate-in zoom-in-95 duration-300">
             <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <Trash2 className="w-6 h-6 text-rose-500" />
             </div>
-            <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight">Delete Service?</h3>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-2 mb-6 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Delete Service?</h3>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-2 mb-6 leading-relaxed">
               This removes <span className="text-slate-700 font-black">{deleteConfirm.name}</span> and all {branchCount(deleteConfirm.id)} branch assignments permanently.
             </p>
             <div className="flex flex-col gap-2">
               <button onClick={handleDelete} disabled={isSaving}
-                className="w-full py-4 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                className="w-full py-4 rounded-full bg-rose-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-rose-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                 {isSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
                 {isSaving ? 'Deleting...' : 'Delete Service'}
               </button>
-              <button onClick={() => setDeleteConfirm(null)} className="w-full py-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+              <button onClick={() => setDeleteConfirm(null)} className="w-full py-3 text-slate-400 text-xs font-medium uppercase tracking-wide">
                 Cancel
               </button>
             </div>

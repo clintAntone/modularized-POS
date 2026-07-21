@@ -1,28 +1,19 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+// AI calls are proxied through /api/ai on the server so the Gemini API key
+// is never embedded in the client bundle.
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const generateAnalysis = async (systemInstruction: string, userPrompt: string, dataContext: any): Promise<string> => {
+  const response = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ systemInstruction, userPrompt, dataContext }),
+  });
 
-export const MODELS = {
-  text: 'gemini-3-flash-preview',
-  image: 'gemini-2.5-flash-image'
-};
-
-export const generateAnalysis = async (systemInstruction: string, userPrompt: string, dataContext: any) => {
-  try {
-    const response = await ai.models.generateContent({
-      model: MODELS.text,
-      contents: `CONTEXT DATA: ${JSON.stringify(dataContext)}\n\nUSER REQUEST: ${userPrompt}`,
-      config: {
-        systemInstruction,
-        temperature: 0.2, // Keep it grounded for data analysis
-        topP: 0.8,
-        topK: 40
-      },
-    });
-    return response.text;
-  } catch (error) {
-    console.error("AI Analysis Error:", error);
-    throw error;
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'AI request failed');
   }
+
+  const data = await response.json();
+  return data.text ?? '';
 };

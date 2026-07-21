@@ -44,9 +44,12 @@ export interface Branch {
   weeklyCutoff: number;
   cycleStartDate: string;
   dailyProvisionAmount?: number;
-  enableShiftTracking?: boolean;
   openingTime?: string;
+  address?: string;
+  pinLocation?: string;
   closingTime?: string;
+  shift2OpeningTime?: string;
+  shift2ClosingTime?: string;
   owners?: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;
@@ -54,6 +57,8 @@ export interface Branch {
   cutoffHistory?: { cutoff: number; effectiveFrom: string }[];
   /** Ephemeral — only used during save to pass the effective date for a cutoff change */
   cutoffEffectiveDate?: string;
+  /** Derived from system_config — not a DB column. False = face ID forcibly disabled by superadmin. */
+  faceIdEnabled?: boolean;
 }
 
 /**
@@ -143,14 +148,15 @@ export interface Attendance {
   date: string;
   clockIn: string;
   clockOut?: string;
+  clockInMethod?: 'FACE' | 'MANUAL';
   status: string;
   lateDeduction: number;
   otPay: number;
   cashAdvance: number;
   createdAt: string;
   isHalfDay?: boolean;
-  isPaidDaily?: boolean;
-  settledUnits?: number;
+  /** Which shift the employee was clocked in for (dual-shift branches only). 1 = morning, 2 = afternoon. */
+  shift?: 1 | 2;
 }
 
 export interface EmployeeDetails {
@@ -167,6 +173,8 @@ export interface EmployeeDetails {
   emergencyContactNumber?: string;
   emergencyContactAddress?: string;
 }
+
+export type LeaveType = 'VACATION' | 'SICK' | 'MATERNITY' | 'PATERNITY' | 'EMERGENCY' | 'SUSPENDED';
 
 export interface Employee {
   id: string;
@@ -186,8 +194,13 @@ export interface Employee {
   salary?: number;
   isActive: boolean;
   profile?: string;
-  branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean }>;
+  branchAllowances?: Record<string, number | { allowance: number; role?: string; excludeFromReliever?: boolean; shift?: 1 | 2 }>;
   details?: EmployeeDetails;
+  faceDescriptors?: number[][];
+  onLeave?: boolean;
+  leaveType?: LeaveType;
+  leaveStartDate?: string;
+  leaveEndDate?: string;
 }
 
 export interface SalesReport {
@@ -201,6 +214,7 @@ export interface SalesReport {
   totalVaultProvision: number;
   netRoi: number;
   sortDate?: string;
+  backfilled?: boolean;
   periodEnd?: string;
   sessionData: any[];
   staffBreakdown: any[];
@@ -228,7 +242,7 @@ export interface Request {
   id: string;
   branchId: string;
   timestamp: string;
-  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE' | 'EMPLOYEE_REPORT';
+  type: 'BACKFILL_TRANSACTION' | 'BACKFILL_ATTENDANCE' | 'BACKFILL_REPORT' | 'PASSWORD_RESET' | 'DISABLE_EMPLOYEE' | 'EMPLOYEE_REPORT' | 'LEAVE_REQUEST';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   data: any;
   requesterId: string;

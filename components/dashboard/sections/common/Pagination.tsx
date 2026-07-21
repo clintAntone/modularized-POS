@@ -9,6 +9,7 @@ interface PaginationProps {
   itemsPerPage: number;
   onItemsPerPageChange?: (n: number) => void;
   itemsPerPageOptions?: number[];
+  rightSlot?: React.ReactNode;
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -19,6 +20,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   itemsPerPage,
   onItemsPerPageChange,
   itemsPerPageOptions = [10, 25, 50, 100],
+  rightSlot,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -48,21 +50,21 @@ export const Pagination: React.FC<PaginationProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const maxVisiblePages = isMobile ? 3 : 5;
+  const maxVisiblePages = isMobile ? 2 : 5;
 
   return (
-    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-visible">
+    <div className="w-full flex flex-row items-center justify-between gap-2 h-14 min-h-[56px] max-h-[56px] px-3 sm:px-4 bg-white border border-slate-100 rounded-2xl shadow-sm no-print overflow-visible dark:bg-slate-800 dark:border-slate-700">
 
       {/* Items-per-page custom dropdown */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex items-center gap-2 shrink-0">
         {onItemsPerPageChange && (
           <div ref={dropdownRef} className="relative shrink-0">
             <button
               onClick={() => { setDropdownOpen(p => !p); playSound('click'); }}
               className="h-8 px-3 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors group"
             >
-              <span className="text-[10px] font-black text-slate-700 tabular-nums">{itemsPerPage}</span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">/ page</span>
+              <span className="text-xs font-black text-slate-700 tabular-nums">{itemsPerPage}</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider hidden sm:inline">/ page</span>
               <svg
                 className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"
@@ -82,14 +84,14 @@ export const Pagination: React.FC<PaginationProps> = ({
                         onItemsPerPageChange(n);
                         setDropdownOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-[10px] font-black transition-all ${
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-xs font-black transition-all ${
                         itemsPerPage === n
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                     >
                       <span>{n}</span>
-                      <span className={`text-[8px] font-bold uppercase tracking-widest ${itemsPerPage === n ? 'text-slate-400' : 'text-slate-300'}`}>
+                      <span className={`text-xs font-medium uppercase tracking-wide ${itemsPerPage === n ? 'text-slate-400' : 'text-slate-300'}`}>
                         per page
                       </span>
                     </button>
@@ -107,7 +109,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+            className={`p-1.5 sm:p-2.5 rounded-lg border transition-all shrink-0 ${
               currentPage === 1
                 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
@@ -135,7 +137,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                 <button
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black transition-all shrink-0 ${
+                  className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg text-xs sm:text-xs font-black transition-all shrink-0 ${
                     currentPage === pageNum
                       ? 'bg-slate-900 text-white shadow-lg'
                       : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50 hover:text-slate-900'
@@ -150,7 +152,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+            className={`p-1.5 sm:p-2.5 rounded-lg border transition-all shrink-0 ${
               currentPage === totalPages
                 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 active:scale-90'
@@ -163,10 +165,16 @@ export const Pagination: React.FC<PaginationProps> = ({
         </div>
       ) : (
         <div className="flex items-center justify-end ml-auto shrink-0">
-          <span className="text-[8px] sm:text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] italic">
+          <span className="text-xs sm:text-xs font-black text-slate-300 uppercase tracking-wider italic">
             All pages displayed
           </span>
         </div>
+      )}
+      {rightSlot && (
+        <>
+          <div className="w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0 mx-1" />
+          {rightSlot}
+        </>
       )}
     </div>
   );

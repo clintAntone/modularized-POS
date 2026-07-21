@@ -236,6 +236,8 @@ CREATE POLICY "Enable all for all" ON public.requests FOR ALL USING (true) WITH 
 -- Ensure buckets exist
 INSERT INTO storage.buckets (id, name, public) VALUES ('profiles', 'profiles', true) ON CONFLICT (id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('receipts', 'receipts', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('face-photos', 'face-photos', false) ON CONFLICT (id) DO NOTHING;
+CREATE POLICY "Allow all on face-photos" ON storage.objects FOR ALL USING (bucket_id = 'face-photos') WITH CHECK (bucket_id = 'face-photos');
 
 -- STORAGE POLICIES (Fixes 403 Unauthorized Errors)
 CREATE POLICY "Allow all on profiles" ON storage.objects FOR ALL USING (bucket_id = 'profiles') WITH CHECK (bucket_id = 'profiles');

@@ -26,22 +26,27 @@ export default defineConfig(({ mode }) => {
           const swPath = path.resolve(__dirname, 'dist/sw.js');
           if (!fs.existsSync(swPath)) return;
           const stamped = fs.readFileSync(swPath, 'utf-8')
-            .replace('__BUILD_TS__', Date.now().toString());
+            .replace('__BUILD_TS__', Date.now().toString())
+            // Strip single-line comments to avoid stack fingerprinting in the public file
+            .replace(/\/\/.*$/gm, '')
+            // Collapse resulting blank lines
+            .replace(/^\s*[\r\n]/gm, '');
           fs.writeFileSync(swPath, stamped);
         },
       },
     ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
+    // Gemini API key intentionally removed from define — it now lives server-side only.
+    // AI calls go through /api/ai in server.ts so the key is never in the client bundle.
+    define: {},
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
     },
     build: {
-      chunkSizeWarningLimit: 600,
+      // face-api.js (~667 kB) is the only chunk above 600 kB, but it is lazily loaded
+      // via `await import('face-api.js')` in lib/face.ts and never blocks initial page load.
+      chunkSizeWarningLimit: 700,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -50,6 +55,8 @@ export default defineConfig(({ mode }) => {
             'vendor-supabase': ['@supabase/supabase-js'],
             'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html-to-image'],
             'vendor-ui': ['react-datepicker', 'qrcode.react', 'lucide-react'],
+            // face-api.js intentionally omitted from manualChunks — Vite handles it
+            // as a true async chunk since lib/face.ts uses a dynamic import().
           }
         }
       }

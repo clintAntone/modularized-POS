@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
-import { getTrueDate } from '../../lib/time';
+import { getTrueDate, getManilaTodayStr } from '../../lib/time';
 import { playSound } from '../../lib/audio';
 
 interface RemittanceBannersProps {
@@ -31,14 +31,14 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
           <AlertCircle className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h4 className="text-[12px] font-black text-white uppercase tracking-widest">⚠ Remittance Cut-Off — 1 Hour Left</h4>
-          <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest leading-none mt-1">
+          <h4 className="text-xs font-black text-white uppercase tracking-widest">⚠ Remittance Cut-Off — 1 Hour Left</h4>
+          <p className="text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-1">
             This is your weekly cut-off day. Finalize your remittance report before the period closes.
           </p>
         </div>
         <button
           onClick={() => { onGoToRemittance(); playSound('click'); }}
-          className="px-3 py-2 bg-white text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-50 transition-colors shrink-0"
+          className="px-3 py-2 bg-white text-amber-700 text-xs font-semibold uppercase tracking-wide rounded-lg shadow-sm hover:bg-amber-50 transition-colors shrink-0"
         >
           Review
         </button>
@@ -48,7 +48,7 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
             localStorage.setItem(`remittance_close_reminded_${manilaDateStr}`, '1');
             onDismissCloseReminder();
           }}
-          className="w-7 h-7 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white text-[12px] font-black shrink-0 transition-colors"
+          className="w-7 h-7 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white text-xs font-black shrink-0 transition-colors"
           aria-label="Dismiss"
         >✕</button>
       </div>
@@ -60,14 +60,14 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
           <AlertCircle className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h4 className="text-[11px] font-black text-amber-900 uppercase tracking-tight">Remittance Not Yet Submitted</h4>
-          <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-widest leading-none mt-1">
+          <h4 className="text-xs font-black text-amber-900 uppercase tracking-tight">Remittance Not Yet Submitted</h4>
+          <p className="text-xs font-bold text-amber-700/80 uppercase tracking-widest leading-none mt-1">
             Last week's remittance report has not been submitted. Please finalize and submit it now.
           </p>
         </div>
         <button
           onClick={() => { onGoToRemittance(); playSound('click'); }}
-          className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
+          className="px-4 py-2 bg-amber-600 text-white text-xs font-semibold uppercase tracking-wide rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
         >
           Go
         </button>
@@ -77,7 +77,7 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
             localStorage.setItem(`remittance_followup_reminded_${manilaDateStr}`, '1');
             onDismissFollowUp();
           }}
-          className="w-7 h-7 bg-amber-100 hover:bg-amber-200 rounded-lg flex items-center justify-center text-amber-600 text-[12px] font-black shrink-0 transition-colors"
+          className="w-7 h-7 bg-amber-100 hover:bg-amber-200 rounded-lg flex items-center justify-center text-amber-600 text-xs font-black shrink-0 transition-colors"
           aria-label="Dismiss"
         >✕</button>
       </div>
@@ -91,18 +91,18 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
           </svg>
         </div>
         <div className="flex-1">
-          <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-tight">Vault Fund Not Configured</h4>
-          <p className="text-[10px] font-bold text-indigo-700/80 uppercase tracking-widest leading-none mt-1">
+          <h4 className="text-xs font-black text-indigo-900 uppercase tracking-tight">Vault Fund Not Configured</h4>
+          <p className="text-xs font-bold text-indigo-700/80 uppercase tracking-widest leading-none mt-1">
             Your vault fund has no target set. Contact your admin to configure it.
           </p>
         </div>
         <button
           onClick={() => {
-            const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+            const today = getManilaTodayStr();
             localStorage.setItem(`vault_notif_${branchId}_${today}`, '1');
             onDismissVaultNotif();
           }}
-          className="w-7 h-7 bg-indigo-100 hover:bg-indigo-200 rounded-lg flex items-center justify-center text-indigo-600 text-[12px] font-black shrink-0 transition-colors"
+          className="w-7 h-7 bg-indigo-100 hover:bg-indigo-200 rounded-lg flex items-center justify-center text-indigo-600 text-xs font-black shrink-0 transition-colors"
           aria-label="Dismiss"
         >✕</button>
       </div>

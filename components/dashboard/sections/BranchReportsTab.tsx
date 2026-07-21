@@ -74,6 +74,7 @@ export const BranchReportsTab: React.FC<BranchReportsTabProps> = ({
           totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
           totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
           netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+          backfilled: r[DB_COLUMNS.BACKFILLED] === true,
           sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
           staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
           expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
@@ -108,18 +109,25 @@ export const BranchReportsTab: React.FC<BranchReportsTabProps> = ({
         branchVault={branchVault}
       />
 
+      {/* Infinite-scroll sentinel */}
       {!allLoaded && (
-        <div ref={sentinelRef} className="flex items-center justify-center py-4 gap-3">
+        <div ref={sentinelRef} className="flex items-center justify-center py-6 gap-3">
           {loadingOlder && (
             <>
-              <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Loading older reports…</span>
+              <div className="w-4 h-4 border-2 border-slate-200 border-t-emerald-500 rounded-full animate-spin" />
+              <span className="text-sm font-medium text-slate-400">Loading older reports…</span>
             </>
           )}
         </div>
       )}
+
+      {/* All-loaded indicator */}
       {allLoaded && olderReports.length > 0 && (
-        <p className="text-center text-[9px] font-bold text-slate-300 uppercase tracking-widest pb-4">All historical reports loaded</p>
+        <div className="flex items-center justify-center gap-3 py-4">
+          <div className="h-px flex-1 bg-slate-100 max-w-[80px]" />
+          <p className="text-xs font-semibold text-slate-300">All reports loaded</p>
+          <div className="h-px flex-1 bg-slate-100 max-w-[80px]" />
+        </div>
       )}
     </div>
   );

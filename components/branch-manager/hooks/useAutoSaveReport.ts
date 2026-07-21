@@ -3,6 +3,7 @@ import { Branch, Transaction, Expense, Attendance, Employee, BranchVault, VaultT
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
+import { getTrueISOString } from '../../../lib/time';
 
 interface UseAutoSaveReportParams {
   branch: Branch;
@@ -26,6 +27,7 @@ interface UseAutoSaveReportParams {
   hiddenStaffNames: Set<string>;
   todayReportExists: boolean;
   loading?: boolean;
+  isPreview?: boolean;
 }
 
 export function useAutoSaveReport({
@@ -42,6 +44,7 @@ export function useAutoSaveReport({
   hiddenStaffNames,
   todayReportExists,
   loading,
+  isPreview = false,
 }: UseAutoSaveReportParams) {
   const [autoSyncStatus, setAutoSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
   const [forceSyncTick, setForceSyncTick] = useState(0);
@@ -65,6 +68,7 @@ export function useAutoSaveReport({
   useEffect(() => {
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
 
+    if (isPreview) return;
     if (loading) return;
     if (document.hidden) return;
 
@@ -92,27 +96,20 @@ export function useAutoSaveReport({
 
         const reportId = `${branch.id}_${todayStr.replace(/-/g, '')}`;
 
-        const isVaultBranch = totals.isVaultActive;
-        // Re-fetch vault deposits and live balance fresh from DB — bypasses React Query stale cache.
+        // Use branch.vaultEnabled + branchVault presence — NOT totals.isVaultActive — so that
+        // vault provision is tracked even for branches with vault enabled but no target set.
+        // (isVaultActive requires vault.target > 0, which caused provision to be saved as 0
+        // for target-less vault branches even when real deposits existed.)
+        const isVaultBranch = (branch.vaultEnabled ?? false) && branchVault !== null;
         let savedVaultProvision = 0;
-        let liveVaultBalance = branchVault?.balance ?? 0;
         if (isVaultBranch) {
-          const [{ data: freshDeposits }, { data: freshVault }] = await Promise.all([
-            supabase
-              .from(DB_TABLES.VAULT_TRANSACTIONS)
-              .select(DB_COLUMNS.AMOUNT)
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-              .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-              .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00`)
-              .lt(DB_COLUMNS.TIMESTAMP, `${todayStr}T23:59:59.999`),
-            supabase
-              .from(DB_TABLES.BRANCH_VAULTS)
-              .select(DB_COLUMNS.VAULT_BALANCE)
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-              .single(),
-          ]);
-          savedVaultProvision = (freshDeposits || []).reduce((s, t) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0);
-          liveVaultBalance = freshVault?.[DB_COLUMNS.VAULT_BALANCE] ?? liveVaultBalance;
+          // Compute from todayVaultTxs state — avoids DB round-trip timing issues where
+          // a freshly committed INSERT may not be visible on a different PgBouncer connection.
+          // By the time this fires (3s debounce), todayVaultTxs has been refreshed via
+          // realtime subscription or onRefresh(), so the latest deposit is already reflected.
+          savedVaultProvision = todayVaultTxs
+            .filter(t => t.type === 'DEPOSIT')
+            .reduce((s, t) => s + t.amount, 0);
         }
 
         // Vault-covered expenses (expenses table VAULT_WITHDRAWAL records) — authoritative source
@@ -121,18 +118,28 @@ export function useAutoSaveReport({
           .filter(e => e.category === 'VAULT_WITHDRAWAL')
           .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
+        // net_roi computation:
+        // - isVaultActive=true (target>0): useTodayData already deducted vault from totals.net — use as-is
+        // - isVaultBranch but isVaultActive=false (target=0): totals.net did NOT deduct vault — subtract savedVaultProvision here
+        // - non-vault branch: legacy path, subtract provisionExp
+        let netRoi: number;
+        if (totals.isVaultActive) {
+          netRoi = totals.net;
+        } else if (isVaultBranch) {
+          netRoi = Math.max(0, totals.net - savedVaultProvision);
+        } else {
+          netRoi = totals.net - totals.provisionExp;
+        }
+
         const basePayload = {
           [DB_COLUMNS.ID]: reportId,
           [DB_COLUMNS.BRANCH_ID]: branch.id,
           [DB_COLUMNS.REPORT_DATE]: todayStr,
-          [DB_COLUMNS.SUBMITTED_AT]: new Date().toISOString(),
+          [DB_COLUMNS.SUBMITTED_AT]: getTrueISOString(),
           [DB_COLUMNS.GROSS_SALES]: totals.gross,
           [DB_COLUMNS.TOTAL_STAFF_PAY]: totals.totalStaffLiability,
           [DB_COLUMNS.TOTAL_EXPENSES]: Math.max(0, totals.operationalExp - vaultCoveredExp),
-          // For vault branches: totals.net already deducts vault deposit (useTodayData
-          // subtracts it in rawNet). Do NOT subtract savedVaultProvision again or it
-          // double-counts the deposit. For non-vault branches keep the legacy behaviour.
-          [DB_COLUMNS.NET_ROI]: isVaultBranch ? totals.net : (totals.net - totals.provisionExp),
+          [DB_COLUMNS.NET_ROI]: netRoi,
           [DB_COLUMNS.SESSION_DATA]: todayTxs.map(t => ({
             ...t,
             settlement: t.paymentMethod?.toLowerCase() || 'cash',
@@ -171,7 +178,7 @@ export function useAutoSaveReport({
     }, 3000);
 
     return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
-  }, [totals, todayTxs.length, todayExps.length, todayAtt.length, todayVaultTxs.length, branch.id, todayStr, staffSummary, loading, forceSyncTick]);
+  }, [totals, todayTxs.length, todayExps.length, todayAtt.length, todayVaultTxs.length, branch.id, todayStr, staffSummary, loading, isPreview, forceSyncTick]);
 
   return { autoSyncStatus, forceSync };
 }

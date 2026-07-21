@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { toManilaDateStr } from '../../lib/time';
+import { toManilaDateStr, getManilaTodayStr } from '../../lib/time';
 import { Branch, Service, Employee, Transaction, SalesReport, Attendance } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
+import { useBranchServiceTemplates } from '../../hooks/useNetworkData';
 
 // Modular Imports
 import { OperationsRegistry } from './branch-editor/OperationsRegistry';
@@ -32,6 +33,8 @@ interface BranchEditorProps {
     attendance: Attendance[];
     onSave: (updated: Branch) => Promise<void>;
     onToggle: (id: string, currentlyEnabled: boolean) => void;
+    onToggleFaceId?: () => void;
+    isFaceIdDisabled?: boolean;
     onResetPin: (branch: Branch) => Promise<string>;
     onForceLogout: (id: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
@@ -47,16 +50,22 @@ interface Toast {
 }
 
 export const BranchEditor: React.FC<BranchEditorProps> = ({
-                                                              branch, employees, onSave, onToggle, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
+                                                              branch, employees, masterServices, onSave, onToggle, onToggleFaceId, isFaceIdDisabled, onResetPin, onForceLogout, onDelete, onClose, isSaving, isReadOnly, setConfirmState,
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
+    const [baseline, setBaseline] = useState<Branch>(branch);
+    const [localFaceIdDisabled, setLocalFaceIdDisabled] = useState(isFaceIdDisabled ?? false);
     const [toast, setToast] = useState<Toast | null>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
 
-    const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date()), []);
+    const { data: branchTemplates } = useBranchServiceTemplates(branch.id);
+    const catalogServices = useMemo<Service[]>(() => {
+        if (branchTemplates && branchTemplates.length > 0) return branchTemplates as Service[];
+        return masterServices;
+    }, [branchTemplates, masterServices]);
+
+    const todayStr = useMemo(() => getManilaTodayStr(), []);
 
     const isOperationalToday = useMemo(() => {
         const hasTxs = transactions.some(t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === todayStr);
@@ -66,24 +75,22 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     }, [branch.id, transactions, attendance, salesReports, todayStr]);
 
     const potentialManagers = useMemo(() => {
-        const branchSpecific = employees.filter(e => e.branchId === branch.id && e.isActive !== false);
-        const networkManagers = employees.filter(e => e.role.split(',').includes('MANAGER') && e.isActive !== false);
-
-        const combined = [...branchSpecific, ...networkManagers];
+        const allActive = employees.filter(e => e.isActive !== false);
         const uniqueMap = new Map();
-        combined.forEach(emp => {
+        allActive.forEach(emp => {
             if (!uniqueMap.has(emp.name)) {
                 uniqueMap.set(emp.name, emp);
             }
         });
         return Array.from(uniqueMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [employees, branch.id]);
+    }, [employees]);
 
     // FIX: Only re-sync local state if the user has switched to a DIFFERENT branch.
     // This prevents background global refreshes (which return the current DB state)
     // from clobbering the user's active, unsaved modifications.
     useEffect(() => {
         setLocalBranch(branch);
+        setBaseline(branch);
     }, [branch.id]);
 
     useEffect(() => {
@@ -98,8 +105,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     };
 
     const isDirty = useMemo(() => {
-        return JSON.stringify(localBranch) !== JSON.stringify(branch);
-    }, [localBranch, branch]);
+        // Compare against baseline (last saved state), not the prop which lags behind async refresh
+        const { faceIdEnabled: _a, ...localCmp } = localBranch as any;
+        const { faceIdEnabled: _b, ...baseCmp } = baseline as any;
+        return JSON.stringify(localCmp) !== JSON.stringify(baseCmp);
+    }, [localBranch, baseline]);
 
     const handleManualClose = () => {
         if (isDirty) {
@@ -126,16 +136,6 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     };
 
     const handleUpdateLocal = (updates: Partial<Branch>) => {
-        // ENFORCEMENT: Block time updates if operational
-        if (isOperationalToday) {
-            const timeUpdated = (updates.openingTime && updates.openingTime !== branch.openingTime) ||
-                (updates.closingTime && updates.closingTime !== branch.closingTime);
-            if (timeUpdated) {
-                playSound('warning');
-                showToast(`Branch Active: Time window is immutable for today.`, 'error');
-                return;
-            }
-        }
         setLocalBranch(prev => ({ ...prev, ...updates }));
     };
 
@@ -158,17 +158,16 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     setConfirmState(p => ({ ...p, isOpen: false }));
                     const payload = {
                         ...localBranch,
+                        name: localBranch.name.toUpperCase(),
                         // FIX: Allow 0 as a valid number, only fallback to 800 if null/undefined
                         dailyProvisionAmount: (localBranch.dailyProvisionAmount !== undefined && localBranch.dailyProvisionAmount !== null)
                             ? Number(localBranch.dailyProvisionAmount)
                             : 800,
-                        enableShiftTracking: false // Forced off globally while upcoming
                     };
                     await onSave(payload);
-                    // Reset localBranch to exactly what was saved so isDirty becomes false
-                    // and closing the editor no longer triggers the discard popup.
                     const { cutoffEffectiveDate, ...savedBranch } = payload;
                     setLocalBranch(savedBranch as typeof localBranch);
+                    setBaseline(savedBranch as typeof localBranch);
                     showToast('Configuration Synced');
                 } catch (e) {
                     showToast('Sync Failed', 'error');
@@ -181,11 +180,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex items-end justify-center sm:items-center lg:justify-end animate-in fade-in duration-300"
+            className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex items-end justify-center sm:items-center animate-in fade-in duration-300"
             onClick={handleBackdropClick}
         >
             {toast && (
-                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-4 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
+                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2500] px-6 py-3 rounded-full shadow-xl animate-in slide-in-from-top-4 duration-300 font-bold text-xs uppercase tracking-widest bg-slate-900 text-white border border-slate-200 flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
                     {toast.message}
                 </div>
@@ -193,27 +192,23 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
 
             <div
                 ref={sidebarRef}
-                className="bg-white w-full max-w-lg flex flex-col shadow-2xl relative
-                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-[28px] lg:rounded-none lg:h-full lg:max-h-full lg:max-w-xl lg:border-l lg:border-slate-100
-                  animate-in slide-in-from-bottom-4 lg:slide-in-from-right lg:slide-in-from-bottom-0 duration-300 lg:duration-500"
+                className="bg-white w-full max-w-2xl flex flex-col shadow-2xl relative
+                  max-h-[92dvh] rounded-t-[28px] rounded-b-none sm:rounded-3xl
+                  animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
             >
-                <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-[28px] lg:rounded-t-none">
-                    <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-xl shadow-lg">🏢</div>
-                        <div className="min-w-0">
-                            <h2 className="text-[15px] sm:text-lg font-bold text-slate-900 uppercase tracking-tighter leading-none truncate max-w-[150px] sm:max-w-[250px]">
-                                {localBranch.name || 'New Branch'}
-                            </h2>
-                            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-1">Branch Calibration</p>
-                        </div>
+                <div className="px-6 py-4 border-b flex items-center gap-4 sticky top-0 bg-white z-[160] shadow-sm rounded-t-[28px] sm:rounded-t-3xl">
+                    <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-lg shadow-lg shrink-0">🏢</div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none truncate">
+                            {localBranch.name || 'New Branch'}
+                        </h2>
+                        <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Branch Calibration</p>
                     </div>
-
                     <button
                         onClick={handleManualClose}
-                        className="group flex items-center gap-2 p-3 bg-slate-50 hover:bg-rose-600 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-inner"
+                        className="shrink-0 w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-rose-600 rounded-xl text-slate-400 hover:text-white transition-all active:scale-90"
                     >
-                        <span className="hidden sm:inline text-[9px] font-bold uppercase tracking-widest ml-1">Close Editor</span>
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -223,18 +218,51 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <section className="space-y-4">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">📝</div>
-                            <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Branch Identity</h4>
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Branch Identity</h4>
                         </div>
-                        <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Official Name</label>
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Official Name</label>
                                 <input
                                     type="text"
                                     value={localBranch.name}
-                                    onChange={(e) => handleUpdateLocal({ name: e.target.value.toUpperCase() })}
-                                    className="w-full bg-white border border-slate-200 px-5 py-4 rounded-2xl text-lg font-bold text-slate-900 uppercase tracking-tighter focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                    onChange={(e) => handleUpdateLocal({ name: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-bold text-slate-900 uppercase tracking-tight focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
                                     placeholder="Enter Branch Name"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Branch Address</label>
+                                <input
+                                    type="text"
+                                    value={localBranch.address || ''}
+                                    onChange={(e) => handleUpdateLocal({ address: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-medium text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                    placeholder="Street address, city, province"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Pin Location (Google Maps URL)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={localBranch.pinLocation || ''}
+                                        onChange={(e) => handleUpdateLocal({ pinLocation: e.target.value })}
+                                        className="flex-1 bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm font-medium text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
+                                        placeholder="https://maps.google.com/..."
+                                    />
+                                    {localBranch.pinLocation && (
+                                        <a
+                                            href={localBranch.pinLocation}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="shrink-0 flex items-center gap-1.5 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide rounded-2xl transition-all active:scale-95"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            View
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -252,8 +280,10 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <OperatingHours
                         openingTime={localBranch.openingTime || '09:00'}
                         closingTime={localBranch.closingTime || '22:00'}
+                        shift2OpeningTime={localBranch.shift2OpeningTime}
+                        shift2ClosingTime={localBranch.shift2ClosingTime}
                         isSaving={isSaving}
-                        isOperationalToday={isOperationalToday}
+                        isOperationalToday={false}
                         onUpdate={handleUpdateLocal}
                     />
 
@@ -280,8 +310,40 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     />
 
                     <ServiceCatalogMatrix
-                        services={localBranch.services || []}
+                        services={catalogServices}
                     />
+
+                    {onToggleFaceId && (
+                      <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Face ID Recognition</p>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
+                            {localFaceIdDisabled ? 'Disabled — staff will use manual time-in' : 'Enabled — staff with enrolled faces use face scan'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            playSound('warning');
+                            setConfirmState({
+                              isOpen: true,
+                              title: localFaceIdDisabled ? 'Enable Face ID?' : 'Disable Face ID?',
+                              message: localFaceIdDisabled
+                                ? `Face ID recognition will be re-enabled for ${branch.name}. Staff with enrolled faces will use face scan for time-in.`
+                                : `Face ID recognition will be disabled for ${branch.name}. All staff will revert to manual time-in until re-enabled.`,
+                              variant: localFaceIdDisabled ? 'success' : 'warning',
+                              onConfirm: () => {
+                                setLocalFaceIdDisabled(d => !d); // optimistic flip
+                                onToggleFaceId();
+                                setConfirmState(p => ({ ...p, isOpen: false }));
+                              }
+                            });
+                          }}
+                          className={`relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200 ${localFaceIdDisabled ? 'bg-slate-200' : 'bg-emerald-500'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${localFaceIdDisabled ? 'translate-x-0' : 'translate-x-6'}`} />
+                        </button>
+                      </div>
+                    )}
 
                     <ConnectivityControls
                         isEnabled={localBranch.isEnabled}
@@ -379,7 +441,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                 </div>
 
                 {!isReadOnly && (
-                  <div className="p-5 sm:p-6 bg-white border-t shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170] lg:rounded-b-none">
+                  <div className="p-5 sm:p-6 bg-white border-t shadow-[0_-25px_60px_rgba(0,0,0,0.08)] relative z-[170] rounded-b-none sm:rounded-b-3xl">
                     <button
                         onClick={handleSaveTrigger}
                         disabled={isSaving || !isDirty}

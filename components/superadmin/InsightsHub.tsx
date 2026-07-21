@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
+import { getTrueDate } from '../../lib/time';
 
 interface InsightsHubProps {
   branches: Branch[];
@@ -24,13 +26,13 @@ interface BranchInsight {
 }
 
 function getManilaDateStr(daysAgo: number): string {
-  const d = new Date();
+  const d = getTrueDate();
   d.setDate(d.getDate() - daysAgo);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 }
 
 function getManilaToday(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(getTrueDate());
 }
 
 const LEVEL_STYLES: Record<AlertLevel, { badge: string; border: string; dot: string; bg: string }> = {
@@ -162,7 +164,7 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
   return (
     <div className="space-y-4">
       {/* Status banner */}
-      <div className={`rounded-[20px] border p-5 flex items-center gap-4 ${
+      <div className={`rounded-xl border p-5 flex items-center gap-4 ${
         level === 'critical' ? 'bg-rose-50 border-rose-200' :
         level === 'warning'  ? 'bg-amber-50 border-amber-200' :
         'bg-emerald-50 border-emerald-200'
@@ -180,14 +182,14 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${styles.badge}`}>
+            <span className={`text-xs font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${styles.badge}`}>
               {level === 'normal' ? 'Normal' : level === 'warning' ? 'Warning' : 'Critical'}
             </span>
             {zeroStreak >= 3 && (
-              <span className="text-[9px] font-black text-rose-500 uppercase tracking-wider">{zeroStreak}d no activity</span>
+              <span className="text-xs font-black text-rose-500 uppercase tracking-wider">{zeroStreak}d no activity</span>
             )}
           </div>
-          <p className={`text-[13px] font-black uppercase tracking-tight ${
+          <p className={`text-sm font-black uppercase tracking-tight ${
             level === 'critical' ? 'text-rose-900' : level === 'warning' ? 'text-amber-900' : 'text-emerald-900'
           }`}>
             {level === 'normal'
@@ -204,7 +206,7 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
             <p className={`text-[28px] font-black leading-none ${changeColor}`}>
               {isGain ? '+' : dropPct > 0 ? '-' : ''}{Math.abs(Math.round(dropPct))}%
             </p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">vs 30-day avg</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mt-0.5">vs 30-day avg</p>
           </div>
         )}
       </div>
@@ -218,18 +220,18 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
           { label: 'Last Report', value: daysSinceLastReport === 0 ? 'Today' : daysSinceLastReport === null ? 'Never' : `${daysSinceLastReport}d ago`, sub: 'Most recent submission' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{s.label}</p>
             <p className="text-[17px] font-black text-slate-900 leading-none">{s.value}</p>
-            <p className="text-[9px] text-slate-400 mt-1">{s.sub}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.sub}</p>
           </div>
         ))}
       </div>
 
       {/* 14-day chart */}
-      <div className="bg-white rounded-[20px] border border-slate-200 p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">14-Day Sales Trend</p>
-          <div className="flex items-center gap-3 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+          <p className="text-xs font-black text-slate-600 uppercase tracking-widest">14-Day Sales Trend</p>
+          <div className="flex items-center gap-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-700 inline-block" /> Sales</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-300 inline-block" /> ₱0</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-200 inline-block" /> No report</span>
@@ -244,14 +246,14 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-1" title={hasData ? `${d.date}: ₱${d.gross.toLocaleString()}` : `${d.date}: no report`}>
                 <div className={`w-full rounded-t-sm ${color} ${isToday ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`} style={{ height: `${height}px` }} />
-                <span className={`text-[7px] font-mono ${isToday ? 'text-slate-600 font-black' : 'text-slate-300'}`}>{d.date.slice(8)}</span>
+                <span className={`text-xs font-mono ${isToday ? 'text-slate-600 font-black' : 'text-slate-300'}`}>{d.date.slice(8)}</span>
               </div>
             );
           })}
         </div>
         {/* Baseline reference line label */}
         {baselineAvg > 0 && (
-          <p className="text-[9px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
+          <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
             Your 30-day baseline average is <span className="font-black text-slate-600">{fmt(baselineAvg)}/day</span>
             {recentAvg > 0 && <> · This week you're averaging <span className={`font-black ${changeColor}`}>{fmt(recentAvg)}/day</span></>}
           </p>
@@ -261,7 +263,7 @@ const BranchInsightView: React.FC<{ insight: BranchInsight }> = ({ insight }) =>
           level === 'critical' ? 'text-rose-500' : level === 'warning' ? 'text-amber-600' : 'text-slate-500'
         }`}>
           {getChartBullets(insight).map((b, i) => (
-            <li key={i} className="flex items-start gap-2 text-[11px] font-medium leading-snug">
+            <li key={i} className="flex items-start gap-2 text-xs font-medium leading-snug">
               <span className="mt-[4px] w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-60" />
               {b}
             </li>
@@ -283,20 +285,20 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
   const changeColor = isGain ? 'text-emerald-600' : level === 'critical' ? 'text-rose-600' : level === 'warning' ? 'text-amber-600' : 'text-slate-400';
 
   return (
-    <div className={`bg-white rounded-[20px] border border-slate-200 border-l-4 ${styles.border} shadow-sm overflow-hidden`}>
+    <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${styles.border} shadow-sm overflow-hidden`}>
       <button onClick={onToggle} className="w-full text-left p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <span className={`w-2 h-2 rounded-full shrink-0 ${styles.dot}`} />
             <div className="min-w-0">
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight truncate">{branch.name.replace('BRANCH - ', '')}</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{branch.name.replace('BRANCH - ', '')}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${styles.badge}`}>{level}</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${styles.badge}`}>{level}</span>
                 {daysSinceLastReport !== null && daysSinceLastReport > 0 && (
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Last report {daysSinceLastReport}d ago</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Last report {daysSinceLastReport}d ago</span>
                 )}
                 {zeroStreak >= 3 && (
-                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-wider">{zeroStreak}d silent</span>
+                  <span className="text-xs font-black text-rose-500 uppercase tracking-wider">{zeroStreak}d silent</span>
                 )}
               </div>
             </div>
@@ -313,7 +315,7 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
             {baselineAvg > 0 && (
               <div className="text-right">
                 <p className={`text-[18px] font-black leading-none ${changeColor}`}>{isGain ? '+' : '-'}{Math.abs(Math.round(dropPct))}%</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">vs baseline</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">vs baseline</p>
               </div>
             )}
             <svg className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M19 9l-7 7-7-7"/></svg>
@@ -331,14 +333,14 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
               { label: 'Last Seen', value: daysSinceLastReport === 0 ? 'Today' : daysSinceLastReport === null ? 'Never' : `${daysSinceLastReport}d ago`, sub: 'Most recent report' },
             ].map(stat => (
               <div key={stat.label} className="bg-slate-50 rounded-2xl p-3">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{stat.label}</p>
                 <p className="text-[15px] font-black text-slate-900 leading-none">{stat.value}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">{stat.sub}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
               </div>
             ))}
           </div>
           <div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Last 14 Days</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Last 14 Days</p>
             <div className="flex items-end gap-1 h-12">
               {last14Days.map((d, i) => {
                 const hasData = d.gross >= 0;
@@ -348,7 +350,7 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div className={`w-full rounded-sm ${color}`} style={{ height: `${height}px` }} />
-                    <span className="text-[7px] text-slate-300 font-mono">{d.date.slice(8)}</span>
+                    <span className="text-xs text-slate-300 font-mono">{d.date.slice(8)}</span>
                   </div>
                 );
               })}
@@ -358,7 +360,7 @@ const BranchInsightCard: React.FC<{ insight: BranchInsight; isExpanded: boolean;
               level === 'critical' ? 'text-rose-500' : level === 'warning' ? 'text-amber-600' : 'text-slate-500'
             }`}>
               {getChartBullets(insight).map((b, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-[10px] font-medium leading-snug">
+                <li key={i} className="flex items-start gap-1.5 text-xs font-medium leading-snug">
                   <span className="mt-[3px] w-1 h-1 rounded-full shrink-0 bg-current opacity-60" />
                   {b}
                 </li>
@@ -379,6 +381,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   const [sortBy, setSortBy]     = useState<'severity' | 'drop' | 'name'>('severity');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch]     = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
@@ -398,7 +401,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
     const insight = insights[0];
     if (!insight) return (
       <div className="py-16 text-center">
-        <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest">No report data available</p>
+        <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No report data available</p>
       </div>
     );
     return (
@@ -408,8 +411,8 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
           </div>
           <div>
-            <h3 className="text-[13px] font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Last 7 days vs prior 30-day average</p>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Last 7 days vs prior 30-day average</p>
           </div>
         </div>
         <BranchInsightView insight={insight} />
@@ -422,7 +425,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
   const warningCount  = insights.filter(i => i.level === 'warning').length;
 
   const displayInsights = useMemo(() => {
-    const term = search.trim().toUpperCase();
+    const term = debouncedSearch.trim().toUpperCase();
     let list = insights.filter(i => !term || i.branch.name.toUpperCase().includes(term));
     if (filter === 'anomalies') list = list.filter(i => i.level !== 'normal');
     return list.sort((a, b) => {
@@ -434,31 +437,31 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
       if (sortBy === 'drop') return b.dropPct - a.dropPct;
       return a.branch.name.localeCompare(b.branch.name);
     });
-  }, [insights, filter, sortBy, search]);
+  }, [insights, filter, sortBy, debouncedSearch]);
 
   return (
     <div className="space-y-6 pb-32">
       {/* Header */}
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-5 flex items-center gap-3">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-3">
         <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
         </div>
         <div className="min-w-0">
-          <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Sales Insights</h3>
           <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Anomaly Detection · Last 7 vs Prior 30 Days</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Anomaly Detection · Last 7 vs Prior 30 Days</p>
             {criticalCount > 0 && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-rose-600 uppercase tracking-wider">
+              <span className="flex items-center gap-1 text-xs font-black text-rose-600 uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />{criticalCount} Critical
               </span>
             )}
             {warningCount > 0 && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase tracking-wider">
+              <span className="flex items-center gap-1 text-xs font-black text-amber-600 uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />{warningCount} Warning
               </span>
             )}
             {criticalCount === 0 && warningCount === 0 && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase tracking-wider">
+              <span className="flex items-center gap-1 text-xs font-black text-emerald-600 uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />All Normal
               </span>
             )}
@@ -472,14 +475,14 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
         <div className="relative">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <input type="text" placeholder="Search branch..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-slate-700 placeholder-slate-300 outline-none focus:bg-white focus:border-emerald-500 transition-all" />
+            className="w-full h-10 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium uppercase tracking-wide text-slate-700 placeholder-slate-300 outline-none focus:bg-white focus:border-emerald-500 transition-all" />
         </div>
         {/* Segmented filter + sort */}
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-slate-100 rounded-2xl p-1 gap-1 flex-1">
             {(['anomalies', 'all'] as FilterMode[]).map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`flex-1 h-8 px-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`flex-1 h-8 px-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                   filter === f ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}>
                 {f === 'anomalies' ? 'Anomalies' : 'All Branches'}
@@ -489,7 +492,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
           <div ref={sortRef} className="relative shrink-0">
             <button
               onClick={() => setSortOpen(o => !o)}
-              className="h-10 px-3 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-slate-400 transition-all"
+              className="h-10 px-3 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-400 transition-all"
             >
               <span>{ sortBy === 'severity' ? 'Severity' : sortBy === 'drop' ? 'Drop %' : 'Name' }</span>
               <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -501,7 +504,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
                     <button
                       key={val}
                       onClick={() => { setSortBy(val); setSortOpen(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between gap-2 ${
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all flex items-center justify-between gap-2 ${
                         sortBy === val ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -517,12 +520,12 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
       </div>
 
       {displayInsights.length === 0 ? (
-        <div className="bg-white rounded-[24px] border border-slate-200 p-12 text-center">
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
           <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No Anomalies Detected</p>
-          <p className="text-[10px] text-slate-400 mt-1">All branches are performing within normal range</p>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">No Anomalies Detected</p>
+          <p className="text-xs text-slate-400 mt-1">All branches are performing within normal range</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -535,7 +538,7 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
       )}
 
       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">How Anomalies Are Detected</p>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">How Anomalies Are Detected</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { color: 'bg-rose-500', label: 'Critical', desc: '60%+ drop or ₱0 sales vs prior 30-day avg' },
@@ -545,8 +548,8 @@ export const InsightsHub: React.FC<InsightsHubProps> = ({ branches, salesReports
             <div key={item.label} className="flex items-start gap-2">
               <span className={`w-2 h-2 rounded-full mt-0.5 shrink-0 ${item.color}`} />
               <div>
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{item.label}</p>
-                <p className="text-[9px] text-slate-400">{item.desc}</p>
+                <p className="text-xs font-black text-slate-600 uppercase tracking-wider">{item.label}</p>
+                <p className="text-xs text-slate-400">{item.desc}</p>
               </div>
             </div>
           ))}

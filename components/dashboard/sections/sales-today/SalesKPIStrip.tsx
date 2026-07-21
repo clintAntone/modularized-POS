@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
+import { TrendingUp, TrendingDown, Minus, Users, Landmark } from 'lucide-react';
 
 interface SalesKPIStripProps {
     gross: number;
     operationalExp: number;
     vaultDeposit?: number;
-    vaultWithdrawal?: number;
-    // How much of operationalExp was vault-covered (matched by VAULT_WITHDRAWAL pairs)
     vaultCoveredExp?: number;
-    // Live vault fund (current branch vault balance — for today's view)
     vaultBalance?: number;
     vaultTarget?: number;
-    // Legacy provision tile (historical reports that recorded daily R&B deposits)
     rentAndBillsTotal?: number;
     finalStaffPayTotal: number;
     net: number;
@@ -25,197 +22,145 @@ interface SalesKPIStripProps {
     isLegacy?: boolean;
 }
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 }
-};
-
-const getFontSize = (val: number) => {
-  const len = Math.abs(val).toLocaleString().length;
-  if (len > 12) return 'text-base sm:text-lg';
-  if (len > 10) return 'text-lg sm:text-xl'; 
-  if (len > 8) return 'text-xl sm:text-2xl';
-  return 'text-2xl sm:text-3xl';
-};
+const fmt = (n: number) =>
+  '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
-                                                                 gross, operationalExp, vaultDeposit = 0, vaultWithdrawal = 0, vaultCoveredExp = 0, vaultBalance = 0, vaultTarget = 0, rentAndBillsTotal = 0, finalStaffPayTotal, net,
-                                                                 totalAllowances, otAdditions, lateDeductions, totalCashAdvances,
-                                                                 cashTotal = 0, gcashTotal = 0,
-                                                                 connStatus = 'connected', pendingSyncCount = 0, isLegacy = false
-                                                             }) => {
-    const [showExpenseDetail, setShowExpenseDetail] = useState(false);
-    const vaultProgress = vaultTarget > 0 ? Math.min(100, Math.round((vaultBalance / vaultTarget) * 100)) : 0;
-    const isVaultFull = vaultTarget > 0 && vaultBalance >= vaultTarget;
-    const netPayableCash = finalStaffPayTotal - totalCashAdvances;
+  gross, operationalExp, vaultDeposit = 0,
+  vaultCoveredExp = 0, vaultBalance = 0, vaultTarget = 0,
+  rentAndBillsTotal = 0, finalStaffPayTotal, net,
+  totalAllowances, otAdditions, lateDeductions, totalCashAdvances,
+  cashTotal = 0, gcashTotal = 0,
+  isLegacy = false
+}) => {
+  const [showPayrollDetail, setShowPayrollDetail] = useState(false);
+  const netPayableCash = finalStaffPayTotal - totalCashAdvances;
+  const roiOnly = Math.max(0, operationalExp - vaultCoveredExp);
 
-    return (
-        <div className="space-y-3 sm:space-y-4">
-        <div className={`grid gap-3 sm:gap-4 ${isLegacy ? 'grid-cols-2 md:grid-cols-4' : vaultDeposit > 0 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'}`}>
-            {/* Gross Sales */}
-            <div className={`col-span-1 md:col-span-2 bg-[#E6F9F1] p-4 sm:p-8 rounded-[32px] border border-emerald-100/50 flex flex-col justify-center gap-1 min-h-[80px] sm:min-h-[120px] relative overflow-hidden group transition-all hover:shadow-lg print:bg-white print:border-slate-200`}>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-emerald-300/30 transition-colors"></div>
-                <p className="text-[10px] sm:text-[12px] font-bold text-emerald-600 uppercase tracking-[0.2em] relative z-10">Gross Sales</p>
-                <p className={`${getFontSize(gross)} font-black text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap relative z-10`}>
-                    ₱{gross.toLocaleString()}
-                </p>
-                {(cashTotal > 0 || gcashTotal > 0) && (
-                  <div className="flex gap-3 mt-2 relative z-10">
-                    <div className="flex flex-col">
-                      <span className="text-[7px] font-black text-emerald-600/60 uppercase tracking-widest">Cash</span>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-slate-700 tabular-nums">₱{cashTotal.toLocaleString()}</span>
-                    </div>
-                    <div className="w-px h-6 bg-emerald-200/30 self-end"></div>
-                    <div className="flex flex-col">
-                      <span className="text-[7px] font-black text-emerald-600/60 uppercase tracking-widest">GCash</span>
-                      <span className="text-[12px] sm:text-[14px] font-bold text-slate-700 tabular-nums">₱{gcashTotal.toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-            </div>
+  const isPositive = net > 0;
+  const isNegative = net < 0;
 
-            {/* Expenses */}
-            <div className="col-span-1 bg-[#FFF1F2] p-3 sm:p-6 rounded-[28px] border border-red-100/50 flex flex-col justify-center gap-1 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-red-600 uppercase tracking-widest">Expenses</p>
-                {/* Main number: what daily sales actually shouldered (ROI portion only) */}
-                <p className={`${getFontSize(Math.max(0, operationalExp - vaultCoveredExp))} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
-                    ₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}
-                </p>
-                {vaultCoveredExp > 0 && (
-                  <div className="mt-1.5">
-                    {/* Mobile toggle button */}
-                    <button
-                      onClick={() => setShowExpenseDetail(v => !v)}
-                      className="sm:hidden flex items-center gap-1 text-[9px] font-bold text-rose-400 uppercase tracking-widest mb-1"
-                    >
-                      <svg className={`w-3 h-3 transition-transform ${showExpenseDetail ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                      {showExpenseDetail ? 'Hide' : 'Breakdown'}
-                    </button>
-                    <div className={`space-y-1 border-t border-rose-200/60 pt-1.5 ${showExpenseDetail ? 'block' : 'hidden'} sm:block`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-semibold text-rose-400">ROI Expenses</span>
-                        <span className="text-[10px] font-bold text-rose-500 tabular-nums">₱{Math.max(0, operationalExp - vaultCoveredExp).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-semibold text-amber-600">+ Vault Covered</span>
-                        <span className="text-[10px] font-bold text-amber-600 tabular-nums">₱{vaultCoveredExp.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 border-t border-rose-200/60 pt-1 mt-0.5">
-                        <span className="text-[9px] font-semibold text-slate-400">Total Exp</span>
-                        <span className="text-[10px] font-bold text-slate-500 tabular-nums">₱{operationalExp.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-            </div>
+  return (
+    <div className="space-y-2.5">
 
-            {/* Staff Payroll */}
-            <div className="col-span-1 bg-[#FFFBEB] p-3 sm:p-6 rounded-[28px] border border-amber-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-widest">Staff Payroll</p>
-                <div className="flex flex-col gap-0.5">
-                    <p className={`${getFontSize(finalStaffPayTotal)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
-                        ₱{finalStaffPayTotal.toLocaleString()}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-1 opacity-60">
-                        <span className="text-[8px] sm:text-[10px] font-black text-amber-700 uppercase">
-                           Net: ₱{netPayableCash.toLocaleString()}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Vault Deposit KPI — non-legacy, only when a deposit was made today */}
-            {!isLegacy && vaultDeposit > 0 && (
-              <div className="col-span-1 md:col-span-2 bg-[#EEF2FF] p-3 sm:p-6 rounded-[28px] border border-indigo-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 20V4m0 0l-6 6m6-6l6 6" />
-                  </svg>
-                  <p className="text-[9px] sm:text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Vault Deposit</p>
-                </div>
-                <p className={`${getFontSize(vaultDeposit)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
-                  ₱{vaultDeposit.toLocaleString()}
-                </p>
-                <p className="text-[7px] font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Saved to vault fund</p>
+      {/* ── Row 1: Gross Sales (full width) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-between print:shadow-none">
+        <div>
+          <p className="text-xs font-semibold text-slate-400 mb-1">Gross Sales</p>
+          <p className="text-3xl font-black text-slate-900 tabular-nums leading-none">{fmt(gross)}</p>
+          {(cashTotal > 0 || gcashTotal > 0) && (
+            <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                <span className="text-xs text-slate-500">Cash <span className="font-semibold text-slate-700">{fmt(cashTotal)}</span></span>
               </div>
-            )}
-
-            {/* Rent & Bills — legacy only */}
-            {isLegacy && (
-              <div className="col-span-2 md:col-span-1 bg-[#EEF2FF] p-3 sm:p-6 rounded-[28px] border border-indigo-100/50 flex flex-col justify-center gap-0.5 min-h-[72px] sm:min-h-[90px] transition-all hover:shadow-md print:bg-white print:border-slate-200">
-                <p className="text-[9px] sm:text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Rent & Bills</p>
-                <p className={`${getFontSize(rentAndBillsTotal)} font-bold text-slate-900 tracking-tightest leading-none tabular-nums whitespace-nowrap`}>
-                  ₱{rentAndBillsTotal.toLocaleString()}
-                </p>
-                <p className="text-[7px] font-bold text-indigo-300 uppercase tracking-widest mt-0.5">Daily Provision</p>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                <span className="text-xs text-slate-500">GCash <span className="font-semibold text-slate-700">{fmt(gcashTotal)}</span></span>
               </div>
-            )}
-
-            {/* Net ROI */}
-            <div className={`${isLegacy ? 'col-span-2 md:col-span-3' : 'col-span-2'} p-4 sm:p-8 rounded-[32px] shadow-2xl flex flex-col justify-center gap-1 min-h-[80px] sm:min-h-[120px] relative overflow-hidden group transition-all duration-500 hover:scale-[1.01] print:bg-white print:border-slate-200 print:shadow-none ${net < 0 ? 'bg-rose-950' : 'bg-[#0F172A]'}`}>
-                <div className={`absolute top-0 right-0 w-48 h-48 blur-3xl rounded-full no-print ${net < 0 ? 'bg-rose-500/20' : 'bg-emerald-500/10'}`}></div>
-                <div className="flex justify-between items-start relative z-10">
-                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-400 uppercase tracking-[0.2em] print:text-slate-600">Net ROI</p>
-                    <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${net < 0 ? 'bg-rose-500/20 text-rose-400' : net === 0 ? 'bg-slate-500/20 text-slate-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                        {net < 0 ? 'Deficit' : net === 0 ? 'Balanced' : 'Growth'}
-                    </div>
-                </div>
-                <p className={`${getFontSize(Math.abs(net))} font-black tracking-tightest leading-none relative z-10 tabular-nums whitespace-nowrap print:text-slate-900 ${net < 0 ? 'text-rose-400' : net === 0 ? 'text-slate-400' : 'text-emerald-400'}`}>
-                    {net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}
-                </p>
             </div>
+          )}
+        </div>
+        <TrendingUp className="w-5 h-5 text-emerald-500 shrink-0 opacity-70" strokeWidth={2} />
+      </div>
+
+      {/* ── Row 2: Expenses + Staff (2-col) — legacy adds Rent & Bills as third col ── */}
+      <div className={`grid gap-2.5 ${isLegacy ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        {/* Expenses */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-slate-400">Expenses</p>
+            <Minus className="w-4 h-4 text-rose-400 opacity-70 shrink-0" strokeWidth={2.5} />
+          </div>
+          <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(roiOnly)}</p>
+          {vaultCoveredExp > 0 && (
+            <p className="text-xs text-amber-600 font-medium mt-1.5">+{fmt(vaultCoveredExp)} vault</p>
+          )}
         </div>
 
-        {/* ── Vault Fund — non-legacy only, separate from P&L computation ── */}
-        {!isLegacy && (
-          vaultTarget > 0 && (
-            <div className={`rounded-[24px] border px-5 sm:px-6 py-4 flex items-center justify-between gap-4 print:bg-white print:border-slate-200 ${isVaultFull ? 'bg-[#ECFDF5] border-emerald-200/60' : 'bg-white border-slate-200'}`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isVaultFull ? 'bg-emerald-100' : 'bg-slate-100'}`}>
-                  <svg className={`w-4 h-4 ${isVaultFull ? 'text-emerald-500' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest leading-none ${isVaultFull ? 'text-emerald-600' : 'text-slate-500'}`}>Vault Fund</p>
-                    <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isVaultFull ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {isVaultFull ? '✓ Full' : `${vaultProgress}%`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className="w-24 sm:w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${isVaultFull ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${vaultProgress}%` }} />
-                    </div>
-                    <p className={`text-[7px] font-bold uppercase tracking-widest tabular-nums whitespace-nowrap ${isVaultFull ? 'text-emerald-500' : 'text-slate-400'}`}>
-                      {isVaultFull ? 'Target reached' : `₱${(vaultTarget - vaultBalance).toLocaleString()} to go`}
-                    </p>
-                  </div>
-                  {(vaultWithdrawal ?? 0) > 0 && (
-                    <p className="text-[7px] font-bold text-rose-500 uppercase tracking-widest tabular-nums mt-0.5">
-                      −₱{(vaultWithdrawal ?? 0).toLocaleString()} used today
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <p className={`${getFontSize(vaultBalance)} font-black tabular-nums whitespace-nowrap ${isVaultFull ? 'text-emerald-700' : 'text-slate-900'}`}>
-                  ₱{vaultBalance.toLocaleString()}
-                </p>
-                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Savings Balance</p>
-              </div>
+        {/* Rent & Bills (legacy only) */}
+        {isLegacy && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-400">Rent & Bills</p>
+              <Landmark className="w-4 h-4 text-indigo-400 opacity-70 shrink-0" strokeWidth={2} />
             </div>
-          )
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(rentAndBillsTotal)}</p>
+            <p className="text-xs text-indigo-500 font-medium mt-1.5">Daily provision</p>
+          </div>
         )}
 
+        {/* Staff Payroll */}
+        <button
+          onClick={() => setShowPayrollDetail(v => !v)}
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 text-left w-full transition-colors active:bg-slate-50 print:shadow-none"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-slate-400">Staff Pay</p>
+            <Users className="w-4 h-4 text-amber-400 opacity-70 shrink-0" strokeWidth={2} />
+          </div>
+          <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(finalStaffPayTotal)}</p>
+          <p className="text-xs text-slate-400 font-medium mt-1.5">Net {fmt(netPayableCash)}</p>
+          {showPayrollDetail && (
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-1.5 text-left">
+              {totalAllowances > 0 && <div className="flex justify-between text-xs"><span className="text-slate-400">Allowances</span><span className="font-semibold text-slate-700">{fmt(totalAllowances)}</span></div>}
+              {otAdditions > 0 && <div className="flex justify-between text-xs"><span className="text-slate-400">Overtime</span><span className="font-semibold text-emerald-600">+{fmt(otAdditions)}</span></div>}
+              {lateDeductions > 0 && <div className="flex justify-between text-xs"><span className="text-slate-400">Late deductions</span><span className="font-semibold text-rose-500">−{fmt(lateDeductions)}</span></div>}
+              {totalCashAdvances > 0 && <div className="flex justify-between text-xs"><span className="text-slate-400">Cash advance</span><span className="font-semibold text-rose-500">−{fmt(totalCashAdvances)}</span></div>}
+            </div>
+          )}
+        </button>
+      </div>
+
+      {/* ── Vault Deposit ── */}
+      {!isLegacy && vaultDeposit > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-between print:shadow-none">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 mb-1">Vault Deposit</p>
+            <p className="text-2xl font-black text-slate-900 tabular-nums leading-none">{fmt(vaultDeposit)}</p>
+            {vaultTarget > 0 ? (
+              <p className="text-xs text-indigo-500 font-medium mt-1.5">
+                {/* Use whichever is higher — DB balance may lag briefly after a fresh deposit */}
+                {(() => {
+                  const displayBalance = Math.max(vaultBalance, vaultDeposit);
+                  return (
+                    <>
+                      Fund total {fmt(displayBalance)}
+                      {displayBalance < vaultTarget && (
+                        <span className="text-slate-400"> · {fmt(vaultTarget - displayBalance)} to go</span>
+                      )}
+                    </>
+                  );
+                })()}
+              </p>
+            ) : (
+              <p className="text-xs text-indigo-500 font-medium mt-1.5">Saved to vault fund</p>
+            )}
+          </div>
+          <Landmark className="w-5 h-5 text-indigo-400 shrink-0 opacity-70" strokeWidth={2} />
         </div>
-    );
+      )}
+
+      {/* ── Net ROI (full width, dark card) ── */}
+      <div className={`rounded-2xl p-5 flex items-center justify-between relative overflow-hidden print:bg-white print:border print:border-slate-200 print:shadow-none ${isNegative ? 'bg-slate-900 border border-rose-900/40' : 'bg-slate-900 border border-slate-700'}`}>
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-semibold text-slate-400">Net ROI</p>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isNegative ? 'bg-rose-500/10 text-rose-500/70' : isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
+              {isNegative ? 'Deficit' : isPositive ? 'Growth' : 'Balanced'}
+            </span>
+          </div>
+          <p className={`text-4xl font-black tabular-nums leading-none print:text-slate-900 ${isNegative ? 'text-rose-400/70' : isPositive ? 'text-emerald-400' : 'text-slate-400'}`}>
+            {isNegative ? '−' : ''}{fmt(Math.abs(net))}
+          </p>
+        </div>
+        {isNegative
+          ? <TrendingDown className="w-6 h-6 text-rose-400 shrink-0 opacity-60" strokeWidth={1.5} />
+          : <TrendingUp className="w-6 h-6 text-emerald-400 shrink-0 opacity-60" strokeWidth={1.5} />
+        }
+      </div>
+
+
+    </div>
+  );
 });

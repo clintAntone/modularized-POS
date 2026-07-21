@@ -66,7 +66,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     typeof window !== 'undefined' ? Math.min(window.innerWidth - 40, 1360) : 1200
   );
   const [showMoreModal, setShowMoreModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [starredIds, setStarredIds] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('more_starred_tabs') || '[]')); }
     catch { return new Set(); }
@@ -75,30 +75,33 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => {
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(() => setWindowWidth(window.innerWidth), 80);
+    };
     // orientationchange fires before the browser updates innerWidth on iOS — use a short delay
-    const handleOrientation = () => setTimeout(() => setWindowWidth(window.innerWidth), 150);
+    const handleOrientation = () => setTimeout(() => setWindowWidth(window.innerWidth), 200);
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleOrientation);
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientation);
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
     };
   }, []);
 
-  // Re-attach ResizeObserver every time windowWidth changes so it reconnects
-  // when the desktop nav element mounts after crossing the 640px threshold.
+  // Attach ResizeObserver once on mount. windowWidth state handles mobile/desktop
+  // breakpoint switching; the RO measures the actual container on desktop.
   useEffect(() => {
-    if (!containerRef.current) return;
-    // Read the current width immediately — don't wait for the next resize event
-    setContainerWidth(containerRef.current.getBoundingClientRect().width);
+    const el = containerRef.current;
+    if (!el) return;
+    setContainerWidth(el.getBoundingClientRect().width);
     const ro = new ResizeObserver(entries => {
       setContainerWidth(entries[0].contentRect.width);
     });
-    ro.observe(containerRef.current);
+    ro.observe(el);
     return () => ro.disconnect();
-  }, [windowWidth]);
+  }, []);
 
   const masterTabRegistry = useMemo(() => {
     const tabs = [
@@ -203,14 +206,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     setShowMoreModal(false);
   };
 
-  if (!mounted) return null;
-
   return (
     <>
       {windowWidth >= 640 ? (
-        <nav className="bg-slate-800 border-b border-white/5 z-[900] shadow-lg no-print w-full">
-          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-14`}>
-            <div className="flex items-center gap-1 lg:gap-2">
+        <nav className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-[900] no-print w-full">
+          <div ref={containerRef} className={`${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} flex items-center h-12`}>
+            <div className="flex items-center gap-0.5">
               {visibleTabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 const hasBillsAlert = showBillsAlert && tab.id === 'monthly_bills';
@@ -219,19 +220,17 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                   <button
                     key={tab.id}
                     onClick={() => !isSoon && handleTabClick(tab.id)}
-                    className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isSoon ? 'text-slate-400 cursor-not-allowed' : isActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                    className={`relative flex items-center gap-1.5 px-4 py-2.5 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isSoon ? 'text-slate-300 cursor-not-allowed' : isActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                   >
-                    <div className={`transition-all duration-200 ${isActive ? 'scale-110 text-emerald-400' : ''}`}>{tab.icon}</div>
-                    <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 ${isActive ? 'opacity-100' : ''}`}>
-                      {tab.label}
-                    </span>
+                    <div className={`transition-all duration-150 ${isActive ? 'text-emerald-600' : ''}`}>{tab.icon}</div>
+                    <span className="whitespace-nowrap uppercase">{tab.label}</span>
                     {isSoon && (
-                      <span className="text-[7px] font-black uppercase tracking-widest bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-1.5 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(167,139,250,0.6)] leading-none">✦ New</span>
+                      <span className="text-xs font-bold bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full leading-none">New</span>
                     )}
                     {hasBillsAlert && (
-                      <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
                     )}
-                    {isActive && <div className="absolute -bottom-1 left-4 right-4 h-[2px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>}
+                    {isActive && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-500 rounded-full"></div>}
                   </button>
                 );
               })}
@@ -239,25 +238,26 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
               {overflowTabs.length > 0 && (
                 <button
                   onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                  className={`relative flex items-center gap-2 px-3 lg:px-4 py-2.5 font-semibold text-[10px] lg:text-[11px] uppercase transition-all duration-200 shrink-0 group rounded-xl ${isMoreActive ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isMoreActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                 >
-                  <div className={`transition-all duration-200 ${isMoreActive ? 'scale-110 text-emerald-400' : 'group-hover:text-emerald-300'}`}>{Icons.more}</div>
-                  <span className={`tracking-widest whitespace-nowrap transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${isMoreActive ? 'opacity-100' : ''}`}>
-                    More
-                  </span>
+                  <div>{Icons.more}</div>
+                  <span className="whitespace-nowrap uppercase">More</span>
                   {showBillsAlert && overflowTabs.some(t => t.id === 'monthly_bills') && (
-                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
                   )}
-                  {isMoreActive && <div className="absolute -bottom-1 left-4 right-4 h-[2px] bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>}
+                  {isMoreActive && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-500 rounded-full"></div>}
                 </button>
               )}
             </div>
           </div>
         </nav>
       ) : (
-        /* MOBILE NAV - REFINED WITH MORE BUTTON */
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4">
-          <div className="bg-slate-800/95 backdrop-blur-2xl px-2 py-3 rounded-[32px] shadow-[0_15px_45px_-5px_rgba(0,0,0,0.5)] ring-1 ring-white/10 border border-white/5 flex items-center transition-all duration-500">
+        /* MOBILE NAV */
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
+          {/* Glow */}
+          <div className="absolute inset-x-4 bottom-0 h-12 bg-indigo-400/20 dark:bg-indigo-500/25 blur-2xl rounded-full pointer-events-none" />
+          <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-white/60 dark:border-slate-700
+            shadow-[0_8px_32px_-4px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.06)]">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;
               const isSoon = (tab as any).comingSoon;
@@ -265,12 +265,19 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                 <button
                   key={tab.id}
                   onClick={() => !isSoon && handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isSoon ? 'opacity-60 cursor-not-allowed' : isActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
+                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : ''}`}
                 >
-                  <div className={`transition-all duration-300 ${isActive ? 'text-emerald-400' : 'text-white'}`}>{tab.icon}</div>
-                  <span className={`text-[8px] font-bold uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{tab.label}</span>
-                  {isSoon && <span className="text-[6px] font-black uppercase tracking-widest bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">✦ New</span>}
-                  {isActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]"></div>}
+                  {/* Icon with active pill background */}
+                  <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isActive ? 'bg-emerald-50' : ''}`}>
+                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-400 dark:text-slate-400'}`}>
+                      {tab.icon}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-tight transition-all leading-none ${isActive ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-semibold text-slate-400 dark:text-slate-400'}`}>
+                    {tab.label}
+                  </span>
+                  {isSoon && <span className="text-[6px] font-bold uppercase bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">New</span>}
+                  {isActive && <div className="w-4 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
                 </button>
               );
             })}
@@ -278,34 +285,36 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
             {overflowTabs.length > 0 && (
               <button
                 onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative flex-1 min-w-0 px-1.5 ${isMoreActive ? 'scale-110' : 'opacity-40 hover:opacity-100'}`}
+                className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${!isMoreActive ? 'opacity-40 active:opacity-70' : ''}`}
               >
-                <div className="relative">
-                  <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-400' : 'text-white'}`}>{Icons.more}</div>
-                  {showBillsAlert && overflowTabs.some(t => t.id === 'monthly_bills') && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-pulse" />
-                  )}
+                <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isMoreActive ? 'bg-emerald-50' : ''}`}>
+                  <div className="relative">
+                    <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-600 scale-110' : 'text-slate-900 dark:text-white'}`}>{Icons.more}</div>
+                    {showBillsAlert && overflowTabs.some(t => t.id === 'monthly_bills') && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    )}
+                  </div>
                 </div>
-                <span className={`text-[8px] font-bold uppercase tracking-tight ${isMoreActive ? 'text-white' : 'text-slate-300'}`}>More</span>
-                {isMoreActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]"></div>}
+                <span className={`text-xs uppercase tracking-tight transition-all ${isMoreActive ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-900 dark:text-white'}`}>More</span>
+                {isMoreActive && <div className="w-4 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
               </button>
             )}
           </div>
         </div>
       )}
 
-      {mounted && showMoreModal && createPortal(
+      {showMoreModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md no-print animate-in fade-in duration-300">
-          <div className={`bg-white ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-4xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative animate-in zoom-in-95 duration-200 max-h-[96vh] sm:max-h-full overflow-y-auto no-scrollbar border border-slate-200 flex flex-col`}>
-            
-            <div className="sticky top-0 bg-white/95 backdrop-blur-md z-30 flex justify-between items-center py-4 px-5 sm:py-8 sm:px-12 border-b border-slate-100 shrink-0">
+          <div className={`bg-white dark:bg-slate-800 ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-2xl shadow-xl relative animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto no-scrollbar border border-slate-200 dark:border-slate-700 flex flex-col`}>
+
+            <div className="sticky top-0 bg-white dark:bg-slate-800 backdrop-blur-md z-30 flex justify-between items-center py-4 px-5 sm:py-8 sm:px-12 border-b border-slate-100 dark:border-slate-700 shrink-0">
               <div className="space-y-0.5 sm:space-y-1">
-                <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tighter text-slate-900">More options</h3>
-                <p className="text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 opacity-80">Extended Branch Operations</p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">More options</h3>
+                <p className="text-xs sm:text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 opacity-80">Extended Branch Operations</p>
               </div>
-              <button 
-                onClick={() => { playSound('click'); setShowMoreModal(false); }} 
-                className="p-2 sm:p-3 bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900 transition-all border border-slate-200 shadow-sm active:scale-90"
+              <button
+                onClick={() => { playSound('click'); setShowMoreModal(false); }}
+                className="p-2 sm:p-3 bg-slate-100 dark:bg-slate-700 rounded-2xl text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all border border-slate-200 dark:border-slate-600 shadow-sm active:scale-90"
               >
                 <X className="w-5 h-5 sm:w-6 h-6" />
               </button>
@@ -332,22 +341,22 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       style={{ transform: 'translateZ(0)' }}
                       className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu select-none ${
                         isSoon
-                          ? 'border-slate-100 bg-slate-50/50 opacity-50 cursor-not-allowed'
+                          ? 'border-slate-200/60 bg-white shadow-sm opacity-50 cursor-not-allowed'
                           : isStarred
                             ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
                             : activeTab === item.id
                               ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
                               : showBillsAlert && item.id === 'monthly_bills'
                                 ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
-                                : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 bg-slate-50/50'
+                                : 'border-slate-200/60 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300/60'
                       }`}
                     >
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
+                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                         {item.icon}
                       </div>
                       <div>
-                        <h4 className="text-[11px] sm:text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1.5 group-hover:text-emerald-600 transition-colors duration-200">{item.label}</h4>
-                        <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1.5 group-hover:text-emerald-600 transition-colors duration-200">{item.label}</h4>
+                        <p className="text-xs sm:text-xs font-medium uppercase tracking-wide text-slate-400 group-hover:text-slate-500 transition-colors">{item.desc}</p>
                       </div>
                       {isStarred && (
                         <div className="absolute top-2.5 right-2.5">
@@ -360,12 +369,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       {showBillsAlert && item.id === 'monthly_bills' && activeTab !== item.id && !isStarred && (
                         <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-amber-400 text-white rounded-full px-2 py-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          <span className="text-[7px] font-black uppercase tracking-widest">Setup</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide">Setup</span>
                         </div>
                       )}
                       {isSoon && (
                         <div className="absolute top-2 right-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-full px-2 py-0.5 shadow-[0_0_10px_rgba(167,139,250,0.5)] animate-pulse">
-                          <span className="text-[7px] font-black uppercase tracking-widest">✦ New</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide">✦ New</span>
                         </div>
                       )}
                     </button>
@@ -383,7 +392,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                         <div className="flex items-center gap-4 px-2">
                           <div className="flex items-center gap-2">
                             <svg className="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            <h5 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] whitespace-nowrap">Favorites</h5>
+                            <h5 className="text-xs font-black text-amber-500 uppercase tracking-wide whitespace-nowrap">Favorites</h5>
                           </div>
                           <div className="h-px flex-1 bg-amber-100"></div>
                         </div>
@@ -402,7 +411,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       return (
                         <div key={group.name} className="space-y-5">
                           <div className="flex items-center gap-4 px-2">
-                            <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em] whitespace-nowrap">{group.name}</h5>
+                            <h5 className="text-xs font-black text-emerald-600 uppercase tracking-wide whitespace-nowrap">{group.name}</h5>
                             <div className="h-px flex-1 bg-slate-100"></div>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">

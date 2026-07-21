@@ -7,21 +7,21 @@ export const ROLE_ORDER = ['MANAGER', 'THERAPIST', 'BONESETTER'];
 
 export const RoleBadge = ({ role }: { role: string }) => {
   const styles: Record<string, string> = {
-    MANAGER: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-    THERAPIST: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    BONESETTER: 'bg-amber-50 text-amber-700 border-amber-100',
-    TRAINEE: 'bg-slate-50 text-slate-500 border-slate-100',
+    MANAGER: 'bg-indigo-600 text-white border-indigo-700',
+    THERAPIST: 'bg-emerald-600 text-white border-emerald-700',
+    BONESETTER: 'bg-amber-500 text-white border-amber-600',
+    TRAINEE: 'bg-slate-500 text-white border-slate-600',
     RELIEVER: 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
   };
   
   const roles = (role || '').split(',')
     .filter(Boolean)
     .sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
-  
+
   return (
     <div className="flex flex-wrap gap-1 justify-center md:justify-start">
       {roles.map(r => (
-        <span key={r} className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${styles[r] || styles.TRAINEE}`}>
+        <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide border ${styles[r] || 'bg-violet-600 text-white border-violet-700'}`}>
           {r}
         </span>
       ))}
@@ -61,14 +61,14 @@ export const WorkplaceAuthorizationGrid = ({
     <div className="space-y-0">
       {/* Selected chips */}
       {selectedBranches.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-3 bg-emerald-50/60 border-b border-emerald-100">
+        <div className="flex flex-wrap gap-2 p-3 bg-slate-100 border-b border-slate-200">
           {selectedBranches.map(branch => (
             <button
               key={branch.id}
               type="button"
               disabled={disabled}
               onClick={() => toggle(branch.id, true)}
-              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-black text-emerald-800 uppercase tracking-tight hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-emerald-500 border border-emerald-600 rounded-lg text-xs font-black text-white uppercase tracking-tight hover:bg-rose-500 hover:border-rose-600 transition-all active:scale-95 shadow-sm"
             >
               <span className="truncate max-w-[120px]">{branch.name}</span>
               <svg className="w-3 h-3 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
@@ -116,9 +116,9 @@ export const WorkplaceAuthorizationGrid = ({
               {/* Checkbox */}
               <div className="w-4 h-4 rounded border-2 border-slate-200 group-hover:border-emerald-400 transition-colors shrink-0 flex items-center justify-center bg-white" />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{branch.name}</p>
+                <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{branch.name}</p>
                 {branch.manager && (
-                  <p className="text-[9px] font-semibold text-slate-400 truncate mt-0.5">{branch.manager}</p>
+                  <p className="text-xs font-semibold text-slate-400 truncate mt-0.5">{branch.manager}</p>
                 )}
               </div>
               <svg className="w-3.5 h-3.5 text-slate-200 group-hover:text-emerald-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -128,7 +128,7 @@ export const WorkplaceAuthorizationGrid = ({
           ))
         ) : (
           <div className="py-8 text-center">
-            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+            <p className="text-xs font-black text-slate-300 uppercase tracking-widest">
               {search ? 'No matches' : 'All branches selected'}
             </p>
           </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Branch, SalesReport } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { DB_TABLES } from '../../../constants/db_schema';
+import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, getTrueManilaISOString } from '../../../lib/time';
 
 interface UseBranchStatusParams {
   branch: Branch;
@@ -79,9 +79,12 @@ export function useBranchStatus({
   // Closing time warning
   useEffect(() => {
     const checkClosingTime = () => {
-      if (!branch.isOpen || !branch.closingTime || hasDismissedWarning) return;
+      if (!branch.isOpen || hasDismissedWarning) return;
+      // Use shift 2 closing time if it exists, otherwise shift 1
+      const effectiveClosingTime = branch.shift2ClosingTime || branch.closingTime;
+      if (!effectiveClosingTime) return;
       const now = getTrueDate();
-      const [closeH, closeM] = branch.closingTime.split(':').map(Number);
+      const [closeH, closeM] = effectiveClosingTime.split(':').map(Number);
       const closingDate = getTrueDate();
       closingDate.setHours(closeH, closeM, 0, 0);
       const diffMins = (closingDate.getTime() - now.getTime()) / (1000 * 60);
@@ -91,7 +94,7 @@ export function useBranchStatus({
       }
     };
     checkClosingTime();
-  }, [currentTime, branch.isOpen, branch.closingTime, hasDismissedWarning]);
+  }, [currentTime, branch.isOpen, branch.closingTime, branch.shift2ClosingTime, hasDismissedWarning]);
 
   const handleToggleBranchStatus = async () => {
     setIsOpening(true);
@@ -110,6 +113,19 @@ export function useBranchStatus({
       };
       const { error } = await supabase.from(DB_TABLES.BRANCHES).update(updateData).eq('id', branch.id);
       if (error) throw error;
+
+      // When opening for a new day, close out any orphaned sessions from a previous day
+      if (nextStatus && branch.isOpenDate && branch.isOpenDate < manilaToday) {
+        await supabase
+          .from(DB_TABLES.ATTENDANCE)
+          .update({
+            [DB_COLUMNS.CLOCK_OUT]: getTrueManilaISOString(),
+            [DB_COLUMNS.STATUS]: 'AUTO-LOGOUT',
+          })
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .is(DB_COLUMNS.CLOCK_OUT, null)
+          .lt(DB_COLUMNS.DATE, manilaToday);
+      }
 
       playSound('success');
       setShowToggleConfirm(false);

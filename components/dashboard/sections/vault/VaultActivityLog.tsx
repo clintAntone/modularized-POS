@@ -61,7 +61,7 @@ export const VaultActivityLog: React.FC<VaultActivityLogProps> = ({ movements, o
                         onPointerLeave={cancelPress}
                         onPointerCancel={cancelPress}
                         onClick={() => handleItemClick(e)}
-                        className={`relative bg-white rounded-[20px] border-2 transition-all duration-200 cursor-pointer select-none overflow-hidden ${
+                        className={`relative bg-white rounded-xl border-2 transition-all duration-200 cursor-pointer select-none overflow-hidden ${
                             isRevealed
                                 ? 'border-rose-200 shadow-md shadow-rose-50'
                                 : 'border-slate-100 active:scale-[0.99] hover:border-slate-200 hover:shadow-sm'
@@ -77,10 +77,10 @@ export const VaultActivityLog: React.FC<VaultActivityLogProps> = ({ movements, o
 
                             {/* Name + date */}
                             <div className="flex-1 min-w-0">
-                                <p className={`text-[13px] font-black uppercase tracking-tight truncate leading-tight transition-colors ${isRevealed ? 'text-rose-800' : 'text-slate-900'}`}>
+                                <p className={`text-sm font-black uppercase tracking-tight truncate leading-tight transition-colors ${isRevealed ? 'text-rose-800' : 'text-slate-900'}`}>
                                     {e.name}
                                 </p>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">
                                     {fmtDate(e.timestamp)}
                                     <span className="mx-1.5 opacity-40">·</span>
                                     {fmtTime(e.timestamp)}
@@ -114,10 +114,10 @@ export const VaultActivityLog: React.FC<VaultActivityLogProps> = ({ movements, o
                         {isRevealed && (
                             <div className="bg-rose-50 border-t border-rose-100 px-4 py-1.5 flex items-center justify-between animate-in slide-in-from-bottom-1 duration-150">
                                 {canDelete
-                                    ? <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest">Tap trash to delete</p>
-                                    : <p className="text-[8px] font-bold text-rose-300 uppercase tracking-widest">Cannot be deleted</p>
+                                    ? <p className="text-xs font-black text-rose-400 uppercase tracking-widest">Tap trash to delete</p>
+                                    : <p className="text-xs font-bold text-rose-300 uppercase tracking-widest">Cannot be deleted</p>
                                 }
-                                <p className="text-[8px] font-bold text-rose-300 uppercase tracking-widest">Tap elsewhere to dismiss</p>
+                                <p className="text-xs font-bold text-rose-300 uppercase tracking-widest">Tap elsewhere to dismiss</p>
                             </div>
                         )}
                     </div>
@@ -135,8 +135,8 @@ const EmptyState = () => (
             </svg>
         </div>
         <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">No Bills Recorded</p>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Vault settlements will appear here</p>
+            <p className="text-xs font-black text-slate-500 uppercase tracking-wide">No Bills Recorded</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Vault settlements will appear here</p>
         </div>
     </div>
 );

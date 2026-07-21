@@ -9,6 +9,7 @@ import { generateSalt, hashPin } from '../../../../lib/crypto';
 import { useUpdateEmployee, useUpdateBranch, useAddAuditLog } from '../../../../hooks/useNetworkData';
 import { invalidateBranchSessions } from '../../../../lib/audit';
 import { Check, X, ShieldAlert } from 'lucide-react';
+import { getTrueISOString } from '../../../../lib/time';
 
 interface RecoveryModalProps {
   employee: Employee;
@@ -91,7 +92,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
 
         await addAuditLog.mutateAsync({
             [DB_COLUMNS.BRANCH_ID]: employee.branchId,
-            [DB_COLUMNS.TIMESTAMP]: new Date().toISOString(),
+            [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
             [DB_COLUMNS.ENTITY_TYPE]: 'SECURITY',
             [DB_COLUMNS.ENTITY_ID]: employee.id,
@@ -119,31 +120,31 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
 
   return (
     <div className={`${UI_THEME.layout.modalWrapper} no-print`}>
-       <div className="bg-white rounded-[44px] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300 flex flex-col border border-white/10">
+       <div className="bg-white rounded-[44px] w-full max-w-md shadow-xl overflow-hidden animate-in zoom-in duration-300 flex flex-col border border-white/10">
           {successData ? (
             <div className="p-10 space-y-8 text-center animate-in slide-in-from-bottom-2">
-               <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white mx-auto shadow-2xl mb-4">
+               <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white mx-auto shadow-xl mb-4">
                   <Check className="w-10 h-10" strokeWidth={4} />
                </div>
                <div className="space-y-2">
                   <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Security Provisioned</h4>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hand over these credentials to personnel</p>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Hand over these credentials to personnel</p>
                </div>
                
-               <div className="space-y-4 bg-slate-50 p-8 rounded-[32px] border border-slate-100 shadow-inner">
+               <div className="space-y-4 bg-slate-50 p-8 rounded-2xl border border-slate-100 shadow-inner">
                   <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Username</p>
+                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Username</p>
                      <p className="text-lg font-black text-slate-900 uppercase select-all bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 text-center">{successData.username}</p>
                   </div>
                   <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Security PIN</p>
+                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Security PIN</p>
                      <p className="text-3xl font-black text-emerald-600 tracking-widest text-center select-all bg-white px-4 py-4 rounded-xl shadow-sm border border-slate-100 tabular-nums">{successData.pin}</p>
                   </div>
                </div>
 
                <button 
                  onClick={onClose}
-                 className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all"
+                 className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all"
                >
                  Complete Audit & Close
                </button>
@@ -158,23 +159,23 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
               </div>
               
               <div className="p-10 space-y-8">
-                 <div className="flex items-center gap-4 p-5 bg-rose-50 border border-rose-100 rounded-[28px] animate-pulse">
+                 <div className="flex items-center gap-4 p-5 bg-rose-50 border border-rose-100 rounded-2xl animate-pulse">
                     <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-lg shrink-0">
                       <ShieldAlert className="w-6 h-6" strokeWidth={2.5} />
                     </div>
                     <div>
-                       <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Action Required</p>
-                       <p className="text-[12px] font-black text-slate-900 uppercase truncate max-w-[200px]">{employee.name}</p>
+                       <p className="text-xs font-black text-rose-700 uppercase tracking-widest">Action Required</p>
+                       <p className="text-xs font-black text-slate-900 uppercase truncate max-w-[200px]">{employee.name}</p>
                     </div>
                  </div>
 
                  {error && (
-                    <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-center text-[9px] font-black uppercase border border-rose-100 animate-in slide-in-from-top-2">{error}</div>
+                    <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-center text-xs font-black uppercase border border-rose-100 animate-in slide-in-from-top-2">{error}</div>
                  )}
 
                  <div className="space-y-6">
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Terminal Username</label>
+                       <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">New Terminal Username</label>
                        <input 
                           value={resetUsername} 
                           onChange={e => setResetUsername(e.target.value.toLowerCase())} 
@@ -184,10 +185,10 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
 
                     <div className="space-y-2">
                        <div className="flex justify-between items-center ml-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Manual Security PIN</label>
+                          <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Manual Security PIN</label>
                           <div className="flex gap-4">
-                             <button type="button" onClick={() => setShowPin(!showPin)} className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{showPin ? 'Hide' : 'Show'}</button>
-                             <button type="button" onClick={() => { setResetPin(Math.floor(100000 + Math.random() * 900000).toString()); playSound('click'); }} className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Generate New</button>
+                             <button type="button" onClick={() => setShowPin(!showPin)} className="text-xs font-medium text-slate-400 uppercase tracking-wide">{showPin ? 'Hide' : 'Show'}</button>
+                             <button type="button" onClick={() => { setResetPin(Math.floor(100000 + Math.random() * 900000).toString()); playSound('click'); }} className="text-xs font-black text-emerald-600 uppercase tracking-widest">Generate New</button>
                           </div>
                        </div>
                        <input 
@@ -204,7 +205,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
                  <button 
                     onClick={handleCommitReset}
                     disabled={localSaving || isSaving}
-                    className="w-full bg-slate-900 text-white font-black py-6 rounded-[28px] uppercase tracking-[0.25em] text-[12px] shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
+                    className="w-full bg-slate-900 text-white font-black py-6 rounded-2xl uppercase tracking-[0.25em] text-xs shadow-xl hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
                  >
                     {localSaving ? <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Secure & Authorize'}
                  </button>

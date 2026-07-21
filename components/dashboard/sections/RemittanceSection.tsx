@@ -3,10 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Branch, SalesReport, VaultTransaction } from '../../../types';
 import { playSound } from '../../../lib/audio';
 import { getWeekRange, parseDate } from '../../../src/utils/reportUtils';
-import { getTrueDate } from '../../../lib/time';
+import { getTrueDate, formatPeso, getManilaTodayStr } from '../../../lib/time';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
-import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark, ArrowLeftRight } from 'lucide-react';
 
 type SubmissionStatus = 'submitted' | 'validated' | 'approved' | 'rejected' | null;
 
@@ -37,17 +37,18 @@ interface RemittanceSectionProps {
   onRefresh?: () => void;
 }
 
-const fmt = (n: number) =>
-  `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const fmt = formatPeso;
 
 export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, salesReports, vaultTransactions = [], performedBy, canDepositToVault = false, isDelegate = false, onRefresh }) => {
   const queryClient = useQueryClient();
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [loadingAdj, setLoadingAdj] = useState(true);
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
-  const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct'>('add');
+  const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
   const [adjTargetOwner, setAdjTargetOwner] = useState('');
+  const [adjTransferFrom, setAdjTransferFrom] = useState('');
+  const [adjTransferTo, setAdjTransferTo] = useState('');
   const [isSavingAdj, setIsSavingAdj] = useState(false);
   const [adjError, setAdjError] = useState<string | null>(null);
   const [submission, setSubmission] = useState<RemittanceSubmission | null>(null);
@@ -59,6 +60,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
+  const [periodPaymentTotals, setPeriodPaymentTotals] = useState<{ cash: number; gcash: number } | null>(null);
   const [vaultBalance, setVaultBalance] = useState<number | null>(null);
   const [vaultTarget, setVaultTarget] = useState<number | null>(null);
   const [isRemittingToVault, setIsRemittingToVault] = useState(false);
@@ -91,7 +93,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (amt > remainingToTarget) return;
     setVaultRemitSaving(true);
     try {
-      const now = new Date();
+      const now = getTrueDate();
       const entryId = `${branch.id}_VR_${now.getTime()}`;
       const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
       const manilaTime = new Intl.DateTimeFormat('en-GB', {
@@ -188,6 +190,48 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     }
   };
 
+  const handleTransferAdjustment = async (periodLabel: string) => {
+    const raw = parseFloat(adjForm.amount);
+    if (!adjTransferFrom || !adjTransferTo || adjTransferFrom === adjTransferTo) {
+      setAdjError('Select two different owners for the transfer.');
+      return;
+    }
+    if (!adjForm.description.trim() || isNaN(raw) || raw <= 0) {
+      setAdjError('Enter a valid amount and reason.');
+      return;
+    }
+    setIsSavingAdj(true);
+    setAdjError(null);
+    try {
+      const reason = adjForm.description.trim().toUpperCase();
+      const [{ data: debitData, error: e1 }, { data: creditData, error: e2 }] = await Promise.all([
+        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .insert({ branch_id: branch.id, period_label: periodLabel, description: `${reason} → ${adjTransferTo}`, amount: -raw, target_owner: adjTransferFrom })
+          .select().single(),
+        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .insert({ branch_id: branch.id, period_label: periodLabel, description: `${reason} ← ${adjTransferFrom}`, amount: raw, target_owner: adjTransferTo })
+          .select().single(),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      setAdjustments(prev => [
+        ...prev,
+        { id: debitData.id, branchId: debitData.branch_id, periodLabel: debitData.period_label, description: debitData.description, amount: Number(debitData.amount), targetOwner: adjTransferFrom, createdAt: debitData.created_at },
+        { id: creditData.id, branchId: creditData.branch_id, periodLabel: creditData.period_label, description: creditData.description, amount: Number(creditData.amount), targetOwner: adjTransferTo, createdAt: creditData.created_at },
+      ]);
+      setAdjForm({ description: '', amount: '' });
+      setAdjTransferFrom('');
+      setAdjTransferTo('');
+      setAdjFormKey(null);
+      playSound('success');
+    } catch (err: any) {
+      setAdjError(err?.message || 'Failed to save transfer.');
+      playSound('warning');
+    } finally {
+      setIsSavingAdj(false);
+    }
+  };
+
   const handleAddAdjustment = async (periodLabel: string, adjustedRoi: number) => {
     const raw = parseFloat(adjForm.amount);
     if (!adjForm.description.trim() || isNaN(raw) || raw === 0) return;
@@ -203,7 +247,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       if (isVaultDeposit) {
         // Vault deposit path — same logic as handleRemitToVault
         const depositAmt = Math.abs(raw);
-        const now = new Date();
+        const now = getTrueDate();
         const entryId = `${branch.id}_VR_${now.getTime()}`;
         const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
         const manilaTime = new Intl.DateTimeFormat('en-GB', {
@@ -384,7 +428,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     return allGroups.filter(g => {
       if (g.weekEnd >= now) return false;
       const sub = allSubmissions.find(s => s.periodLabel === g.label);
-      return !sub || sub.status !== 'approved';
+      return !sub || (sub.status !== 'approved' && sub.status !== 'remitted');
     });
   }, [allGroups, allSubmissions, now]);
 
@@ -427,7 +471,34 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   useEffect(() => {
     if (currentGroup) fetchSubmission(currentGroup.label);
     setGrossBreakdownOpen(false);
+    setPeriodPaymentTotals(null);
   }, [currentGroup?.label, branch.id]);
+
+  // Lazy-fetch session_data only for the selected period — avoids loading it globally
+  useEffect(() => {
+    const reports = currentGroup && 'reports' in currentGroup ? currentGroup.reports : [];
+    if (!reports.length || !supabase) return;
+    const ids = reports.map((r: SalesReport) => r.id);
+    supabase
+      .from(DB_TABLES.SALES_REPORTS)
+      .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
+      .in(DB_COLUMNS.ID, ids)
+      .then(({ data }) => {
+        if (!data) return;
+        let cash = 0, gcash = 0;
+        data.forEach(row => {
+          const sessions: any[] = typeof row[DB_COLUMNS.SESSION_DATA] === 'string'
+            ? JSON.parse(row[DB_COLUMNS.SESSION_DATA])
+            : (row[DB_COLUMNS.SESSION_DATA] || []);
+          sessions.forEach(t => {
+            const total = Number(t.total || 0);
+            if (t.paymentMethod === 'GCASH') gcash += total;
+            else cash += total;
+          });
+        });
+        setPeriodPaymentTotals({ cash, gcash });
+      });
+  }, [currentGroup?.key, branch.id]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -488,9 +559,9 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   if (!currentGroup) {
     return (
       <div className="pb-20">
-        <div className="bg-white p-20 rounded-[40px] border border-slate-100 text-center space-y-4">
+        <div className="bg-white p-20 rounded-3xl border border-slate-100 text-center space-y-4">
           <div className="text-5xl opacity-20">📭</div>
-          <p className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">No weekly reports found.</p>
+          <p className="text-xs font-black text-slate-300 uppercase tracking-wider">No weekly reports found.</p>
         </div>
       </div>
     );
@@ -512,7 +583,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
   // Adjustments only available after the period ends; locked again 3+ days after weekEnd
   const { adjLocked, adjNotYet } = (() => {
-    const manilaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const manilaToday = getManilaTodayStr();
     const weekEndStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(currentGroup.weekEnd);
     const ms = new Date(manilaToday).getTime() - new Date(weekEndStr).getTime();
     const daysPassed = Math.floor(ms / 86400000);
@@ -520,12 +591,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   })();
 
   return (
-    <div className="space-y-4 pb-20 max-w-4xl mx-auto">
+    <div className="space-y-4 pb-20">
 
       {/* ── Overdue remittance reminder popup ── */}
       {!loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
         <div className="fixed bottom-6 right-4 z-[999] w-[calc(100vw-2rem)] max-w-xs animate-in slide-in-from-right-4 fade-in duration-300">
-          <div className="bg-white border border-amber-200 rounded-[24px] shadow-2xl overflow-hidden">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-3 bg-amber-50 px-4 py-3 border-b border-amber-100">
               <div className="flex items-center gap-2.5">
@@ -535,8 +606,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-none">Remittance Reminder</p>
-                  <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">
+                  <p className="text-xs font-black text-amber-700 uppercase tracking-widest leading-none">Remittance Reminder</p>
+                  <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mt-0.5">
                     {overdueGroups.length} period{overdueGroups.length !== 1 ? 's' : ''} not yet remitted
                   </p>
                 </div>
@@ -557,8 +628,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 const sub = allSubmissions.find(s => s.periodLabel === g.label);
                 return (
                   <div key={g.key} className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight truncate">{g.label}</span>
-                    <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-tight truncate">{g.label}</span>
+                    <span className={`shrink-0 text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg ${
                       sub?.status === 'submitted' ? 'bg-blue-50 text-blue-600' :
                       sub?.status === 'validated' ? 'bg-indigo-50 text-indigo-600' :
                       'bg-rose-50 text-rose-500'
@@ -569,13 +640,13 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 );
               })}
               {overdueGroups.length > 5 && (
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">+{overdueGroups.length - 5} more</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">+{overdueGroups.length - 5} more</p>
               )}
             </div>
 
             {/* Footer message */}
             <div className="px-4 pb-4">
-              <p className="text-[9px] font-bold text-slate-500 leading-relaxed">
+              <p className="text-xs font-bold text-slate-500 leading-relaxed">
                 Please inform your admin or send a receipt to confirm your remittance.
               </p>
             </div>
@@ -588,7 +659,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         <div ref={periodDropdownRef} className="relative flex items-center gap-2">
           <button
             onClick={() => { setPeriodDropdownOpen(o => !o); playSound('click'); }}
-            className={`flex-1 h-10 flex items-center justify-between gap-2 px-4 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all outline-none bg-white ${
+            className={`flex-1 h-10 flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none bg-white ${
               periodDropdownOpen
                 ? 'border-slate-400 ring-4 ring-slate-500/10 text-slate-900'
                 : 'border-slate-200 hover:border-slate-300 text-slate-600'
@@ -596,7 +667,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           >
             <span className="truncate">{currentGroup?.label ?? 'Select Period'}</span>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] font-bold text-slate-500">
+              <span className="text-xs font-bold text-slate-500">
                 {(currentPeriodIndex + periodOffset) === 0 ? 'Current' : `${currentPeriodIndex + periodOffset}w ago`}
               </span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${periodDropdownOpen ? 'rotate-180 text-slate-600' : 'text-slate-400'}`} />
@@ -604,14 +675,14 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </button>
           <button
             onClick={handleExportExcel}
-            className="flex items-center justify-center w-10 h-10 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
+            className="flex items-center justify-center w-10 h-10 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
             title="Export"
           >
             <FileSpreadsheet className="w-4 h-4" />
           </button>
 
           {periodDropdownOpen && (
-            <div className="absolute z-[200] top-[calc(100%+4px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
+            <div className="absolute z-[200] top-[calc(100%+4px)] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ring-1 ring-slate-900/5">
               <div className="max-h-60 overflow-y-auto overscroll-contain">
                 {allGroupsWithCurrent.map((g, i) => {
                   const isSelected = g.key === currentGroup?.key;
@@ -639,11 +710,11 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                             </svg>
                           )}
                         </span>
-                        <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
+                        <span className={`text-xs font-semibold uppercase tracking-wide ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
                           {g.label}
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                      <span className="text-xs font-bold text-slate-500 shrink-0">
                         {(i + periodOffset) === 0 ? 'Current' : `${i + periodOffset}w ago`}
                       </span>
                     </button>
@@ -655,8 +726,25 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         </div>
       )}
 
+      {/* ── KPI Strip ── */}
+      <div className="hidden md:grid grid-cols-5 gap-2.5">
+        {[
+          { label: 'Gross Sales', value: fmt(agg.grossSales), color: 'text-slate-900', sub: `${agg.reportCount} day${agg.reportCount !== 1 ? 's' : ''}` },
+          { label: 'Staff Payroll', value: fmt(agg.totalStaffPay), color: 'text-rose-600', sub: 'commissions + allowance' },
+          { label: 'Expenses', value: fmt(agg.totalExpenses), color: 'text-rose-600', sub: 'operational only' },
+          { label: 'Vault Deposit', value: fmt(agg.totalVaultProvision), color: 'text-indigo-600', sub: 'saved to vault' },
+          { label: hasAdj ? 'Adjusted ROI' : 'Net ROI', value: fmt(adjustedRoi), color: adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-600', sub: hasAdj ? `base ${fmt(agg.netRoi)}` : 'for this period' },
+        ].map(k => (
+          <div key={k.label} className="bg-white border border-slate-100 rounded-2xl px-4 py-4 shadow-sm">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+            <p className={`text-xl font-black tabular-nums tracking-tighter ${k.color}`}>{k.value}</p>
+            <p className="text-xs font-medium text-slate-300 uppercase tracking-wide mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Main card */}
-      <div className={`bg-white rounded-[28px] shadow-sm overflow-hidden border ${
+      <div className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
         submission?.status === 'approved' ? 'border-emerald-300' : 'border-slate-100'
       }`}>
 
@@ -666,7 +754,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         }`}>
           <div>
             <p className="font-black text-slate-900 uppercase tracking-tight text-sm leading-none">{currentGroup.label}</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">
               {agg.reportCount} day{agg.reportCount !== 1 ? 's' : ''} aggregated
             </p>
           </div>
@@ -674,7 +762,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {allGroupsWithCurrent.length <= 1 && (
               <button
                 onClick={handleExportExcel}
-                className="flex items-center justify-center w-9 h-9 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
+                className="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all active:scale-95 shrink-0"
                 title="Export"
               >
                 <FileSpreadsheet className="w-4 h-4" />
@@ -683,17 +771,17 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {submission?.status === 'approved' ? (
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Remitted</span>
+                <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Remitted</span>
               </div>
             ) : (submission?.status === 'submitted' || submission?.status === 'validated') ? (
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Awaiting</span>
+                <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Awaiting</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full shrink-0 ${adjustedRoi <= 0 ? 'bg-slate-400' : 'bg-amber-400'}`} />
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
                   {adjustedRoi <= 0 ? 'Nothing To Remit' : 'Pending'}
                 </span>
               </div>
@@ -711,10 +799,10 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         </div>
 
         {/* Two-col on desktop: receipt left, adjustments right */}
-        <div className="md:grid md:grid-cols-[1fr_420px] md:divide-x md:divide-slate-100">
+        <div className="md:grid md:grid-cols-[1fr_400px] md:divide-x md:divide-slate-100">
 
           {/* LEFT — Receipt */}
-          <div className="px-6 py-5 space-y-0 font-mono text-[12px]">
+          <div className="px-6 py-5 space-y-0 font-mono text-xs">
             <button
               type="button"
               onClick={() => setGrossBreakdownOpen(o => !o)}
@@ -729,12 +817,30 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               <span className="font-bold text-slate-900 tabular-nums group-hover:text-indigo-700 transition-colors">{fmt(agg.grossSales)}</span>
             </button>
 
+            {/* Cash / GCash sub-lines — lazy loaded per period */}
+            {periodPaymentTotals && (periodPaymentTotals.cash > 0 || periodPaymentTotals.gcash > 0) && (
+              <div className="pl-3 border-l-2 border-slate-700 mb-1 space-y-0.5">
+                {periodPaymentTotals.cash > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500 text-xs">↳ Cash</span>
+                    <span className="text-slate-400 tabular-nums text-xs">{fmt(periodPaymentTotals.cash)}</span>
+                  </div>
+                )}
+                {periodPaymentTotals.gcash > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-blue-400 text-xs">↳ GCash</span>
+                    <span className="text-blue-400 tabular-nums text-xs">{fmt(periodPaymentTotals.gcash)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Gross breakdown — per-day list */}
             {grossBreakdownOpen && currentGroup.reports.length > 0 && (
               <div className="mb-1 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{currentGroup.reports.length} daily reports</span>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{fmt(agg.grossSales)} total</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{currentGroup.reports.length} daily reports</span>
+                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{fmt(agg.grossSales)} total</span>
                 </div>
                 <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
                   {currentGroup.reports.map(r => {
@@ -742,8 +848,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                     const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
                     return (
                       <div key={r.id} className="flex items-center justify-between px-3 py-2">
-                        <span className="text-[9px] font-bold text-slate-500">{dayLabel}</span>
-                        <span className="text-[10px] font-black text-slate-800 tabular-nums">{fmt(r.grossSales || 0)}</span>
+                        <span className="text-xs font-bold text-slate-500">{dayLabel}</span>
+                        <span className="text-xs font-black text-slate-800 tabular-nums">{fmt(r.grossSales || 0)}</span>
                       </div>
                     );
                   })}
@@ -763,20 +869,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               <span className="text-slate-500">Vault / Bills</span>
               <span className="font-bold text-rose-600 tabular-nums">-{fmt(agg.totalVaultProvision)}</span>
             </div>
-
             <div className="border-t-2 border-dashed border-slate-200 my-2" />
 
+            {/* NET ROI = pure arithmetic always */}
             <div className="flex justify-between py-2">
-              <span className="font-black text-slate-900 text-sm uppercase tracking-wide">{hasAdj ? 'Adjusted ROI' : 'Net ROI'}</span>
-              {loadingAdj ? (
-                <div className="h-6 w-24 bg-slate-100 rounded animate-pulse" />
-              ) : (
-                <span className={`font-black text-lg tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(adjustedRoi)}</span>
-              )}
+              <span className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide">Net ROI</span>
+              <span className={`font-black text-lg tabular-nums ${agg.netRoi < 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{agg.netRoi < 0 ? '−' : ''}{fmt(Math.abs(agg.netRoi))}</span>
             </div>
-            {!loadingAdj && hasAdj && (
-              <div className="text-[10px] text-slate-400 text-right -mt-1 mb-1">
-                Base {fmt(agg.netRoi)} {totalGlobalAdj >= 0 ? '+' : '−'} {fmt(Math.abs(totalGlobalAdj))} adj
+
+            {/* Vault deposit / global adjustments shown explicitly below NET ROI */}
+            {!loadingAdj && totalGlobalAdj !== 0 && (
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                  {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
+                </span>
               </div>
             )}
 
@@ -793,7 +900,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {!isDelegate && owners.length > 0 && (
               <>
                 <div className="border-t-2 border-dashed border-slate-200 my-2" />
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-1">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                   Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                 </div>
                 {owners.map((owner: any, oIdx: number) => {
@@ -807,7 +914,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   );
                 })}
                 <div className="flex justify-between py-1.5 border-t border-dotted border-slate-200 mt-1">
-                  <span className="font-black text-slate-500 uppercase tracking-widest text-[10px]">Total</span>
+                  <span className="font-black text-slate-500 uppercase tracking-widest text-xs">Total</span>
                   <span className="font-black text-slate-900 tabular-nums">{fmt(distributableRoi)}</span>
                 </div>
               </>
@@ -818,111 +925,189 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           </div>
 
           {/* RIGHT — Adjustments */}
-          <div className="px-5 py-5 space-y-1.5 flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Adjustments</p>
+          <div className="px-5 py-5 flex flex-col gap-4">
 
-            {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
-              <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
-                <Landmark className="w-4 h-4 text-teal-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-teal-800 uppercase tracking-widest">Vault Deposit</p>
-                </div>
-                <span className="text-sm font-black text-teal-700 tabular-nums shrink-0">{fmt(Math.abs(a.amount))}</span>
-              </div>
-            ))}
-
-            {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').map(adj => (
-              <div key={adj.id} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold text-slate-800 uppercase tracking-tight truncate block">{adj.description}</span>
-                    {adj.targetOwner && adj.description !== 'VAULT DEPOSIT' && (
-                      <span className="text-[10px] font-semibold text-rose-500 uppercase tracking-widest">→ {adj.targetOwner}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
-                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                  </span>
-                  {submission?.status !== 'validated' && submission?.status !== 'approved' && (
-                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length === 0 && adjFormKey !== formKey && (
-              <p className="text-[10px] text-slate-400 italic">No adjustments</p>
-            )}
-
-            <div className="flex-1" />
-
+            {/* Action buttons — always at top when no form open */}
             {adjFormKey !== formKey && submission?.status !== 'approved' && (
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex flex-col gap-2">
                 {adjNotYet ? (
                   <div className="flex items-center gap-1.5">
                     <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Available after period ends</span>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Available after period ends</span>
                   </div>
                 ) : adjLocked ? (
                   <div className="flex items-center gap-1.5">
                     <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-                    <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Adjustment window closed</span>
+                    <span className="text-xs font-black text-amber-500 uppercase tracking-widest">Adjustment window closed</span>
                   </div>
                 ) : (
-                  <>
+                  <div className={`grid gap-2 ${owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                    {/* ADD */}
                     <button
-                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); }}
-                      className="flex items-center justify-center w-9 h-9 bg-slate-900 text-white rounded-xl active:scale-95 transition-all hover:bg-slate-700"
-                      title="Add Extra"
+                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
                     >
-                      <Plus className="w-4 h-4" />
+                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none">Add</p>
+                        <p className="text-xs font-medium text-white/50 mt-0.5 leading-none">to ROI</p>
+                      </div>
                     </button>
+
+                    {/* DEDUCT */}
                     <button
-                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); }}
-                      className="flex items-center justify-center w-9 h-9 bg-white border border-slate-200 text-slate-600 rounded-xl active:scale-95 transition-all hover:border-slate-400"
-                      title="Deduct"
+                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-white border border-slate-200 text-slate-700 rounded-2xl active:scale-95 transition-all hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <Minus className="w-4 h-4" />
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                        <Minus className="w-3.5 h-3.5 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none text-slate-800">Deduct</p>
+                        <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
+                      </div>
                     </button>
-                  </>
+
+                    {/* VAULT DEPOSIT — full width, only when vault eligible */}
+                    {canDepositToVault && branch.vaultEnabled && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjFormKey(formKey); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                          <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-emerald-800">Deposit to Vault</p>
+                          <p className="text-xs font-medium text-emerald-400 mt-0.5 leading-none">Deduct from ROI → vault balance</p>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* TRANSFER — full width when owners >= 2 */}
+                    {owners.length >= 2 && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('transfer'); setAdjFormKey(formKey); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-indigo-800">Owner Reimbursement</p>
+                          <p className="text-xs font-medium text-indigo-400 mt-0.5 leading-none">Debit one, credit another</p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
             {adjFormKey === formKey && (() => {
-              const vaultEligible = adjFormMode === 'deduct' && canDepositToVault && !!branch.vaultEnabled;
+              // ── TRANSFER FORM ──────────────────────────────────────────────
+              if (adjFormMode === 'transfer') return (
+                <div className="border border-indigo-200 bg-indigo-50 rounded-2xl p-4 space-y-2.5 mt-2">
+                  <div className="flex items-center gap-2">
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Owner Transfer</span>
+                  </div>
+                  <p className="text-xs text-indigo-500">Debit one owner and credit another. Net ROI is unchanged.</p>
+
+                  {/* From / To selectors */}
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">From (pays)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {owners.map((o: any) => (
+                          <button
+                            key={o.name}
+                            type="button"
+                            onClick={() => { setAdjTransferFrom(o.name); if (o.name === adjTransferTo) setAdjTransferTo(''); }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${
+                              adjTransferFrom === o.name
+                                ? 'bg-rose-500 text-white shadow-sm'
+                                : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'
+                            }`}
+                          >{o.name}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest pl-1">To (receives)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {owners.filter((o: any) => o.name !== adjTransferFrom).map((o: any) => (
+                          <button
+                            key={o.name}
+                            type="button"
+                            onClick={() => setAdjTransferTo(o.name)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 ${
+                              adjTransferTo === o.name
+                                ? 'bg-emerald-500 text-white shadow-sm'
+                                : 'bg-white border border-indigo-200 text-indigo-700 hover:border-indigo-400'
+                            }`}
+                          >{o.name}</button>
+                        ))}
+                        {!adjTransferFrom && (
+                          <span className="text-xs font-medium text-indigo-300 italic px-1 py-1.5">Select "From" first</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={adjForm.description}
+                    onChange={e => setAdjForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Reason (e.g. Reimbursement)"
+                    className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none focus:border-indigo-400 transition-colors"
+                  />
+
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">₱</span>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={adjForm.amount}
+                      onChange={e => setAdjForm(f => ({ ...f, amount: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-indigo-200 pl-8 pr-4 py-2.5 rounded-xl text-sm font-black outline-none focus:border-indigo-400 transition-colors tabular-nums"
+                    />
+                  </div>
+
+                  {adjTransferFrom && adjTransferTo && adjForm.amount && (
+                    <div className="bg-white border border-indigo-100 rounded-xl px-3 py-2 text-xs text-indigo-700 space-y-0.5">
+                      <div className="flex justify-between"><span>{adjTransferFrom}</span><span className="font-black text-rose-500">-{fmt(parseFloat(adjForm.amount) || 0)}</span></div>
+                      <div className="flex justify-between"><span>{adjTransferTo}</span><span className="font-black text-emerald-600">+{fmt(parseFloat(adjForm.amount) || 0)}</span></div>
+                    </div>
+                  )}
+
+                  {adjError && <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{adjError}</p>}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setAdjFormKey(null); setAdjError(null); setAdjForm({ description: '', amount: '' }); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all"
+                    >Cancel</button>
+                    <button
+                      onClick={() => handleTransferAdjustment(currentGroup.label)}
+                      disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount}
+                      className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40"
+                    >{isSavingAdj ? '…' : 'Transfer'}</button>
+                  </div>
+                </div>
+              );
+
+              // ── ADD / DEDUCT FORM ──────────────────────────────────────────
               return (
               <div className={`border rounded-2xl p-4 space-y-2.5 mt-2 ${isVaultDeposit ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="flex items-center gap-2">
                   {adjFormMode === 'add' ? <Plus className="w-3.5 h-3.5 text-slate-500 shrink-0" /> : <Minus className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
-                  <span className={`text-xs font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wide ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-700'}`}>
                     {adjFormMode === 'add' ? 'Add to ROI' : isVaultDeposit ? 'Deposit to Vault' : 'Deduct from ROI'}
                   </span>
                 </div>
-                {vaultEligible && (
-                  <label className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${isVaultDeposit ? 'bg-emerald-100 border border-emerald-300' : 'bg-white border border-slate-200 hover:border-emerald-300'}`}>
-                    <input
-                      type="checkbox"
-                      checked={isVaultDeposit}
-                      onChange={e => {
-                        const checked = e.target.checked;
-                        setIsVaultDeposit(checked);
-                        setAdjTargetOwner('');
-                        if (checked) { setAdjForm(f => ({ ...f, description: 'VAULT DEPOSIT', amount: '' })); }
-                        else { setAdjForm(f => ({ ...f, description: '', amount: '' })); }
-                      }}
-                      className="w-3.5 h-3.5 accent-emerald-600 shrink-0"
-                    />
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${isVaultDeposit ? 'text-emerald-700' : 'text-slate-500'}`}>
-                      Deposit to Vault
-                    </span>
-                  </label>
-                )}
                 <input
                   type="text"
                   value={adjForm.description}
@@ -930,20 +1115,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   readOnly={isVaultDeposit}
                   placeholder={adjFormMode === 'add' ? 'Reason (e.g. Boosting)' : 'Reason (e.g. Extra Expense)'}
                   autoFocus={!isVaultDeposit}
-                  className={`w-full border px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase outline-none transition-colors ${isVaultDeposit ? 'bg-emerald-100 border-emerald-200 text-emerald-800 cursor-default' : 'bg-white border-slate-200 focus:border-slate-400'}`}
+                  className={`w-full border px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none transition-colors ${isVaultDeposit ? 'bg-emerald-100 border-emerald-200 text-emerald-800 cursor-default' : 'bg-white border-slate-200 focus:border-slate-400'}`}
                 />
-                {adjFormMode === 'deduct' && owners.length > 0 && !isVaultDeposit && (
+                {/* Owner targeting — available for both add and deduct */}
+                {owners.length > 0 && !isVaultDeposit && (
                   <select
                     value={adjTargetOwner}
                     onChange={e => setAdjTargetOwner(e.target.value)}
-                    className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase outline-none focus:border-slate-400 transition-colors appearance-none"
+                    className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold uppercase outline-none focus:border-slate-400 transition-colors appearance-none"
                   >
-                    <option value="">All Owners (Global)</option>
-                    {owners.map((o: any) => <option key={o.name} value={o.name}>{o.name}</option>)}
+                    <option value="">All Owners (Global ROI)</option>
+                    {owners.map((o: any) => <option key={o.name} value={o.name}>{o.name} only</option>)}
                   </select>
                 )}
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-slate-400">₱</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">₱</span>
                   <input
                     type="number" step="0.01" min="0"
                     max={isVaultDeposit ? adjustedRoi : undefined}
@@ -958,26 +1144,26 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                     }}
                     placeholder="0.00"
                     autoFocus={isVaultDeposit}
-                    className="w-full bg-white border border-slate-200 pl-8 pr-4 py-2.5 rounded-xl text-[13px] font-black outline-none focus:border-slate-400 transition-colors tabular-nums"
+                    className="w-full bg-white border border-slate-200 pl-8 pr-4 py-2.5 rounded-xl text-sm font-black outline-none focus:border-slate-400 transition-colors tabular-nums"
                   />
                 </div>
                 {isVaultDeposit && (
-                  <p className="text-[10px] font-semibold text-emerald-700">Max: {fmt(adjustedRoi)} (adjusted ROI)</p>
+                  <p className="text-xs font-semibold text-emerald-700">Max: {fmt(adjustedRoi)} (adjusted ROI)</p>
                 )}
                 {adjError && (
-                  <p className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{adjError}</p>
+                  <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{adjError}</p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => { setAdjFormKey(null); setAdjError(null); setIsVaultDeposit(false); setAdjForm({ description: '', amount: '' }); setAdjTargetOwner(''); }}
-                    className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                    className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleAddAdjustment(currentGroup.label, adjustedRoi)}
                     disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
-                    className={`h-10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
+                    className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-800'}`}
                   >
                     {isSavingAdj ? '…' : isVaultDeposit ? 'Deposit' : 'Save'}
                   </button>
@@ -985,6 +1171,58 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               </div>
               );
             })()}
+
+            {/* Adjustments list — below buttons/form */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
+
+              {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
+                <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
+                  <Landmark className="w-4 h-4 text-teal-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-teal-800 uppercase tracking-widest">Vault Deposit</p>
+                  </div>
+                  <span className="text-sm font-black text-teal-700 tabular-nums shrink-0">{fmt(Math.abs(a.amount))}</span>
+                </div>
+              ))}
+
+              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').map(adj => {
+                const isTransfer = adj.description.includes(' → ') || adj.description.includes(' ← ');
+                return (
+                <div key={adj.id} className={`flex items-center justify-between rounded-xl px-4 py-3 gap-4 border ${isTransfer ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {isTransfer
+                      ? <ArrowLeftRight className={`w-3 h-3 shrink-0 ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-500'}`} />
+                      : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                    }
+                    <div className="min-w-0">
+                      <span className={`text-xs font-semibold uppercase tracking-tight truncate block ${isTransfer ? 'text-indigo-800' : 'text-slate-800'}`}>{adj.description}</span>
+                      {adj.targetOwner && !isTransfer && (
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">→ {adj.targetOwner}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : isTransfer ? 'text-emerald-600' : 'text-slate-800'}`}>
+                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                    </span>
+                    {submission?.status !== 'validated' && submission?.status !== 'approved' && (
+                      <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                );
+              })}
+
+              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length === 0 && (
+                <div className="flex flex-col items-center justify-center py-6 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">No adjustments</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Use the buttons above to add one</p>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>{/* close two-col grid */}

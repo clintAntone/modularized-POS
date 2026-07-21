@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
-import { UserRole } from './types';
+import { UserRole, BranchVault } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
 import ProfileSetup from './components/PinChange';
@@ -11,20 +11,71 @@ import { supabase } from './lib/supabase';
 import { NetworkDiagnostic } from './components/NetworkDiagnostic';
 import { syncWithServerTime } from './lib/time';
 import SplashScreen from './components/SplashScreen';
-import { WhatsNewModal, shouldShowWhatsNew, markWhatsNewSeen } from './components/branch-manager/modals/WhatsNewModal';
 import { GmailPromptModal } from './components/shared/GmailPromptModal';
+import { OfflineBanner } from './components/shared/OfflineBanner';
 
-import { Power } from 'lucide-react';
+import { Power, Sun, Moon } from 'lucide-react';
+import { useTheme } from './hooks/useTheme';
 
 // Dynamic Imports
 const SuperAdminDashboard = lazy(() => import('./components/superadmin/SuperAdminDashboard'));
 const BranchManagerDashboard = lazy(() => import('./components/BranchManagerDashboard'));
 
 
+const SwUpdateBanner: React.FC<{ onReload: () => void }> = ({ onReload }) => {
+  const [count, setCount] = React.useState(5);
+  React.useEffect(() => {
+    if (count <= 0) { onReload(); return; }
+    const t = setTimeout(() => setCount(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [count, onReload]);
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6 px-6">
+      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+        <svg className="w-7 h-7 text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </div>
+      <div className="text-center space-y-2">
+        <p className="text-sm font-black text-white uppercase tracking-widest">New version available</p>
+        <p className="text-xs text-slate-400">Reloading in {count}s…</p>
+      </div>
+      <button onClick={onReload} className="text-xs font-bold text-emerald-400 uppercase tracking-wide hover:text-emerald-300 transition-colors">
+        Reload now
+      </button>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
+  const { isDark, toggleTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [isTimeSynced, setIsTimeSynced] = useState(false);
+  const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
+  const [previewBranchVault, setPreviewBranchVault] = useState<BranchVault | null>(null);
+  const [showBranchPicker, setShowBranchPicker] = useState(false);
+
+  // Fetch vault data for the previewed branch so View As renders correctly
+  useEffect(() => {
+    if (!previewBranchId || !supabase) { setPreviewBranchVault(null); return; }
+    supabase
+      .from('branch_vaults')
+      .select('branch_id, target, balance, initial_balance, last_deposited_date, start_date')
+      .eq('branch_id', previewBranchId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) { setPreviewBranchVault(null); return; }
+        setPreviewBranchVault({
+          branchId: data.branch_id,
+          target: Number(data.target ?? 0),
+          balance: Number(data.balance ?? 0),
+          initialBalance: Number(data.initial_balance ?? 0),
+          lastDepositedDate: data.last_deposited_date ?? null,
+          startDate: data.start_date ?? null,
+        });
+      });
+  }, [previewBranchId]);
 
   const isSupabaseConfigured = !!supabase;
 
@@ -42,13 +93,20 @@ const App: React.FC = () => {
     };
     
     performSync();
-    
+
     // Periodic re-sync every 15 minutes to account for any drift
     const interval = setInterval(performSync, 15 * 60 * 1000);
-    
-    return () => { 
+
+    // Re-sync immediately when tab/app returns to foreground
+    // (performance.now() pauses on some mobile browsers when the device sleeps,
+    //  causing the clock to lag until the next 15-min interval fires)
+    const onVisible = () => { if (document.visibilityState === 'visible') performSync(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
       mounted = false;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -62,11 +120,29 @@ const App: React.FC = () => {
   const {
     branches, transactions, expenses,
     attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
-    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, displayChanges, refreshDatabase
+    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig
   } = useGlobalData(auth);
 
-  const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
-  const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
+const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [swUpdateReady, setSwUpdateReady] = useState(false);
+
+  // SW_UPDATED message from service worker means a new bundle has been activated.
+  // Show a brief banner then reload so users always run the latest version.
+  useEffect(() => {
+    const onSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SW_UPDATED') setSwUpdateReady(true);
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+  }, []);
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+  }, []);
 
   // Derive identity from synchronized data
   const currentEmployee = useMemo(() =>
@@ -179,6 +255,15 @@ const App: React.FC = () => {
     }
   }, [auth.user?.branchId, auth.user?.employeeId, auth.user?.role]);
 
+
+  // THEME: dark mode only when authenticated — login screen is always light
+  useEffect(() => {
+    if (isDark && !!auth.user) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark, auth.user]);
 
   // GLOBAL FETCH ERROR HANDLER
   useEffect(() => {
@@ -303,12 +388,22 @@ const App: React.FC = () => {
     );
   }
 
+  if (swUpdateReady) {
+    return (
+      <SwUpdateBanner onReload={() => window.location.reload()} />
+    );
+  }
+
   if (loading) {
     return <SplashScreen />;
   }
 
   if (!auth.user) {
-    return <Login onLogin={handleLogin} branches={branches} employees={employees} onlineUsers={{}} logo={systemLogo} version={systemVersion} appName={dynamicAppName} connectionError={error} systemLatest={systemLatest} apkUrl={apkUrl} />;
+    const handleLoginAndClearPreview: typeof handleLogin = (...args) => {
+      setPreviewBranchId(null);
+      handleLogin(...args);
+    };
+    return <Login onLogin={handleLoginAndClearPreview} branches={branches} employees={employees} onlineUsers={{}} logo={systemLogo} version={systemVersion} appName={dynamicAppName} connectionError={error} systemLatest={systemLatest} apkUrl={apkUrl} />;
   }
 
   if (auth.user.role === UserRole.BRANCH_MANAGER) {
@@ -421,13 +516,9 @@ const App: React.FC = () => {
   }
 
   return (
-      <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-hidden">
+      <div className="min-h-screen w-full flex flex-col bg-slate-50 overflow-x-clip">
         <GlobalLoadingOverlay isVisible={globalSync} />
 
-        {/* What's New Modal — managers only, gated by system_config display_changes */}
-        {showWhatsNew && displayChanges && auth.user && auth.user.role === UserRole.BRANCH_MANAGER && (
-          <WhatsNewModal onDismiss={() => { markWhatsNewSeen(); setShowWhatsNew(false); }} />
-        )}
 
         {/* Gmail Prompt — non-portal, non-superadmin users without a registered email */}
         {!gmailPromptDismissed && currentEmployee && !currentEmployee.details?.gmail &&
@@ -529,39 +620,117 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <header className="sticky top-0 left-0 right-0 z-[1000] h-[72px] sm:h-20 no-print w-full bg-emerald-700 shadow-lg overflow-hidden">
-          {/* Decorative depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-800/40 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute -top-8 -right-12 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-          <div className="absolute -bottom-10 left-1/3 w-24 h-24 rounded-full bg-emerald-600/40 pointer-events-none" />
-
-          <div className={`relative z-10 ${UI_THEME.layout.maxContent} ${UI_THEME.layout.mainPadding} h-full flex items-center justify-between gap-3`}>
+        <header className="sticky top-0 left-0 right-0 z-[1001] no-print w-full bg-white border-b border-slate-100 shadow-sm">
+          <div className={`${UI_THEME.layout.maxContent} px-6 sm:px-10 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3`}>
             {/* Left: logo + name */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <img src={systemLogo || '/icon.png'} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-xl bg-white/15 p-1.5 shrink-0 shadow-md" decoding="async" loading="eager" />
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <img src={systemLogo || '/icon.png'} alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl shrink-0" decoding="async" loading="eager" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="font-black text-[15px] sm:text-[18px] tracking-tight uppercase leading-none text-white truncate">{dynamicAppName}</h1>
-                </div>
-                <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-200/80 uppercase tracking-widest truncate mt-0.5">{identityDisplay}</p>
+                <h1 className="font-black text-sm sm:text-base tracking-tight text-slate-900 truncate leading-none">{dynamicAppName}</h1>
+                {previewBranchId ? (
+                  <p className="text-xs font-bold text-indigo-500 truncate mt-0.5 leading-none">
+                    Previewing: {branches.find(b => b.id === previewBranchId)?.name ?? 'Branch'}
+                  </p>
+                ) : (
+                  <p className="text-xs font-medium text-slate-400 truncate mt-0.5 leading-none">{identityDisplay}</p>
+                )}
               </div>
             </div>
 
-            {/* Right: logout */}
-            <button
-              onClick={triggerLogoutConfirm}
-              className="flex items-center gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-rose-600 hover:border-rose-600 active:scale-95 transition-all shrink-0"
-            >
-              <Power className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            {/* Right: preview + theme toggle + logout */}
+            <div className="flex items-center gap-2 shrink-0">
+              {auth.user?.role === UserRole.SUPERADMIN && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBranchPicker(v => !v)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all relative ${previewBranchId ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30' : 'bg-slate-100 text-indigo-500 hover:bg-indigo-50 dark:bg-slate-800 dark:text-indigo-400 dark:border dark:border-slate-600 dark:hover:bg-slate-700'}`}
+                    title="View as Branch"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    {previewBranchId && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white" />
+                    )}
+                  </button>
+                  {showBranchPicker && (
+                    <>
+                      <div className="fixed inset-0 z-[9998]" onClick={() => setShowBranchPicker(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-[9999] overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+                        <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">View as Branch</p>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto py-1">
+                          {branches.filter(b => b.isActive !== false).map(b => (
+                            <button
+                              key={b.id}
+                              onClick={() => { setPreviewBranchId(b.id); setShowBranchPicker(false); }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2.5"
+                            >
+                              <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400">{b.name.charAt(0)}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{b.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={toggleTheme}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-400 dark:border dark:border-slate-600 dark:hover:bg-slate-700"
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={triggerLogoutConfirm}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-400 dark:border dark:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-rose-400"
+                title="Logout"
+              >
+                <Power className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </header>
+        <OfflineBanner isOffline={isOffline} />
 
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>
-            {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
-                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} />
+            {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) && previewBranchId ? (() => {
+              const previewBranch = branches.find(b => b.id === previewBranchId);
+              if (!previewBranch || !auth.user) return null;
+              const previewUser = { ...auth.user, role: UserRole.BRANCH_MANAGER, branchId: previewBranchId };
+              return (
+                <>
+                  {/* Preview mode banner */}
+                  <div className="sticky top-14 sm:top-[4.5rem] z-[999] bg-indigo-600 text-white no-print">
+                    <div className={`${UI_THEME.layout.maxContent} px-6 sm:px-10 lg:px-12 py-2 flex items-center justify-between gap-3`}>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span className="text-xs font-black uppercase tracking-wide">Previewing as Manager</span>
+                        <span className="text-xs font-semibold text-indigo-200 truncate">— {previewBranch.name}</span>
+                      </div>
+                      <button
+                        onClick={() => setPreviewBranchId(null)}
+                        className="shrink-0 text-xs font-black uppercase tracking-wide bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors active:scale-95"
+                      >
+                        Exit Preview
+                      </button>
+                    </div>
+                  </div>
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} />
+                </>
+              );
+            })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
+                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} onPreviewBranch={setPreviewBranchId} />
             ) : (
                 auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
             )}

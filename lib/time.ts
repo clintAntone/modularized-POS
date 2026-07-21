@@ -7,58 +7,91 @@ let initialServerTime = 0;
 let initialPerformanceTime = 0;
 let isInitialized = false;
 
+// Sync metadata — populated after syncWithServerTime() completes
+let syncMetadata: {
+  source: string;
+  serverTime: number;
+  deviceTime: number;
+  driftSeconds: number;
+} | null = null;
+
+export const getSyncMetadata = () => syncMetadata;
+
 export const syncWithServerTime = async () => {
   const TIMEOUT_MS = 5000;
 
-  const attemptSync = async (url: string, name: string): Promise<boolean> => {
+  const commit = (serverTime: number, perfTime: number, source: string) => {
+    const deviceTime = Date.now();
+    initialServerTime = serverTime;
+    initialPerformanceTime = perfTime;
+    isInitialized = true;
+    syncMetadata = {
+      source,
+      serverTime,
+      deviceTime,
+      driftSeconds: Math.round((serverTime - deviceTime) / 10) / 100,
+    };
+  };
+
+  // Source 1: timeapi.io — external reference clock
+  const attemptTimeApi = async (): Promise<void> => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
     try {
-      const startPerformance = performance.now();
-
-      const response = await fetch(url, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' },
-        signal: controller.signal,
-      });
-
-      const endPerformance = performance.now();
-
-      if (!response.ok) throw new Error(`HTTP ${response.status} from ${name}`);
-
+      const t0 = performance.now();
+      const response = await fetch(
+        'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila',
+        { method: 'GET', cache: 'no-store', headers: { 'Cache-Control': 'no-cache' }, signal: controller.signal }
+      );
+      const t1 = performance.now();
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      let serverTimeValue = data.timestamp || data.iso || data.datetime || data.dateTime || data.currentDateTime;
-      if (typeof serverTimeValue === 'string' && /^\d+$/.test(serverTimeValue)) {
-        serverTimeValue = parseInt(serverTimeValue, 10);
-      }
-      const serverTime = new Date(serverTimeValue).getTime();
-      if (isNaN(serverTime)) throw new Error(`Invalid date from ${name}`);
-
-      const latency = (endPerformance - startPerformance) / 2;
-      initialServerTime = serverTime + latency;
-      initialPerformanceTime = endPerformance;
-      isInitialized = true;
-
-      return true;
+      let val = data.timestamp || data.iso || data.datetime || data.dateTime || data.currentDateTime;
+      if (typeof val === 'string' && /^\d+$/.test(val)) val = parseInt(val, 10);
+      const serverTime = new Date(val).getTime();
+      if (isNaN(serverTime)) throw new Error('Invalid date from timeapi.io');
+      commit(serverTime + (t1 - t0) / 2, t1, 'timeapi.io');
     } finally {
       clearTimeout(timer);
     }
   };
 
-  // Sources: worldtimeapi.org (CORS-blocked), Supabase root HEAD (401), google.com HEAD (Capacitor TypeError) all removed.
-  const sources = [
-    { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila', name: 'TIME_API_IO' },
-  ];
+  // Source 2: Supabase Date header — always reachable if the app is working at all
+  const attemptSupabase = async (): Promise<void> => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) throw new Error('No Supabase URL configured');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const t0 = performance.now();
+      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+        method: 'HEAD',
+        headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '' },
+        signal: controller.signal,
+      });
+      const t1 = performance.now();
+      const dateHeader = response.headers.get('Date');
+      if (!dateHeader) throw new Error('No Date header in Supabase response');
+      const serverTime = new Date(dateHeader).getTime();
+      if (isNaN(serverTime)) throw new Error('Invalid Date header from Supabase');
+      commit(serverTime + (t1 - t0) / 2, t1, 'Supabase');
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   try {
-    await Promise.any(sources.map(s => attemptSync(s.url, s.name)));
+    // Race both sources — whichever responds first wins
+    await Promise.any([attemptTimeApi(), attemptSupabase()]);
     return true;
   } catch {
-    console.warn('⚠️ All time sync sources failed. Falling back to local device clock.');
-    initialServerTime = Date.now();
-    initialPerformanceTime = performance.now();
+    // Only fall back to device clock if we've never had a successful sync
+    if (!isInitialized) {
+      initialServerTime = Date.now();
+      initialPerformanceTime = performance.now();
+      isInitialized = true;
+      syncMetadata = { source: 'device_clock', serverTime: initialServerTime, deviceTime: initialServerTime, driftSeconds: 0 };
+    }
     return false;
   }
 };
@@ -131,6 +164,35 @@ export const formatManilaDate = (date: Date, options: Intl.DateTimeFormatOptions
     ...options,
     timeZone: 'Asia/Manila'
   }).format(date);
+};
+
+/**
+ * Returns the current Manila year as a number (e.g. 2026).
+ * Use instead of new Date().getFullYear() to avoid local timezone drift.
+ */
+export const getManilaYear = (): number => {
+  return parseInt(getManilaTodayStr().slice(0, 4), 10);
+};
+
+/**
+ * Returns the current Manila month as a 0-indexed number (0=Jan, 11=Dec).
+ * Use instead of new Date().getMonth() to avoid local timezone drift.
+ */
+export const getManilaMonth = (): number => {
+  return parseInt(getManilaTodayStr().slice(5, 7), 10) - 1;
+};
+
+/**
+ * Formats a number as Philippine Peso with thousand separators.
+ * Shows decimal places only when the amount has non-zero cents.
+ * Examples: 10000 → "₱10,000" | 1250.50 → "₱1,250.50"
+ */
+export const formatPeso = (amount: number): string => {
+  const hasDecimals = amount % 1 !== 0;
+  return `₱${new Intl.NumberFormat('en-PH', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(amount)}`;
 };
 
 /**

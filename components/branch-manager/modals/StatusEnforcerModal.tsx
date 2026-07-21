@@ -13,7 +13,7 @@ export const StatusEnforcerModal: React.FC<StatusEnforcerModalProps> = ({
   branchCleanName, isOpening, onOpen, onDismiss,
 }) => (
   <div className={UI_THEME.layout.modalWrapper}>
-    <div className={`${UI_THEME.layout.modalLarge} ${UI_THEME.radius.modal} overflow-hidden border border-slate-200 shadow-2xl`}>
+    <div className={`${UI_THEME.layout.modalLarge} ${UI_THEME.radius.modal} overflow-hidden border border-slate-200 shadow-xl`}>
 
       {/* Top accent strip */}
       <div className="h-1.5 w-full bg-gradient-to-r from-slate-300 via-slate-400 to-slate-300" />
@@ -23,11 +23,11 @@ export const StatusEnforcerModal: React.FC<StatusEnforcerModalProps> = ({
         {/* Status badge */}
         <div className="flex items-center justify-center gap-2">
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-          <span className="text-[9px] font-black text-rose-500 uppercase tracking-[0.25em]">Branch Offline</span>
+          <span className="text-xs font-black text-rose-500 uppercase tracking-[0.25em]">Branch Offline</span>
         </div>
 
         {/* Icon */}
-        <div className="w-20 h-20 bg-slate-900 rounded-[28px] flex items-center justify-center mx-auto shadow-lg shadow-slate-900/20">
+        <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-slate-900/20">
           <Store className="w-9 h-9 text-white" strokeWidth={2} />
         </div>
 
@@ -36,7 +36,7 @@ export const StatusEnforcerModal: React.FC<StatusEnforcerModalProps> = ({
           <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase leading-tight break-words">
             {branchCleanName}
           </h3>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Has not been opened today
           </p>
         </div>
@@ -46,7 +46,7 @@ export const StatusEnforcerModal: React.FC<StatusEnforcerModalProps> = ({
           <button
             onClick={onOpen}
             disabled={isOpening}
-            className="w-full flex items-center justify-center gap-3 text-white font-black py-5 px-4 rounded-2xl text-[11px] uppercase tracking-[0.2em] bg-slate-900 hover:bg-slate-700 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 text-white font-black py-5 px-4 rounded-2xl text-xs uppercase tracking-wider bg-slate-900 hover:bg-slate-700 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50"
           >
             {isOpening ? (
               <>
@@ -64,7 +64,7 @@ export const StatusEnforcerModal: React.FC<StatusEnforcerModalProps> = ({
 
           <button
             onClick={onDismiss}
-            className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 text-[10px] uppercase tracking-widest transition-colors"
+            className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 text-xs uppercase tracking-widest transition-colors"
           >
             Proceed without opening
           </button>

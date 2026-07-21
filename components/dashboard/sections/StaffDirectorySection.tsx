@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Branch, Employee, Transaction, Attendance } from '../../../types';
+import { Branch, Employee, Transaction, Attendance, EmployeeComplaint } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { playSound } from '../../../lib/audio';
 import { compressImage } from '../../../lib/image';
 import { deleteFileByUrl } from '../../../lib/storage';
@@ -13,13 +14,16 @@ import { getTrueDate, getTrueISOString, getTrueManilaISOString } from '../../../
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { AlertTriangle, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { AlertTriangle, Users } from 'lucide-react';
+
+const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
 // Modular Imports
 import { StaffCard } from './staff/StaffCard';
 import { StaffHeader } from './staff/StaffHeader';
 import { StaffModals } from './staff/StaffModals';
-import { EmployeeIDCardModal } from '../../superadmin/employee-manager/EmployeeIDCardModal';
+import { FaceTimeInModal } from './staff/FaceTimeInModal';
 
 interface StaffDirectorySectionProps {
   branch: Branch;
@@ -34,6 +38,7 @@ interface StaffDirectorySectionProps {
   isDelegate?: boolean;
   isManagerView?: boolean;
   onNavigateToComplaints?: () => void;
+  complaints?: EmployeeComplaint[];
 }
 
 interface Toast {
@@ -41,12 +46,10 @@ interface Toast {
   type: 'success' | 'error';
 }
 
-export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints }) => {
+export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -56,6 +59,10 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
   const [showBranchClosedModal, setShowBranchClosedModal] = useState(false);
   const [selectedEmpForTime, setSelectedEmpForTime] = useState<Employee | null>(null);
+  const [pendingShift, setPendingShift] = useState<1 | 2>(1);
+  const [isFaceInitiated, setIsFaceInitiated] = useState(false);
+  const [showFaceTimeIn, setShowFaceTimeIn] = useState(false);
+  const [faceTimeInTarget, setFaceTimeInTarget] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [recoveryEmployee, setRecoveryEmployee] = useState<Employee | null>(null);
   const [originalName, setOriginalName] = useState<string>('');
@@ -65,10 +72,42 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [promoteConfirmInput, setPromoteConfirmInput] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
 
-  const [disableRequestEmployee, setDisableRequestEmployee] = useState<Employee | null>(null);
-  const [disableReasonType, setDisableReasonType] = useState<'RESIGNED' | 'TERMINATED' | 'ON_HOLD' | ''>('');
-  const [disableReasonNotes, setDisableReasonNotes] = useState('');
+  // Return from leave confirmation
+  const [returnEmployee, setReturnEmployee] = useState<Employee | null>(null);
+
+  // Leave modal
+  const [leaveEmployee, setLeaveEmployee] = useState<Employee | null>(null);
+  const [leaveSubtype, setLeaveSubtype] = useState<'LEAVE'>('LEAVE' as 'LEAVE');
+  const [leaveType, setLeaveType] = useState('');
+  const [leaveStartDate, setLeaveStartDate] = useState('');
+  const [leaveEndDate, setLeaveEndDate] = useState('');
+  const [leaveNotes, setLeaveNotes] = useState('');
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
+
+  const openLeaveModal = (emp: Employee) => {
+    setLeaveEmployee(emp);
+    setLeaveSubtype('');
+    setLeaveType('');
+    setLeaveStartDate('');
+    setLeaveEndDate('');
+    setLeaveNotes('');
+  };
+  const closeLeaveModal = () => setLeaveEmployee(null);
+
+  // Disable modal
+  const [disableEmployee, setDisableEmployee] = useState<Employee | null>(null);
+  const [disableReason, setDisableReason] = useState<'RESIGNED' | 'TERMINATED' | ''>('');
+  const [complaintRef, setComplaintRef] = useState('');
+  const [disableNotes, setDisableNotes] = useState('');
   const [isSubmittingDisable, setIsSubmittingDisable] = useState(false);
+
+  const openDisableModal = (emp: Employee) => {
+    setDisableEmployee(emp);
+    setDisableReason('');
+    setComplaintRef('');
+    setDisableNotes('');
+  };
+  const closeDisableModal = () => setDisableEmployee(null);
 
   // New employee creation request
   const [showNewEmpRequest, setShowNewEmpRequest] = useState(false);
@@ -82,8 +121,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isSubmittingNewEmp, setIsSubmittingNewEmp] = useState(false);
 
   const [removeRelieversEmployee, setRemoveRelieversEmployee] = useState<Employee | null>(null);
-  const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
   const [isRemovingReliever, setIsRemovingReliever] = useState(false);
+
+  // Reliever complaint check popup
+  const [relieverComplaintCheck, setRelieverComplaintCheck] = useState<{ emp: Employee; empComplaints: { id: string; status: string; reportType: string; branchId: string; filedAt: string }[] } | null>(null);
+  const [isCheckingComplaints, setIsCheckingComplaints] = useState(false);
 
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -187,6 +229,9 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         const isAManagerRole = aRole.includes('MANAGER');
         const isBManagerRole = bRole.includes('MANAGER');
 
+        const isAReliever = a.branchId !== branch.id;
+        const isBReliever = b.branchId !== branch.id;
+
         // Priority 1: Main Manager
         if (isAMain && !isBMain) return -1;
         if (!isAMain && isBMain) return 1;
@@ -199,15 +244,18 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         if (isAManagerRole && !isBManagerRole) return -1;
         if (!isAManagerRole && isBManagerRole) return 1;
 
+        // Priority 4: Regular (home branch) before relievers
+        if (!isAReliever && isBReliever) return -1;
+        if (isAReliever && !isBReliever) return 1;
+
+        // Priority 5: On leave at the bottom
+        if (a.onLeave && !b.onLeave) return 1;
+        if (!a.onLeave && b.onLeave) return -1;
+
         return (a.name || '').localeCompare(b.name || '');
     });
   }, [employees, branch.id, branch.manager, branch.tempManager, searchTerm, filterRoles, filterActiveOnly]);
 
-  const totalPages = Math.ceil(branchStaff.length / itemsPerPage);
-  const paginatedStaff = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return branchStaff.slice(start, start + itemsPerPage);
-  }, [branchStaff, currentPage]);
 
   const handleOpenEdit = (emp?: Employee) => {
     playSound('click');
@@ -294,8 +342,83 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const handleReturnFromLeave = (emp: Employee) => {
+    setReturnEmployee(emp);
+  };
+
+  const confirmReturnFromLeave = async () => {
+    if (!returnEmployee) return;
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .update({
+          [DB_COLUMNS.ON_LEAVE]: false,
+          [DB_COLUMNS.LEAVE_TYPE]: null,
+          [DB_COLUMNS.LEAVE_START_DATE]: null,
+          [DB_COLUMNS.LEAVE_END_DATE]: null,
+        })
+        .eq(DB_COLUMNS.ID, returnEmployee.id);
+      if (error) throw error;
+      await logAudit({
+        branchId: branch.id,
+        activityType: 'EMPLOYEE_LEAVE_RETURNED',
+        entityType: 'EMPLOYEE',
+        entityId: returnEmployee.id,
+        description: `${returnEmployee.name} returned from leave`,
+        performerName: operatorName || 'MANAGER',
+      });
+      playSound('success');
+      setReturnEmployee(null);
+      showToast(`${returnEmployee.name} has returned from leave`);
+      onRefresh?.();
+    } catch {
+      playSound('warning');
+      showToast('Failed to update. Try again.', 'error');
+    }
+  };
+
+  const handleSubmitLeaveRequest = async () => {
+    if (!leaveEmployee || isSubmittingLeave || !leaveType) return;
+    const finalLeaveType = leaveType;
+    const noDates = ['SICK', 'EMERGENCY'].includes(finalLeaveType);
+    if (!noDates && !leaveStartDate) return;
+    const needsEnd = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(finalLeaveType);
+    if (needsEnd && !leaveEndDate) return;
+    setIsSubmittingLeave(true);
+    try {
+      const { error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .update({
+          [DB_COLUMNS.ON_LEAVE]: true,
+          [DB_COLUMNS.LEAVE_TYPE]: finalLeaveType,
+          [DB_COLUMNS.LEAVE_START_DATE]: leaveStartDate || null,
+          [DB_COLUMNS.LEAVE_END_DATE]: leaveEndDate || null,
+        })
+        .eq(DB_COLUMNS.ID, leaveEmployee.id);
+      if (error) throw error;
+      await logAudit({
+        branchId: branch.id,
+        activityType: 'EMPLOYEE_LEAVE_SET',
+        entityType: 'EMPLOYEE',
+        entityId: leaveEmployee.id,
+        description: `${leaveEmployee.name} placed on ${finalLeaveType} leave${leaveNotes.trim() ? ` — ${leaveNotes.trim()}` : ''}`,
+        performerName: operatorName || 'MANAGER',
+      });
+      playSound('success');
+      showToast(`${leaveEmployee.name} has been placed on leave`);
+      closeLeaveModal();
+      onRefresh?.();
+    } catch (err) {
+      playSound('warning');
+      showToast('Failed to update leave status. Try again.', 'error');
+    } finally {
+      setIsSubmittingLeave(false);
+    }
+  };
+
   const handleSubmitDisableRequest = async () => {
-    if (!disableRequestEmployee || isSubmittingDisable || !disableReasonType) return;
+    if (!disableEmployee || isSubmittingDisable || !disableReason) return;
+    if (disableReason === 'TERMINATED' && !complaintRef.trim()) return;
     setIsSubmittingDisable(true);
     try {
       const { error } = await supabase.from(DB_TABLES.REQUESTS).insert({
@@ -305,20 +428,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.TYPE]: 'DISABLE_EMPLOYEE',
         [DB_COLUMNS.STATUS]: 'PENDING',
         [DB_COLUMNS.DATA]: {
-          employeeId: disableRequestEmployee.id,
-          employeeName: disableRequestEmployee.name,
-          reasonType: disableReasonType,
-          reason: disableReasonNotes.trim(),
+          employeeId: disableEmployee.id,
+          employeeName: disableEmployee.name,
+          reasonType: disableReason,
+          reason: disableNotes.trim(),
+          ...(disableReason === 'TERMINATED' && { complaintRef: complaintRef.trim() }),
         },
         [DB_COLUMNS.REQUESTER_ID]: operatorName,
         [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
       });
       if (error) throw error;
       playSound('success');
-      showToast(`Disable request submitted for ${disableRequestEmployee.name}`);
-      setDisableRequestEmployee(null);
-      setDisableReasonType('');
-      setDisableReasonNotes('');
+      showToast(`Disable request submitted for ${disableEmployee.name}`);
+      closeDisableModal();
       onRefresh?.();
     } catch (err) {
       playSound('warning');
@@ -449,7 +571,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     playSound('click');
     try {
       const doc = new jsPDF('l', 'mm', 'a4');
-      const timestamp = new Date().toLocaleString();
+      const timestamp = getTrueDate().toLocaleString();
       
       // Header
       doc.setFontSize(20);
@@ -487,6 +609,34 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const handleExportCSV = () => {
+    if (isExporting || branchStaff.length === 0) return;
+    setIsExporting(true);
+    playSound('click');
+    try {
+      const rows = branchStaff.map(emp => ({
+        'FIRST NAME': (emp.firstName || '').toUpperCase(),
+        'MIDDLE NAME': (emp.middleName || '').toUpperCase(),
+        'LAST NAME': (emp.lastName || '').toUpperCase(),
+        'FULL NAME': emp.name.toUpperCase(),
+        'DESIGNATION': getEmployeeRole(emp, branch.id).toUpperCase(),
+        'STATUS': emp.isActive ? 'ACTIVE' : 'SUSPENDED',
+        'DAILY ALLOWANCE': getEmployeeAllowance(emp, branch.id),
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff Directory');
+      XLSX.writeFile(wb, `Staff_Directory_${branch.name.replace(/\s+/g, '_')}.xlsx`);
+      showToast('Personnel Directory Exported (Excel)');
+      playSound('success');
+    } catch (err) {
+      console.error('Export Failed:', err);
+      showToast('Export Fault', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const toggleRole = (role: string) => {
     if (isSyncing) return;
     playSound('click');
@@ -506,12 +656,25 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         showToast('Staff membership is suspended.', 'error');
         return;
     }
+    if (emp.onLeave) {
+        playSound('warning');
+        showToast(`${emp.name} is currently on leave and cannot time in.`, 'error');
+        return;
+    }
     if (isClosedMode) {
       playSound('warning');
       setShowBranchClosedModal(true);
       return;
     }
     playSound('click');
+
+    // Pre-select shift from employee's default if this is a dual-shift branch
+    if (branch.shift2OpeningTime) {
+      const cfg = emp.branchAllowances?.[branch.id];
+      const defaultShift: 1 | 2 = (typeof cfg === 'object' && cfg !== null && (cfg as any).shift === 2) ? 2 : 1;
+      setPendingShift(defaultShift);
+    }
+
     setSelectedEmpForTime(emp);
     setIsTimeModalOpen(true);
   };
@@ -528,19 +691,20 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     return 'COMPLETED';
   };
 
-  const handleTimeAction = async () => {
+  const handleTimeAction = async (shiftOverride?: 1 | 2) => {
     if (!selectedEmpForTime || isSyncing || isClosedMode) return;
-    
+    const effectiveShift = shiftOverride ?? pendingShift;
+
     setIsSyncing(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
-    
+
     const state = getShiftState(selectedEmpForTime.id);
     const timestamp = getTrueManilaISOString();
 
     try {
       if (state === 'NOT_STARTED' || state === 'COMPLETED') {
         // Block clock-in if the employee is already on duty at a different branch today.
-        // Managers are exempt since they may legitimately cover multiple branches.
+        // Managers (at any branch) are exempt — they may legitimately work across branches.
         const isManager = (selectedEmpForTime.role || '').toUpperCase().includes('MANAGER');
         if (!isManager) {
           const ongoingElsewhere = (attendance || []).find(a =>
@@ -585,9 +749,11 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime.name,
             [DB_COLUMNS.DATE]: todayStr,
             [DB_COLUMNS.CLOCK_IN]: timestamp,
-            [DB_COLUMNS.STATUS]: 'REGULAR'
+            [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL',
+            [DB_COLUMNS.STATUS]: 'REGULAR',
+            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {})
           });
-          showToast(`${selectedEmpForTime.name} is now ON DUTY`);
+          showToast(`${selectedEmpForTime.name} is now ON DUTY${branch.shift2OpeningTime ? ` (Shift ${effectiveShift})` : ''}`);
         }
       } 
       else if (state === 'ONGOING') {
@@ -616,9 +782,6 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           await updateAttendance.mutateAsync({
             id: ongoingRec.id,
             [DB_COLUMNS.CLOCK_OUT]: timestamp,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime.id,
-            [DB_COLUMNS.DATE]: todayStr
           });
           showToast(`${selectedEmpForTime.name} has clocked out.`);
         }
@@ -646,6 +809,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
       playSound('success');
       setIsTimeModalOpen(false);
+      setIsFaceInitiated(false);
 
       // If the employee being clocked in/out is a reliever, sync their payout
       // expense immediately so the SALES tab KPI reflects it without needing a sale first.
@@ -660,7 +824,144 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         if (onRefresh) onRefresh();
       }
     } catch (err) {
-      showToast('Time Registry Fault', 'error');
+      // Network failure — queue the write for sync on reconnect
+      try {
+        let attendancePayload: any = null;
+        let queueLatestRecord: any;
+        if (state === 'NOT_STARTED' || state === 'COMPLETED') {
+          const todayRecords = (attendance || []).filter(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr);
+          const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+          queueLatestRecord = latestRecord;
+          if (latestRecord && latestRecord.isHalfDay) {
+            attendancePayload = { id: latestRecord.id, [DB_COLUMNS.CLOCK_OUT]: null, [DB_COLUMNS.IS_HALF_DAY]: false, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DATE]: todayStr };
+          } else {
+            const attendanceId = Math.random().toString(36).substr(2, 9);
+            attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: selectedEmpForTime!.id, [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime!.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL', [DB_COLUMNS.STATUS]: 'REGULAR', ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {}) };
+          }
+        } else if (state === 'ONGOING') {
+          const ongoingRec = (attendance || []).find(a => a.employeeId === selectedEmpForTime!.id && a.date === todayStr && a.clockIn && !a.clockOut);
+          if (ongoingRec) attendancePayload = { id: ongoingRec.id, [DB_COLUMNS.CLOCK_OUT]: timestamp };
+        }
+        if (attendancePayload) {
+          const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: selectedEmpForTime!.id, [DB_COLUMNS.DESCRIPTION]: state === 'ONGOING' ? `Clock-out queued for ${selectedEmpForTime!.name}` : `Clock-in queued for ${selectedEmpForTime!.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+          // isNew: true marks new inserts — the queue flush must not drop these
+          // thinking the record was deleted server-side (it never existed yet).
+          const isNewInsert = state !== 'ONGOING' && !(queueLatestRecord?.isHalfDay);
+          const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+          existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload, isNew: isNewInsert });
+          localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+          playSound('success');
+          showToast(`${selectedEmpForTime!.name} ${state === 'ONGOING' ? 'clocked out' : 'clocked in'} (queued — will sync on reconnect)`);
+          setIsTimeModalOpen(false);
+          if (onRefresh) onRefresh();
+        } else {
+          showToast('Time Registry Fault', 'error');
+        }
+      } catch {
+        showToast('Time Registry Fault', 'error');
+      }
+    } finally {
+      setIsSyncing(false);
+      if (onSyncStatusChange) onSyncStatusChange(false);
+    }
+  };
+
+  const handleFaceTimeIn = async (emp: Employee) => {
+    if (!emp.isActive || emp.onLeave || isSyncing || isClosedMode) return;
+    const state = getShiftState(emp.id);
+    if (state !== 'NOT_STARTED' && state !== 'COMPLETED') return;
+
+    setIsSyncing(true);
+    if (onSyncStatusChange) onSyncStatusChange(true);
+    const timestamp = getTrueManilaISOString();
+
+    try {
+      const isManager = (emp.role || '').toUpperCase().includes('MANAGER');
+      if (!isManager) {
+        const ongoingElsewhere = (attendance || []).find(a =>
+          a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut && a.branchId !== branch.id
+        );
+        if (ongoingElsewhere) {
+          const otherBranch = branches.find(b => b.id === ongoingElsewhere.branchId);
+          const otherName = otherBranch?.name?.replace(/BRANCH\s*-\s*/i, '') ?? 'another branch';
+          showToast(`${emp.name} is currently on duty at ${otherName}. Clock them out there first.`);
+          return;
+        }
+      }
+
+      const todayRecords = (attendance || []).filter(a => a.employeeId === emp.id && a.date === todayStr);
+      const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+
+      if (latestRecord && latestRecord.isHalfDay) {
+        await updateAttendance.mutateAsync({
+          id: latestRecord.id,
+          [DB_COLUMNS.CLOCK_OUT]: null,
+          [DB_COLUMNS.IS_HALF_DAY]: false,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.EMPLOYEE_ID]: emp.id,
+          [DB_COLUMNS.DATE]: todayStr
+        });
+        showToast(`${emp.name} resumed duty from half-day.`);
+      } else {
+        const attendanceId = Math.random().toString(36).substr(2, 9);
+        await addAttendance.mutateAsync({
+          [DB_COLUMNS.ID]: attendanceId,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.EMPLOYEE_ID]: emp.id,
+          [DB_COLUMNS.STAFF_NAME]: emp.name,
+          [DB_COLUMNS.DATE]: todayStr,
+          [DB_COLUMNS.CLOCK_IN]: timestamp,
+          [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE',
+          [DB_COLUMNS.STATUS]: 'REGULAR'
+        });
+        showToast(`${emp.name} is now ON DUTY`);
+      }
+
+      await addAuditLog.mutateAsync({
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
+        [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE',
+        [DB_COLUMNS.ENTITY_ID]: emp.id,
+        [DB_COLUMNS.DESCRIPTION]: `Face recognition clock-in for ${emp.name}`,
+        [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR'
+      });
+
+      playSound('success');
+
+      const clockCfg = emp.branchAllowances?.[branch.id];
+      const clockExcluded = typeof clockCfg === 'object' && clockCfg !== null ? (clockCfg.excludeFromReliever || false) : false;
+      const isReliever = emp.branchId !== branch.id && !clockExcluded;
+      if (isReliever) {
+        syncRelieverPayouts(branch, todayStr, employees)
+          .then(() => { if (onRefresh) onRefresh(); })
+          .catch(console.error);
+      } else {
+        if (onRefresh) onRefresh();
+      }
+    } catch {
+      // Network failure — queue the face clock-in for sync on reconnect
+      try {
+        const todayRecords = (attendance || []).filter(a => a.employeeId === emp.id && a.date === todayStr);
+        const latestRecord = todayRecords.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())[0];
+        let attendancePayload: any;
+        if (latestRecord && latestRecord.isHalfDay) {
+          attendancePayload = { id: latestRecord.id, [DB_COLUMNS.CLOCK_OUT]: null, [DB_COLUMNS.IS_HALF_DAY]: false, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: emp.id, [DB_COLUMNS.DATE]: todayStr };
+        } else {
+          const attendanceId = Math.random().toString(36).substr(2, 9);
+          attendancePayload = { [DB_COLUMNS.ID]: attendanceId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.EMPLOYEE_ID]: emp.id, [DB_COLUMNS.STAFF_NAME]: emp.name, [DB_COLUMNS.DATE]: todayStr, [DB_COLUMNS.CLOCK_IN]: timestamp, [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE', [DB_COLUMNS.STATUS]: 'REGULAR' };
+        }
+        const auditPayload = { [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE', [DB_COLUMNS.ENTITY_TYPE]: 'ATTENDANCE', [DB_COLUMNS.ENTITY_ID]: emp.id, [DB_COLUMNS.DESCRIPTION]: `Face clock-in queued for ${emp.name}`, [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR' };
+        const isNewInsert = !(latestRecord?.isHalfDay);
+        const existingQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        existingQueue.push({ table: DB_TABLES.ATTENDANCE, data: attendancePayload, audit: auditPayload, isNew: isNewInsert });
+        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existingQueue));
+        playSound('success');
+        showToast(`${emp.name} clocked in (queued — will sync on reconnect)`);
+        if (onRefresh) onRefresh();
+      } catch {
+        showToast('Time Registry Fault', 'error');
+      }
     } finally {
       setIsSyncing(false);
       if (onSyncStatusChange) onSyncStatusChange(false);
@@ -829,18 +1130,123 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
+  const COMPLAINT_REPORT_LABEL: Record<string, string> = {
+    TARDINESS: 'Tardiness', ABSENCE: 'Unexcused Absence', MISCONDUCT: 'Misconduct',
+    POLICY_VIOLATION: 'Policy Violation', PERFORMANCE: 'Poor Performance', OTHER: 'Other',
+  };
+
+  const handleSaveWithComplaintCheck = async () => {
+    if (isPullMode && editingEmployee?.id) {
+      setIsCheckingComplaints(true);
+      try {
+        const { data } = await supabase
+          .from(DB_TABLES.EMPLOYEE_COMPLAINTS)
+          .select('id,status,report_type,branch_id,filed_at')
+          .eq('employee_id', editingEmployee.id)
+          .neq('status', 'DISMISSED');
+        const empComplaints = (data || []) as any[];
+        if (empComplaints.length > 0) {
+          setRelieverComplaintCheck({
+            emp: editingEmployee as Employee,
+            empComplaints: empComplaints.map(c => ({
+              id: c.id,
+              status: c.status,
+              reportType: c.report_type,
+              branchId: c.branch_id,
+              filedAt: c.filed_at,
+            })),
+          });
+          return;
+        }
+      } finally {
+        setIsCheckingComplaints(false);
+      }
+    }
+    handleSaveEmployee();
+  };
+
   return (
     <>
-    <div className="space-y-4 sm:space-y-6">
       {toast && createPortal(
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-6 duration-300 font-bold text-[11px] uppercase tracking-widest bg-slate-900 text-white border border-white/10 flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
-          {toast.message}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-2xl shadow-lg animate-in slide-in-from-bottom-4 duration-300 font-semibold text-sm bg-white border border-slate-200 flex items-center gap-3 min-w-[220px] max-w-xs">
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+          <span className={toast.type === 'error' ? 'text-rose-700' : 'text-slate-800'}>{toast.message}</span>
         </div>,
         document.body
       )}
 
-      <StaffModals 
+      {relieverComplaintCheck && createPortal(
+        <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-widest">Complaint History</p>
+                  <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mt-0.5">{relieverComplaintCheck.emp.name}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-2 max-h-64 overflow-y-auto">
+              {relieverComplaintCheck.empComplaints
+                .sort((a, b) => a.filedAt.localeCompare(b.filedAt))
+                .map((c, idx) => (
+                  <div key={c.id} className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Complaint</p>
+                        <p className="text-xs font-black text-slate-800">{COMPLAINT_REPORT_LABEL[c.reportType] || c.reportType}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Offense #</p>
+                        <p className="text-xs font-black text-slate-800">{idx + 1}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Status</p>
+                        <p className={`text-xs font-black uppercase ${
+                          c.status === 'PENDING' ? 'text-amber-600' :
+                          c.status === 'ACKNOWLEDGED' ? 'text-emerald-600' : 'text-slate-400'
+                        }`}>{c.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Branch</p>
+                        <p className="text-xs font-black text-slate-800 truncate">
+                          {branches.find(b => b.id === c.branchId)?.name?.replace(/BRANCH\s*-\s*/i, '') || c.branchId}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div className="px-5 pb-5 pt-2 flex gap-3">
+              <button
+                onClick={() => setRelieverComplaintCheck(null)}
+                className="flex-1 h-11 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setRelieverComplaintCheck(null);
+                  handleSaveEmployee();
+                }}
+                className="flex-1 h-11 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+    <div className="space-y-4">
+
+      <StaffModals
         isTimeModalOpen={isTimeModalOpen}
         isModalOpen={isModalOpen}
         isPullMode={isPullMode}
@@ -849,15 +1255,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         editingEmployee={editingEmployee as any}
         recoveryEmployee={recoveryEmployee}
         branches={branches}
+        branch={branch}
         isSyncing={isSyncing}
         uploadProgress={uploadProgress}
         profileFile={profileFile}
         fileInputRef={fileInputRef}
         getShiftState={getShiftState}
         clockOutLocked={clockOutLocked}
+        pendingShift={pendingShift}
+        onShiftChange={setPendingShift}
+        isFaceInitiated={isFaceInitiated}
         onTimeAction={handleTimeAction}
-        onSaveEmployee={handleSaveEmployee}
-        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); }}
+        onSaveEmployee={handleSaveWithComplaintCheck}
+        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); }}
         onCloseRecovery={() => setRecoveryEmployee(null)}
         onRefresh={() => onRefresh?.()}
         onSyncStatusChange={onSyncStatusChange}
@@ -869,146 +1279,178 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         isManagerView={isManagerView}
       />
 
+      {/* DEBUG: dual-shift indicator — remove after validating */}
+      {branch.shift2OpeningTime ? (
+        <div className="px-1 pb-2 flex gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+            <span className="opacity-60">S1</span>
+            <span>{branch.openingTime} – {branch.closingTime}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
+            <span className="opacity-60">S2</span>
+            <span>{branch.shift2OpeningTime} – {branch.shift2ClosingTime || branch.closingTime}</span>
+          </span>
+        </div>
+      ) : (
+        <div className="px-1 pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+            Single Shift
+          </span>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <StaffHeader
         branchName={branch.name.replace(/BRANCH - /g, '')}
         searchTerm={searchTerm}
-        onSearchChange={val => { setSearchTerm(val); setCurrentPage(1); }}
+        onSearchChange={val => { setSearchTerm(val); }}
         onPullReliever={handleOpenPull}
         onRequestNewEmployee={isDelegate ? undefined : () => { setShowNewEmpRequest(true); playSound('click'); }}
         filterRoles={filterRoles as any}
-        onFilterRolesChange={roles => { setFilterRoles(roles as any); setCurrentPage(1); }}
+        onFilterRolesChange={roles => { setFilterRoles(roles as any); }}
         filterActiveOnly={filterActiveOnly}
-        onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); setCurrentPage(1); }}
+        onFilterActiveOnlyChange={val => { setFilterActiveOnly(val); }}
         totalShowing={branchStaff.length}
+        onExportPDF={handleExportPDF}
+        onExportCSV={handleExportCSV}
+        isExporting={isExporting}
       />
+
+      {isSetupRequired && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4 animate-in slide-in-from-top-4">
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600" strokeWidth={2} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-900 leading-snug">Personnel setup required</p>
+            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">No therapists or specialists are registered for this branch. Add staff before starting POS operations.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Reliever hint — shown when there are guest/reliever staff visible */}
+      {branchStaff.some(e => e.branchId !== branch.id) && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+          <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400 dark:text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-indigo-700 dark:text-indigo-200 leading-relaxed">
+            <span className="font-bold">Reliever staff</span> are from another branch. To permanently transfer them, use the remove button on their row — do not request to disable them.
+          </p>
+        </div>
+      )}
+
+      {/* Section header with count badge */}
+      <div className="flex items-center gap-3 px-1">
+        <h2 className="text-sm font-bold text-slate-800">Team Members</h2>
+        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold tabular-nums">
+          {branchStaff.length}
+        </span>
+        <div className="flex-1 h-px bg-slate-100" />
+      </div>
+
+      {/* Staff list */}
+      {branchStaff.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {branchStaff.map((emp, idx) => {
+            const currentRole = getEmployeeRole(emp, branch.id);
+            const branchCfg = emp.branchAllowances?.[branch.id];
+            const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
+            const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
+            const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
+            // A staff from another branch is a reliever unless they ARE this branch's main/temp manager
+            const isReliever = emp.branchId !== branch.id && !isMainManager && !isTempManager && !excludeFromReliever;
+
+            return (
+              <React.Fragment key={emp.id}>
+                <StaffCard
+                  emp={emp}
+                  branchId={branch.id}
+                  isReliever={isReliever}
+                  isMainManager={isMainManager}
+                  isTempManager={isTempManager}
+                  shiftState={getShiftState(emp.id)}
+                  todayShift={branch.shift2OpeningTime ? (attendance || []).find(a => a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut)?.shift : undefined}
+                  clockInTime={(attendance || []).find(a => a.employeeId === emp.id && a.date === todayStr && a.clockIn && !a.clockOut)?.clockIn}
+                  isClosedMode={isClosedMode}
+                  onEdit={handleOpenEdit}
+                  onTimeAction={handleOpenTimeModal}
+                  onReset={isDelegate ? undefined : handleOpenReset}
+                  onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
+                  onReturnFromLeave={!isDelegate && emp.isActive && emp.branchId === branch.id && emp.onLeave ? () => handleReturnFromLeave(emp) : undefined}
+                  onRequestLeave={!isDelegate && emp.isActive && !isReliever && !emp.onLeave ? () => openLeaveModal(emp) : undefined}
+                  onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager && !isReliever && !emp.onLeave ? () => openDisableModal(emp) : undefined}
+                  onRemoveReliever={
+                    !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
+                      ? () => setRemoveRelieversEmployee(emp)
+                      : undefined
+                  }
+                  onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+                />
+              </React.Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 py-16 flex flex-col items-center justify-center gap-4 text-center px-6">
+          <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center">
+            <Users className="w-8 h-8 text-slate-300" strokeWidth={1.5} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-500">No team members found</p>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-[220px] mx-auto">
+              {searchTerm || filterRoles.length > 0
+                ? 'Try adjusting your search or filters.'
+                : 'Add staff using the button above to get started.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {isManagerView && !isDelegate && onNavigateToComplaints && (
         <button
           onClick={() => { playSound('click'); onNavigateToComplaints(); }}
-          className="w-full flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:border-rose-300 hover:bg-rose-50/40 transition-all group"
+          className="w-full flex items-center gap-4 px-4 py-4 bg-white border border-slate-200 rounded-2xl hover:border-rose-200 hover:bg-rose-50/30 active:scale-[0.99] transition-all group min-h-[56px]"
         >
-          <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-slate-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 transition-colors">
             <svg className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H11.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
             </svg>
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-[11px] font-black text-slate-700 group-hover:text-rose-700 uppercase tracking-tight transition-colors">Complaints</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">File or review employee incident reports</p>
+            <p className="text-sm font-semibold text-slate-700 group-hover:text-rose-700 transition-colors">Complaints</p>
+            <p className="text-xs text-slate-400">File or review employee incident reports</p>
           </div>
           <svg className="w-4 h-4 text-slate-300 group-hover:text-rose-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
       )}
-
-      {isSetupRequired && (
-        <div className={`bg-amber-50 border border-amber-100 p-6 ${UI_THEME.radius.card} flex items-center gap-6 animate-in slide-in-from-top-4`}>
-           <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-             <AlertTriangle className="w-6 h-6" strokeWidth={2.5} />
-           </div>
-           <div className="space-y-1">
-             <p className="text-sm font-bold text-amber-900 uppercase tracking-tight">Personnel Initialization Required</p>
-             <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest leading-relaxed opacity-80">No therapists or specialists registered for this node. Use the button above to add staff before initializing POS operations.</p>
-           </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-1">
-        {paginatedStaff.length > 0 ? paginatedStaff.map(emp => {
-          const currentRole = getEmployeeRole(emp, branch.id);
-          const branchCfg = emp.branchAllowances?.[branch.id];
-          const excludeFromReliever = typeof branchCfg === 'object' && branchCfg !== null ? (branchCfg.excludeFromReliever || false) : false;
-          const isMainManager = branch.manager?.toUpperCase() === (emp.name || '').toUpperCase();
-          const isTempManager = branch.tempManager?.toUpperCase() === (emp.name || '').toUpperCase();
-          // A staff from another branch is a reliever unless they ARE this branch's main/temp manager
-          const isReliever = emp.branchId !== branch.id && !isMainManager && !isTempManager && !excludeFromReliever;
-
-          return (
-            <StaffCard
-              key={emp.id}
-              emp={emp}
-              branchId={branch.id}
-              isReliever={isReliever}
-              isMainManager={isMainManager}
-              isTempManager={isTempManager}
-              shiftState={getShiftState(emp.id)}
-              isClosedMode={isClosedMode}
-              onEdit={handleOpenEdit}
-              onTimeAction={handleOpenTimeModal}
-              onReset={isDelegate ? undefined : handleOpenReset}
-              onPromote={isReliever && !isDelegate ? handlePromoteToRegular : undefined}
-              onRequestDisable={!isDelegate && emp.isActive && !isMainManager && !isTempManager ? () => { setDisableRequestEmployee(emp); setDisableReasonType(''); setDisableReasonNotes(''); } : undefined}
-              onRemoveReliever={
-                !isDelegate && isReliever && !isMainManager && !isTempManager && getShiftState(emp.id) === 'NOT_STARTED'
-                  ? () => setRemoveRelieversEmployee(emp)
-                  : undefined
-              }
-              onViewID={() => { setIdCardEmployee(emp); playSound('click'); }}
-            />
-          );
-        }) : (
-          <div className={`col-span-full py-40 text-center bg-white ${UI_THEME.radius.card} border-2 border-dashed border-slate-100 flex flex-col items-center gap-6 opacity-20`}>
-             <Users className="w-20 h-20 text-slate-300" strokeWidth={1} />
-             <p className="text-[12px] font-bold text-slate-400 uppercase tracking-[0.5em]">No Personnel Record Found</p>
-          </div>
-        )}
-      </div>
-
-      {/* PAGINATION */}
-      {totalPages > 0 && (
-        <div className="flex flex-col items-center gap-3 mt-4">
-          <select
-            value={itemsPerPage}
-            onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); playSound('click'); }}
-            className="h-8 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black text-slate-600 uppercase tracking-wider cursor-pointer hover:border-slate-400 focus:outline-none transition-colors"
-          >
-            {[10, 25, 50, 100].map(n => (
-              <option key={n} value={n}>{n} per page</option>
-            ))}
-          </select>
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); playSound('click'); }}
-                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
-              >
-                <ChevronLeft className="w-5 h-5" strokeWidth={3} />
-              </button>
-
-              <div className="flex items-center gap-2">
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setCurrentPage(i + 1); playSound('click'); }}
-                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); playSound('click'); }}
-                className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 shadow-sm"
-              >
-                <ChevronRight className="w-5 h-5" strokeWidth={3} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
 
-    {/* EMPLOYEE ID CARD MODAL */}
-    {idCardEmployee && (
-      <EmployeeIDCardModal
-        employee={idCardEmployee}
-        branches={branches}
-        onClose={() => setIdCardEmployee(null)}
+{/* FACE TIME-IN MODAL */}
+    {showFaceTimeIn && (
+      <FaceTimeInModal
+        employees={employees.filter(e => e.isActive)}
+        branchId={branch.id}
+        targetEmployee={faceTimeInTarget ?? undefined}
+        onMatch={(emp) => {
+          // Dual-shift branch: face used for identification only — open shift picker instead of directly inserting
+          if (branch.shift2OpeningTime) {
+            setShowFaceTimeIn(false);
+            setFaceTimeInTarget(null);
+            setIsFaceInitiated(true);
+            handleOpenTimeModal(emp);
+          } else {
+            handleFaceTimeIn(emp);
+          }
+        }}
+        onClose={() => { setShowFaceTimeIn(false); setFaceTimeInTarget(null); }}
+        onManualOverride={faceTimeInTarget ? () => {
+          setShowFaceTimeIn(false);
+          handleOpenTimeModal(faceTimeInTarget);
+          setFaceTimeInTarget(null);
+        } : undefined}
       />
     )}
 
@@ -1016,7 +1458,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     {removeRelieversEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setRemoveRelieversEmployee(null)} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1024,25 +1466,25 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Remove Reliever</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Removes from this branch's staff list only</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Remove Reliever</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Removes from this branch's staff list only</p>
             </div>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reliever</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Reliever</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{removeRelieversEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
-              <span className="text-[10px] font-black text-slate-700 uppercase">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Home Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">
                 {branches.find(b => b.id === removeRelieversEmployee.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}
               </span>
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-500 leading-relaxed mb-5">
+          <p className="text-xs text-slate-500 leading-relaxed mb-5">
             This removes <span className="font-black text-slate-700">{removeRelieversEmployee.name}</span> from this branch's authorized staff list. Their home branch record and payroll are not affected. You can re-enroll them later via "Enroll Reliever".
           </p>
 
@@ -1050,14 +1492,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isRemovingReliever}
               onClick={() => setRemoveRelieversEmployee(null)}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isRemovingReliever}
               onClick={handleConfirmRemoveReliever}
-              className="flex-1 h-10 rounded-xl bg-rose-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isRemovingReliever
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1069,104 +1511,231 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
       </div>
     )}
 
-    {/* DISABLE EMPLOYEE REQUEST MODAL */}
-    {disableRequestEmployee && (
+    {/* LEAVE / ON-HOLD REQUEST MODAL */}
+    {leaveEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeLeaveModal} />
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
           <div className="flex items-start gap-4 mb-5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            <div className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request to Disable</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Place on Leave</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{leaveEmployee?.name}</p>
             </div>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-              <span className="text-[11px] font-black text-slate-900 uppercase">{disableRequestEmployee.name}</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{leaveEmployee.name}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</span>
-              <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
             </div>
           </div>
 
+          {/* Subtype: Leave or Suspended */}
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Reason for Disabling <span className="text-rose-500">*</span></label>
-            <div className="space-y-2">
-              {(['RESIGNED', 'TERMINATED', 'ON_HOLD'] as const).map(opt => {
-                const labels: Record<string, { label: string; desc: string; color: string }> = {
-                  RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         color: 'border-slate-400 bg-slate-900' },
-                  TERMINATED: { label: 'Terminated', desc: 'Dismissed due to misconduct/cause', color: 'border-rose-500 bg-rose-600' },
-                  ON_HOLD:    { label: 'On Hold',    desc: 'Temporarily inactive',              color: 'border-amber-400 bg-amber-500' },
-                };
-                const m = labels[opt];
-                const isSelected = disableReasonType === opt;
-                return (
-                  <label
-                    key={opt}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-slate-900 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`}
-                    onClick={() => setDisableReasonType(opt)}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-slate-900' : 'border-slate-300'}`}>
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold">{m.desc}</p>
-                    </div>
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.color.split(' ')[1]}`} />
-                  </label>
-                );
-              })}
-            </div>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 block">Reason for Hold <span className="text-rose-500">*</span></label>
           </div>
 
+          {/* Leave type picker */}
+          {(
+            <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3 block">Leave Type <span className="text-rose-500">*</span></label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['VACATION', 'SICK', 'MATERNITY', 'PATERNITY', 'EMERGENCY'] as const).map(type => {
+                  const lMeta: Record<string, { label: string; dot: string }> = {
+                    VACATION:  { label: 'Vacation',  dot: 'bg-blue-500' },
+                    SICK:      { label: 'Sick',      dot: 'bg-rose-500' },
+                    MATERNITY: { label: 'Maternity', dot: 'bg-pink-500' },
+                    PATERNITY: { label: 'Paternity', dot: 'bg-indigo-500' },
+                    EMERGENCY: { label: 'Emergency', dot: 'bg-amber-500' },
+                  };
+                  const m = lMeta[type];
+                  const isSelected = leaveType === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => { setLeaveType(type); setLeaveStartDate(''); setLeaveEndDate(''); }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-purple-400 bg-purple-50' : 'border-slate-100 hover:border-slate-200'}`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSelected ? m.dot : 'bg-slate-200'}`} />
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Dates */}
+          {leaveType && (() => {
+            const noDates = ['SICK', 'EMERGENCY'].includes(leaveType);
+            if (noDates) return null;
+            const endRequired = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+            return (
+              <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Start Date <span className="text-rose-500">*</span></label>
+                  <input type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">
+                    End Date {endRequired ? <span className="text-rose-500">*</span> : <span className="font-bold normal-case opacity-60">(optional)</span>}
+                  </label>
+                  <input type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} min={leaveStartDate} className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-purple-400 bg-slate-50" />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Notes */}
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Additional Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
-            <textarea
-              value={disableReasonNotes}
-              onChange={e => setDisableReasonNotes(e.target.value)}
-              rows={2}
-              placeholder="Additional context for the superadmin..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-amber-400 resize-none bg-slate-50"
-            />
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={leaveNotes} onChange={e => setLeaveNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
           </div>
 
           <div className="flex gap-3">
+            <button disabled={isSubmittingLeave} onClick={closeLeaveModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
             <button
-              disabled={isSubmittingDisable}
-              onClick={() => { setDisableRequestEmployee(null); setDisableReasonType(''); setDisableReasonNotes(''); }}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isSubmittingDisable || !disableReasonType}
-              onClick={handleSubmitDisableRequest}
-              className="flex-1 h-10 rounded-xl bg-amber-500 text-[11px] font-black uppercase tracking-widest text-white hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-            >
-              {isSubmittingDisable
-                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                : 'Submit Request'
+              disabled={
+                isSubmittingLeave || !leaveType ||
+                (() => {
+                  const noDates = ['SICK', 'EMERGENCY'].includes(leaveType);
+                  if (noDates) return false;
+                  if (!leaveStartDate) return true;
+                  const needsEnd = ['VACATION', 'MATERNITY', 'PATERNITY'].includes(leaveType);
+                  return needsEnd && !leaveEndDate;
+                })()
               }
+              onClick={handleSubmitLeaveRequest}
+              className="flex-1 h-10 rounded-xl bg-purple-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingLeave ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Confirm Leave'}
             </button>
           </div>
         </div>
       </div>
     )}
 
-    {/* NEW EMPLOYEE CREATION REQUEST MODAL */}
-    {showNewEmpRequest && (
+    {/* DISABLE EMPLOYEE REQUEST MODAL */}
+    {disableEmployee && (
       <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }} />
-        <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeDisableModal} />
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Disable Employee</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Permanent — Superadmin approval required</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
+              <span className="text-xs font-black text-slate-900 uppercase">{disableEmployee.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Branch</span>
+              <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+            </div>
+          </div>
+
+          <div className="mb-4 space-y-3">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block">Reason <span className="text-rose-500">*</span></label>
+            {(['RESIGNED', 'TERMINATED'] as const).map(opt => {
+              const dMeta = {
+                RESIGNED:   { label: 'Resigned',   desc: 'Employee voluntarily left',         dot: 'bg-slate-700' },
+                TERMINATED: { label: 'Terminated', desc: 'Dismissed due to misconduct/cause', dot: 'bg-rose-600' },
+              };
+              const m = dMeta[opt];
+              const isSelected = disableReason === opt;
+              return (
+                <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-slate-800 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`} onClick={() => setDisableReason(opt)}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-slate-900' : 'border-slate-300'}`}>
+                    {isSelected && <div className="w-2 h-2 rounded-full bg-slate-900" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{m.label}</p>
+                    <p className="text-xs text-slate-400 font-semibold">{m.desc}</p>
+                  </div>
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
+                </label>
+              );
+            })}
+
+            {disableReason === 'TERMINATED' && (
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                <label className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1.5 block">Complaint Number <span className="text-rose-500">*</span></label>
+                <input type="text" value={complaintRef} onChange={e => setComplaintRef(e.target.value.toUpperCase())} placeholder="e.g. COMP-ABC123" className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-rose-400 placeholder:font-semibold placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400" />
+                <p className="text-xs font-bold text-slate-400 mt-1">Enter the complaint number from the Complaints section.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-5">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">Notes <span className="font-bold normal-case opacity-60">(optional)</span></label>
+            <textarea value={disableNotes} onChange={e => setDisableNotes(e.target.value)} rows={2} placeholder="Additional context for the superadmin..." className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 resize-none bg-slate-50" />
+          </div>
+
+          <div className="flex gap-3">
+            <button disabled={isSubmittingDisable} onClick={closeDisableModal} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">Cancel</button>
+            <button
+              disabled={isSubmittingDisable || !disableReason || (disableReason === 'TERMINATED' && !complaintRef.trim())}
+              onClick={handleSubmitDisableRequest}
+              className="flex-1 h-10 rounded-xl bg-rose-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isSubmittingDisable ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : 'Submit Request'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* RETURN FROM LEAVE CONFIRMATION */}
+    {returnEmployee && (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setReturnEmployee(null)} />
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-sm p-6 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Return from Leave</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{returnEmployee.name}</p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+            Confirm that <span className="font-black text-slate-900">{returnEmployee.name}</span> is back and ready to resume work. This will clear their leave status immediately.
+          </p>
+          <div className="flex gap-3">
+            <button onClick={() => setReturnEmployee(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={confirmReturnFromLeave} className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-semibold uppercase tracking-wide text-white active:scale-95 transition-all">Confirm Return</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* NEW EMPLOYEE CREATION REQUEST MODAL */}
+    {showNewEmpRequest && createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}>
+        <div className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1174,58 +1743,71 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               </svg>
             </div>
             <div>
-              <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request New Staff</p>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Request New Staff</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Superadmin approval required</p>
+            </div>
+          </div>
+
+          {/* Info banner */}
+          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3.5 flex gap-3 items-start mb-4">
+            <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Requesting New Staff</p>
+              <p className="text-xs text-indigo-600 mt-1 leading-relaxed">This form is for employees brand new to the network. Your request will be sent to the superadmin for review and approval before the employee is added.</p>
             </div>
           </div>
 
           <div className="space-y-3 mb-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">First Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">First Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpFirstName}
                   onChange={e => { setNewEmpFirstName(e.target.value); checkNewEmpName(e.target.value, newEmpMiddleName, newEmpLastName); }}
                   placeholder="e.g. JUAN"
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Last Name <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Last Name <span className="text-rose-500">*</span></label>
                 <input
                   value={newEmpLastName}
                   onChange={e => { setNewEmpLastName(e.target.value); checkNewEmpName(newEmpFirstName, newEmpMiddleName, e.target.value); }}
                   placeholder="e.g. DELA CRUZ"
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
                 />
               </div>
             </div>
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Middle Name <span className="font-bold normal-case opacity-60">(optional)</span></label>
               <input
                 value={newEmpMiddleName}
                 onChange={e => { setNewEmpMiddleName(e.target.value); checkNewEmpName(newEmpFirstName, e.target.value, newEmpLastName); }}
                 placeholder="e.g. SANTOS"
-                className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[11px] font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-xs font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 bg-slate-50 uppercase"
               />
             </div>
 
             {newEmpBlockError && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
                 <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p className="text-[10px] font-bold text-rose-700">{newEmpBlockError}</p>
+                <p className="text-xs font-bold text-rose-700">{newEmpBlockError}</p>
               </div>
             )}
             {!newEmpBlockError && newEmpSimilarWarning && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
                 <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                <p className="text-[10px] font-bold text-amber-700">{newEmpSimilarWarning}</p>
+                <p className="text-xs font-bold text-amber-700">{newEmpSimilarWarning}</p>
               </div>
             )}
           </div>
 
           <div className="mb-4">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Role <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 block">Role <span className="text-rose-500">*</span></label>
             <div className="flex flex-wrap gap-2">
               {(['THERAPIST', 'BONESETTER'] as const).map(r => {
                 const selected = newEmpRole.split(',').map(s => s.trim()).includes(r);
@@ -1238,7 +1820,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       const next = selected ? current.filter(x => x !== r) : [...current, r];
                       setNewEmpRole(next.join(','));
                     }}
-                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all border-2 ${
                       selected
                         ? r === 'THERAPIST'
                           ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
@@ -1251,21 +1833,21 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 );
               })}
             </div>
-            {!newEmpRole && <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Select at least one role.</p>}
+            {!newEmpRole && <p className="text-xs text-rose-500 font-bold mt-1.5 ml-1">Select at least one role.</p>}
           </div>
 
           <div className="mb-5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1 block">Daily Allowance (₱) <span className="text-rose-500">*</span></label>
             <input
               type="number"
               min="1"
               value={newEmpAllowance}
               onChange={e => setNewEmpAllowance(e.target.value)}
               placeholder="e.g. 350"
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-[11px] font-semibold text-slate-700 outline-none transition-all bg-slate-50 ${newEmpAllowance && Number(newEmpAllowance) > 0 ? 'border-slate-200 focus:border-indigo-400' : 'border-rose-200 focus:border-rose-400'}`}
+              className={`w-full px-3 py-2.5 rounded-xl border-2 text-xs font-semibold text-slate-700 outline-none transition-all bg-slate-50 ${newEmpAllowance && Number(newEmpAllowance) > 0 ? 'border-slate-200 focus:border-indigo-400' : 'border-rose-200 focus:border-rose-400'}`}
             />
             {(!newEmpAllowance || Number(newEmpAllowance) <= 0) && (
-              <p className="text-[9px] text-rose-500 font-bold mt-1.5 ml-1">Allowance must be greater than 0.</p>
+              <p className="text-xs text-rose-500 font-bold mt-1.5 ml-1">Allowance must be greater than 0.</p>
             )}
           </div>
 
@@ -1273,14 +1855,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             <button
               disabled={isSubmittingNewEmp}
               onClick={() => { setShowNewEmpRequest(false); setNewEmpFirstName(''); setNewEmpMiddleName(''); setNewEmpLastName(''); setNewEmpRole('THERAPIST'); setNewEmpAllowance(''); setNewEmpSimilarWarning(null); setNewEmpBlockError(null); }}
-              className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isSubmittingNewEmp || !!newEmpBlockError || !newEmpFirstName.trim() || !newEmpLastName.trim() || !newEmpRole || !newEmpAllowance || Number(newEmpAllowance) <= 0}
               onClick={handleSubmitNewEmployeeRequest}
-              className="flex-1 h-10 rounded-xl bg-indigo-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl bg-indigo-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isSubmittingNewEmp
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1290,7 +1872,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           </div>
         </div>
       </div>
-    )}
+    , document.body)}
 
     {/* PROMOTE TO REGULAR CONFIRMATION MODAL */}
     {confirmPromoteEmployee && (() => {
@@ -1300,7 +1882,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div
-            className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150"
+            className="relative bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 animate-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -1311,39 +1893,39 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 </svg>
               </div>
               <div>
-                <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Permanent Branch Transfer</p>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">This action changes payroll classification</p>
+                <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Permanent Branch Transfer</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">This action changes payroll classification</p>
               </div>
             </div>
 
             {/* What changes */}
             <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee</span>
-                <span className="text-[11px] font-black text-slate-900 uppercase">{confirmPromoteEmployee.name}</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Employee</span>
+                <span className="text-xs font-black text-slate-900 uppercase">{confirmPromoteEmployee.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Previous Status</span>
-                <span className="text-[10px] font-black text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-lg">Reliever (Expenses)</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Previous Status</span>
+                <span className="text-xs font-black text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-lg">Reliever (Expenses)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">New Status</span>
-                <span className="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-lg">Regular (Payroll)</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">New Status</span>
+                <span className="text-xs font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-lg">Regular (Payroll)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Branch</span>
-                <span className="text-[10px] font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Home Branch</span>
+                <span className="text-xs font-black text-slate-700 uppercase">{branch.name.replace('BRANCH - ', '')}</span>
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 leading-relaxed mb-4">
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
               This cannot be undone from this screen. To revert, a superadmin must manually update the employee record.
               Type the employee's full name to confirm.
             </p>
 
             {/* Name confirmation input */}
             <div className="mb-4">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5 block">
                 Type <span className="text-slate-700">{confirmPromoteEmployee.name}</span> to confirm
               </label>
               <input
@@ -1352,7 +1934,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                 onChange={e => setPromoteConfirmInput(e.target.value.toUpperCase())}
                 placeholder={confirmPromoteEmployee.name}
                 disabled={isPromoting}
-                className={`w-full h-11 px-4 rounded-xl border-2 text-[11px] font-black uppercase outline-none transition-all ${
+                className={`w-full h-11 px-4 rounded-xl border-2 text-xs font-black uppercase outline-none transition-all ${
                   inputMatch
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     : promoteConfirmInput.length > 0
@@ -1367,14 +1949,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               <button
                 disabled={isPromoting}
                 onClick={() => { setConfirmPromoteEmployee(null); setPromoteConfirmInput(''); }}
-                className="flex-1 h-10 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 disabled={!inputMatch || isPromoting}
                 onClick={handleConfirmPromotion}
-                className="flex-1 h-10 rounded-xl bg-emerald-600 text-[11px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 h-10 rounded-xl bg-emerald-600 text-xs font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isPromoting ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>

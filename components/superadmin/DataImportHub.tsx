@@ -139,25 +139,25 @@ export const DataImportHub: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-32 px-2">
-      <div className="bg-white p-6 sm:p-8 md:p-12 rounded-[32px] sm:rounded-[56px] border border-slate-100 shadow-sm space-y-8 sm:space-y-10">
+      <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 md:p-12 rounded-2xl sm:rounded-[56px] border border-slate-100 dark:border-slate-700 shadow-sm space-y-8 sm:space-y-10">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-900 text-white rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto text-xl sm:text-2xl mb-4 sm:mb-6 shadow-xl">📥</div>
-          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 uppercase tracking-tighter">System Restore</h3>
-          <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Ingest Archive into Cloud Registry</p>
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto text-xl sm:text-2xl mb-4 sm:mb-6 shadow-xl">📥</div>
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tighter">System Restore</h3>
+          <p className="text-xs sm:text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ingest Archive into Cloud Registry</p>
         </div>
 
         {!file ? (
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
-            className="w-full py-12 sm:py-24 rounded-[24px] sm:rounded-[40px] border-4 border-dashed border-slate-100 bg-slate-50 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:border-emerald-500 transition-all group disabled:opacity-50 shadow-inner"
+            className="w-full py-12 sm:py-24 rounded-2xl sm:rounded-3xl border-4 border-dashed border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:border-emerald-500 transition-all group disabled:opacity-50 shadow-inner"
           >
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl sm:text-3xl group-hover:scale-110 transition-transform border border-slate-100">📂</div>
-            <p className="text-[10px] sm:text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Select .SQL Migration Script</p>
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-2xl sm:text-3xl group-hover:scale-110 transition-transform border border-slate-100 dark:border-slate-600">📂</div>
+            <p className="text-xs sm:text-sm font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Select .SQL Migration Script</p>
           </button>
         ) : (
           <div className="space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="p-5 sm:p-8 rounded-[24px] sm:rounded-[36px] bg-[#0F172A] text-white flex items-center justify-between shadow-2xl relative overflow-hidden">
+            <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-[#0F172A] text-white flex items-center justify-between shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-2xl rounded-full"></div>
               <div className="flex items-center gap-4 sm:gap-6 overflow-hidden relative z-10">
                 <div className="text-xl sm:text-2xl shrink-0">📄</div>
@@ -170,8 +170,8 @@ export const DataImportHub: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               {summary.map(table => (
-                <div key={table.tableName} className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 rounded-[16px] sm:rounded-[20px] border border-slate-100 shadow-sm">
-                  <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500">{table.tableName}</span>
+                <div key={table.tableName} className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-slate-700/50 rounded-[16px] sm:rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <span className="font-bold text-xs sm:text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">{table.tableName}</span>
                   <span className="font-bold text-emerald-600 text-xs sm:text-sm tabular-nums">{table.count}</span>
                 </div>
               ))}
@@ -183,14 +183,14 @@ export const DataImportHub: React.FC = () => {
 
         <div className="pt-2 sm:pt-4 space-y-4 sm:space-y-6">
           {status && (
-            <div className="p-4 sm:p-5 bg-emerald-50 border border-emerald-100 rounded-[16px] sm:rounded-[20px] flex items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-2">
+            <div className="p-4 sm:p-5 bg-emerald-50 border border-emerald-100 rounded-[16px] sm:rounded-xl flex items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-2">
               <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
-              <p className="text-[10px] sm:text-[11px] font-bold text-emerald-800 uppercase tracking-widest leading-tight">{status}</p>
+              <p className="text-xs sm:text-xs font-bold text-emerald-800 uppercase tracking-widest leading-tight">{status}</p>
             </div>
           )}
 
           {isProcessing && syncProgress > 0 && (
-            <div className="w-full bg-slate-100 h-1.5 sm:h-2 rounded-full overflow-hidden shadow-inner">
+            <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 sm:h-2 rounded-full overflow-hidden shadow-inner">
                <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${syncProgress}%` }}></div>
             </div>
           )}
@@ -198,7 +198,7 @@ export const DataImportHub: React.FC = () => {
           <button 
             onClick={handleCommitImport}
             disabled={isProcessing || summary.length === 0}
-            className={`w-full py-5 sm:py-7 rounded-[20px] sm:rounded-[32px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[11px] sm:text-[13px] shadow-2xl transition-all active:scale-[0.98] ${isProcessing || summary.length === 0 ? 'bg-slate-50 text-slate-300' : 'bg-slate-950 text-white hover:bg-emerald-700'}`}
+            className={`w-full py-5 sm:py-7 rounded-xl sm:rounded-2xl font-bold uppercase tracking-wider sm:tracking-wide text-xs sm:text-sm shadow-xl transition-all active:scale-[0.98] ${isProcessing || summary.length === 0 ? 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500' : 'bg-slate-950 text-white hover:bg-emerald-700'}`}
           >
             {isProcessing ? (
               <div className="flex items-center justify-center gap-3">

@@ -11,33 +11,27 @@ interface EmployeeMobileListProps {
   onEdit?: (emp: Employee) => void;
   onReset?: (emp: Employee) => void;
   onDelete?: (emp: Employee) => void;
-  onViewID?: (emp: Employee) => void;
+  onEndLeave?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
-export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onViewID, currentBranchId }) => {
+export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onEndLeave, currentBranchId }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
       {employees.map(emp => {
         const empId = emp.timestamp
-          ? (() => { const d = new Date(emp.timestamp); return `EMP-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${emp.id}`; })()
+          ? (() => { const d = new Date(emp.timestamp); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0'); return `EMP-${mm}-${dd}-${emp.id}`; })()
           : null;
 
         const empNameUpper = (emp.name || '').toUpperCase();
-        const authorizedBranches = branches.filter(b =>
-          b.id === emp.branchId ||
-          b.manager?.toUpperCase() === empNameUpper ||
-          b.tempManager?.toUpperCase() === empNameUpper ||
-          (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any))
-        ).map(b => ({
-          name: b.name,
-          isManager: b.manager?.toUpperCase() === empNameUpper,
-          isHome: b.id === emp.branchId,
-        })).sort((a, b) => {
-          if (a.isHome !== b.isHome) return a.isHome ? -1 : 1;
-          if (a.isManager !== b.isManager) return a.isManager ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        });
+        const homeBranch = branches.find(b => b.id === emp.branchId);
+        const relieverBranches = branches.filter(b =>
+          b.id !== emp.branchId &&
+          (b.manager?.toUpperCase() === empNameUpper ||
+           b.tempManager?.toUpperCase() === empNameUpper ||
+           (emp.branchAllowances && typeof emp.branchAllowances === 'object' && b.id in (emp.branchAllowances as any)))
+        ).sort((a, b) => a.name.localeCompare(b.name));
+        const isManager = homeBranch ? homeBranch.manager?.toUpperCase() === empNameUpper : false;
 
         const branchRelation = (() => {
           if (!currentBranchId) return null;
@@ -69,27 +63,21 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {empId && (
-                      <p className="text-[9px] font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
+                      <p className="text-xs font-black text-slate-400 font-mono tracking-wide mb-1">{empId.toUpperCase()}</p>
                     )}
-                    <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-700 transition-colors leading-tight">{emp.name || 'UNNAMED'}</h3>
+                      {emp.onLeave && (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-purple-500 leading-none">● On Leave</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       {emp.requestReset && <div className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />}
                     </div>
                   </div>
                   {/* Action buttons */}
-                  {(onReset || onDelete || onViewID) && (
+                  {(onReset || onDelete || onEndLeave) && (
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {onViewID && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onViewID(emp); }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center border bg-white border-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all"
-                          title="View Company ID"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2" />
-                          </svg>
-                        </button>
-                      )}
                       {onReset && emp.isActive !== false && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onReset(emp); }}
@@ -97,6 +85,17 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </button>
+                      )}
+                      {onEndLeave && emp.onLeave && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEndLeave(emp); }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center border bg-purple-50 border-purple-100 text-purple-400 hover:bg-purple-600 hover:text-white transition-all"
+                          title="End Leave (Admin Override)"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </button>
                       )}
@@ -117,34 +116,78 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
               </div>
             </div>
 
-            {/* Row 3: Branch tags */}
-            {authorizedBranches.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {authorizedBranches.map((b, i) => (
-                  <span key={i} className={`text-[9px] font-bold px-2 py-1 rounded-lg uppercase flex items-center gap-1
-                    ${b.isManager ? 'bg-indigo-600 text-white'
-                      : b.isHome   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      :              'bg-violet-50 text-violet-700 border border-violet-200'}`}>
-                    {b.isManager && <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>}
-                    {b.name}
+            {/* Row 3: Branch info */}
+            <div className="space-y-1">
+              {homeBranch && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-14">Home</span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-slate-700 uppercase truncate">
+                    {isManager && <svg className="w-2.5 h-2.5 shrink-0 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>}
+                    {homeBranch.name}
                   </span>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+              {relieverBranches.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-14 pt-px">Reliever</span>
+                  <p className="text-xs font-bold text-violet-500 uppercase leading-snug">
+                    {relieverBranches.map(b => b.name).join(' · ')}
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Row 4: Role badge + Pay */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <RoleBadge role={getEmployeeRole(emp, currentBranchId || emp.branchId).split(',').filter(r => !['MANAGER','RELIEVER'].includes(r.trim().toUpperCase())).join(',')} />
-              <div className="flex flex-col items-end">
-                <p className="text-[13px] font-black text-slate-900 tabular-nums">
-                  ₱{getEmployeeAllowance(emp, currentBranchId || 'all').toLocaleString()}
-                </p>
-                {emp.branchAllowances && Object.keys(emp.branchAllowances).length > 0 && (
-                  <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">
-                    {currentBranchId && currentBranchId !== 'all' && emp.branchAllowances[currentBranchId] !== undefined ? 'Override Active' : 'Overrides Configured'}
-                  </span>
-                )}
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-1 flex-wrap min-w-0">
+                {getEmployeeRole(emp, currentBranchId || emp.branchId)
+                  .split(',')
+                  .filter(r => !['MANAGER','RELIEVER'].includes(r.trim().toUpperCase()))
+                  .filter(Boolean)
+                  .map(r => {
+                    const color = r.trim().toUpperCase() === 'THERAPIST' ? 'bg-emerald-600 border-emerald-700' : 'bg-amber-500 border-amber-600';
+                    return (
+                      <span key={r} className={`px-2 py-0.5 rounded-lg text-xs font-semibold uppercase tracking-wide border text-white ${color}`}>
+                        {r.trim()}
+                      </span>
+                    );
+                  })}
               </div>
+              {(() => {
+                const baMap = emp.branchAllowances && typeof emp.branchAllowances === 'object' ? emp.branchAllowances as Record<string, any> : {};
+                const baValues = Object.values(baMap).map(v => Number(typeof v === 'object' && v !== null ? v.allowance : v) || 0);
+                const uniqueValues = [...new Set(baValues)];
+                const hasVaried = uniqueValues.length > 1;
+
+                if (currentBranchId && currentBranchId !== 'all') {
+                  const branchAllowance = getEmployeeAllowance(emp, currentBranchId);
+                  const isOverride = baMap[currentBranchId] !== undefined;
+                  return (
+                    <div className="flex flex-col items-end shrink-0">
+                      <p className="text-sm font-black text-slate-900 tabular-nums">₱{branchAllowance.toLocaleString()}</p>
+                      {isOverride && <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest whitespace-nowrap">Override Active</span>}
+                    </div>
+                  );
+                }
+
+                if (hasVaried) {
+                  const min = Math.min(...uniqueValues);
+                  const max = Math.max(...uniqueValues);
+                  return (
+                    <div className="flex flex-col items-end shrink-0">
+                      <p className="text-sm font-black text-slate-900 tabular-nums">₱{min.toLocaleString()}–₱{max.toLocaleString()}</p>
+                      <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest whitespace-nowrap">Varies per branch</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col items-end shrink-0">
+                    <p className="text-sm font-black text-slate-900 tabular-nums">₱{getEmployeeAllowance(emp, emp.branchId).toLocaleString()}</p>
+                    {uniqueValues.length > 0 && <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest whitespace-nowrap">Multi-branch</span>}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );

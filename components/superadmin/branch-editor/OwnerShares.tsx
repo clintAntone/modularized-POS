@@ -18,6 +18,13 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
   };
 
   const handleUpdateOwner = (index: number, field: 'name' | 'percentage', value: string | number) => {
+    if (field === 'percentage') {
+      const incoming = Number(value);
+      const otherTotal = owners.reduce((sum, o, i) => i === index ? sum : sum + Number(o.percentage), 0);
+      const capped = Math.min(incoming, 100 - otherTotal);
+      onUpdate({ owners: owners.map((owner, i) => i === index ? { ...owner, percentage: Math.max(0, capped) } : owner) });
+      return;
+    }
     onUpdate({ owners: owners.map((owner, i) => i === index ? { ...owner, [field]: value } : owner) });
   };
 
@@ -31,7 +38,7 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">🏦</div>
-          <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Group Levy</h4>
+          <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Group Levy</h4>
         </div>
         <button
           onClick={() => {
@@ -42,20 +49,20 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
             }
           }}
           disabled={isSaving}
-          className={`text-[10px] font-black uppercase tracking-widest transition-colors ${hasLevy ? 'text-rose-500 hover:text-rose-600' : 'text-indigo-600 hover:text-indigo-700'}`}
+          className={`text-xs font-semibold uppercase tracking-wide transition-colors ${hasLevy ? 'text-rose-500 hover:text-rose-600' : 'text-indigo-600 hover:text-indigo-700'}`}
         >
           {hasLevy ? '− Remove Levy' : '+ Enable Levy'}
         </button>
       </div>
 
       {hasLevy && groupLevy && (
-        <div className="bg-indigo-50 p-5 rounded-[28px] border border-indigo-100 space-y-4">
-          <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest leading-relaxed">
+        <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 space-y-4">
+          <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest leading-relaxed">
             This percentage is deducted from the adjusted ROI first, before distributing to owners.
           </p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <label className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Group / Fund Name</label>
+              <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Group / Fund Name</label>
               <input
                 type="text"
                 value={groupLevy.name}
@@ -65,7 +72,7 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
               />
             </div>
             <div className="w-24 shrink-0">
-              <label className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Rate</label>
+              <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Rate</label>
               <div className="relative">
                 <input
                   type="number"
@@ -76,13 +83,13 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
                   placeholder="10"
                   className="w-full bg-white border border-indigo-200 pl-4 pr-8 py-3 rounded-xl text-xs font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400">%</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-indigo-400">%</span>
               </div>
             </div>
           </div>
           <div className="flex items-center justify-between px-1">
-            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Owners receive after levy</span>
-            <span className="text-[11px] font-black text-indigo-700">{100 - (groupLevy.percentage || 0)}% of Adjusted ROI</span>
+            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Owners receive after levy</span>
+            <span className="text-xs font-black text-indigo-700">{100 - (groupLevy.percentage || 0)}% of Adjusted ROI</span>
           </div>
         </div>
       )}
@@ -91,20 +98,20 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
       <div className="flex items-center justify-between mb-2 mt-6">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">🤝</div>
-          <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Owner Shares</h4>
+          <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Owner Shares</h4>
         </div>
         <button
           onClick={handleAddOwner}
           disabled={isSaving}
-          className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+          className="text-xs font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
         >
           + Add Owner
         </button>
       </div>
 
-      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
         {owners.length === 0 ? (
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center py-4 italic">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center py-4 italic">
             No owners defined for this branch.
           </p>
         ) : (
@@ -128,7 +135,7 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
                     placeholder="0"
                     className="w-full bg-white border border-slate-200 pl-4 pr-8 py-3 rounded-xl text-xs font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">%</span>
                 </div>
                 <button
                   onClick={() => handleRemoveOwner(idx)}
@@ -143,12 +150,17 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
 
         {owners.length > 0 && (
           <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               {hasLevy ? `Total (of ${100 - (groupLevy?.percentage || 0)}% post-levy)` : 'Total Allocation'}
             </span>
-            <span className={`text-xs font-black ${totalPercentage > 100 ? 'text-rose-500' : totalPercentage === 100 ? 'text-emerald-600' : 'text-slate-900'}`}>
-              {totalPercentage}%
-            </span>
+            <div className="flex items-center gap-2">
+              {totalPercentage < 100 && (
+                <span className="text-xs text-slate-400">{100 - totalPercentage}% remaining</span>
+              )}
+              <span className={`text-xs font-black ${totalPercentage > 100 ? 'text-rose-500' : totalPercentage === 100 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                {totalPercentage}%
+              </span>
+            </div>
           </div>
         )}
       </div>
