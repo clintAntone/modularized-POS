@@ -254,15 +254,21 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     // 3. Populate counts and commissions
     txs.forEach(t => {
       [
-        { name: t.therapistName, comm: t.primaryCommission },
-        { name: t.bonesetterName, comm: t.secondaryCommission }
+        { id: t.therapistId, name: t.therapistName, comm: t.primaryCommission },
+        { id: t.bonesetterId, name: t.bonesetterName, comm: t.secondaryCommission }
       ].forEach((staff, idx) => {
-        if (!staff.name) return;
-        const n = staff.name.trim().toUpperCase();
-        if (summary[n]) {
-          if (idx === 0 || n !== t.therapistName?.trim().toUpperCase()) summary[n].count += 1;
-          summary[n].commission += idx === 0 ? (Number(t.primaryCommission) || 0) : (Number(t.secondaryCommission) || 0);
-          summary[n].txs = [...(summary[n].txs || []), t];
+        if (!staff.id && !staff.name) return;
+        const n = staff.name?.trim().toUpperCase() ?? '';
+        // ID-first lookup (matches useTodayData behaviour); fall back to name key
+        let item: any = null;
+        if (staff.id) {
+          item = Object.values(summary).find((s: any) => s.employeeId === staff.id);
+        }
+        if (!item && n) item = summary[n];
+        if (item) {
+          if (idx === 0 || n !== t.therapistName?.trim().toUpperCase()) item.count += 1;
+          item.commission += idx === 0 ? (Number(t.primaryCommission) || 0) : (Number(t.secondaryCommission) || 0);
+          item.txs = [...(item.txs || []), t];
         }
       });
     });
