@@ -84,7 +84,7 @@ jobs:
           CAPACITOR_APP_NAME: ${{ steps.app_name.outputs.name }}
 
       - name: Generate app icon and splash
-        run: npx @capacitor/assets generate --android --iconPath src/assets/icon.png --splashPath src/assets/splash.png
+        run: npx @capacitor/assets generate --android --icon src/assets/icon.png --splash src/assets/splash.png
         continue-on-error: true
 
       # ── Keystore setup ─────────────────────────────────────────────────────
