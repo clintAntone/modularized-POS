@@ -299,7 +299,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {showClosingWarning && (
         <ClosingWarningModal
-          closingTime={props.branch.closingTime || ''}
+          closingTime={props.branch.shift2ClosingTime || props.branch.closingTime || ''}
           todayReportExists={todayReportExists}
           vaultEnabled={props.branch.vaultEnabled}
           branchVault={props.branchVault}

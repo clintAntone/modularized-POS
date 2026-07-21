@@ -79,9 +79,12 @@ export function useBranchStatus({
   // Closing time warning
   useEffect(() => {
     const checkClosingTime = () => {
-      if (!branch.isOpen || !branch.closingTime || hasDismissedWarning) return;
+      if (!branch.isOpen || hasDismissedWarning) return;
+      // Use shift 2 closing time if it exists, otherwise shift 1
+      const effectiveClosingTime = branch.shift2ClosingTime || branch.closingTime;
+      if (!effectiveClosingTime) return;
       const now = getTrueDate();
-      const [closeH, closeM] = branch.closingTime.split(':').map(Number);
+      const [closeH, closeM] = effectiveClosingTime.split(':').map(Number);
       const closingDate = getTrueDate();
       closingDate.setHours(closeH, closeM, 0, 0);
       const diffMins = (closingDate.getTime() - now.getTime()) / (1000 * 60);
@@ -91,7 +94,7 @@ export function useBranchStatus({
       }
     };
     checkClosingTime();
-  }, [currentTime, branch.isOpen, branch.closingTime, hasDismissedWarning]);
+  }, [currentTime, branch.isOpen, branch.closingTime, branch.shift2ClosingTime, hasDismissedWarning]);
 
   const handleToggleBranchStatus = async () => {
     setIsOpening(true);

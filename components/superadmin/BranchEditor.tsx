@@ -54,6 +54,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                                                               transactions, salesReports, attendance
                                                           }) => {
     const [localBranch, setLocalBranch] = useState<Branch>(branch);
+    const [baseline, setBaseline] = useState<Branch>(branch);
     const [localFaceIdDisabled, setLocalFaceIdDisabled] = useState(isFaceIdDisabled ?? false);
     const [toast, setToast] = useState<Toast | null>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     // from clobbering the user's active, unsaved modifications.
     useEffect(() => {
         setLocalBranch(branch);
+        setBaseline(branch);
     }, [branch.id]);
 
     useEffect(() => {
@@ -103,11 +105,11 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
     };
 
     const isDirty = useMemo(() => {
-        // faceIdEnabled is a derived/ephemeral field merged at runtime — exclude from dirty check
+        // Compare against baseline (last saved state), not the prop which lags behind async refresh
         const { faceIdEnabled: _a, ...localCmp } = localBranch as any;
-        const { faceIdEnabled: _b, ...branchCmp } = branch as any;
-        return JSON.stringify(localCmp) !== JSON.stringify(branchCmp);
-    }, [localBranch, branch]);
+        const { faceIdEnabled: _b, ...baseCmp } = baseline as any;
+        return JSON.stringify(localCmp) !== JSON.stringify(baseCmp);
+    }, [localBranch, baseline]);
 
     const handleManualClose = () => {
         if (isDirty) {
@@ -163,10 +165,9 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                             : 800,
                     };
                     await onSave(payload);
-                    // Reset localBranch to exactly what was saved so isDirty becomes false
-                    // and closing the editor no longer triggers the discard popup.
                     const { cutoffEffectiveDate, ...savedBranch } = payload;
                     setLocalBranch(savedBranch as typeof localBranch);
+                    setBaseline(savedBranch as typeof localBranch);
                     showToast('Configuration Synced');
                 } catch (e) {
                     showToast('Sync Failed', 'error');
