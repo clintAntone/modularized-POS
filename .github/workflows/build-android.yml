@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches:
-      - main
+      - modularized-POS
   workflow_dispatch:
     inputs:
       app_name_override:
