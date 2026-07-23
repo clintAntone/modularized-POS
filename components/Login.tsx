@@ -58,7 +58,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
             .select('id,name,is_enabled,is_pin_changed,pin,manager,temp_manager')
             .eq(DB_COLUMNS.ID, selectedBranchId)
             .single()
-            .then(({ data }) => { if (data) setSelectedBranchFull(data as unknown as Branch); });
+            .then(({ data }) => {
+                if (data) setSelectedBranchFull({
+                    id: data.id,
+                    name: data.name,
+                    isEnabled: Boolean(data.is_enabled),
+                    isPinChanged: Boolean(data.is_pin_changed),
+                    pin: data.pin ?? '',
+                    manager: data.manager ?? '',
+                    tempManager: data.temp_manager ?? '',
+                } as Branch);
+            });
     }, [selectedBranchId, branches]);
 
     const [isRecoveryMode, setIsRecoveryMode] = useState(false);
