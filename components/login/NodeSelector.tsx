@@ -72,10 +72,24 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
   const groupedBranches = useMemo(() => {
     const groups: Record<string, Branch[]> = {};
     const showTest = searchTerm.trim().toUpperCase() === 'TEST';
+    const sanitized = searchTerm.replace(/[<>]/g, '').toLowerCase().trim();
     const filtered = [...branches].filter(b => {
-      if (!b.isEnabled) return false;
       const isTest = (b.name || '').trim().toUpperCase().startsWith('TEST');
-      return isTest ? showTest : true;
+
+      if (isTest) {
+        // TEST branches bypass isEnabled — only show when user explicitly types TEST
+        return showTest;
+      }
+
+      // Regular branches: hide inactive
+      if (!b.isEnabled) return false;
+
+      // Apply text search
+      if (sanitized) {
+        return (b.name || '').toLowerCase().includes(sanitized);
+      }
+
+      return true;
     }).sort((a, b) => {
       if (!a || !b) return 0;
       const nameA = (a.name || '').replace(/BRANCH - /i, '').trim();
