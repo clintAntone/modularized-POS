@@ -7,6 +7,7 @@ import { PayslipModal } from './payroll/PayslipModal';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
 import { getTrueISOString, getManilaYear, getManilaMonth, getTrueDate } from '../../../lib/time';
+import { usePayrollReports } from '../../../hooks/usePayrollReports';
 
 interface PayrollSectionProps {
   branch: Branch;
@@ -31,6 +32,19 @@ interface TherapistSummary {
 }
 
 export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transactions, expenses, attendance, employees, salesReports, salesReportsLoading, onRefresh }) => {
+  const { staffBreakdownMap } = usePayrollReports(branch.id);
+
+  // Merge lazy-loaded staffBreakdown into the salesReports from global data.
+  // salesReports from useGlobalData no longer carry staff_breakdown to reduce startup payload.
+  const reportsWithBreakdown = useMemo<SalesReport[]>(() =>
+    salesReports.map(r =>
+      r.staffBreakdown?.length
+        ? r                                                         // already populated (shouldn't happen, but guard)
+        : { ...r, staffBreakdown: staffBreakdownMap[r.reportDate] ?? [] }
+    ),
+    [salesReports, staffBreakdownMap]
+  );
+
   const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [selectedStaffPayslip, setSelectedStaffPayslip] = useState<any | null>(null);
@@ -200,7 +214,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     normalizedEnd.setHours(23, 59, 59, 999);
     while (iter <= normalizedEnd) {
       const dateStr = getLocalDateStr(iter);
-      const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === dateStr);
+      const report = reportsWithBreakdown.find(r => r.branchId === branch.id && r.reportDate === dateStr);
       if (report && report.staffBreakdown) {
         report.staffBreakdown.forEach((s: any) => {
           // Skip relievers — they are paid by their home branch.
@@ -269,14 +283,14 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     // so the comparison against r.reportDate (which is a string) works correctly.
     const cycleStartStr = getLocalDateStr(new Date(selectedCycle.startDate));
     const cycleEndStr = getLocalDateStr(new Date(selectedCycle.endDate));
-    return salesReports.filter(r =>
+    return reportsWithBreakdown.filter(r =>
       r.branchId === branch.id &&
       r.reportDate >= cycleStartStr &&
       r.reportDate <= cycleEndStr &&
       Array.isArray(r.staffBreakdown) &&
       r.staffBreakdown.length > 0
     );
-  }, [selectedCycle, branch.id, salesReports]);
+  }, [selectedCycle, branch.id, reportsWithBreakdown]);
 
   // Daily paid records: one entry per date, built directly from staffBreakdown.
   // Each staff entry carries attendance metadata so staffCycleSummary can derive from this
@@ -300,7 +314,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
         const breakdownName = (s.staffName || s.name || '').trim();
         const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
           ? breakdownName.toUpperCase()
-          : resolveEmployeeName(empId, employees, attendance, transactions, salesReports, breakdownName).toUpperCase();
+          : resolveEmployeeName(empId, employees, attendance, transactions, reportsWithBreakdown, breakdownName).toUpperCase();
 
         staffMap[empId] = {
           employeeId: empId,
@@ -408,7 +422,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     if (payrollView !== 'monthly') return [];
     const prefix = `${monthlyYear}-${String(monthlyMonth + 1).padStart(2, '0')}`;
     const empMap: Record<string, any> = {};
-    for (const report of salesReports) {
+    for (const report of reportsWithBreakdown) {
       if (report.branchId !== branch.id || !report.reportDate.startsWith(prefix)) continue;
       for (const s of (report.staffBreakdown ?? [])) {
         if (!s.employeeId || isRelieverExcluded(s)) continue;
@@ -448,7 +462,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
       })() : undefined;
       return { ...data, netPay, formattedEmpId, branchName: branch.name };
     }).sort((a: any, b: any) => b.netPay - a.netPay);
-  }, [payrollView, monthlyMonth, monthlyYear, salesReports, branch.id, employees]);
+  }, [payrollView, monthlyMonth, monthlyYear, reportsWithBreakdown, branch.id, employees]);
 
   const toggleExpand = (date: string, empId: string) => {
     playSound('click');
@@ -541,7 +555,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
             data={selectedStaffPayslip}
             onClose={() => setSelectedStaffPayslip(null)}
             employee={employees.find((e: Employee) => e.id === selectedStaffPayslip.employeeId) ?? null}
-            salesReports={salesReports}
+            salesReports={reportsWithBreakdown}
             branch={branch}
           />
         )}

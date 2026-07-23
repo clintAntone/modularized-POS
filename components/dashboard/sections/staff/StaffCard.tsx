@@ -62,7 +62,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   const currentAllowance = getEmployeeAllowance(emp, branchId);
   const currentRole = getEmployeeRole(emp, branchId);
   const isReliever = isRelieverProp ?? (emp.branchId !== branchId);
-  const hasFace = !!(emp.faceDescriptors && emp.faceDescriptors.length > 0);
 
   // Long press for reliever promote
   const [isLongPressing, setIsLongPressing] = useState(false);
@@ -335,7 +334,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 {isOngoing ? 'Time Out' : 'Shift Done'}
               </button>
             </div>
-          ) : hasFace && onFaceTimeIn && !isReliever ? (
+          ) : onFaceTimeIn && !isReliever ? (
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -345,7 +344,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
             </button>
-          ) : onFaceTimeIn && !hasFace && !isReliever ? (
+          ) : false ? (
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}

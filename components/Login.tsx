@@ -41,6 +41,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const [attempts, setAttempts] = useState(0);
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
 
+    const [selectedBranchFull, setSelectedBranchFull] = useState<Branch | null>(null);
+
+    // Fetch the full branch record for the selected branch on demand.
+    // Login.tsx no longer relies on useGlobalData's branches array (which only
+    // loads post-login). NodeSelector has its own lightweight fetch for display.
+    useEffect(() => {
+        if (!selectedBranchId || selectedBranchId === 'portal') {
+            setSelectedBranchFull(null);
+            return;
+        }
+        const existing = branches.find(b => b.id === selectedBranchId);
+        if (existing) { setSelectedBranchFull(existing); return; }
+        supabase
+            .from(DB_TABLES.BRANCHES)
+            .select('id,name,is_enabled,is_pin_changed,pin,manager,temp_manager')
+            .eq(DB_COLUMNS.ID, selectedBranchId)
+            .single()
+            .then(({ data }) => { if (data) setSelectedBranchFull(data as unknown as Branch); });
+    }, [selectedBranchId, branches]);
+
     const [isRecoveryMode, setIsRecoveryMode] = useState(false);
     const [isReliefMode, setIsReliefMode] = useState(false);
     const [reliefStep, setReliefStep] = useState<'pin' | 'setup'>('pin');
@@ -87,13 +107,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const selectedBranch = useMemo(() =>
             selectedBranchId === 'portal'
                 ? { name: 'CENTRAL MAINFRAME', id: 'portal', isPinChanged: true } as any
-                : branches.find(b => b.id === selectedBranchId)
-        , [selectedBranchId, branches]);
+                : selectedBranchFull
+        , [selectedBranchId, selectedBranchFull]);
 
-    const tempManagerIdentity = useMemo(() => {
-        if (!selectedBranch || !selectedBranch.tempManager) return null;
+    const [tempManagerIdentity, setTempManagerIdentity] = useState<Employee | null>(null);
+
+    // Fetch temp manager identity when branch changes.
+    // Can't use the global employees cache here — it's empty pre-login.
+    useEffect(() => {
+        setTempManagerIdentity(null);
+        if (!selectedBranch?.tempManager) return;
         const cleanTempName = selectedBranch.tempManager.toUpperCase().trim();
-        return employees.find(e => e.name?.toUpperCase().trim() === cleanTempName);
+        // Check cache first (post-login the employees array is populated)
+        const cached = employees.find(e => e.name?.toUpperCase().trim() === cleanTempName);
+        if (cached) { setTempManagerIdentity(cached); return; }
+        // Pre-login fallback: targeted query
+        supabase
+            .from(DB_TABLES.EMPLOYEES)
+            .select('id, name, role, branch_id, branch_allowances, is_active')
+            .eq(DB_COLUMNS.NAME, selectedBranch.tempManager.trim().toUpperCase())
+            .maybeSingle()
+            .then(({ data }) => { if (data) setTempManagerIdentity(data as unknown as Employee); });
     }, [selectedBranch, employees]);
 
     const handleRemoteResetSignal = async () => {
@@ -152,7 +186,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
         if (isReliefMode && reliefStep === 'pin') {
             setIsAuthenticating(true);
             setError('');
-            const branch = branches.find(b => b.id === selectedBranchId);
+            const branch = selectedBranchFull;
             if (!branch) {
                 handleFailure('Branch Lost');
                 setIsAuthenticating(false);
@@ -173,7 +207,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 return;
             }
 
-            const emp = employees.find(e => (e.name || '').toUpperCase().trim() === tempName);
+            const emp = tempManagerIdentity;
             if (!emp) {
                 handleFailure('Relief Manager not found in Registry');
                 setIsAuthenticating(false);
@@ -283,12 +317,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
         try {
             if (selectedBranchId === 'portal') {
-                const { data: portalUser, error: portalError } = await supabase
-                    .from(DB_TABLES.PORTAL_USERS)
-                    .select('*')
-                    .eq(DB_COLUMNS.USERNAME, finalUsername)
-                    .eq(DB_COLUMNS.IS_ACTIVE, true)
-                    .single();
+                const portalController = new AbortController();
+                const portalAbortTimer = setTimeout(() => portalController.abort(), 8000);
+                let portalUser = null, portalError = null;
+                try {
+                    const res = await supabase
+                        .from(DB_TABLES.PORTAL_USERS)
+                        .select('id, login_pin, pin_salt, is_superadmin, display_name, permissions')
+                        .eq(DB_COLUMNS.USERNAME, finalUsername)
+                        .eq(DB_COLUMNS.IS_ACTIVE, true)
+                        .abortSignal(portalController.signal)
+                        .single();
+                    portalUser = res.data;
+                    portalError = res.error;
+                } finally {
+                    clearTimeout(portalAbortTimer);
+                }
 
                 if (portalError || !portalUser) {
                     handleFailure('Identity Not Found');
@@ -319,7 +363,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                     }
                 }
             } else {
-                const branch = branches.find(b => b.id === selectedBranchId);
+                const branch = selectedBranchFull;
                 if (!branch) {
                     handleFailure('Branch Lost');
                 } else if (!branch.isEnabled) {
@@ -334,19 +378,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                         }
                     } else {
                         let empData = null;
-                        const query = supabase
-                            .from(DB_TABLES.EMPLOYEES)
-                            .select('*');
-                        
-                        if (isSetupAccountMode) {
-                            query.eq(DB_COLUMNS.NAME, username.trim().toUpperCase())
-                                 .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-                        } else {
-                            query.eq(DB_COLUMNS.USERNAME, finalUsername);
-                        }
+                        const controller = new AbortController();
+                        const abortTimer = setTimeout(() => controller.abort(), 8000);
+                        try {
+                            const query = supabase
+                                .from(DB_TABLES.EMPLOYEES)
+                                .select('id, name, username, is_active, role, branch_id, branch_allowances, login_pin, pin_salt')
+                                .abortSignal(controller.signal);
 
-                        const { data, error: empError } = await query.maybeSingle();
-                        if (!empError) empData = data;
+                            if (isSetupAccountMode) {
+                                query.eq(DB_COLUMNS.NAME, username.trim().toUpperCase())
+                                     .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+                            } else {
+                                query.eq(DB_COLUMNS.USERNAME, finalUsername);
+                            }
+
+                            const { data, error: empError } = await query.maybeSingle();
+                            if (!empError) empData = data;
+                        } finally {
+                            clearTimeout(abortTimer);
+                        }
 
                         if (!empData) {
                             handleFailure(isSetupAccountMode ? 'Name not in Branch Registry' : 'Identity Not Found');

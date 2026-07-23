@@ -226,9 +226,10 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
     }
   }, [systemLogo]);
 
-  // FONT SYNC: Apply global font family from system configuration
+  // FONT SYNC: Apply global font family from system configuration.
+  // Only apply after login — the NodeSelector page uses Space Grotesk by default.
   useEffect(() => {
-    if (fontFamily) {
+    if (fontFamily && auth.user) {
       document.body.style.fontFamily = `'${fontFamily}', sans-serif`;
       
       // Also update tailwind config dynamically if possible, but body style is usually enough for inheritance
@@ -245,8 +246,13 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           font-family: '${fontFamily}', sans-serif !important;
         }
       `;
+    } else if (!auth.user) {
+      // Clear injected font on logout so NodeSelector reverts to Space Grotesk
+      document.body.style.fontFamily = '';
+      const styleTag = document.getElementById('dynamic-font-style');
+      if (styleTag) styleTag.innerHTML = '';
     }
-  }, [fontFamily]);
+  }, [fontFamily, auth.user]);
 
   // SECURITY FIX: Explicitly reset UI state on identity change
   useEffect(() => {

@@ -29,7 +29,7 @@ const COLS = {
         DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
         DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
         DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
-        DB_COLUMNS.DETAILS, DB_COLUMNS.FACE_DESCRIPTORS,
+        DB_COLUMNS.DETAILS,
         DB_COLUMNS.ON_LEAVE, DB_COLUMNS.LEAVE_TYPE, DB_COLUMNS.LEAVE_START_DATE, DB_COLUMNS.LEAVE_END_DATE,
     ].join(','),
     transactions: [
@@ -46,11 +46,20 @@ const COLS = {
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
         DB_COLUMNS.NAME, DB_COLUMNS.AMOUNT, DB_COLUMNS.CATEGORY, DB_COLUMNS.RECEIPT_IMAGE,
     ].join(','),
-    salesReports: [
+    // salesReports columns are role-dependent — built dynamically in the query below
+    salesReportsBranchManager: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
         DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
-        DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.BACKFILLED,
+        DB_COLUMNS.BACKFILLED,
+    ].join(','),
+    salesReportsSuperAdmin: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
+        DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
+        DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
+        DB_COLUMNS.BACKFILLED,
+        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN,
+        DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.VAULT_DATA,
     ].join(','),
     vaultTransactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
@@ -317,7 +326,7 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbBranch);
         }),
-        enabled: !!supabase,
+        enabled: !!supabase && !!auth.user,
         staleTime: 0,
         gcTime: 0,
     });
@@ -332,27 +341,30 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbEmployee);
         }),
-        enabled: !!supabase,
+        enabled: !!supabase && !!auth.user,
         staleTime: 5 * 60 * 1000
     });
 
     // Reset deferred flag on logout; enable it once the lightweight core queries settle.
+    // Guard: require branches.length > 0 to avoid a race where both loading flags are
+    // briefly false before React Query actually starts the fetch (enabled just became true).
     useEffect(() => {
         if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
-        if (!branchesLoading && !employeesLoading) {
+        if (!branchesLoading && !employeesLoading && branches.length > 0) {
             setDeferredEnabled(true);
             // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
             const t = setTimeout(() => setHistoryEnabled(true), 1500);
             return () => clearTimeout(t);
         }
-    }, [auth.user, branchesLoading, employeesLoading]);
+    }, [auth.user, branchesLoading, employeesLoading, branches.length]);
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
             const lookbackDate = getTrueDate();
-            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            const lookbackDays = auth.user?.role === UserRole.BRANCH_MANAGER ? 30 : 90;
+            lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
             const lookbackIso = lookbackDate.toISOString();
 
             let query = supabase.from(DB_TABLES.TRANSACTIONS).select(COLS.transactions).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(2000);
@@ -424,7 +436,7 @@ export const useGlobalData = (auth: AuthState) => {
             const buildPage = (from: number) => {
                 let q = supabase
                     .from(DB_TABLES.SALES_REPORTS)
-                    .select(COLS.salesReports)
+                    .select(isBranchManager ? COLS.salesReportsBranchManager : COLS.salesReportsSuperAdmin)
                     .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
                     .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
                     .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)

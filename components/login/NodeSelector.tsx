@@ -3,9 +3,11 @@ import { Branch } from '../../types';
 import { playSound } from '../../lib/audio';
 import { DeveloperSection } from '../dashboard/sections/DeveloperSection';
 import { UI_THEME } from '../../constants/ui_designs';
+import { supabase } from '../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 
 interface NodeSelectorProps {
-  branches: Branch[];
+  branches?: Branch[]; // fallback only — NodeSelector fetches its own lightweight data
   searchTerm: string;
   onSearch: (term: string) => void;
   onSelect: (id: string) => void;
@@ -18,12 +20,34 @@ interface NodeSelectorProps {
 
 const RECENT_KEY = 'hilot_core_recent_nodes_v1';
 
-export const NodeSelector: React.FC<NodeSelectorProps> = ({ 
-  branches, searchTerm, onSearch, onSelect, logo, version, appName = "Hilot Center - Core", connectionError,
+export const NodeSelector: React.FC<NodeSelectorProps> = ({
+  branches: branchesFallback = [], searchTerm, onSearch, onSelect, logo, version, appName = "Hilot Center - Core", connectionError,
   isAuthenticating
 }) => {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [showCredits, setShowCredits] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [nodeData, setNodeData] = useState<Pick<Branch, 'id' | 'name' | 'isEnabled' | 'isOpen'>[]>([]);
+
+  // Lightweight fetch — only the 4 columns needed for display
+  useEffect(() => {
+    if (!supabase) return;
+    supabase
+      .from(DB_TABLES.BRANCHES)
+      .select(`${DB_COLUMNS.ID},${DB_COLUMNS.NAME},${DB_COLUMNS.IS_ENABLED},${DB_COLUMNS.IS_OPEN}`)
+      .order(DB_COLUMNS.NAME, { ascending: true })
+      .then(({ data }) => {
+        if (data) setNodeData(data.map(r => ({
+          id: r[DB_COLUMNS.ID],
+          name: r[DB_COLUMNS.NAME] ?? '',
+          isEnabled: Boolean(r[DB_COLUMNS.IS_ENABLED]),
+          isOpen: Boolean(r[DB_COLUMNS.IS_OPEN]),
+        })));
+      });
+  }, []);
+
+  // Use own fetched data; fall back to prop if fetch hasn't returned yet
+  const branches = nodeData.length > 0 ? nodeData : branchesFallback;
 
   // Load recents on mount
   useEffect(() => {
@@ -47,7 +71,12 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
   // Group branches alphabetically based on their displayed name
   const groupedBranches = useMemo(() => {
     const groups: Record<string, Branch[]> = {};
-    const filtered = [...branches].sort((a, b) => {
+    const showTest = searchTerm.trim().toUpperCase() === 'TEST';
+    const filtered = [...branches].filter(b => {
+      if (!b.isEnabled) return false;
+      const isTest = (b.name || '').trim().toUpperCase().startsWith('TEST');
+      return isTest ? showTest : true;
+    }).sort((a, b) => {
       if (!a || !b) return 0;
       const nameA = (a.name || '').replace(/BRANCH - /i, '').trim();
       const nameB = (b.name || '').replace(/BRANCH - /i, '').trim();
@@ -63,7 +92,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
     });
 
     return Object.entries(groups).sort(([a], [b]) => (a || '').localeCompare(b || ''));
-  }, [branches]);
+  }, [branches, searchTerm]);
 
   const recentBranches = useMemo(() => {
     return recentIds
@@ -74,7 +103,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
   return (
     <div
       className="min-h-screen w-full flex flex-col relative overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #f0fdf4 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #f0fdf4 100%)', fontFamily: "'Space Grotesk', sans-serif" }}
     >
       {/* Background Design Layer */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -129,14 +158,25 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
              <span className="text-xs font-semibold text-white uppercase tracking-wider">Core Active</span>
           </div>
-          {logo ? (
-            <img 
-              src={logo} 
-              alt="System Logo" 
-              className="w-[20vw] h-[20vw] max-w-[140px] max-h-[140px] min-w-[96px] min-h-[96px] object-contain mb-6 drop-shadow-xl" 
-              style={{ animation: 'spin-stop-flip 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards' }}
-            />
-          ) : null}
+          <div className="w-[20vw] h-[20vw] max-w-[140px] max-h-[140px] min-w-[96px] min-h-[96px] mb-6 relative">
+            {/* Skeleton — shown until logo is loaded */}
+            {(!logo || !logoLoaded) && (
+              <div className="absolute inset-0 rounded-full bg-slate-200/80 animate-pulse" />
+            )}
+            {logo && (
+              <img
+                src={logo}
+                alt="System Logo"
+                onLoad={() => setLogoLoaded(true)}
+                className="w-full h-full object-contain drop-shadow-xl"
+                style={{
+                  opacity: logoLoaded ? 1 : 0,
+                  transition: 'opacity 0.3s ease',
+                  animation: logoLoaded ? 'spin-stop-flip 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards' : 'none',
+                }}
+              />
+            )}
+          </div>
           <h1 className="text-[7vw] sm:text-4xl lg:text-5xl font-bold text-slate-950 tracking-tighter uppercase leading-none text-center px-4">
             {nameParts[0]}<br/>{nameParts[1] && <span className="text-emerald-600">{nameParts[1]}</span>}
           </h1>
@@ -145,16 +185,27 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
         {/* PERSISTENT COMMAND BAR */}
         <div className="sticky top-4 z-[100] mb-8 w-full space-y-4">
           <div className="relative group">
-            <input 
-              type="text" 
-              value={searchTerm} 
-              onChange={(e) => onSearch(e.target.value)} 
-              placeholder="Find branch node..." 
-              className="w-full py-5 pr-5 pl-14 sm:py-6 sm:pl-16 bg-white/70 backdrop-blur-2xl border-2 border-slate-100 rounded-2xl font-bold text-sm uppercase tracking-widest text-slate-900 outline-none focus:border-emerald-500 focus:bg-white/90 shadow-xl transition-all placeholder:text-slate-300" 
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Find branch node..."
+              className="w-full py-5 pr-5 pl-14 sm:py-6 sm:pl-16 bg-white/70 backdrop-blur-2xl border-2 border-slate-100 rounded-2xl font-bold text-sm uppercase tracking-widest text-slate-900 outline-none focus:border-emerald-500 focus:bg-white/90 shadow-xl transition-all placeholder:text-slate-300"
             />
             <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
+          </div>
+          <div className="flex items-center gap-3 px-1">
+            {nodeData.length === 0
+              ? <div className="h-3 w-40 bg-slate-200/70 rounded-full animate-pulse" />
+              : <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{branches.filter(b => b.isEnabled && !b.name?.trim().toUpperCase().startsWith('TEST')).length} branch nodes registered</span>
+            }
+            <div className="h-px flex-1 bg-slate-200/50" />
+            {nodeData.length === 0
+              ? <div className="h-3 w-16 bg-slate-200/70 rounded-full animate-pulse" />
+              : <span className="text-xs font-black text-emerald-600 uppercase tracking-widest shrink-0">{branches.filter(b => b.isEnabled && b.isOpen && !b.name?.trim().toUpperCase().startsWith('TEST')).length} online</span>
+            }
           </div>
         </div>
 
@@ -188,7 +239,7 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Quick Access</span>
                  <div className="h-px flex-1 bg-slate-200/40"></div>
                </div>
-               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
+               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
                  {recentBranches.map(b => (
                    <button 
                      key={b.id}
@@ -196,12 +247,12 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
                      className="flex-none w-[140px] bg-slate-900/90 backdrop-blur-md p-5 rounded-2xl text-left relative overflow-hidden group active:scale-95 transition-all shadow-lg border border-white/5"
                    >
                      <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 blur-xl rounded-full"></div>
-                     <div className="relative z-10 space-y-3">
-                        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/5">
-                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        </div>
-                        <p className="font-bold text-white uppercase text-xs leading-tight line-clamp-2">{b.name.replace(/BRANCH - /i, '')}</p>
+                     {/* Icon — always top-left */}
+                     <div className="relative z-10 w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/5">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                      </div>
+                     {/* Name — always bottom-left */}
+                     <p className="relative z-10 font-bold text-white uppercase text-xs leading-tight line-clamp-2 mt-6">{b.name.replace(/BRANCH - /i, '')}</p>
                    </button>
                  ))}
                </div>
@@ -232,6 +283,21 @@ export const NodeSelector: React.FC<NodeSelectorProps> = ({
 
           {/* ALPHABETICAL DIRECTORY */}
           <div className="space-y-12">
+            {/* Skeleton — shown while branch data is loading */}
+            {nodeData.length === 0 && (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="w-full bg-white/80 border border-slate-100/80 rounded-xl flex items-center gap-4 pl-5 pr-4 py-4 animate-pulse">
+                    <div className="w-11 h-11 rounded-2xl bg-slate-200/70 shrink-0" />
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="h-3 bg-slate-200/70 rounded-full w-2/5" />
+                      <div className="h-2.5 bg-slate-100/70 rounded-full w-1/4" />
+                    </div>
+                    <div className="w-9 h-9 rounded-full bg-slate-100/70 shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
             {groupedBranches.map(([letter, items]) => (
               <div key={letter} className="space-y-4">
                 <div className="sticky top-[100px] z-50 flex items-center gap-4 bg-[#f8fafc]/40 backdrop-blur-md py-2 px-2">

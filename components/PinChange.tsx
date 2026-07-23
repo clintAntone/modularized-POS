@@ -85,7 +85,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ branch, employee: initialEm
 
       const { data, error: fetchError } = await supabase
           .from(DB_TABLES.EMPLOYEES)
-          .select('*')
+          .select('id, name, username')
           .eq(DB_COLUMNS.NAME, managerName)
           .maybeSingle();
       
