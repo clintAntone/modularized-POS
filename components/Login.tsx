@@ -42,6 +42,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
 
     const [selectedBranchFull, setSelectedBranchFull] = useState<Branch | null>(null);
+    const [selectedBranchLoading, setSelectedBranchLoading] = useState(false);
 
     // Fetch the full branch record for the selected branch on demand.
     // Login.tsx no longer relies on useGlobalData's branches array (which only
@@ -49,10 +50,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     useEffect(() => {
         if (!selectedBranchId || selectedBranchId === 'portal') {
             setSelectedBranchFull(null);
+            setSelectedBranchLoading(false);
             return;
         }
         const existing = branches.find(b => b.id === selectedBranchId);
-        if (existing) { setSelectedBranchFull(existing); return; }
+        if (existing) { setSelectedBranchFull(existing); setSelectedBranchLoading(false); return; }
+        setSelectedBranchFull(null);
+        setSelectedBranchLoading(true);
         supabase
             .from(DB_TABLES.BRANCHES)
             .select('id,name,is_enabled,is_pin_changed,pin,manager,temp_manager')
@@ -68,6 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                     manager: data.manager ?? '',
                     tempManager: data.temp_manager ?? '',
                 } as Branch);
+                setSelectedBranchLoading(false);
             });
     }, [selectedBranchId, branches]);
 
@@ -620,7 +625,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
                     {/* ── BODY ── */}
                     <div className="px-6 py-6">
-                        {isRecoveryMode ? (
+                        {selectedBranchLoading ? (
+                            <div className="space-y-5 animate-pulse">
+                                <div className="h-10 bg-gray-100 rounded-xl" />
+                                <div className="h-10 bg-gray-100 rounded-xl" />
+                                <div className="h-12 bg-gray-100 rounded-xl" />
+                            </div>
+                        ) : isRecoveryMode ? (
                             <RecoveryForm
                                 onCancel={() => setIsRecoveryMode(false)}
                             />
