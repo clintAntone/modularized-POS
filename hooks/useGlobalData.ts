@@ -416,7 +416,7 @@ export const useGlobalData = (auth: AuthState) => {
         refetchOnWindowFocus: true,
     });
 
-    const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
+    const { data: salesReports = [], isLoading: salesReportsQueryLoading, error: salesReportsError } = useQuery({
         queryKey: ['salesReports', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
@@ -494,6 +494,10 @@ export const useGlobalData = (auth: AuthState) => {
         enabled: !!supabase && historyEnabled,
         staleTime: 2 * 60 * 1000
     });
+    // Treat "not yet enabled" (historyEnabled=false) the same as actively loading.
+    // Without this, React Query reports isLoading=false while the query is disabled,
+    // causing SalesHub to render with empty data (₱0, all branches "not opened").
+    const salesReportsLoading = !historyEnabled || salesReportsQueryLoading;
 
     const { data: vaultTransactions = [] } = useQuery({
         queryKey: ['vaultTransactions', auth.user?.branchId],
