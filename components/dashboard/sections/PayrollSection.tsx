@@ -697,7 +697,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           data={selectedStaffPayslip}
           onClose={() => setSelectedStaffPayslip(null)}
           employee={employees.find((e: Employee) => e.id === selectedStaffPayslip.employeeId) ?? null}
-          salesReports={salesReports}
+          salesReports={reportsWithBreakdown}
           branch={branch}
         />
       )}

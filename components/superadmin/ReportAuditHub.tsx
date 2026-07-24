@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport, VaultTransaction } from '../../types';
+import { useReportStaffBreakdown } from '../../hooks/useReportStaffBreakdown';
 
 interface ReportAuditHubProps {
   branches: Branch[];
@@ -140,6 +141,7 @@ const BranchPicker: React.FC<{
 export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
   branches, salesReports, vaultTransactions,
 }) => {
+  const { staffBreakdownMap } = useReportStaffBreakdown();
   const [branchFilter, setBranchFilter] = useState('');
   const [diagFilter, setDiagFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -181,7 +183,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       });
 
       // --- Computed salary (exclude relievers) ---
-      const staffBreakdown: any[] = Array.isArray(r.staffBreakdown) ? r.staffBreakdown : [];
+      const staffBreakdown: any[] = staffBreakdownMap[r.id] ?? [];
       let computedSalary = 0;
       staffBreakdown.forEach(s => {
         const staffName = (s.name || '').toUpperCase().trim();
@@ -254,7 +256,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
         diagnosis,
       };
     });
-  }, [salesReports, vaultByReport, branchMap]);
+  }, [salesReports, vaultByReport, branchMap, staffBreakdownMap]);
 
   const filtered = useMemo(() => {
     let r = rows;

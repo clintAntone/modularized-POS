@@ -76,6 +76,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
     // Update form when branch or date changes
     useEffect(() => {
+        const run = async () => {
         if (selectedBranchId && selectedDate) {
             const isNewSelection = !lastLoadedRef.current || 
                                   lastLoadedRef.current.branchId !== selectedBranchId || 
@@ -104,13 +105,35 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                 setTotalSalary(existingReport.totalStaffPay);
                 setRentAndBills(existingReport.totalVaultProvision);
 
+                // staffBreakdown and vaultData are lazy-loaded — fetch them now for this specific report
+                const { data: blobData } = await supabase
+                    .from(DB_TABLES.SALES_REPORTS)
+                    .select(`${DB_COLUMNS.STAFF_BREAKDOWN},${DB_COLUMNS.VAULT_DATA}`)
+                    .eq(DB_COLUMNS.ID, existingReport.id)
+                    .single();
+
+                const fetchedVaultData = blobData
+                    ? (Array.isArray(blobData[DB_COLUMNS.VAULT_DATA])
+                        ? blobData[DB_COLUMNS.VAULT_DATA]
+                        : typeof blobData[DB_COLUMNS.VAULT_DATA] === 'string'
+                        ? JSON.parse(blobData[DB_COLUMNS.VAULT_DATA])
+                        : [])
+                    : [];
+                const fetchedStaffBreakdown = blobData
+                    ? (Array.isArray(blobData[DB_COLUMNS.STAFF_BREAKDOWN])
+                        ? blobData[DB_COLUMNS.STAFF_BREAKDOWN]
+                        : typeof blobData[DB_COLUMNS.STAFF_BREAKDOWN] === 'string'
+                        ? JSON.parse(blobData[DB_COLUMNS.STAFF_BREAKDOWN])
+                        : [])
+                    : [];
+
                 // Vault deposits always live in vault_data (both legacy PROVISION and modern VAULT_DEPOSIT)
-                setVaultData(existingReport.vaultData || []);
+                setVaultData(fetchedVaultData);
 
                 const branchEmpIds = new Set(branchEmployees.map((e: any) => e.id));
 
                 // All staff in breakdown restore to employeeEntries with isReliever flag preserved
-                const reportEntries = existingReport.staffBreakdown
+                const reportEntries = fetchedStaffBreakdown
                     .map((s: any) => ({
                         employeeId: s.employeeId,
                         name: s.staffName || employees.find(e => e.id === s.employeeId)?.name || 'UNKNOWN',
@@ -123,7 +146,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         isReliever: !!(s.isReliever || !branchEmpIds.has(s.employeeId)),
                     }));
 
-                setExpenseData(existingReport.expenseData || []);
+                setExpenseData(existingReport.expenseData || []); // expenseData is still in global payload
 
                 // Automatically add active branch employees who are NOT in the report
                 const missingEmployees = branchEmployees
@@ -173,6 +196,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             setStatus('');
             lastLoadedRef.current = null;
         }
+        };
+        run();
     }, [selectedBranchId, selectedDate, salesReports, employees, branchVaultStartDates]);
 
     // Relievers are excluded from payroll totals — their pay goes to expenses

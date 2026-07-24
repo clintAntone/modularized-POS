@@ -1377,7 +1377,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
     // Branch-first iteration — identical pattern to emailPreview so numbers always match.
     // Group-first iteration caused divergence when a branch appeared in multiple groups.
+    const selectedCutoffs = selectedPeriods.map(Number);
     for (const branch of activeBranches) {
+      // Respect the cutoff filter: skip branches not in the selected cutoff days.
+      if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(Number(branch.weeklyCutoff ?? 0))) continue;
       for (const group of allGroupedReports) {
         const report = (group.reports as any[]).find((r: any) => r.branchId === branch.id);
         if (!report) continue;
@@ -1417,7 +1420,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         }),
       }))
       .sort((a, b) => b.totalShare - a.totalShare);
-  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+  }, [activeBranches, allGroupedReports, subLookup, adjustments, selectedPeriods]);
 
   // Lifted out of the render IIFE so the array reference is stable between
   // renders that only change dropdown-open state (no data change).

@@ -155,12 +155,25 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }));
   }, [serviceCatalogsData]);
 
-  // Refetch sales reports immediately on archive tab entry + every 60s while active
+  // Live tab: poll every 2 minutes as a fallback when the realtime WebSocket drops.
+  // Reports tab: poll hourly — historical data doesn't need frequent polling.
+  // No immediate invalidation on tab entry: staleTime (2 min) on the query already
+  // prevents a redundant refetch if data just loaded.
   useEffect(() => {
-    if (activeTab !== 'archive') return;
-    queryClient.invalidateQueries({ queryKey: ['salesReports'] });
-    const interval = setInterval(() => queryClient.invalidateQueries({ queryKey: ['salesReports'] }), 60000);
-    return () => clearInterval(interval);
+    if (activeTab === 'sales_hub') {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+        queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      }, 2 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+    if (activeTab === 'archive') {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+        queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      }, 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
   }, [activeTab, queryClient]);
 
   const handleTabChange = (id: AdminTab) => {

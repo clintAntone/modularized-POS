@@ -53,13 +53,15 @@ const COLS = {
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
         DB_COLUMNS.BACKFILLED,
     ].join(','),
+    // staff_breakdown and vault_data are lazy-loaded per-tab via
+    // useReportStaffBreakdown / useReportVaultData to avoid fetching
+    // large JSON blobs for all 4,500+ reports on every login.
     salesReportsSuperAdmin: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
         DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
         DB_COLUMNS.BACKFILLED,
-        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.STAFF_BREAKDOWN,
-        DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.VAULT_DATA,
+        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.EXPENSE_DATA,
     ].join(','),
     vaultTransactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
@@ -327,8 +329,7 @@ export const useGlobalData = (auth: AuthState) => {
             return data.map(mapDbBranch);
         }),
         enabled: !!supabase && !!auth.user,
-        staleTime: 0,
-        gcTime: 0,
+        staleTime: 60 * 1000, // 1 min — branches change rarely; avoid refetch on every mount
     });
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
@@ -363,7 +364,7 @@ export const useGlobalData = (auth: AuthState) => {
         queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
             const lookbackDate = getTrueDate();
-            const lookbackDays = auth.user?.role === UserRole.BRANCH_MANAGER ? 30 : 90;
+            const lookbackDays = auth.user?.role === UserRole.BRANCH_MANAGER ? 30 : 30;
             lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
             const lookbackIso = lookbackDate.toISOString();
 
@@ -412,92 +413,112 @@ export const useGlobalData = (auth: AuthState) => {
         }),
         enabled: !!supabase && deferredEnabled,
         staleTime: 30 * 1000,
-        refetchInterval: 30 * 1000,
-        refetchOnWindowFocus: true,
+        refetchInterval: 60 * 1000, // realtime covers most updates; polling is a fallback
     });
 
-    const { data: salesReports = [], isLoading: salesReportsQueryLoading, error: salesReportsError } = useQuery({
-        queryKey: ['salesReports', auth.user?.branchId],
+    // Shared mapper for sales_reports rows → SalesReport objects
+    const mapSalesReportRow = (r: any): SalesReport => ({
+        id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
+        grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
+        totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
+        netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+        backfilled: r[DB_COLUMNS.BACKFILLED] === true,
+        sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
+        staffBreakdown: [], // lazy — use useReportStaffBreakdown() (ReportAuditHub)
+        expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
+        vaultData: [], // lazy — use useReportVaultData() (SalesReportHub, ExpensesHub)
+    });
+
+    const toYmd = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+
+    // HOT query — last 10 days (superadmin) or 90 days (branch manager).
+    // This unblocks the UI: salesReportsLoading becomes false as soon as this resolves.
+    // Today's data is always in this slice so SalesHub renders immediately after.
+    const { data: salesReportsHot = [], isLoading: salesReportsHotLoading, error: salesReportsError } = useQuery({
+        queryKey: ['salesReportsHot', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = getTrueDate();
-            // Superadmin: initial load covers 2 months (~60 days). ArchiveHub's
-            // infinite scroll fetches older records on demand as the user scrolls.
-            // Branch managers keep 90 days since they have no infinite scroll.
-            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
-            lookbackDate.setDate(lookbackDate.getDate() - (isBranchManager ? 90 : 60));
-            const lbd = lookbackDate;
-            const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
-
-            // Branch managers cap at 500 rows (90 days × 1 branch always fits in one page).
-            // Superadmin uses 1000-row pages and may span multiple pages.
-            const PAGE_SIZE = isBranchManager ? 500 : 1000;
-
-            const buildPage = (from: number) => {
-                let q = supabase
+            if (isBranchManager) {
+                const lookbackDate = getTrueDate();
+                lookbackDate.setDate(lookbackDate.getDate() - 90);
+                const { data, error } = await supabase
                     .from(DB_TABLES.SALES_REPORTS)
-                    .select(isBranchManager ? COLS.salesReportsBranchManager : COLS.salesReportsSuperAdmin)
+                    .select(COLS.salesReportsBranchManager)
                     .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
                     .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-                    .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
-                    .range(from, from + PAGE_SIZE - 1);
-                if (isBranchManager && auth.user?.branchId) {
-                    q = q.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-                }
-                return q;
-            };
-
-            let allRows: any[] = [];
-
-            if (isBranchManager) {
-                // Single-page fetch — one branch always fits within 500 rows
-                const { data, error } = await buildPage(0);
+                    .gte(DB_COLUMNS.REPORT_DATE, toYmd(lookbackDate))
+                    .eq(DB_COLUMNS.BRANCH_ID, auth.user!.branchId!)
+                    .limit(500);
                 if (error) throw error;
-                allRows = data || [];
-            } else {
-                // Superadmin: fetch the first 3 pages in parallel, then continue
-                // sequentially if the last parallel page came back full (rare).
-                const PARALLEL_BATCH = 3;
-                const results = await Promise.all(
-                    Array.from({ length: PARALLEL_BATCH }, (_, i) => buildPage(i * PAGE_SIZE))
-                );
-                for (const { data, error } of results) {
-                    if (error) throw error;
-                    if (data && data.length > 0) allRows.push(...data);
-                }
-                // If the last parallel page was full there may be a 4th+ page
-                const lastBatch = results[PARALLEL_BATCH - 1];
-                if ((lastBatch.data?.length ?? 0) === PAGE_SIZE) {
-                    let from = PARALLEL_BATCH * PAGE_SIZE;
-                    while (true) {
-                        const { data, error } = await buildPage(from);
-                        if (error) throw error;
-                        if (data && data.length > 0) allRows.push(...data);
-                        if (!data || data.length < PAGE_SIZE) break;
-                        from += PAGE_SIZE;
-                    }
-                }
+                return (data || []).map(mapSalesReportRow);
             }
-
-            return allRows.map(r => ({
-                id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
-                grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
-                totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
-                netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
-                backfilled: r[DB_COLUMNS.BACKFILLED] === true,
-                sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
-                staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
-                expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
-                vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
-            }));
+            // Superadmin: most recent 10 days
+            const sliceEnd = getTrueDate();
+            const sliceStart = getTrueDate();
+            sliceStart.setDate(sliceStart.getDate() - 10);
+            const { data, error } = await supabase
+                .from(DB_TABLES.SALES_REPORTS)
+                .select(COLS.salesReportsSuperAdmin)
+                .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+                .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+                .gte(DB_COLUMNS.REPORT_DATE, toYmd(sliceStart))
+                .lte(DB_COLUMNS.REPORT_DATE, toYmd(sliceEnd))
+                .limit(2000);
+            if (error) throw error;
+            return (data || []).map(mapSalesReportRow);
         }),
         enabled: !!supabase && historyEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 2 * 60 * 1000,
     });
+
+    // WARM query — superadmin only, 10-30 days ago, loads in background.
+    // Does not block the UI. Merged into salesReports once available.
+    const { data: salesReportsWarm = [] } = useQuery({
+        queryKey: ['salesReportsWarm', auth.user?.branchId],
+        queryFn: async () => {
+            if (!supabase) return [];
+            // Use lt (exclusive) for upper bound so slices don't overlap:
+            // hot:      [today-10, today]    (lte today)
+            // warm i=1: [today-20, today-10) (lt today-10, excludes the boundary date)
+            // warm i=2: [today-30, today-20) (lt today-20, excludes the boundary date)
+            const results = await Promise.all([1, 2].map(i => {
+                const sliceEnd = getTrueDate();
+                sliceEnd.setDate(sliceEnd.getDate() - i * 10);
+                const sliceStart = getTrueDate();
+                sliceStart.setDate(sliceStart.getDate() - (i + 1) * 10);
+                return supabase
+                    .from(DB_TABLES.SALES_REPORTS)
+                    .select(COLS.salesReportsSuperAdmin)
+                    .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+                    .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+                    .gte(DB_COLUMNS.REPORT_DATE, toYmd(sliceStart))
+                    .lt(DB_COLUMNS.REPORT_DATE, toYmd(sliceEnd))  // exclusive — no overlap with prior slice
+                    .limit(2000);
+            }));
+            const rows: any[] = [];
+            for (const { data, error } of results) {
+                if (error) throw error;
+                if (data) rows.push(...data);
+            }
+            return rows.map(mapSalesReportRow);
+        },
+        enabled: !!supabase && historyEnabled && !isBranchManager,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Merge hot + warm, deduplicating by id
+    const salesReports = useMemo(() => {
+        if (salesReportsWarm.length === 0) return salesReportsHot;
+        const hotIds = new Set(salesReportsHot.map((r: SalesReport) => r.id));
+        return [...salesReportsHot, ...salesReportsWarm.filter((r: SalesReport) => !hotIds.has(r.id))];
+    }, [salesReportsHot, salesReportsWarm]);
+
     // Treat "not yet enabled" (historyEnabled=false) the same as actively loading.
-    // Without this, React Query reports isLoading=false while the query is disabled,
-    // causing SalesHub to render with empty data (₱0, all branches "not opened").
-    const salesReportsLoading = !historyEnabled || salesReportsQueryLoading;
+    // Only block on the hot query — warm loads silently in the background.
+    const salesReportsLoading = !historyEnabled || salesReportsHotLoading;
 
     const { data: vaultTransactions = [] } = useQuery({
         queryKey: ['vaultTransactions', auth.user?.branchId],
@@ -619,8 +640,7 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 30 * 1000,
-        refetchInterval: 30 * 1000,
+        staleTime: 60 * 1000, // realtime handles live updates; polling every 30s is excessive
     });
 
     const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({
@@ -871,7 +891,7 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EXPENSES }, () => refreshDatabase('expenses'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEES }, () => refreshDatabase('employees'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.ATTENDANCE }, () => refreshDatabase('attendance'))
-            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => refreshDatabase('salesReports'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => { refreshDatabase('salesReportsHot'); refreshDatabase('salesReportsWarm'); })
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_CATALOGS }, () => refreshDatabase('service_catalogs'))
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DB_TABLES.REQUESTS }, (payload: any) => {
                 refreshDatabase('requests');

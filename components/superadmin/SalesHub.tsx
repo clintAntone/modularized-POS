@@ -85,6 +85,25 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     playSound('click');
   };
 
+  // Index reports by "branchId|date" for O(1) lookup — avoids O(n²) inside branchStats and missedDaysMap
+  const reportIndex = useMemo(() => {
+    const map = new Map<string, SalesReport>();
+    for (const r of salesReports) {
+      map.set(`${r.branchId}|${r.reportDate}`, r);
+    }
+    return map;
+  }, [salesReports]);
+
+  // Index report dates per branch for O(1) existence checks in missedDaysMap
+  const reportDatesByBranch = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of salesReports) {
+      if (!map.has(r.branchId)) map.set(r.branchId, new Set());
+      map.get(r.branchId)!.add(r.reportDate);
+    }
+    return map;
+  }, [salesReports]);
+
   // Compute consecutive days without a report (going back from Manila today) per branch
   const missedDaysMap = useMemo(() => {
     const manilaToday = getManilaTodayStr();
@@ -92,22 +111,22 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     branches.forEach(branch => {
       let count = 0;
       const d = new Date(manilaToday + 'T12:00:00');
-      for (let i = 0; i < 60; i++) {
+      const branchDates = reportDatesByBranch.get(branch.id);
+      for (let i = 0; i < 30; i++) {
         const dateStr = toDateStr(d);
-        const hasReport = salesReports.some(r => r.branchId === branch.id && r.reportDate === dateStr);
-        if (hasReport) break;
+        if (branchDates?.has(dateStr)) break;
         count++;
         d.setDate(d.getDate() - 1);
       }
       map[branch.id] = count;
     });
     return map;
-  }, [branches, salesReports]);
+  }, [branches, reportDatesByBranch]);
 
   const branchStats = useMemo(() => {
     // Ensure we process ALL branches in the registry
     let stats = branches.map(branch => {
-      const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === selectedDate);
+      const report = reportIndex.get(`${branch.id}|${selectedDate}`);
 
       return {
         id: branch.id,
@@ -177,7 +196,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if (mobileSortBy === 'name') return (a.name || '').localeCompare(b.name || '');
       return (b[mobileSortBy] || 0) - (a[mobileSortBy] || 0);
     });
-  }, [branches, salesReports, selectedDate, mobileSortBy, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
+  }, [branches, reportIndex, selectedDate, mobileSortBy, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
 
   const paginatedStats = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -213,11 +232,10 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if (!branch.openingTime) return false;
       if ((branch.name || '').toUpperCase().includes('TEST')) return false;
       // If the branch already has a report for today, it opened at some point — don't flag it
-      const hasReportToday = salesReports.some(r => r.branchId === branch.id && r.reportDate === manilaToday);
-      if (hasReportToday) return false;
+      if (reportIndex.has(`${branch.id}|${manilaToday}`)) return false;
       return manilaTime > branch.openingTime;
     });
-  }, [branches, salesReports, selectedDate, lastSync]);
+  }, [branches, reportIndex, selectedDate, lastSync]);
 
 
   const isToday = selectedDate === getManilaTodayStr();
@@ -233,9 +251,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if ((b.name || '').toUpperCase().includes('TEST')) return false;
       // Only flag branches whose opening time has already passed
       if (b.openingTime && manilaTime < b.openingTime) return false;
-      return !salesReports.some(r => r.branchId === b.id && r.reportDate === selectedDate);
+      return !reportIndex.has(`${b.id}|${selectedDate}`);
     }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [branches, salesReports, salesReportsLoading, selectedDate, isToday, lastSync]);
+  }, [branches, reportIndex, salesReportsLoading, selectedDate, isToday, lastSync]);
 
   const formattedDisplayDate = useMemo(() => {
     const d = parseDate(selectedDate);

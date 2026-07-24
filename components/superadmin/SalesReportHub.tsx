@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Branch, SalesReport } from '../../types';
+import { useReportVaultData } from '../../hooks/useReportVaultData';
 import { playSound } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 import { ReportEditorModal } from './ReportEditorModal';
@@ -35,6 +36,12 @@ interface SalesReportHubProps {
 type CycleView = 'daily' | 'weekly' | 'batch' | 'monthly';
 
 export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesReports }) => {
+  const { vaultDataMap } = useReportVaultData();
+  // Merge lazy-loaded vault_data into reports for this tab's aggregations
+  const reportsWithVault = useMemo(() =>
+    salesReports.map(r => r.vaultData?.length ? r : { ...r, vaultData: vaultDataMap[r.id] ?? [] }),
+    [salesReports, vaultDataMap]
+  );
   const [view, setView] = useState<CycleView>('daily');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('reports_filter_branches') || '[]'); } catch { return []; }
@@ -237,15 +244,15 @@ export const SalesReportHub: React.FC<SalesReportHubProps> = ({ branches, salesR
     };
 
     if (selectedBranchIds.length === 0) {
-      return aggregateReports(salesReports, 'NETWORK', true);
+      return aggregateReports(reportsWithVault, 'NETWORK', true);
     } else if (selectedBranchIds.length === 1) {
-      const branchReports = salesReports.filter(r => r.branchId === selectedBranchIds[0]);
+      const branchReports = reportsWithVault.filter(r => r.branchId === selectedBranchIds[0]);
       return aggregateReports(branchReports, 'BRANCH NODE', false);
     } else {
-      const branchReports = salesReports.filter(r => selectedBranchIds.includes(r.branchId));
+      const branchReports = reportsWithVault.filter(r => selectedBranchIds.includes(r.branchId));
       return aggregateReports(branchReports, 'BRANCHES', false);
     }
-  }, [branches, salesReports, selectedBranchIds, view]);
+  }, [branches, reportsWithVault, selectedBranchIds, view]);
 
   const exportMonthlyPDF = (row: CycleStats) => {
     playSound('click');

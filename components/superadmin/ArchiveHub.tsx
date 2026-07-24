@@ -23,7 +23,7 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('archive_filter_branches') || '[]'); } catch { return []; }
   });
-  // Extra reports loaded on demand (older than the global 90-day window)
+  // Extra reports loaded on demand (older than the global 30-day window)
   const [olderReports, setOlderReports] = useState<SalesReport[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [allLoaded, setAllLoaded] = useState(false);
