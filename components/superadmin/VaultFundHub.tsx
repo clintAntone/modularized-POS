@@ -850,7 +850,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
 
   const filteredBranches = useMemo(() => {
-    let result = [...branches];
+    let result = branches.filter(b => b.isEnabled);
 
     // Branch multi-select filter
     if (selectedBranchIds.length > 0) {

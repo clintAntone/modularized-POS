@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { TabID } from '../BranchManagerDashboard';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
+import { supabase } from '../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import {
   LayoutGrid,
   TrendingUp,
@@ -60,6 +63,19 @@ const estimateTabWidth = (label: string) => 62 + label.length * 9;
 const MORE_BUTTON_WIDTH = 96; // "More" button estimated width
 
 export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false, vaultEnabled = false, hasVaultRecord = false }) => {
+  const { data: navFooterText } = useQuery({
+    queryKey: ['system_config', 'nav_footer_text'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .select(DB_COLUMNS.VALUE)
+        .eq(DB_COLUMNS.KEY, 'nav_footer_text')
+        .maybeSingle();
+      return (data as any)?.[DB_COLUMNS.VALUE] as string | null ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   // containerWidth tracks the actual pixel width of the desktop nav strip
   const [containerWidth, setContainerWidth] = useState(
@@ -300,6 +316,12 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {navFooterText && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[99] no-print bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-t border-slate-200/80 dark:border-slate-700/80 px-4 py-1 text-center">
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide truncate">{navFooterText}</p>
         </div>
       )}
 
