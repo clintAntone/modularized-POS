@@ -76,6 +76,9 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     staleTime: 5 * 60 * 1000,
   });
 
+  const footerTextRef = useRef<HTMLSpanElement>(null);
+  const [needsMarquee, setNeedsMarquee] = useState(false);
+
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   // containerWidth tracks the actual pixel width of the desktop nav strip
   const [containerWidth, setContainerWidth] = useState(
@@ -118,6 +121,13 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Check if footer text overflows the screen width — only marquee if it does
+  useEffect(() => {
+    const span = footerTextRef.current;
+    if (!span) return;
+    setNeedsMarquee(span.scrollWidth > window.innerWidth);
+  }, [navFooterText, windowWidth]);
 
   const masterTabRegistry = useMemo(() => {
     const tabs = [
@@ -320,8 +330,18 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
       )}
 
       {navFooterText && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[99] no-print bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-t border-slate-200/80 dark:border-slate-700/80 px-4 py-1 text-center">
-          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide truncate">{navFooterText}</p>
+        <div className="fixed bottom-0 left-0 right-0 z-[99] no-print bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-1.5 overflow-hidden">
+          {needsMarquee && windowWidth < 768 ? (
+            <div className="flex whitespace-nowrap" style={{ animation: 'navFooterScroll 20s linear infinite' }}>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide px-8">{navFooterText}</span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide px-8" aria-hidden>{navFooterText}</span>
+            </div>
+          ) : (
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide text-center truncate px-8">{navFooterText}</p>
+          )}
+          {/* Hidden measuring span — used to detect overflow */}
+          <span ref={footerTextRef} className="text-[11px] tracking-wide absolute invisible whitespace-nowrap pointer-events-none">{navFooterText}</span>
+          <style>{`@keyframes navFooterScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
         </div>
       )}
 
