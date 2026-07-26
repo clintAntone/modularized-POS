@@ -127,8 +127,27 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         : [])
                     : [];
 
-                // Vault deposits always live in vault_data (both legacy PROVISION and modern VAULT_DEPOSIT)
-                setVaultData(fetchedVaultData);
+                // Also fetch DEPOSIT entries from vault_transactions — these are created by the
+                // BackfillRequest approval flow and are NOT stored in vault_data on the sales report.
+                const { data: vaultTxData } = await supabase
+                    .from(DB_TABLES.VAULT_TRANSACTIONS)
+                    .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT},${DB_COLUMNS.NAME},${DB_COLUMNS.TIMESTAMP}`)
+                    .eq(DB_COLUMNS.REPORT_ID, existingReport.id)
+                    .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+
+                const depositItems = (vaultTxData || []).map((tx: any) => ({
+                    id: tx[DB_COLUMNS.ID],
+                    name: tx[DB_COLUMNS.NAME] || 'VAULT DEPOSIT',
+                    amount: Number(tx[DB_COLUMNS.AMOUNT]),
+                    category: 'VAULT_DEPOSIT',
+                    timestamp: tx[DB_COLUMNS.TIMESTAMP],
+                }));
+
+                // Merge: PROVISION items from vault_data + DEPOSIT items from vault_transactions
+                // Avoid duplicates in case vault_data also has VAULT_DEPOSIT entries (MassBackfill path)
+                const depositIds = new Set(depositItems.map((d: any) => d.id));
+                const provisionOnly = fetchedVaultData.filter((v: any) => !depositIds.has(v.id));
+                setVaultData([...provisionOnly, ...depositItems]);
 
                 const branchEmpIds = new Set(branchEmployees.map((e: any) => e.id));
 
