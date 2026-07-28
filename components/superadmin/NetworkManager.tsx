@@ -114,15 +114,30 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
       // 2. Table
       autoTable(doc, {
         startY: 35,
-        head: [['Branch Entity', 'ID', 'Status', 'Live', 'Provision', 'Cutoff']],
-        body: filteredBranches.map(b => [
-          b.name.toUpperCase(),
-          b.id.toUpperCase(),
-          b.isEnabled ? 'ACTIVE' : 'INACTIVE',
-          b.isOpen ? 'LIVE' : 'CLOSED',
-          b.vaultEnabled ? 'VAULT' : `PHP ${Number(b.dailyProvisionAmount || 800).toLocaleString()}`,
-          ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][b.weeklyCutoff].toUpperCase()
-        ]),
+        head: [['Branch Entity', 'ID', 'Status', 'Live', 'Provision', 'Cutoff', 'Hours']],
+        body: filteredBranches.map(b => {
+          const fmt = (t: string | undefined) => {
+            if (!t) return '';
+            const [hStr, mStr] = t.split(':');
+            const h = parseInt(hStr, 10);
+            const m = mStr || '00';
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return m === '00' ? `${h12} ${ampm}` : `${h12}:${m} ${ampm}`;
+          };
+          const open = fmt(b.openingTime);
+          const close = fmt(b.shift2ClosingTime || b.closingTime);
+          const hours = open && close ? `${open} – ${close}` : open || close || '—';
+          return [
+            b.name.toUpperCase(),
+            b.id.toUpperCase(),
+            b.isEnabled ? 'ACTIVE' : 'INACTIVE',
+            b.isOpen ? 'LIVE' : 'CLOSED',
+            b.vaultEnabled ? 'VAULT' : `PHP ${Number(b.dailyProvisionAmount || 800).toLocaleString()}`,
+            ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][b.weeklyCutoff].toUpperCase(),
+            hours,
+          ];
+        }),
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 8 },

@@ -1253,7 +1253,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       ownerShares: { name: string; amount: number }[];
     }> = [];
 
+    const selectedCutoffs = selectedPeriods.map(Number);
     for (const branch of activeBranches) {
+      if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(Number(branch.weeklyCutoff ?? 0))) continue;
       for (const group of allGroupedReports) {
         const report = group.reports.find((r: any) => r.branchId === branch.id);
         if (!report) continue;
@@ -1310,7 +1312,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     const ownerEntries   = Object.values(ownerMap).sort((a, b) => b.amount - a.amount);
 
     return { remitted, pending, nothingToRemit, totalRoi, ownerEntries };
-  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+  }, [activeBranches, allGroupedReports, subLookup, adjustments, selectedPeriods]);
 
   // All approved submissions with computed distributable ROI — the primary data source for Deposits tab
   const remittedDeposits = useMemo(() => {
@@ -1453,8 +1455,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     try {
       const ownerSummary = ownerRoiData.map(o => ({ name: o.displayName, amount: o.totalShare }));
       const networkRoi = ownerRoiData.reduce((s, o) => s + o.totalShare, 0);
+      const selectedCutoffs = selectedPeriods.map(Number);
       const { data, error } = await supabase.functions.invoke('send-remittance-report', {
-        body: { email: emailReportAddr, ownerSummary, networkRoi },
+        body: { email: emailReportAddr, ownerSummary, networkRoi, selectedCutoffs },
       });
       if (error) throw error;
       if (data?.ok) {

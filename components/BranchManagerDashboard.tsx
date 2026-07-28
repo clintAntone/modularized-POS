@@ -154,6 +154,20 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     return () => clearInterval(interval);
   }, [activeTab, queryClient]);
 
+  // Refetch remittance data immediately on tab entry + every 60s while active
+  useEffect(() => {
+    if (activeTab !== 'remittance') return;
+    queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+    queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+    queryClient.invalidateQueries({ queryKey: ['vaultTransactions'] });
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+      queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      queryClient.invalidateQueries({ queryKey: ['vaultTransactions'] });
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [activeTab, queryClient]);
+
   // ── Hooks ──────────────────────────────────────────────────────────────────
   useDeviceLogging(props.branch.id);
 
@@ -285,7 +299,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       setMountedTabs(prev => { const next = new Set(prev); next.add(tabId); return next; });
       setActiveTab(tabId);
       localStorage.setItem(`branch_tab_${props.branch?.id ?? 'default'}`, tabId);
-      if (['salaries', 'reports_master', 'sales', 'sales_reports'].includes(tabId)) props.onRefresh?.(true);
+      if (['salaries', 'reports_master', 'sales', 'sales_reports', 'remittance'].includes(tabId)) props.onRefresh?.(true);
     }
   };
 

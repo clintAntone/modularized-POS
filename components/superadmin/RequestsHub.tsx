@@ -103,6 +103,8 @@ const fmt = (n: number) => formatPeso(n || 0);
 
 export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const isProcessingRef = useRef(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -209,6 +211,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   };
 
   const handleAction = async (request: Request, action: 'APPROVE' | 'REJECT') => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setConfirmState(null);
     setAdminComment('');
     setIsProcessing(request.id);
@@ -255,7 +259,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const totalExpenses = finalExpenseData.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
 
           const netRoi = grossSales - totalExpenses - totalVaultProvision - totalStaffPay;
-          const reportId = `${request.branchId}_${reportDate.replace(/-/g, '')}`;
+          const dateCompact = reportDate.replace(/-/g, '');
+          const standardId = `${request.branchId}_${dateCompact}`;
+          const backfillId = `${request.branchId}_${dateCompact}_BACKFILL_INCOMPLETE`;
+          // Use the backfill ID if a _BACKFILL_INCOMPLETE record already exists, otherwise standard
+          const existingBackfill = salesReports.find(r => r.id === backfillId);
+          const reportId = existingBackfill ? backfillId : standardId;
           const existingReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === reportDate);
 
           // session_data is intentionally omitted — backfills adjust totals only and should not
@@ -387,9 +396,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
         }).eq(DB_COLUMNS.ID, request.id);
-        // Optimistically move card + switch tab without waiting for Realtime
         setOptimisticStatus(prev => ({ ...prev, [request.id]: 'APPROVED' }));
-        startTransition(() => setFilter('APPROVED'));
+        setActionSuccess('Request approved.');
+        setTimeout(() => setActionSuccess(null), 1000);
         playSound('success');
       } else {
         if (request.type === 'PASSWORD_RESET') {
@@ -403,9 +412,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.UPDATED_AT]: getTrueISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
         }).eq(DB_COLUMNS.ID, request.id);
-        // Optimistically move card + switch tab without waiting for Realtime
         setOptimisticStatus(prev => ({ ...prev, [request.id]: 'REJECTED' }));
-        startTransition(() => setFilter('REJECTED'));
+        setActionSuccess('Request rejected.');
+        setTimeout(() => setActionSuccess(null), 1000);
         playSound('warning');
       }
       // useGlobalData's Realtime channel handles targeted refreshes for requests/employees/salesReports
@@ -413,6 +422,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
       console.error(err);
       alert('Action failed. Check connection.');
     } finally {
+      isProcessingRef.current = false;
       setIsProcessing(null);
     }
   };
@@ -446,6 +456,13 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
   return (
     <div className="space-y-6">
+
+      {/* Action success banner */}
+      {actionSuccess && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {actionSuccess}
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmState && confirmMeta && createPortal(
