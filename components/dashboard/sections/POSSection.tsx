@@ -123,22 +123,27 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
     const activeServices = useMemo(() => branchServiceTemplates || [], [branchServiceTemplates]);
 
-    // On-demand services: booked 3+ times in the last 7 days at this branch.
-    // serviceId is stored as "uuid:S,uuid:L" — parse each segment to get the raw ID.
-    const onDemandIds = useMemo(() => {
-        const cutoff = new Date(getTrueDate());
-        cutoff.setDate(cutoff.getDate() - 7);
-        const cutoffIso = cutoff.toISOString();
-        const counts: Record<string, number> = {};
-        transactions.forEach(tx => {
-            if (tx.branchId === branch.id && tx.timestamp >= cutoffIso && tx.serviceId) {
-                tx.serviceId.split(',').forEach(segment => {
-                    const id = segment.split(':')[0].trim();
-                    if (id) counts[id] = (counts[id] || 0) + 1;
-                });
-            }
-        });
-        return new Set(Object.entries(counts).filter(([, c]) => c >= 3).map(([id]) => id));
+    // Popular service: the single most-booked service in the last 7 days.
+    // Computed after first paint so it never delays the service list render.
+    const [onDemandIds, setOnDemandIds] = React.useState<Set<string>>(new Set());
+    React.useEffect(() => {
+        const id = setTimeout(() => {
+            const cutoff = new Date(getTrueDate());
+            cutoff.setDate(cutoff.getDate() - 7);
+            const cutoffIso = cutoff.toISOString();
+            const counts: Record<string, number> = {};
+            transactions.forEach(tx => {
+                if (tx.branchId === branch.id && tx.timestamp >= cutoffIso && tx.serviceId) {
+                    tx.serviceId.split(',').forEach(segment => {
+                        const sid = segment.split(':')[0].trim();
+                        if (sid) counts[sid] = (counts[sid] || 0) + 1;
+                    });
+                }
+            });
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            setOnDemandIds(top ? new Set([top[0]]) : new Set());
+        }, 0);
+        return () => clearTimeout(id);
     }, [transactions, branch.id]);
 
     // Unique client names from all branch history, sorted by most recent first
