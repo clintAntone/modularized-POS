@@ -182,11 +182,11 @@ export const POSStaffSelection: React.FC<POSStaffSelectionProps> = (props) => {
                         </div>
                     </div>
                 ) : (
-                    <div className="hidden md:flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 p-8 bg-slate-50/50">
-                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-300 mb-3 border border-slate-100">
+                    <div className="hidden md:flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-8 bg-slate-50/50 dark:bg-slate-800/30">
+                        <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-slate-300 dark:text-slate-500 mb-3 border border-slate-100 dark:border-slate-600">
                             <Zap className="w-5 h-5" strokeWidth={2} />
                         </div>
-                        <p className="text-xs text-slate-400 text-center leading-relaxed">Support provider<br/>not required</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 text-center leading-relaxed">Support provider<br/>not required</p>
                     </div>
                 )}
             </div>
