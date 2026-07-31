@@ -149,7 +149,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             setOnDemandIds(top ? new Set([top[0]]) : new Set());
         }, 0);
         return () => clearTimeout(id);
-    }, [transactions, branch.id, activeServices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, branch.id]);
 
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
