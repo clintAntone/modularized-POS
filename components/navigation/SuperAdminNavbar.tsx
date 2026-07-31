@@ -42,7 +42,7 @@ const Icons = {
 };
 
 // Ordered category list for the More modal
-const CATEGORY_ORDER = ['Finance', 'Reports', 'People', 'Branches', 'System'] as const;
+const CATEGORY_ORDER = ['Operations', 'Finance', 'Reports', 'People', 'Branches', 'System'] as const;
 
 export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, onTabChange, employees = [], isSticky = true, pendingRequestsCount = 0, pendingComplaintsCount = 0, allowedTabs }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -192,7 +192,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
       <button
         key={item.id}
         onClick={() => handleTabClick(item.id)}
-        className={`relative p-4 sm:p-5 rounded-2xl border text-left flex flex-col gap-3 transition-all group overflow-hidden min-h-[110px] sm:min-h-[130px] ${
+        className={`relative p-3.5 sm:p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all group overflow-hidden min-h-[99px] sm:min-h-[117px] ${
           isActive
             ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:border-emerald-700 shadow-sm'
             : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md bg-white dark:bg-slate-800'
@@ -219,7 +219,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
         </div>
 
         {/* Icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative ring-1 ring-black/5 dark:ring-white/10 ${item.color}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative ring-1 ring-black/5 dark:ring-white/10 ${item.color}`}>
           {item.icon}
           {item.id === 'employees' && resetRequestCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -438,11 +438,12 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                 if (catTabs.length === 0) return null;
 
                 const catColor: Record<string, string> = {
-                  Finance:  'text-emerald-600',
-                  Reports:  'text-indigo-500',
-                  People:   'text-violet-500',
-                  Branches: 'text-amber-600',
-                  System:   'text-slate-400',
+                  Operations: 'text-sky-500',
+                  Finance:    'text-emerald-600',
+                  Reports:    'text-indigo-500',
+                  People:     'text-violet-500',
+                  Branches:   'text-amber-600',
+                  System:     'text-slate-400',
                 };
 
                 return (

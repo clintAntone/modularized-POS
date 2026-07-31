@@ -23,6 +23,7 @@ interface POSRegistryFormProps {
     onFinalize: () => void;
     onAbort: () => void;
     clientNameHistory?: string[];
+    onDemandIds?: Set<string>;
 }
 
 export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
@@ -201,6 +202,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                 selectedIds={activeTab === 'STANDARD' ? props.formData.selected_service_ids : props.formData.loyalty_service_ids}
                                 isLoyaltyMode={activeTab === 'LOYALTY'}
                                 isLoading={props.isServicesLoading}
+                                onDemandIds={props.onDemandIds}
                                 onToggle={(id: string) => {
                                     const field = activeTab === 'STANDARD' ? 'selected_service_ids' : 'loyalty_service_ids';
                                     const isSelected = props.formData[field].includes(id);

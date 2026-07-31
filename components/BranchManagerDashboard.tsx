@@ -308,7 +308,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   const handleNavigateToComplaints = useCallback(() => changeTab('complaints'), [changeTab]);
 
   return (
-    <div className="pb-24 bg-slate-50 dark:bg-slate-900">
+    <div className="bg-slate-50 dark:bg-slate-900">
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {showClosingWarning && (

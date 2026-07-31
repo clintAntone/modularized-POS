@@ -10,9 +10,10 @@ interface POSServiceSelectionProps {
     onToggle: (id: string) => void;
     isLoyaltyMode?: boolean;
     isLoading?: boolean;
+    onDemandIds?: Set<string>;
 }
 
-export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ services, selectedIds, onToggle, isLoyaltyMode = false, isLoading = false }) => {
+export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ services, selectedIds, onToggle, isLoyaltyMode = false, isLoading = false, onDemandIds }) => {
 
     // Group services by catalogId
     const groupedServices = useMemo(() => {
@@ -78,6 +79,7 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {group.services.map(s => {
                                     const isSelected = selectedIds.includes(s.id);
+                                    const isOnDemand = onDemandIds?.has(s.id) ?? false;
                                     return (
                                         <button
                                             key={s.id}
@@ -85,12 +87,21 @@ export const POSServiceSelection: React.FC<POSServiceSelectionProps> = ({ servic
                                                 playSound('click');
                                                 onToggle(s.id);
                                             }}
-                                            className={`min-h-[72px] p-5 rounded-2xl border-2 text-left transition-all duration-200 active:scale-[0.98] ${
+                                            className={`relative min-h-[72px] p-5 rounded-2xl border-2 text-left transition-all duration-200 active:scale-[0.98] ${
                                                 isSelected
                                                     ? 'bg-emerald-50 border-emerald-500 shadow-sm'
                                                     : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-slate-50'
                                             }`}
                                         >
+                                            {/* On-demand bookmark */}
+                                            {isOnDemand && (
+                                                <div className="absolute top-0 right-0 flex items-center gap-0.5 bg-amber-400 text-white pl-2 pr-2.5 py-0.5 rounded-bl-xl rounded-tr-xl">
+                                                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 16 20" fill="currentColor">
+                                                        <path d="M0 0h16v20l-8-5-8 5V0z"/>
+                                                    </svg>
+                                                    <span className="text-[9px] font-black uppercase tracking-wide leading-none">Popular</span>
+                                                </div>
+                                            )}
                                             <div className="flex flex-col h-full justify-between gap-3">
                                                 <div className="flex justify-between items-start gap-2">
                                                     <p className={`font-semibold text-sm leading-snug ${

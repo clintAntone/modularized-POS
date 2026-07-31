@@ -123,6 +123,24 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
     const activeServices = useMemo(() => branchServiceTemplates || [], [branchServiceTemplates]);
 
+    // On-demand services: booked 3+ times in the last 7 days at this branch.
+    // serviceId is stored as "uuid:S,uuid:L" — parse each segment to get the raw ID.
+    const onDemandIds = useMemo(() => {
+        const cutoff = new Date(getTrueDate());
+        cutoff.setDate(cutoff.getDate() - 7);
+        const cutoffIso = cutoff.toISOString();
+        const counts: Record<string, number> = {};
+        transactions.forEach(tx => {
+            if (tx.branchId === branch.id && tx.timestamp >= cutoffIso && tx.serviceId) {
+                tx.serviceId.split(',').forEach(segment => {
+                    const id = segment.split(':')[0].trim();
+                    if (id) counts[id] = (counts[id] || 0) + 1;
+                });
+            }
+        });
+        return new Set(Object.entries(counts).filter(([, c]) => c >= 3).map(([id]) => id));
+    }, [transactions, branch.id]);
+
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
         const seen = new Map<string, string>(); // name → latest timestamp
@@ -748,6 +766,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     onFinalize={() => setShowConfirm(true)}
                     onAbort={resetForm}
                     clientNameHistory={clientNameHistory}
+                    onDemandIds={onDemandIds}
                 />
             )}
 

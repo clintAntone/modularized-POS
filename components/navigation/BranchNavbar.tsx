@@ -174,16 +174,17 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     // Each button slot is ~60px (min-w-[56px] + justify-around spacing allowance).
     if (windowWidth < 640) {
       const pillWidth = windowWidth - 48;
-      // Use 68px slot width so that 360px+ phones (pillWidth=312) fit 4 slots → 3 visible + More.
+      // Use 60px slot width so that 310px+ phones (pillWidth=262) get 4 slots → 3 visible + More.
       // Buttons use flex-1 so they expand evenly regardless of this estimate.
-      const slotWidth = 68;
+      const slotWidth = 60;
       const maxSlots = Math.floor(pillWidth / slotWidth);
       // If everything fits, skip the MORE button
       if (maxSlots >= masterTabRegistry.length) {
         return { visibleTabs: masterTabRegistry, overflowTabs: [], isMoreActive: false };
       }
-      // Reserve 1 slot for the MORE button
-      const visibleCount = Math.max(1, maxSlots - 1);
+      // Reserve 1 slot for the MORE button.
+      // Always show at least 3 tabs so POS/Sales/Attendance remain accessible on small screens.
+      const visibleCount = Math.max(3, maxSlots - 1);
       const visible = masterTabRegistry.slice(0, visibleCount);
       const overflow = masterTabRegistry.slice(visibleCount);
       return { visibleTabs: visible, overflowTabs: overflow, isMoreActive: overflow.some(t => t.id === activeTab) };
@@ -381,19 +382,19 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       onPointerLeave={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
                       onPointerCancel={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
                       style={{ transform: 'translateZ(0)' }}
-                      className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu select-none ${
+                      className={`p-3.5 sm:p-5 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[99px] sm:min-h-[126px] sm:col-span-2 transform-gpu select-none ${
                         isSoon
                           ? 'border-slate-200/60 bg-white shadow-sm opacity-50 cursor-not-allowed'
                           : isStarred
-                            ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
+                            ? 'border-amber-300 bg-amber-50/40 dark:bg-amber-900/25 dark:border-amber-600/60 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
                             : activeTab === item.id
-                              ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/25 shadow-[0_0_20px_rgba(16,185,129,0.1)] dark:shadow-none'
                               : showBillsAlert && item.id === 'monthly_bills'
                                 ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
-                                : 'border-slate-200/60 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300/60'
+                                : 'border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300/60 dark:hover:border-slate-600'
                       }`}
                     >
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
+                      <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md mb-2.5 sm:mb-3.5 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                         {item.icon}
                       </div>
                       <div>
