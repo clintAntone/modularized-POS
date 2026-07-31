@@ -123,11 +123,16 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
     const activeServices = useMemo(() => branchServiceTemplates || [], [branchServiceTemplates]);
 
-    // Popular service: the single most-booked service in the last 7 days.
+    // Popular service: the single most-booked non-add-on service in the last 7 days.
     // Computed after first paint so it never delays the service list render.
     const [onDemandIds, setOnDemandIds] = React.useState<Set<string>>(new Set());
     React.useEffect(() => {
         const id = setTimeout(() => {
+            const addOnIds = new Set(
+                activeServices
+                    .filter(s => s.catalogName?.toLowerCase().includes('add'))
+                    .map(s => s.id)
+            );
             const cutoff = new Date(getTrueDate());
             cutoff.setDate(cutoff.getDate() - 7);
             const cutoffIso = cutoff.toISOString();
@@ -136,7 +141,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 if (tx.branchId === branch.id && tx.timestamp >= cutoffIso && tx.serviceId) {
                     tx.serviceId.split(',').forEach(segment => {
                         const sid = segment.split(':')[0].trim();
-                        if (sid) counts[sid] = (counts[sid] || 0) + 1;
+                        if (sid && !addOnIds.has(sid)) counts[sid] = (counts[sid] || 0) + 1;
                     });
                 }
             });
@@ -144,7 +149,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             setOnDemandIds(top ? new Set([top[0]]) : new Set());
         }, 0);
         return () => clearTimeout(id);
-    }, [transactions, branch.id]);
+    }, [transactions, branch.id, activeServices]);
 
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
