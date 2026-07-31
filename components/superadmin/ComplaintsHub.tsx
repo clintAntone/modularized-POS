@@ -1,17 +1,18 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Flag, AlertTriangle, CheckCircle2, Clock, Users } from 'lucide-react';
+import { Flag, AlertTriangle, CheckCircle2, Clock, Users, Plus } from 'lucide-react';
 import { EmployeeComplaint, Employee, Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { playSound } from '../../lib/audio';
 import { logAudit } from '../../lib/audit';
-import { getTrueISOString } from '../../lib/time';
+import { getTrueISOString, getManilaTodayStr } from '../../lib/time';
 
 const REPORT_LABEL: Record<string, string> = {
   TARDINESS:        'Tardiness',
   ABSENCE:          'Unexcused Absence',
   MISCONDUCT:       'Misconduct',
+  CASH_SHORTAGE:    'Financial Accountability',
   POLICY_VIOLATION: 'Policy Violation',
   PERFORMANCE:      'Poor Performance',
   OTHER:            'Other',
@@ -21,6 +22,7 @@ const REPORT_TEXT_COLOR: Record<string, string> = {
   TARDINESS:        'text-amber-700',
   ABSENCE:          'text-orange-700',
   MISCONDUCT:       'text-rose-700',
+  CASH_SHORTAGE:    'text-red-700',
   POLICY_VIOLATION: 'text-red-700',
   PERFORMANCE:      'text-slate-600',
   OTHER:            'text-slate-500',
@@ -30,6 +32,7 @@ const REPORT_COLOR: Record<string, string> = {
   TARDINESS:        'bg-amber-50 text-amber-700 border-amber-200',
   ABSENCE:          'bg-orange-50 text-orange-700 border-orange-200',
   MISCONDUCT:       'bg-rose-50 text-rose-700 border-rose-200',
+  CASH_SHORTAGE:    'bg-red-50 text-red-700 border-red-200',
   POLICY_VIOLATION: 'bg-red-50 text-red-700 border-red-200',
   PERFORMANCE:      'bg-slate-50 text-slate-600 border-slate-200',
   OTHER:            'bg-slate-50 text-slate-600 border-slate-200',
@@ -140,6 +143,83 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // ── File new complaint (superadmin) ──────────────────────────────────────
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [fileEmpSearch, setFileEmpSearch] = useState('');
+  const [fileEmpId, setFileEmpId] = useState('');
+  const [fileEmpName, setFileEmpName] = useState('');
+  const [fileBranchId, setFileBranchId] = useState('');
+  const [fileReportType, setFileReportType] = useState('MISCONDUCT');
+  const [fileIncidentDate, setFileIncidentDate] = useState(getManilaTodayStr());
+  const [fileIncidentTime, setFileIncidentTime] = useState('');
+  const [fileDescription, setFileDescription] = useState('');
+  const [fileWitnesses, setFileWitnesses] = useState('');
+  const [fileSubmitting, setFileSubmitting] = useState(false);
+  const [fileEmpDropdown, setFileEmpDropdown] = useState(false);
+  const debouncedEmpSearch = useDebounce(fileEmpSearch, 200);
+
+  const filteredEmpOptions = useMemo(() => {
+    if (!debouncedEmpSearch.trim()) return [];
+    const term = debouncedEmpSearch.trim().toUpperCase();
+    return employees
+      .filter(e => e.isActive && (e.name.toUpperCase().includes(term)))
+      .slice(0, 8);
+  }, [employees, debouncedEmpSearch]);
+
+  const selectEmployee = (emp: Employee) => {
+    setFileEmpId(emp.id);
+    setFileEmpName(emp.name);
+    setFileBranchId(emp.branchId);
+    setFileEmpSearch(emp.name);
+    setFileEmpDropdown(false);
+  };
+
+  const resetFileForm = () => {
+    setFileEmpSearch(''); setFileEmpId(''); setFileEmpName(''); setFileBranchId('');
+    setFileReportType('MISCONDUCT'); setFileIncidentDate(getManilaTodayStr());
+    setFileIncidentTime(''); setFileDescription(''); setFileWitnesses('');
+  };
+
+  const handleFileComplaint = async () => {
+    if (!fileEmpId || !fileDescription.trim() || !fileIncidentDate) return;
+    setFileSubmitting(true);
+    try {
+      const id = `complaint_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const { error } = await supabase.from(DB_TABLES.EMPLOYEE_COMPLAINTS).insert({
+        [DB_COLUMNS.ID]:            id,
+        [DB_COLUMNS.BRANCH_ID]:     fileBranchId,
+        [DB_COLUMNS.EMPLOYEE_ID]:   fileEmpId,
+        [DB_COLUMNS.EMPLOYEE_NAME]: fileEmpName,
+        [DB_COLUMNS.REPORT_TYPE]:   fileReportType,
+        [DB_COLUMNS.INCIDENT_DATE]: fileIncidentDate,
+        [DB_COLUMNS.INCIDENT_TIME]: fileIncidentTime || null,
+        [DB_COLUMNS.DESCRIPTION]:   fileDescription.trim(),
+        [DB_COLUMNS.WITNESSES]:     fileWitnesses.trim() || null,
+        [DB_COLUMNS.FILED_BY_ID]:   reviewerName,
+        [DB_COLUMNS.FILED_BY_NAME]: reviewerName,
+        [DB_COLUMNS.FILED_AT]:      getTrueISOString(),
+        [DB_COLUMNS.STATUS]:        'PENDING',
+        [DB_COLUMNS.ACTION_TAKEN]:  'NONE',
+      });
+      if (error) throw error;
+      await logAudit({
+        activityType: 'COMPLAINT_FILED',
+        entityType: 'EMPLOYEE_REPORT',
+        description: `Complaint filed against ${fileEmpName} (${REPORT_LABEL[fileReportType] || fileReportType})`,
+        branchId: fileBranchId,
+        performerName: reviewerName,
+      });
+      playSound('success');
+      setShowFileModal(false);
+      resetFileForm();
+      onRefresh?.();
+    } catch {
+      playSound('warning');
+    } finally {
+      setFileSubmitting(false);
+    }
+  };
 
   const sorted = useMemo(() =>
     [...complaints].sort((a, b) => {
@@ -388,12 +468,23 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
             <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none uppercase tracking-wide">Complaints</h2>
             <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-wide">Employee Incident Reports</p>
           </div>
-          {pendingCount > 0 && (
-            <div className="flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-500/30 px-2.5 py-1.5 rounded-xl">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{pendingCount} pending</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <div className="flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-500/30 px-2.5 py-1.5 rounded-xl">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{pendingCount} pending</span>
+              </div>
+            )}
+            {!isReadOnly && (
+              <button
+                onClick={() => { setShowFileModal(true); playSound('click'); }}
+                className="flex items-center gap-1.5 h-8 px-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold uppercase tracking-wide rounded-xl transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <span className="hidden sm:inline">File Complaint</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats row */}
@@ -1090,6 +1181,161 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
           </div>
         );
       })()}
+
+      {/* File new complaint modal */}
+      {showFileModal && (
+        <div className="fixed inset-0 z-[3000] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200"
+          onClick={() => { setShowFileModal(false); resetFileForm(); }}>
+          <div className="bg-white dark:bg-slate-900 rounded-t-[28px] sm:rounded-2xl w-full sm:max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-6 pt-6 pb-5 shrink-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1">Superadmin</p>
+                  <h3 className="text-[17px] font-bold text-slate-900 dark:text-slate-100 leading-none">File a Complaint</h3>
+                </div>
+                <button
+                  onClick={() => { setShowFileModal(false); resetFileForm(); }}
+                  className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center shrink-0 transition-all"
+                >
+                  <svg className="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900">
+
+              {/* Employee search */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Employee <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={fileEmpSearch}
+                    onChange={e => { setFileEmpSearch(e.target.value); setFileEmpDropdown(true); setFileEmpId(''); }}
+                    onFocus={() => setFileEmpDropdown(true)}
+                    placeholder="Search employee name..."
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-2xl text-xs font-semibold text-slate-900 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 outline-none focus:border-slate-300 dark:focus:border-slate-600 transition-all"
+                  />
+                  {fileEmpDropdown && filteredEmpOptions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden z-10">
+                      {filteredEmpOptions.map(emp => (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onMouseDown={() => selectEmployee(emp)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
+                        >
+                          <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">{emp.name}</p>
+                          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5 uppercase">{getBranchName(emp.branchId)}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {fileEmpId && (
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    {fileEmpName} · {getBranchName(fileBranchId)}
+                  </p>
+                )}
+              </div>
+
+              {/* Report type */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Complaint Type <span className="text-rose-500">*</span></label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(REPORT_LABEL).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFileReportType(value)}
+                      className={`px-3 py-2.5 rounded-xl border-2 text-left transition-all active:scale-[0.97] ${
+                        fileReportType === value
+                          ? `${REPORT_COLOR[value]} border-current`
+                          : 'border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800/40 hover:border-slate-200 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <p className={`text-xs font-black uppercase tracking-tight ${fileReportType === value ? '' : 'text-slate-500 dark:text-slate-400'}`}>{label}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Incident date + time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Incident Date <span className="text-rose-500">*</span></label>
+                  <input
+                    type="date"
+                    value={fileIncidentDate}
+                    onChange={e => setFileIncidentDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-2xl text-xs font-semibold text-slate-900 dark:text-slate-200 outline-none focus:border-slate-300 dark:focus:border-slate-600 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Time <span className="text-slate-300 dark:text-slate-600 font-medium normal-case">optional</span></label>
+                  <input
+                    type="time"
+                    value={fileIncidentTime}
+                    onChange={e => setFileIncidentTime(e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-2xl text-xs font-semibold text-slate-900 dark:text-slate-200 outline-none focus:border-slate-300 dark:focus:border-slate-600 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Description <span className="text-rose-500">*</span></label>
+                <textarea
+                  value={fileDescription}
+                  onChange={e => setFileDescription(e.target.value)}
+                  placeholder="Describe the incident in detail..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-2xl text-xs font-semibold text-slate-900 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 outline-none focus:border-slate-300 dark:focus:border-slate-600 transition-all resize-none"
+                />
+              </div>
+
+              {/* Witnesses */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5 block">Witnesses <span className="text-slate-300 dark:text-slate-600 font-medium normal-case">optional</span></label>
+                <input
+                  type="text"
+                  value={fileWitnesses}
+                  onChange={e => setFileWitnesses(e.target.value)}
+                  placeholder="Names of witnesses..."
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-2xl text-xs font-semibold text-slate-900 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 outline-none focus:border-slate-300 dark:focus:border-slate-600 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4 grid grid-cols-2 gap-3 shrink-0">
+              <button
+                onClick={() => { setShowFileModal(false); resetFileForm(); }}
+                className="h-12 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFileComplaint}
+                disabled={fileSubmitting || !fileEmpId || !fileDescription.trim() || !fileIncidentDate}
+                className="h-12 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {fileSubmitting
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><Flag className="w-3.5 h-3.5" strokeWidth={2.5} />File Complaint</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Review confirmation */}
       {reviewConfirm && reviewState && (

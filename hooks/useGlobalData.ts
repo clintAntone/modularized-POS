@@ -22,6 +22,7 @@ const COLS = {
         DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
         DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
         DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
+        DB_COLUMNS.CONTACT_NUMBER,
         DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
     ].join(','),
     employees: [
@@ -253,6 +254,7 @@ export const useGlobalData = (auth: AuthState) => {
             closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
             shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
             shift2ClosingTime: db[DB_COLUMNS.SHIFT2_CLOSING_TIME] || undefined,
+            contactNumber: db[DB_COLUMNS.CONTACT_NUMBER] || undefined,
             owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
                 ? JSON.parse(db[DB_COLUMNS.OWNERS])
                 : (db[DB_COLUMNS.OWNERS] || []),

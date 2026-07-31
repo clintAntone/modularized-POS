@@ -212,6 +212,18 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             }
         });
 
+        // Determine whether the original transaction used the PWD/Senior toggle.
+        // The toggle auto-applies a fixed discount (50 or 100 depending on price);
+        // detect it and subtract it so the manual discount field shows only the extra portion.
+        const correctionBasePrice = activeServices
+            .filter(s => selected_service_ids.includes(s.id))
+            .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+        const isPwdSenior = tx.discount >= 50 && (tx.discount === 50 || tx.discount === 100 || (tx.discount % 50 === 0));
+        const inferredPwdDiscount = isPwdSenior && correctionBasePrice > 0
+            ? (correctionBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW)
+            : 0;
+        const manualDiscount = Math.max(0, (tx.discount || 0) - inferredPwdDiscount);
+
         setFormData({
             id: tx.id,
             original_timestamp: tx.timestamp,
@@ -222,8 +234,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             bonesetter_id: tx.bonesetterId || '',
             selected_service_ids,
             loyalty_service_ids,
-            discount: tx.discount || 0,
-            is_pwd_senior: tx.discount >= 50 && (tx.discount === 50 || tx.discount === 100 || (tx.discount % 50 === 0)),
+            discount: manualDiscount,
+            is_pwd_senior: isPwdSenior,
             note: tx.note || '',
             payment_method: tx.paymentMethod || 'CASH'
         });

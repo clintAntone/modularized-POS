@@ -50,6 +50,7 @@ export interface Branch {
   closingTime?: string;
   shift2OpeningTime?: string;
   shift2ClosingTime?: string;
+  contactNumber?: string;
   owners?: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;

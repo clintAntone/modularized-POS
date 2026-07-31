@@ -88,10 +88,14 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const standardId  = `${selectedBranchId}_${dateCompact}`;
             const backfillId  = `${selectedBranchId}_${dateCompact}_BACKFILL_INCOMPLETE`;
 
-            // Prefer loading from the backfill record if it exists; fall back to standard
-            const existingBackfill = salesReports.find(r => r.id === backfillId);
-            const standardReport   = salesReports.find(r => r.id === standardId);
-            const existingReport   = existingBackfill ?? standardReport;
+            // Prefer loading from the backfill record if it exists; fall back to standard ID.
+            // Always verify report_date matches selectedDate to avoid loading a mismatched record
+            // (e.g. ID has 20260727 but report_date is 2026-07-28).
+            // Final fallback: match by report_date + branch in case the ID was recorded with a wrong date.
+            const existingBackfill = salesReports.find(r => r.id === backfillId && r.reportDate === selectedDate);
+            const standardReport   = salesReports.find(r => r.id === standardId && r.reportDate === selectedDate);
+            const dateFallback     = salesReports.find(r => r.branchId === selectedBranchId && r.reportDate === selectedDate);
+            const existingReport   = existingBackfill ?? standardReport ?? dateFallback;
 
             const branchEmployees = employees.filter(e => e.branchId === selectedBranchId && e.isActive);
 
@@ -100,17 +104,17 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
 
             if (existingReport) {
-                setGrossSales(existingReport.grossSales);
-                setTotalExpenses(existingReport.totalExpenses);
-                setTotalSalary(existingReport.totalStaffPay);
-                setRentAndBills(existingReport.totalVaultProvision);
-
-                // staffBreakdown and vaultData are lazy-loaded — fetch them now for this specific report
+                // Re-fetch financial fields + blobs directly from DB to avoid stale/partial in-memory values
                 const { data: blobData } = await supabase
                     .from(DB_TABLES.SALES_REPORTS)
-                    .select(`${DB_COLUMNS.STAFF_BREAKDOWN},${DB_COLUMNS.VAULT_DATA}`)
+                    .select(`${DB_COLUMNS.GROSS_SALES},${DB_COLUMNS.TOTAL_STAFF_PAY},${DB_COLUMNS.TOTAL_EXPENSES},${DB_COLUMNS.TOTAL_VAULT_PROVISION},${DB_COLUMNS.STAFF_BREAKDOWN},${DB_COLUMNS.VAULT_DATA}`)
                     .eq(DB_COLUMNS.ID, existingReport.id)
                     .single();
+
+                setGrossSales(blobData?.[DB_COLUMNS.GROSS_SALES] ?? existingReport.grossSales);
+                setTotalExpenses(blobData?.[DB_COLUMNS.TOTAL_EXPENSES] ?? existingReport.totalExpenses);
+                setTotalSalary(blobData?.[DB_COLUMNS.TOTAL_STAFF_PAY] ?? existingReport.totalStaffPay);
+                setRentAndBills(blobData?.[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? existingReport.totalVaultProvision);
 
                 const fetchedVaultData = blobData
                     ? (Array.isArray(blobData[DB_COLUMNS.VAULT_DATA])

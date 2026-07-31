@@ -84,6 +84,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.CLOSING_TIME]: updated.closingTime,
         [DB_COLUMNS.SHIFT2_OPENING_TIME]: updated.shift2OpeningTime || null,
         [DB_COLUMNS.SHIFT2_CLOSING_TIME]: updated.shift2ClosingTime || null,
+        [DB_COLUMNS.CONTACT_NUMBER]: updated.contactNumber || null,
         [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || []),
         [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null,
         [DB_COLUMNS.VAULT_ENABLED]: updated.vaultEnabled ?? false,
