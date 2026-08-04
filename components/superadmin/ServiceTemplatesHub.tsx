@@ -1040,7 +1040,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         {branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).length === 0 ? (
                           <div className="px-4 py-4 text-xs text-slate-400 italic text-center">No branches match</div>
                         ) : (
-                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
+                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)).map(b => {
                             const inDraft = draftBranchIds.includes(b.id);
                             return (
                               <button
@@ -1088,7 +1088,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <p className="text-xs text-slate-300 mt-0.5">Use the picker above to add branches</p>
                 </div>
               ) : (
-                branches.filter(b => draftBranchIds.includes(b.id)).map(b => {
+                branches.filter(b => draftBranchIds.includes(b.id)).sort((a, b) => a.name.localeCompare(b.name)).map(b => {
                   const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
                   return (
                     <div key={b.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">

@@ -302,6 +302,12 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wide">No Role Assigned</span>
               </div>
             ) : null}
+            {onFaceTimeIn && !emp.faceDescriptors?.length && (
+              <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-600 px-2 py-1 rounded-lg w-fit">
+                <ScanFace className="w-3 h-3" strokeWidth={2.5} />
+                <span className="text-xs font-semibold uppercase tracking-wide">Face ID not enrolled</span>
+              </div>
+            )}
           </div>
         </div>
 

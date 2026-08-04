@@ -44,6 +44,8 @@ interface StaffModalsProps {
   toggleRole: (role: string) => void;
   getShiftState: (empId: string) => 'OFF' | 'ONGOING';
   isManagerView?: boolean;
+  /** Auto-open the Face ID enrollment sub-modal when the edit modal opens */
+  openFaceEnroll?: boolean;
 }
 
 export const StaffModals: React.FC<StaffModalsProps> = (props) => {
@@ -60,6 +62,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const [empIdCopied, setEmpIdCopied] = React.useState(false);
   const [isSavingFace, setIsSavingFace] = React.useState(false);
   const [showFaceEnrollModal, setShowFaceEnrollModal] = React.useState(false);
+  React.useEffect(() => { if (props.openFaceEnroll) setShowFaceEnrollModal(true); }, [props.openFaceEnroll]);
   const [showIdCard, setShowIdCard] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
@@ -873,7 +876,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   currentBranch?.tempManager?.toUpperCase() === (props.editingEmployee.name || '').toUpperCase() ||
                   branchRole.includes('MANAGER');
                 const roleOk = hasRole || isManager;
-                const allowanceOk = (branchAllowance ?? 0) > 0;
+                const allowanceOk = (branchAllowance ?? 0) >= 0;
                 return (
                   <div className="px-5 pt-3 pb-5 shrink-0 space-y-2 border-t border-slate-100">
                     {!roleOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
@@ -883,7 +886,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     )}
                     {!allowanceOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
                       <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest">
-                        Allowance cannot be zero
+                        Allowance cannot be negative
                       </p>
                     )}
                     <button

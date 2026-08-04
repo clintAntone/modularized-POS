@@ -32,11 +32,12 @@ interface FaceTimeInModalProps {
     onMatch: (emp: Employee) => void;
     onClose: () => void;
     onManualOverride?: () => void;
+    onEnroll?: () => void;
 }
 
 type Status = 'loading' | 'ready' | 'scanning' | 'matched' | 'no_face' | 'no_match' | 'error' | 'load_error';
 
-export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, branchId, targetEmployee, onMatch, onClose, onManualOverride }) => {
+export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, branchId, targetEmployee, onMatch, onClose, onManualOverride, onEnroll }) => {
     const videoRef         = useRef<HTMLVideoElement>(null);
     const streamRef        = useRef<MediaStream | null>(null);
     const origBrightness   = useRef<number>(MIN_BRIGHTNESS);
@@ -428,10 +429,26 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 {/* Status */}
                 <div className="px-6 pb-2 text-center shrink-0">
                     <p className={`text-xs font-semibold uppercase tracking-wide ${statusColor[status]} transition-colors`}>{statusMsg}</p>
-                    {empDescriptors.length === 0 && status !== 'loading' && (
+                    {empDescriptors.length === 0 && status !== 'loading' && !targetEmployee && (
                         <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mt-1">No employees have face data enrolled yet</p>
                     )}
                 </div>
+
+                {/* Not enrolled — shown immediately when target employee has no descriptors */}
+                {targetEmployee && !targetEmployee.faceDescriptors?.length && status !== 'loading' && onEnroll && (
+                    <div className="px-6 pb-3 shrink-0">
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-center space-y-2">
+                            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Face ID not set up yet</p>
+                            <p className="text-xs text-amber-600">Register this employee's face to enable scanning.</p>
+                            <button
+                                onClick={() => { stopCamera(); onClose(); onEnroll(); }}
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-widest transition-all active:scale-95"
+                            >
+                                Register Face ID
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Scan / Retry button */}
                 <div className="px-6 pb-3 shrink-0">
@@ -463,7 +480,7 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                     )}
                 </div>
 
-                {/* Manual override fallback — only shown after 3 failed attempts */}
+                {/* Manual override fallback — only shown after 5 failed attempts */}
                 {onManualOverride && failedAttempts >= 5 && (
                     <div className="px-6 pb-5 text-center shrink-0">
                         <button

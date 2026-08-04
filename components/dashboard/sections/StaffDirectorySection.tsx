@@ -63,6 +63,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isFaceInitiated, setIsFaceInitiated] = useState(false);
   const [showFaceTimeIn, setShowFaceTimeIn] = useState(false);
   const [faceTimeInTarget, setFaceTimeInTarget] = useState<Employee | null>(null);
+  const [openFaceEnrollOnEdit, setOpenFaceEnrollOnEdit] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [recoveryEmployee, setRecoveryEmployee] = useState<Employee | null>(null);
   const [originalName, setOriginalName] = useState<string>('');
@@ -680,7 +681,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   };
 
   const getShiftState = (empId: string): 'NOT_STARTED' | 'ONGOING' | 'COMPLETED' => {
-    const todayRecords = (attendance || []).filter(a => a.employeeId === empId && a.date === todayStr);
+    const todayRecords = (attendance || []).filter(a => a.employeeId === empId && a.date === todayStr && a.branchId === branch.id);
     if (todayRecords.length === 0) return 'NOT_STARTED';
     
     // If any record is ongoing, the overall state is ongoing
@@ -1267,7 +1268,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         isFaceInitiated={isFaceInitiated}
         onTimeAction={handleTimeAction}
         onSaveEmployee={handleSaveWithComplaintCheck}
-        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); }}
+        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); setOpenFaceEnrollOnEdit(false); }}
         onCloseRecovery={() => setRecoveryEmployee(null)}
         onRefresh={() => onRefresh?.()}
         onSyncStatusChange={onSyncStatusChange}
@@ -1277,6 +1278,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         allEmployees={employees}
         branchId={branch.id}
         isManagerView={isManagerView}
+        openFaceEnroll={openFaceEnrollOnEdit}
       />
 
       {/* DEBUG: dual-shift indicator — remove after validating */}
@@ -1449,6 +1451,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         onManualOverride={faceTimeInTarget ? () => {
           setShowFaceTimeIn(false);
           handleOpenTimeModal(faceTimeInTarget);
+          setFaceTimeInTarget(null);
+        } : undefined}
+        onEnroll={faceTimeInTarget ? () => {
+          setShowFaceTimeIn(false);
+          setEditingEmployee({ ...faceTimeInTarget });
+          setIsModalOpen(true);
+          setOpenFaceEnrollOnEdit(true);
           setFaceTimeInTarget(null);
         } : undefined}
       />
