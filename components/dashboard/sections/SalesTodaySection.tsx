@@ -1182,6 +1182,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               defaultIsLegacyDeposit={openExpenseModalOnLegacyDeposit}
               onDeposit={handleVaultDeposit}
               hideDepositTab={isAddExpenseModalOpen && !openExpenseModalOnDeposit && !openExpenseModalOnLegacyDeposit}
+              reportId={`${branch.id}_${todayStr.replace(/-/g, '')}`}
             />
           )}
           {viewingExpense && (<ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />)}
