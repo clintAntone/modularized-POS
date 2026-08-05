@@ -7,6 +7,7 @@ import { playSound } from '../../../../lib/audio';
 import { getTrueISOString, getTrueManilaISOString } from '../../../../lib/time';
 import { getEmployeeRole, getEmployeeAllowance } from '../../../../lib/payroll';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
+import { useBranchServiceTemplates } from '../../../../hooks/useNetworkData';
 
 import { UI_THEME } from '../../../../constants/ui_designs';
 
@@ -35,6 +36,8 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                                                                     employees,
                                                                     hiddenStaffNames,
                                                                   }) => {
+  const { data: branchServices = [] } = useBranchServiceTemplates(branch.id);
+
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [showAddStaffSelector, setShowAddStaffSelector] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -50,6 +53,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
     baseAllowance: 0,
     isHalfDay: false,
   });
+  const [showOTSection, setShowOTSection] = useState(false);
 
   // CRITICAL: Check lateness using Manila Time comparison to avoid browser timezone drift
   // Returns minutes late (0 = on time)
@@ -193,38 +197,59 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
   const staffClockIn = selectedStaffData?.attendance?.clockIn;
   const staffIsCurrentlyLate = isLate(staffClockIn, selectedStaffData?.attendance?.shift);
 
-  // VALIDATION: Staff only eligible for OT if they have a session that ended AFTER closing time (Manila Time)
-  const staffHasOTSession = useMemo(() => {
-    if (!selectedStaff || !branch.closingTime) return false;
-    // For Shift 2 staff, use shift2ClosingTime if set; otherwise fall back to branch closing time
+  // Compute OT-eligible clients for the info note (session started before closing, ends after closing)
+  const otEligibleClients = useMemo(() => {
+    if (!selectedStaff || !branch.closingTime) return [];
     const effectiveClosingTime = (selectedStaffData?.attendance?.shift === 2 && branch.shift2ClosingTime)
       ? branch.shift2ClosingTime
       : branch.closingTime;
     const [closeH, closeM] = effectiveClosingTime.split(':').map(Number);
     const totalCloseMins = closeH * 60 + closeM;
-
-    return transactions.some(t => {
-      const isThisStaff = t.therapistName?.toUpperCase() === selectedStaff.toUpperCase() ||
-          t.bonesetterName?.toUpperCase() === selectedStaff.toUpperCase();
-      if (!isThisStaff) return false;
-
-      const txDate = new Date(t.timestamp);
-      const manilaTx = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Manila',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      }).format(txDate);
-
-      const [txH, txM] = manilaTx.split(':').map(Number);
-      const totalTxMins = txH * 60 + txM;
-
-      return totalTxMins > totalCloseMins;
-    });
-  }, [selectedStaff, branch.closingTime, branch.shift2ClosingTime, selectedStaffData?.attendance?.shift, transactions]);
-
-  // Rule: Must have a late session AND must not have been late clocking in
-  const canAddOT = !staffIsCurrentlyLate && staffHasOTSession;
+    const durationMap = new Map<string, number>(
+      branchServices.map(s => [s.id, Number(s.duration) || 0])
+    );
+    const fmt = (totalMins: number) => {
+      const h = Math.floor(totalMins / 60) % 24;
+      const m = totalMins % 60;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+    };
+    return transactions
+      .filter(t => {
+        const isThisStaff = t.therapistName?.toUpperCase() === selectedStaff.toUpperCase() ||
+            t.bonesetterName?.toUpperCase() === selectedStaff.toUpperCase();
+        if (!isThisStaff) return false;
+        const txDate = new Date(t.timestamp);
+        const manilaTx = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false
+        }).format(txDate);
+        const [txH, txM] = manilaTx.split(':').map(Number);
+        const totalTxMins = txH * 60 + txM;
+        const serviceSegments = (t.serviceId || '').split(',').map(s => s.trim()).filter(Boolean);
+        const totalDurationMins = serviceSegments.reduce((sum, seg) => {
+          return sum + (durationMap.get(seg.split(':')[0]) ?? 0);
+        }, 0);
+        return totalTxMins < totalCloseMins && totalTxMins + totalDurationMins > totalCloseMins;
+      })
+      .map(t => {
+        const txDate = new Date(t.timestamp);
+        const manilaTx = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false
+        }).format(txDate);
+        const [txH, txM] = manilaTx.split(':').map(Number);
+        const totalTxMins = txH * 60 + txM;
+        const serviceSegments = (t.serviceId || '').split(',').map(s => s.trim()).filter(Boolean);
+        const totalDurationMins = serviceSegments.reduce((sum, seg) => {
+          return sum + (durationMap.get(seg.split(':')[0]) ?? 0);
+        }, 0);
+        return {
+          clientName: t.clientName || 'Unknown Client',
+          timeIn: fmt(totalTxMins),
+          timeOut: fmt(totalTxMins + totalDurationMins),
+        };
+      });
+  }, [selectedStaff, branch.closingTime, branch.shift2ClosingTime, selectedStaffData?.attendance?.shift, transactions, branchServices]);
 
   return (
       <div className="space-y-4">
@@ -314,26 +339,64 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                       </div>
                     </div>
 
-                    <div className="space-y-1 sm:space-y-2">
-                      <div className="flex justify-between items-center ml-1">
-                        <label className="text-xs sm:text-xs font-medium text-slate-400 uppercase tracking-wide">OT Pay Addition (₱)</label>
-                      </div>
-                      <div className="relative group">
-                        <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-emerald-600">₱</span>
-                        <input
-                            type="number"
-                            min={0}
-                            value={attendanceForm.otPay || ''}
-                            onChange={e => setAttendanceForm({...attendanceForm, otPay: Math.max(0, Number(e.target.value))})}
-                            className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-emerald-600 outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner tabular-nums"
-                            placeholder="0"
-                        />
-                      </div>
-                      <div className="pt-2" />
+                    <div className="space-y-2">
                       <button
-                          onClick={() => setAttendanceForm(prev => ({ ...prev, isHalfDay: !prev.isHalfDay }))}
-                          className={`w-full px-5 py-4 sm:py-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all active:scale-95 flex items-center justify-between gap-3 shadow-sm ${attendanceForm.isHalfDay ? 'bg-amber-50 border-amber-400 text-amber-700 shadow-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:shadow-md'}`}
+                        onClick={() => setShowOTSection(o => !o)}
+                        className={`w-full px-5 py-4 sm:py-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all active:scale-95 flex items-center justify-between gap-3 shadow-sm ${showOTSection ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:shadow-md'}`}
                       >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl sm:text-2xl">⏱️</span>
+                          <div className="text-left">
+                            <p className={`text-xs sm:text-xs font-semibold uppercase tracking-wide ${showOTSection ? 'text-emerald-700' : 'text-slate-600'}`}>
+                              OT Pay
+                              {attendanceForm.otPay > 0 && <span className="ml-2 text-emerald-600">+₱{attendanceForm.otPay.toLocaleString()}</span>}
+                            </p>
+                            <p className={`text-xs font-medium uppercase tracking-wide mt-0.5 ${showOTSection ? 'text-emerald-400' : 'text-slate-400'}`}>
+                              {otEligibleClients.length > 0
+                                ? `${otEligibleClients.length} client${otEligibleClients.length > 1 ? 's' : ''} may qualify`
+                                : 'Tap to add overtime pay'}
+                            </p>
+                          </div>
+                        </div>
+                        <svg className={`w-4 h-4 transition-transform shrink-0 ${showOTSection ? 'rotate-180 text-emerald-500' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+
+                      {showOTSection && (
+                        <div className="space-y-2 pt-1">
+                          {otEligibleClients.length > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 space-y-2">
+                              <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                                {selectedStaff} has {otEligibleClients.length} client{otEligibleClients.length > 1 ? 's' : ''} eligible for OT
+                              </p>
+                              <div className="space-y-1">
+                                {otEligibleClients.map((c, i) => (
+                                  <p key={i} className="text-xs text-amber-600 font-medium">
+                                    {c.clientName}: {c.timeIn} → {c.timeOut}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="relative group">
+                            <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-base sm:text-xl font-bold text-slate-300 group-focus-within:text-emerald-600">₱</span>
+                            <input
+                                type="number"
+                                min={0}
+                                value={attendanceForm.otPay || ''}
+                                onChange={e => setAttendanceForm({...attendanceForm, otPay: Math.max(0, Number(e.target.value))})}
+                                className="w-full p-3.5 sm:p-5 pl-9 sm:pl-12 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-bold text-base sm:text-xl text-emerald-600 outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner tabular-nums"
+                                placeholder="0"
+                                autoFocus
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                        onClick={() => setAttendanceForm(prev => ({ ...prev, isHalfDay: !prev.isHalfDay }))}
+                        className={`w-full px-5 py-4 sm:py-5 rounded-[18px] sm:rounded-[22px] border-2 transition-all active:scale-95 flex items-center justify-between gap-3 shadow-sm ${attendanceForm.isHalfDay ? 'bg-amber-50 border-amber-400 text-amber-700 shadow-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:shadow-md'}`}
+                    >
                         <div className="flex items-center gap-3">
                           <span className="text-xl sm:text-2xl">{attendanceForm.isHalfDay ? '🌗' : '☀️'}</span>
                           <div className="text-left">
@@ -350,8 +413,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                             </svg>
                           )}
                         </div>
-                      </button>
-                    </div>
+                    </button>
 
                     <div className="p-4 sm:p-6 rounded-2xl sm:rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between bg-slate-100 dark:bg-slate-700 shadow-inner">
                       <div className="space-y-0.5 sm:space-y-1">
@@ -531,6 +593,7 @@ export const StaffPerformance: React.FC<StaffPerformanceProps> = ({
                         <button
                             onClick={() => {
                               setSelectedStaff(name);
+                              setShowOTSection(false);
                               setAttendanceForm({
                                 lateDeduction: late,
                                 otPay: ot,

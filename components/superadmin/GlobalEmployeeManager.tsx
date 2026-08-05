@@ -755,7 +755,10 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Global Identity Management</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                <span className="text-emerald-400 font-black">{filteredEmployees.length}</span>
+                {' '}{statusFilter === 'active' ? 'Active' : statusFilter === 'inactive' ? 'Inactive' : 'Total'}
+              </p>
             </div>
           </div>
 
