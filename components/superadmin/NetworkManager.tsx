@@ -200,7 +200,11 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Branch Network</h3>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Global Branch Management</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                <span className="text-emerald-400 font-black">{filteredBranches.length}</span>
+                {filteredBranches.length !== branches.length && <span className="text-slate-300 font-medium"> / {branches.length}</span>}
+                {' '}{statusFilter === 'active' ? 'Active' : statusFilter === 'inactive' ? 'Inactive' : 'Total'} Branches
+              </p>
             </div>
           </div>
 

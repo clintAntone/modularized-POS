@@ -33,6 +33,8 @@ interface StaffCardProps {
   onRequestDisable?: (emp: Employee) => void;
   onRemoveReliever?: (emp: Employee) => void;
   onFaceTimeIn?: () => void;
+  onRegisterFace?: () => void;
+  faceIdEnabled?: boolean;
 }
 
 export const StaffCard: React.FC<StaffCardProps> = ({
@@ -54,6 +56,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onRequestDisable,
   onRemoveReliever,
   onFaceTimeIn,
+  onRegisterFace,
+  faceIdEnabled = false,
 }) => {
   const isOngoing = shiftState === 'ONGOING';
   const isCompleted = shiftState === 'COMPLETED';
@@ -340,7 +344,17 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 {isOngoing ? 'Time Out' : 'Shift Done'}
               </button>
             </div>
-          ) : onFaceTimeIn && !isReliever ? (
+          ) : faceIdEnabled && !isReliever && !emp.faceDescriptors?.length ? (
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onRegisterFace?.(); }}
+              className="h-11 px-5 rounded-2xl text-xs font-medium uppercase tracking-wide transition-all active:scale-90 shadow-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-2"
+            >
+              <ScanFace className="w-4 h-4" strokeWidth={2} />
+              Register Face
+            </button>
+          ) : onFaceTimeIn && (!isReliever || !!emp.faceDescriptors?.length) ? (
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -349,17 +363,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             >
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
-            </button>
-          ) : false ? (
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onEdit?.(emp); }}
-              className="h-11 px-4 rounded-2xl text-xs font-medium uppercase tracking-wide bg-amber-100 text-amber-700 flex items-center gap-2 active:scale-90 transition-all"
-              title="Face not enrolled. Tap to open employee profile and register face."
-            >
-              <ScanFace className="w-4 h-4" strokeWidth={2} />
-              Enroll Face
             </button>
           ) : (
             <button

@@ -1388,6 +1388,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       : undefined
                   }
                   onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+                  onRegisterFace={!isClosedMode && branch.faceIdEnabled !== false ? () => { setEditingEmployee({ ...emp }); setIsModalOpen(true); setOpenFaceEnrollOnEdit(true); } : undefined}
+                  faceIdEnabled={branch.faceIdEnabled !== false}
                 />
               </React.Fragment>
             );
