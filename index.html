@@ -23,6 +23,47 @@
     <link rel="apple-touch-icon" href="/icon.png">
 
     <script>
+        // ── Block Facebook / Messenger in-app browser ────────────────────────────
+        // Messenger's WebView caches aggressively and does not respect cache headers.
+        // Detect it early and replace the page with a hard block before React loads.
+        (function() {
+            var ua = navigator.userAgent || '';
+            var isFBIAB = /FBAN|FBAV|FB_IAB|FBIOS|FBANDROID|MessengerForiOS|MessengerForAndroid/i.test(ua);
+            if (isFBIAB) {
+                var isAndroid = /android/i.test(ua);
+                var url = window.location.href;
+
+                // On Android, hand off to the default browser via intent://
+                // No package specified — Android routes to whatever the user set as default (Chrome, Brave, Firefox, etc.)
+                if (isAndroid) {
+                    var intentUrl = url.replace(/^https?:\/\//, 'intent://').replace(/\/?$/, '#Intent;scheme=https;end');
+                    window.location.replace(intentUrl);
+                }
+
+                // Render a blocking overlay (shown immediately, before any JS bundle loads)
+                document.documentElement.style.cssText = 'background:#0f172a;height:100%;';
+                document.addEventListener('DOMContentLoaded', function() {
+                    var root = document.getElementById('root');
+                    if (!root) return;
+                    root.innerHTML = [
+                        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center;background:#0f172a;font-family:sans-serif;">',
+                        '  <div style="width:64px;height:64px;background:#1e293b;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:24px;border:1px solid #334155;">',
+                        '    <svg width="32" height="32" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>',
+                        '  </div>',
+                        '  <h1 style="color:#f1f5f9;font-size:20px;font-weight:800;letter-spacing:-0.5px;margin:0 0 8px;">Open in Your Browser</h1>',
+                        '  <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 32px;max-width:280px;">This app does not work inside Messenger.<br>Please open it in Chrome or Safari.</p>',
+                        '  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 20px;max-width:300px;text-align:left;">',
+                        '    <p style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;">How to open</p>',
+                        '    <p style="color:#cbd5e1;font-size:13px;margin:0 0 8px;"><strong style="color:#e2e8f0;">Android:</strong> Tap the <strong style="color:#e2e8f0;">⋮ menu</strong> → <em>Open in Chrome</em></p>',
+                        '    <p style="color:#cbd5e1;font-size:13px;margin:0;"><strong style="color:#e2e8f0;">iPhone:</strong> Tap the <strong style="color:#e2e8f0;">Safari icon</strong> at the bottom of the screen</p>',
+                        '  </div>',
+                        '  <p style="color:#475569;font-size:11px;margin-top:24px;">Copy this URL if needed:<br><span style="color:#38bdf8;font-size:12px;">' + location.hostname + '</span></p>',
+                        '</div>'
+                    ].join('');
+                });
+            }
+        })();
+
         // Immediate Favicon Sync from Cache
         (function() {
             const cachedLogo = localStorage.getItem('hilot_system_logo');
