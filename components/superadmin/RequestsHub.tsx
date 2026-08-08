@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useRef, useCallback, useEffect, useDeferredValue, useTransition } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Request, Employee, Branch, Transaction, Attendance, SalesReport } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -102,6 +103,7 @@ const STATUS_STYLE = {
 const fmt = (n: number) => formatPeso(n || 0);
 
 export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
+  const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const isProcessingRef = useRef(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -417,6 +419,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         setTimeout(() => setActionSuccess(null), 1000);
         playSound('warning');
       }
+      // Force a fresh fetch so the real DB status replaces the optimistic immediately
+      await queryClient.invalidateQueries({ queryKey: ['requests'] });
       // useGlobalData's Realtime channel handles targeted refreshes for requests/employees/salesReports
     } catch (err) {
       console.error(err);
