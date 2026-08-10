@@ -2246,7 +2246,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const globalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
                   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
-                  const pureNetRoi = report.grossSales - report.totalStaffPay - report.totalExpenses - report.totalVaultProvision;
+                  const pureNetRoi = report.netRoi;
                   const adjustedRoi = pureNetRoi + totalGlobalAdj;
                   const levy = report.groupLevy as { name: string; percentage: number } | null;
                   const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
