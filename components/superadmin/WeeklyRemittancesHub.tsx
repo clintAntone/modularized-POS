@@ -402,17 +402,32 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
+    const fetchAllAdjustments = async (): Promise<any[]> => {
+      const PAGE = 1000;
+      const all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .select('*')
+          .order(DB_COLUMNS.CREATED_AT, { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
+    };
+
     Promise.all([
-      supabase
-        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
-        .select('*')
-        .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
+      fetchAllAdjustments(),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
         .select('*')
         .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-    ]).then(([adjResult, subResult]) => {
-      if (adjResult.data) setAdjustments(adjResult.data.map(r => ({
+    ]).then(([adjData, subResult]) => {
+      setAdjustments(adjData.map((r: any) => ({
         id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
         description: r.description, amount: Number(r.amount),
         targetOwner: r.target_owner || null,
@@ -2221,7 +2236,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         /* ── Branch detail: flat 2-column grid, period label inside each card ── */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {displayGroups.flatMap((group) => group.reports.map((report: any) => ({ report, group }))).map(({ report, group }) => {
-                  const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
+                  // Use the per-branch label (branchLabel) as the canonical period key for this card.
+                  // group.label is set by whichever branch's report happens to be processed first,
+                  // which is non-deterministic when multiple branches share the same weekStart timestamp
+                  // (possible when cycleStart clipping produces matching weekStart but different weekEnd values).
+                  // report.branchLabel is always computed from getWeekRange for THIS specific branch → stable.
+                  const effLabel = report.branchLabel || group.label;
+                  const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === effLabel);
                   const globalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
                   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
@@ -2232,9 +2253,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const distributableRoi = adjustedRoi - levyCut;
                   const hasAdj = rowAdj.length > 0;
                   const owners: any[] = Array.isArray(report.owners) ? report.owners : [];
-                  const sub = subLookup[`${report.branchId}::${group.label}`];
-                  const rKey = `${report.branchId}::${group.label}`;
-                  const cardId = `branch-card-${report.branchId}-${group.label.replace(/[\s,/]/g, '-')}`;
+                  const sub = subLookup[`${report.branchId}::${effLabel}`];
+                  const rKey = `${report.branchId}::${effLabel}`;
+                  const cardId = `branch-card-${report.branchId}-${effLabel.replace(/[\s,/]/g, '-')}`;
 
                   /* ── Simplified card for portal/read-only users ── */
                   if (isReadOnly) {
@@ -2242,12 +2263,12 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     const statusColor = sub?.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : sub?.status === 'rejected' ? 'bg-rose-100 text-rose-700 border-rose-200' : sub?.status === 'for_verification' ? 'bg-amber-100 text-amber-700 border-amber-200' : adjustedRoi <= 0 ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200';
                     const cardBorder = sub?.status === 'approved' ? 'border-emerald-200' : sub?.status === 'rejected' ? 'border-rose-200' : 'border-slate-100';
                     const totalDeductions = report.totalStaffPay + report.totalExpenses + report.totalVaultProvision;
-                    const noteKey = `${report.branchId}::${group.label}`;
+                    const noteKey = `${report.branchId}::${effLabel}`;
                     const noteText = branchNotes[noteKey] || '';
-                    const periodLabel = report.branchLabel || group.label;
+                    const periodLabel = effLabel;
 
                     return (
-                      <div key={`${report.branchId}-${group.label}`} className={`bg-white rounded-2xl border ${cardBorder} shadow-sm overflow-hidden flex flex-col`}>
+                      <div key={`${report.branchId}-${effLabel}`} className={`bg-white rounded-2xl border ${cardBorder} shadow-sm overflow-hidden flex flex-col`}>
                         {/* Header */}
                         <div className={`flex items-center justify-between px-5 py-4 ${sub?.status === 'approved' ? 'bg-emerald-50' : sub?.status === 'rejected' ? 'bg-rose-50' : 'bg-slate-50'}`}>
                           <div className="min-w-0">
@@ -2302,7 +2323,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   }
 
                   return (
-                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border flex flex-col ${
+                    <div key={`${report.branchId}-${effLabel}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border flex flex-col ${
                       sub?.status === 'approved'  ? 'border-emerald-300' :
                       sub?.status === 'rejected'  ? 'border-rose-300' :
                       'border-slate-100'
@@ -2318,7 +2339,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         <div>
                           <p className="font-black text-slate-900 uppercase tracking-tight text-sm leading-none">
                             {activeBranchId
-                              ? (report.branchLabel || group.label)
+                              ? effLabel
                               : report.branchName.replace('BRANCH - ', '')}
                           </p>
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">
@@ -2361,7 +2382,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 disabled={isReviewing}
                                 onChange={() => {
                                   const hasVaultAdj = rowAdj.some(a => a.description === 'VAULT DEPOSIT');
-                                  setUnmarkConfirm({ submissionId: sub.id, branchName: report.branchName, periodLabel: group.label, hasVaultAdj });
+                                  setUnmarkConfirm({ submissionId: sub.id, branchName: report.branchName, periodLabel: effLabel, hasVaultAdj });
                                 }}
                                 className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
                                 title="Click to unmark remitted"
@@ -2378,7 +2399,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 checked={false}
                                 disabled={isReviewing}
                                 onChange={() => {
-                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName });
+                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName });
                                 }}
                                 className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
                                 title="Mark Remitted"
@@ -2394,8 +2415,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {/* ── For Verification ribbon (legacy status) ── */}
                       {sub?.status === 'for_verification' && !isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5 px-6 py-2 bg-amber-50 border-b border-amber-200">
-                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
-                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => handleReview(sub.id, report.branchId, effLabel, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
+                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
                         </div>
                       )}
 
@@ -2404,7 +2425,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
                         {/* Line items */}
                         {(() => {
-                          const breakdownKey = `${group.label}-${report.branchId}`;
+                          const breakdownKey = `${effLabel}-${report.branchId}`;
                           const isOpen = openGrossBreakdown === breakdownKey;
                           const sorted = [...(report.dailyReports || [])].sort((a, b) => a.reportDate < b.reportDate ? -1 : 1);
                           return (
@@ -2707,7 +2728,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 )}
                                 <div className="grid grid-cols-2 gap-2">
                                   <button onClick={() => { setAdjFormKey(null); setAdjForm({ description: '', amount: '' }); setAdjTransferFrom(''); setAdjTransferTo(''); }} className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide">Cancel</button>
-                                  <button onClick={() => handleTransferAdjustment(report.branchId, group.label)} disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40">{isSavingAdj ? '…' : 'Transfer'}</button>
+                                  <button onClick={() => handleTransferAdjustment(report.branchId, effLabel)} disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40">{isSavingAdj ? '…' : 'Transfer'}</button>
                                 </div>
                               </div>
                             );
@@ -2784,7 +2805,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   Cancel
                                 </button>
                                 <button
-                                  onClick={() => handleAddAdjustment(report.branchId, group.label, adjustedRoi)}
+                                  onClick={() => handleAddAdjustment(report.branchId, effLabel, adjustedRoi)}
                                   disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
                                   className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
                                 >
@@ -2804,15 +2825,15 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           <textarea
                             rows={1}
                             placeholder="Add a note (visible in email report)..."
-                            defaultValue={branchNotes[`${report.branchId}::${group.label}`] || ''}
+                            defaultValue={branchNotes[`${report.branchId}::${effLabel}`] || ''}
                             onBlur={e => {
                               const val = e.target.value;
-                              const existing = branchNotes[`${report.branchId}::${group.label}`] || '';
-                              if (val !== existing) handleSaveNote(report.branchId, group.label, val);
+                              const existing = branchNotes[`${report.branchId}::${effLabel}`] || '';
+                              if (val !== existing) handleSaveNote(report.branchId, effLabel, val);
                             }}
                             className="flex-1 text-xs text-slate-600 placeholder:text-slate-300 bg-transparent border-none outline-none resize-none leading-relaxed"
                           />
-                          {savingNoteKey === `${report.branchId}::${group.label}` && (
+                          {savingNoteKey === `${report.branchId}::${effLabel}` && (
                             <span className="text-xs text-slate-300 shrink-0 mt-2">saving…</span>
                           )}
                         </div>

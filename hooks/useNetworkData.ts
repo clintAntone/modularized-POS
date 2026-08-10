@@ -35,6 +35,7 @@ const mapDbBranch = (db: any): Branch => ({
     })(),
     refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
     vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
+    coopOwned: Boolean(db[DB_COLUMNS.COOP_OWNED]),
 });
 
 const mapDbEmployee = (db: any): Employee => ({
@@ -70,7 +71,7 @@ const BRANCH_COLS = [
     DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
     DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
     DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
-    DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED,
+    DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.COOP_OWNED,
 ].join(',');
 
 // face_descriptors intentionally excluded — large blob not needed for any list view

@@ -196,6 +196,40 @@ async function startServer() {
     }
   });
 
+  // ── Coop Branches API ─────────────────────────────────────────────────────────
+  app.get("/api/coop-branches", async (req, res) => {
+    const apiKey = process.env.EMPLOYEES_API_KEY;
+    const reqKey = req.headers['x-api-key'] as string | undefined;
+
+    if (!apiKey || !reqKey || !safeEqual(apiKey, reqKey)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ error: "Supabase not configured" });
+    }
+
+    try {
+      const response = await axios.get(
+        `${supabaseUrl}/rest/v1/branches?coop_owned=eq.true&is_enabled=eq.true&select=id,name,address,contact_number,manager`,
+        {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Accept': 'application/json',
+          }
+        }
+      );
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Coop branches API error:", error.response?.data || error.message);
+      res.status(500).json({ error: "Failed to fetch coop branches" });
+    }
+  });
+
   // ── AI Proxy — keeps Gemini API key server-side ───────────────────────────────
   app.post("/api/ai", async (req, res) => {
     const geminiKey = process.env.GEMINI_API_KEY;

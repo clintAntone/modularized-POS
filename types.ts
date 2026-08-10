@@ -55,6 +55,7 @@ export interface Branch {
   groupLevy?: { name: string; percentage: number } | null;
   refreshSignal?: number | null;
   vaultEnabled?: boolean;
+  coopOwned?: boolean;
   cutoffHistory?: { cutoff: number; effectiveFrom: string }[];
   /** Ephemeral — only used during save to pass the effective date for a cutoff change */
   cutoffEffectiveDate?: string;

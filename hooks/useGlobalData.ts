@@ -23,7 +23,7 @@ const COLS = {
         DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
         DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
         DB_COLUMNS.CONTACT_NUMBER,
-        DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
+        DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.COOP_OWNED, DB_COLUMNS.CUTOFF_HISTORY,
     ].join(','),
     employees: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.NAME, DB_COLUMNS.FIRST_NAME,
@@ -265,6 +265,7 @@ export const useGlobalData = (auth: AuthState) => {
             })(),
             refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
             vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
+            coopOwned: Boolean(db[DB_COLUMNS.COOP_OWNED]),
             cutoffHistory: (() => {
                 const raw = db[DB_COLUMNS.CUTOFF_HISTORY];
                 if (!raw) return [];
