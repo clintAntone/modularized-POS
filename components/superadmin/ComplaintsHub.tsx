@@ -230,15 +230,15 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   [complaints]);
 
   const filtered = useMemo(() => {
-    let list = filter === 'ALL' ? sorted : sorted.filter(c => c.status === filter);
-    if (debouncedSearch.trim()) {
-      const term = debouncedSearch.trim().toUpperCase();
-      list = list.filter(c =>
+    const term = debouncedSearch.trim().toUpperCase();
+    if (term) {
+      // Search bypasses status filter — show matches across all statuses
+      return sorted.filter(c =>
         c.employeeName?.toUpperCase().includes(term) ||
         c.employeeId?.toUpperCase().includes(term)
       );
     }
-    return list;
+    return filter === 'ALL' ? sorted : sorted.filter(c => c.status === filter);
   }, [sorted, filter, debouncedSearch]);
 
   // Group filtered complaints by employee

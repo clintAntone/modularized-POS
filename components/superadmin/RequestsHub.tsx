@@ -614,7 +614,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search branch, date, type…"
-              className="w-full h-11 pl-9 pr-3 text-xs rounded-2xl bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-700 transition-all"
+              className="w-full h-11 pl-9 pr-3 text-xs rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-slate-400 dark:focus:border-slate-500 focus:ring-2 focus:ring-slate-100 dark:focus:ring-slate-700 transition-all"
             />
             {searchQuery && (
               <button

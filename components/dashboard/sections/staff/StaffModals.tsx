@@ -9,6 +9,7 @@ import { FaceEnrollment } from './FaceEnrollment';
 import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ScanFace, IdCard } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { DB_TABLES } from '../../../../constants/db_schema';
+import { logAudit } from '../../../../lib/audit';
 import { EmployeeIDCardModal } from '../../../superadmin/employee-manager/EmployeeIDCardModal';
 
 interface StaffModalsProps {
@@ -949,6 +950,14 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                       alert(`Failed to save face data: ${error.message}`);
                     } else {
                       props.setEditingEmployee({ ...props.editingEmployee!, faceDescriptors: descriptors });
+                      logAudit({
+                        branchId: props.branchId,
+                        activityType: 'FACE_ID_UPDATED',
+                        entityType: 'employee',
+                        entityId: empId,
+                        description: `Face ID re-enrolled for ${props.editingEmployee!.name}`,
+                        performerName: props.branch?.name || 'Branch Manager',
+                      });
                       playSound('success');
                       setShowFaceEnrollModal(false);
                       props.onRefresh(true);
