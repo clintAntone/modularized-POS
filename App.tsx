@@ -94,18 +94,37 @@ const App: React.FC = () => {
     
     performSync();
 
-    // Periodic re-sync every 15 minutes to account for any drift
-    const interval = setInterval(performSync, 15 * 60 * 1000);
+    // Periodic re-sync every 10 minutes — only while tab is visible
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let lastSyncAt = Date.now();
+    const SYNC_COOLDOWN_MS = 60 * 1000; // at most once per minute on tab focus
 
-    // Re-sync immediately when tab/app returns to foreground
-    // (performance.now() pauses on some mobile browsers when the device sleeps,
-    //  causing the clock to lag until the next 15-min interval fires)
-    const onVisible = () => { if (document.visibilityState === 'visible') performSync(); };
+    const startInterval = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(() => { performSync(); lastSyncAt = Date.now(); }, 10 * 60 * 1000);
+    };
+    const stopInterval = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+
+    // Re-sync when tab returns to foreground — skip if synced recently
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        if (Date.now() - lastSyncAt >= SYNC_COOLDOWN_MS) {
+          performSync();
+          lastSyncAt = Date.now();
+        }
+        startInterval();
+      } else {
+        stopInterval();
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
+    startInterval();
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      stopInterval();
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
