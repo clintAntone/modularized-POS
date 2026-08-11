@@ -96,10 +96,10 @@ export const isTimeSynced = () => isInitialized;
 
 /**
  * Fetches the authoritative server time from /api/time at the exact moment of
- * clock-in, bypassing the pre-synced client clock entirely.
+ * the operation, bypassing the pre-synced client clock entirely.
  * Falls back to getTrueManilaISOString() if the server is unreachable.
  */
-export const getClockInTimestamp = async (): Promise<string> => {
+export const getServerTimestamp = async (): Promise<string> => {
   try {
     const url = import.meta.env.VITE_TIME_API_URL || '/api/time';
     const res = await fetch(url, { cache: 'no-store' });
