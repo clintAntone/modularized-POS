@@ -10,7 +10,7 @@ import { compressImage } from '../../../lib/image';
 import { deleteFileByUrl } from '../../../lib/storage';
 import { getEmployeeAllowance, getEmployeeRole } from '../../../lib/payroll';
 import { useAddEmployee, useUpdateEmployee, useAddAttendance, useUpdateAttendance, useAddAuditLog } from '../../../hooks/useNetworkData';
-import { getTrueDate, getTrueISOString, getTrueManilaISOString } from '../../../lib/time';
+import { getTrueDate, getTrueISOString, getTrueManilaISOString, getClockInTimestamp } from '../../../lib/time';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -700,7 +700,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     if (onSyncStatusChange) onSyncStatusChange(true);
 
     const state = getShiftState(selectedEmpForTime.id);
-    const timestamp = getTrueManilaISOString();
+    const timestamp = await getClockInTimestamp();
 
     try {
       if (state === 'NOT_STARTED' || state === 'COMPLETED') {
@@ -874,7 +874,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
 
     setIsSyncing(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
-    const timestamp = getTrueManilaISOString();
+    const timestamp = await getClockInTimestamp();
 
     try {
       const isManager = (emp.role || '').toUpperCase().includes('MANAGER');

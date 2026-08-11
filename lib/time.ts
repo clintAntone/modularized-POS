@@ -19,73 +19,34 @@ export const getSyncMetadata = () => syncMetadata;
 
 export const syncWithServerTime = async () => {
   const TIMEOUT_MS = 5000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const commit = (serverTime: number, perfTime: number, source: string) => {
+  try {
+    const t0 = performance.now();
+    const response = await fetch('/api/time', {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    const t1 = performance.now();
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!data.timestamp || isNaN(data.timestamp)) throw new Error('Invalid timestamp');
+
+    const serverTime = data.timestamp + (t1 - t0) / 2;
     const deviceTime = Date.now();
     initialServerTime = serverTime;
-    initialPerformanceTime = perfTime;
+    initialPerformanceTime = t1;
     isInitialized = true;
     syncMetadata = {
-      source,
+      source: 'hilotcenter-time-api',
       serverTime,
       deviceTime,
       driftSeconds: Math.round((serverTime - deviceTime) / 10) / 100,
     };
-  };
-
-  // Source 1: timeapi.io — external reference clock
-  const attemptTimeApi = async (): Promise<void> => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const t0 = performance.now();
-      const response = await fetch(
-        'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Manila',
-        { method: 'GET', cache: 'no-store', headers: { 'Cache-Control': 'no-cache' }, signal: controller.signal }
-      );
-      const t1 = performance.now();
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      let val = data.timestamp || data.iso || data.datetime || data.dateTime || data.currentDateTime;
-      if (typeof val === 'string' && /^\d+$/.test(val)) val = parseInt(val, 10);
-      const serverTime = new Date(val).getTime();
-      if (isNaN(serverTime)) throw new Error('Invalid date from timeapi.io');
-      commit(serverTime + (t1 - t0) / 2, t1, 'timeapi.io');
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-
-  // Source 2: Supabase Date header — always reachable if the app is working at all
-  const attemptSupabase = async (): Promise<void> => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) throw new Error('No Supabase URL configured');
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const t0 = performance.now();
-      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-        method: 'HEAD',
-        headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '' },
-        signal: controller.signal,
-      });
-      const t1 = performance.now();
-      const dateHeader = response.headers.get('Date');
-      if (!dateHeader) throw new Error('No Date header in Supabase response');
-      const serverTime = new Date(dateHeader).getTime();
-      if (isNaN(serverTime)) throw new Error('Invalid Date header from Supabase');
-      commit(serverTime + (t1 - t0) / 2, t1, 'Supabase');
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-
-  try {
-    // Race both sources — whichever responds first wins
-    await Promise.any([attemptTimeApi(), attemptSupabase()]);
     return true;
   } catch {
-    // Only fall back to device clock if we've never had a successful sync
+    // Fall back to device clock if server unreachable
     if (!isInitialized) {
       initialServerTime = Date.now();
       initialPerformanceTime = performance.now();
@@ -93,6 +54,8 @@ export const syncWithServerTime = async () => {
       syncMetadata = { source: 'device_clock', serverTime: initialServerTime, deviceTime: initialServerTime, driftSeconds: 0 };
     }
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 };
 
@@ -130,6 +93,29 @@ export const getTrueManilaISOString = (): string => {
 };
 
 export const isTimeSynced = () => isInitialized;
+
+/**
+ * Fetches the authoritative server time from /api/time at the exact moment of
+ * clock-in, bypassing the pre-synced client clock entirely.
+ * Falls back to getTrueManilaISOString() if the server is unreachable.
+ */
+export const getClockInTimestamp = async (): Promise<string> => {
+  try {
+    const url = import.meta.env.VITE_TIME_API_URL || '/api/time';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const ms = data.timestamp;
+    if (!ms || isNaN(ms)) throw new Error('Invalid timestamp');
+    const serverDate = new Date(ms);
+    const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(serverDate);
+    const manilaTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(serverDate);
+    const msStr = String(serverDate.getMilliseconds()).padStart(3, '0');
+    return `${manilaDate}T${manilaTime}.${msStr}+08:00`;
+  } catch {
+    return getTrueManilaISOString();
+  }
+};
 
 /**
  * Converts a Supabase TIMESTAMPTZ string to a Manila date string (YYYY-MM-DD).
