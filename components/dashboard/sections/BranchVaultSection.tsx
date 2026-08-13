@@ -341,6 +341,13 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           await supabase.from(DB_TABLES.BRANCH_VAULTS)
             .update({ [DB_COLUMNS.VAULT_BALANCE]: branchVault.balance + billAmount })
             .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+          // Remove the corresponding withdrawal record so VaultFundHub stays in sync
+          await supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
+            .delete()
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+            .eq(DB_COLUMNS.TYPE, 'WITHDRAWAL')
+            .eq(DB_COLUMNS.NAME, `BILL PAYMENT: ${bill.name || bill.id}`)
+            .eq('period_covered', period);
         }
       } else {
         await supabase.from(DB_TABLES.BILL_PAYMENTS).insert({
@@ -351,12 +358,20 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           [DB_COLUMNS.PAID_AT]: getTrueISOString(),
         });
 
-        // Deduct from vault balance when marking a bill as paid
+        // Deduct from vault balance and record withdrawal in vault_transactions
         if (branchVault && billAmount > 0) {
           const newBalance = Math.max(0, branchVault.balance - billAmount);
           await supabase.from(DB_TABLES.BRANCH_VAULTS)
             .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
             .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+          await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
+            [DB_COLUMNS.BRANCH_ID]: branch.id,
+            [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
+            [DB_COLUMNS.AMOUNT]: billAmount,
+            [DB_COLUMNS.NAME]: `BILL PAYMENT: ${bill.name || bill.id}`,
+            [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+            'period_covered': period,
+          });
         }
       }
       playSound('success');

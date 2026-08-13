@@ -1660,12 +1660,12 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
         {/* View toggle — hidden for portal users */}
         {!activeBranchId && !isReadOnly && (
-          <div className="flex w-full lg:w-fit bg-white/5 p-1 rounded-2xl border border-white/10 mt-3">
+          <div className="flex w-full lg:w-fit bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 mt-3">
             {(['remittances', 'deductions'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => { setMainView(v); playSound('click'); }}
-                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white/15 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white dark:bg-white/15 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/70'}`}
               >
                 {v === 'remittances' ? 'Remittances' : 'Deposits'}
               </button>
@@ -1922,7 +1922,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
               {/* Cutoff */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Cutoff</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Cutoff</p>
                 <div ref={periodDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setPeriodDropdownOpen(o => !o); playSound('click'); }}
@@ -1979,7 +1979,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               </div>
               {/* Branch */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Branch</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Branch</p>
                 <div ref={branchDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setBranchDropdownOpen(o => !o); playSound('click'); }}
@@ -2052,7 +2052,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               </div>
               {/* Pending Remittance */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Status</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Status</p>
                 <div className="flex gap-1.5">
                   <button onClick={() => { setLastWeekOnly(v => !v); setLastWeekSubmittedOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${lastWeekOnly ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lastWeekOnly ? 'bg-white' : 'bg-rose-400'}`} />

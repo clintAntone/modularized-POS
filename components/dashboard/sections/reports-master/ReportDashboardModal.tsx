@@ -31,7 +31,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const [report, setReport] = useState<SalesReport>(reportProp);
   const [constituents, setConstituents] = useState<SalesReport[]>(constituentsProp);
   const [vaultDepositTxs, setVaultDepositTxs] = useState<any[]>([]);
-  const [isFetchingLatest, setIsFetchingLatest] = useState(!reportProp.id.includes('-')); // skip for synthetic aggregate IDs
+  const [isFetchingLatest, setIsFetchingLatest] = useState(false); // background-only — never blocks render
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [drilldownReport, setDrilldownReport] = useState<SalesReport | null>(null);
   const [drilldownConstituents, setDrilldownConstituents] = useState<SalesReport[]>([]);
@@ -49,12 +49,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     };
   }, []);
 
-  // Always fetch the latest report data on open — avoids showing stale cached props
+  // Stale-while-revalidate: show prop data immediately, silently refresh in background.
+  // isFetchingLatest is only used for a subtle indicator — never blocks rendering.
   useEffect(() => {
     const isAggregateSyntheticId = reportProp.id.includes('-') && !reportProp.id.match(/^[0-9a-f-]{36}$/i);
-    if (isAggregateSyntheticId) { setIsFetchingLatest(false); return; }
-    if (!supabase) { setIsFetchingLatest(false); return; }
+    if (isAggregateSyntheticId || !supabase) return;
 
+    let cancelled = false;
     (async () => {
       setIsFetchingLatest(true);
       try {
@@ -64,8 +65,6 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             .select('*')
             .eq(DB_COLUMNS.ID, reportProp.id)
             .single(),
-          // Also fetch vault_transactions deposits for this report date/branch
-          // so total_vault_provision is always accurate even if auto-save was stale
           supabase
             .from(DB_TABLES.VAULT_TRANSACTIONS)
             .select('id, amount, name, timestamp, performed_by')
@@ -74,20 +73,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00+08:00`)
             .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999+08:00`),
         ]);
-        if (error || !data) return;
+        if (cancelled || error || !data) return;
 
-        // Derive vault provision directly from vault_transactions (source of truth)
         const liveVaultProvision = (vaultTxData || []).reduce(
           (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
         );
         const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
-        // Use whichever is larger — protects against stale auto-save
         const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
-
-        // Trust the stored net_roi — it was computed at submission time and already
-        // accounts for any vault deposit even if total_vault_provision was not saved correctly.
-        // Re-deriving net_roi from the provision delta caused double-subtraction when
-        // the vault deposit was already baked into the stored net_roi.
         const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
 
         setVaultDepositTxs(vaultTxData || []);
@@ -109,10 +101,11 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           sortDate: reportProp.sortDate,
           periodEnd: reportProp.periodEnd,
         });
-      } catch { /* silent — fall back to prop data */ } finally {
-        setIsFetchingLatest(false);
+      } catch { /* silent — prop data remains visible */ } finally {
+        if (!cancelled) setIsFetchingLatest(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [reportProp.id]);
 
   const isAggregate = constituents.length > 0;
@@ -793,22 +786,14 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 no-scrollbar pb-32 print:hidden">
 
             {isFetchingLatest && (
-              <div className="space-y-2.5 animate-pulse">
-                <div className="bg-slate-100 rounded-2xl h-24 w-full" />
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-slate-100 rounded-2xl h-20" />
-                  <div className="bg-slate-100 rounded-2xl h-20" />
-                </div>
-                <div className="bg-slate-100 rounded-2xl h-20 w-full" />
-                <div className="flex items-center justify-center pt-4 gap-2">
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:300ms]" />
-                </div>
+              <div className="flex items-center gap-1.5 px-1 -mb-8">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:300ms]" />
               </div>
             )}
 
-            {!isFetchingLatest && (() => {
+            {(() => {
               const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
               // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
               const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
@@ -837,7 +822,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               );
             })()}
 
-            {!isFetchingLatest && (isAggregate ? (
+            {(isAggregate ? (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between px-4">
                     <h4 className={`${UI_THEME.text.label}`}>Constituent Unit Breakdown</h4>
