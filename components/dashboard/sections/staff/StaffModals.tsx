@@ -65,6 +65,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const [showFaceEnrollModal, setShowFaceEnrollModal] = React.useState(false);
   React.useEffect(() => { if (props.openFaceEnroll) setShowFaceEnrollModal(true); }, [props.openFaceEnroll]);
   const [showIdCard, setShowIdCard] = React.useState(false);
+  const [isSearching, setIsSearching] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
   const [holdProgress, setHoldProgress] = React.useState(0);
@@ -120,8 +121,6 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   if (!props.isTimeModalOpen && !props.isModalOpen && !props.showBranchClosedModal && !props.recoveryEmployee) return null;
 
   const isNewStaff = !props.editingEmployee?.id;
-
-  const [isSearching, setIsSearching] = React.useState(false);
 
   const handleSearch = async () => {
     const raw = searchQuery.toUpperCase().trim();
