@@ -121,7 +121,9 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
   const isNewStaff = !props.editingEmployee?.id;
 
-  const handleSearch = () => {
+  const [isSearching, setIsSearching] = React.useState(false);
+
+  const handleSearch = async () => {
     const raw = searchQuery.toUpperCase().trim();
     // Strip legacy EMP-XX-XX- prefix so old-format IDs still resolve
     const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
@@ -134,27 +136,34 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
       return;
     }
 
-    const stripEmpPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
-
-    const allMatches = (props.allEmployees || []).filter(emp => {
-      if (!emp.isActive) return false;
-
-      const name = (emp.name || '').toUpperCase();
-      const firstName = (emp.firstName || '').toUpperCase();
-      const lastName = (emp.lastName || '').toUpperCase();
-      const fullName = `${firstName} ${lastName}`.trim();
-      const id = (emp.id || '').toUpperCase();
-      // Normalize stored ID the same way so EMP-04-05-YZKA7KYV ↔ YZKA7KYV both match
-      const idNorm = stripEmpPrefix(id);
-
-      return name.includes(term) ||
-             firstName.includes(term) ||
-             lastName.includes(term) ||
-             fullName.includes(term) ||
-             id.includes(term) ||
-             idNorm.includes(term) ||
-             term.includes(idNorm);
-    });
+    // Query DB directly — local employees are scoped to this branch only,
+    // so we can't rely on props.allEmployees for cross-branch reliever lookup.
+    setIsSearching(true);
+    let allMatches: Employee[] = [];
+    try {
+      const { data, error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .select('*')
+        .eq('is_active', true)
+        .or(`name.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%,id.ilike.%${term}%`)
+        .limit(20);
+      if (error) throw error;
+      allMatches = (data || []).map((e: any) => ({
+        id: e.id, branchId: e.branch_id, name: e.name, firstName: e.first_name,
+        middleName: e.middle_name, lastName: e.last_name, username: e.username,
+        hasPinSet: Boolean(e.login_pin), requestReset: Boolean(e.request_reset),
+        role: e.role, allowance: Number(e.allowance || 0), isActive: e.is_active !== false,
+        profile: e.profile, branchAllowances: (() => { try { return typeof e.branch_allowances === 'string' ? JSON.parse(e.branch_allowances) : (e.branch_allowances || {}); } catch { return {}; } })(),
+        details: e.details || null, faceDescriptors: e.face_descriptors || undefined,
+        timestamp: e.timestamp || e.created_at,
+      }));
+    } catch {
+      setSearchError('Search failed — check your connection and try again');
+      playSound('warning');
+      return;
+    } finally {
+      setIsSearching(false);
+    }
 
     if (allMatches.length === 0) {
       setSearchError('No personnel found with that name or ID');
@@ -525,9 +534,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                         />
                         <button
                           onClick={handleSearch}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all active:scale-95 font-black text-xs uppercase tracking-widest"
+                          disabled={isSearching}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all active:scale-95 font-black text-xs uppercase tracking-widest disabled:opacity-60"
                         >
-                          Search
+                          {isSearching ? '...' : 'Search'}
                         </button>
                       </div>
 
