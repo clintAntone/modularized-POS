@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
 import { UserRole, BranchVault } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
@@ -132,8 +132,13 @@ const App: React.FC = () => {
   // Modular Auth Hub First
   const {
     auth, previousBranchId,
-    handleLogin, handleLogout, handleSwitchBranch
+    handleLogin, handleLogout: _handleLogout, handleSwitchBranch
   } = useAuth();
+
+  const handleLogout = useCallback(() => {
+    setPreviewBranchId(null);
+    _handleLogout();
+  }, [_handleLogout]);
 
   // Pass actual auth state to Data Hub
   const {

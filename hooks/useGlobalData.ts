@@ -8,6 +8,7 @@ import { playSound } from '../lib/audio';
 import { getTrueDate } from '../lib/time';
 import { normalizeDateStr } from '../src/utils/reportUtils';
 import { withOfflineCache, putOne, putBatch, getAll, setLastSync, STORES } from '../lib/offlineDb';
+import { mapDbEmployee } from '../lib/employeeMapper';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
@@ -274,54 +275,6 @@ export const useGlobalData = (auth: AuthState) => {
         };
     };
 
-    const mapDbEmployee = (db: any): Employee => {
-        let branchAllowances = {};
-        try {
-            branchAllowances = typeof db[DB_COLUMNS.BRANCH_ALLOWANCES] === 'string' 
-                ? JSON.parse(db[DB_COLUMNS.BRANCH_ALLOWANCES]) 
-                : (db[DB_COLUMNS.BRANCH_ALLOWANCES] || {});
-            if (typeof branchAllowances !== 'object' || branchAllowances === null) branchAllowances = {};
-        } catch (e) {
-            console.warn("branchAllowances is null or invalid for employee", db[DB_COLUMNS.ID], "— defaulting to {}");
-            branchAllowances = {};
-        }
-
-        return {
-            id: db[DB_COLUMNS.ID],
-            branchId: db[DB_COLUMNS.BRANCH_ID],
-            name: db[DB_COLUMNS.NAME],
-            firstName: db[DB_COLUMNS.FIRST_NAME],
-            middleName: db[DB_COLUMNS.MIDDLE_NAME],
-            lastName: db[DB_COLUMNS.LAST_NAME],
-            username: db[DB_COLUMNS.USERNAME],
-            // Credentials are not stored in the global cache — only a presence flag is kept.
-            // The actual hash is fetched directly at login time via a targeted query.
-            hasPinSet: Boolean(db[DB_COLUMNS.LOGIN_PIN]),
-            requestReset: Boolean(db[DB_COLUMNS.REQUEST_RESET]),
-            role: db[DB_COLUMNS.ROLE],
-            allowance: Number(db[DB_COLUMNS.ALLOWANCE] || 0),
-            isActive: db[DB_COLUMNS.IS_ACTIVE] !== false,
-            profile: db[DB_COLUMNS.PROFILE],
-            branchAllowances,
-            details: db[DB_COLUMNS.DETAILS] || null,
-            faceDescriptors: db[DB_COLUMNS.FACE_DESCRIPTORS] || undefined,
-            timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
-            ...(() => {
-                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
-                const dbOnLeave = db[DB_COLUMNS.ON_LEAVE] === true;
-                const endDate: string | null = db[DB_COLUMNS.LEAVE_END_DATE] ?? null;
-                // Auto-return: if leave_end_date is set and has passed, treat as no longer on leave
-                const onLeave = dbOnLeave && (!endDate || endDate >= today);
-                return {
-                    onLeave,
-                    leaveType: db[DB_COLUMNS.LEAVE_TYPE] ?? undefined,
-                    leaveStartDate: db[DB_COLUMNS.LEAVE_START_DATE] ?? undefined,
-                    leaveEndDate: endDate ?? undefined,
-                };
-            })(),
-        };
-    };
-
     // React Query Queries
     const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
         queryKey: ['branches'],
@@ -335,32 +288,68 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 60 * 1000, // 1 min — branches change rarely; avoid refetch on every mount
     });
 
+    // Employees are deferred until after PIN validation (auth.user set).
+    // SuperAdmin fetches all employees (network-wide view).
+    // Branch Manager / Portal uses get_branch_employees RPC — returns only home staff +
+    // relievers (branch_allowances ? branchId) via a GIN-indexed server-side filter.
+    const isScopedRole = auth.user?.role === UserRole.BRANCH_MANAGER || auth.user?.role === UserRole.PORTAL_USER;
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
-        queryKey: ['employees', auth.user?.branchId, auth.user?.employeeId],
-        queryFn: () => withOfflineCache(STORES.EMPLOYEES, async () => {
+        queryKey: ['employees', auth.user?.branchId],
+        queryFn: async () => {
+            // Offline: serve from IndexedDB immediately — no network call
+            if (!navigator.onLine) {
+                return getAll<Employee>(STORES.EMPLOYEES);
+            }
             if (!supabase) return [];
-            // Fetch all employees to ensure we get those authorized via branch_allowances
-            // Filtering is handled client-side in the components
-            const { data, error } = await supabase.from(DB_TABLES.EMPLOYEES).select(COLS.employees).order(DB_COLUMNS.NAME, { ascending: true });
-            if (error) throw error;
-            return data.map(mapDbEmployee);
-        }),
+            try {
+                let data: any[];
+                if (isScopedRole && auth.user?.branchId) {
+                    const { data: rpcData, error } = await supabase
+                        .rpc('get_branch_employees', { p_branch_id: auth.user.branchId });
+                    if (error) throw error;
+                    data = rpcData ?? [];
+                } else {
+                    const { data: allData, error } = await supabase
+                        .from(DB_TABLES.EMPLOYEES)
+                        .select(COLS.employees)
+                        .order(DB_COLUMNS.NAME, { ascending: true });
+                    if (error) throw error;
+                    data = allData ?? [];
+                }
+                const mapped = data.map(mapDbEmployee);
+                putBatch(STORES.EMPLOYEES, data).catch(() => {});
+                return mapped;
+            } catch (err) {
+                // On network failure, serve IndexedDB cache so the app stays usable.
+                // React Query retries in the background via realtime + window-focus triggers.
+                // Only hard-fail if there's truly no cached data (first-time user, no connectivity).
+                const cached = await getAll<Employee>(STORES.EMPLOYEES);
+                if (cached.length > 0) {
+                    console.warn('[employees] Fetch failed, serving from cache:', err);
+                    return cached.map(mapDbEmployee);
+                }
+                throw err;
+            }
+        },
+        // Only run after PIN validated (auth.user set). Branches load first independently.
         enabled: !!supabase && !!auth.user,
-        staleTime: 5 * 60 * 1000
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: true,
     });
 
-    // Reset deferred flag on logout; enable it once the lightweight core queries settle.
-    // Guard: require branches.length > 0 to avoid a race where both loading flags are
-    // briefly false before React Query actually starts the fetch (enabled just became true).
+    // Reset deferred flag on logout; enable it once branches finish loading.
+    // Employees no longer block deferred queries — they run in parallel after PIN validation.
+    // Guard: require branches.length > 0 to avoid a race where loading flags are briefly
+    // false before React Query actually starts the fetch (enabled just became true).
     useEffect(() => {
         if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
-        if (!branchesLoading && !employeesLoading && branches.length > 0) {
+        if (!branchesLoading && branches.length > 0) {
             setDeferredEnabled(true);
             // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
             const t = setTimeout(() => setHistoryEnabled(true), 1500);
             return () => clearTimeout(t);
         }
-    }, [auth.user, branchesLoading, employeesLoading, branches.length]);
+    }, [auth.user, branchesLoading, branches.length]);
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
@@ -926,7 +915,9 @@ export const useGlobalData = (auth: AuthState) => {
     // Only block the splash on branches — Login only needs branches to render.
     // Employees load in the background; the dashboard handles its own loading state.
     const loading = branchesLoading;
-    const error = branchesError || employeesError || transactionsError || expensesError || salesReportsError || auditLogsError || attendanceError || requestsError;
+    // employeesError is intentionally excluded — a failed employee fetch falls back to IndexedDB
+    // cache and should not block login or show COMMUNICATION FAILURE. It self-heals on reconnect.
+    const error = branchesError || transactionsError || expensesError || salesReportsError || auditLogsError || attendanceError || requestsError;
 
     // Sentinel removed — employee time-out is manual only via STAFF tab
 
