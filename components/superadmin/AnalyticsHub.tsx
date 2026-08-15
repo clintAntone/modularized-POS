@@ -31,6 +31,16 @@ const MONTHS = [
   'July','August','September','October','November','December'
 ];
 
+// ─── Remittance helpers ───────────────────────────────────
+// Period label format: "Jul 6 — Jul 12" (em dash, no year)
+function parsePeriodEnd(label: string, refYear: number): Date | null {
+  const parts = label.split(/\s*[—–-]\s*/);
+  if (parts.length < 2) return null;
+  const endStr = parts[parts.length - 1].trim();
+  const d = new Date(`${endStr} ${refYear}`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // ─── Week helpers ─────────────────────────────────────────
 function getWeekBounds(anchor: Date) {
   const d = new Date(anchor);
@@ -128,8 +138,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   // Top 10
   const [top10Month, setTop10Month] = useState(getManilaMonth());
   const [top10Year,  setTop10Year]  = useState(getManilaYear());
-  const [showOtherBranches, setShowOtherBranches] = useState(false);
   const [top10PickerOpen, setTop10PickerOpen] = useState(false);
+  const [rankingTab, setRankingTab] = useState<'standard' | 'early_remit'>('standard');
   const top10PickerRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!top10PickerOpen) return;
@@ -289,6 +299,74 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     gcTime: 10 * 60 * 1000,
   });
 
+  // Approved remittance submissions for the year — used as the denominator (total periods per branch)
+  const { data: remittanceSubmissions = [] } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string }[]>({
+    queryKey: ['analytics_remittances', top10Year],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+        .select('branch_id, period_label, submitted_at')
+        .eq('status', 'approved')
+        .gte('submitted_at', `${top10Year}-01-01`)
+        .lte('submitted_at', `${top10Year + 1}-01-15`); // buffer for late approvals of Dec periods
+      return (data || []).map((r: any) => ({
+        branchId: r.branch_id,
+        periodLabel: r.period_label,
+        submittedAt: r.submitted_at,
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  // "EARLY REMIT" adjustments — presence of this adjustment on a period = branch remitted early
+  const { data: earlyRemitAdjs = [] } = useQuery<{ branchId: string; periodLabel: string }[]>({
+    queryKey: ['analytics_early_remit_adjs', top10Year],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+        .select('branch_id, period_label')
+        .ilike('description', '%EARLY REMIT%')
+        .gte('created_at', `${top10Year}-01-01`)
+        .lte('created_at', `${top10Year + 1}-01-15`);
+      return (data || []).map((r: any) => ({
+        branchId: r.branch_id,
+        periodLabel: r.period_label,
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  // Per-branch early remittance rate for the selected month
+  // earlyRate = periods with an "EARLY REMIT" adjustment ÷ total approved periods ending in month
+  const earlyRemitRateMap = useMemo(() => {
+    // Set of "branchId::periodLabel" that have an EARLY REMIT adjustment
+    const earlyPeriodKeys = new Set(earlyRemitAdjs.map(a => `${a.branchId}::${a.periodLabel}`));
+
+    const map = new Map<string, { early: number; total: number }>();
+    remittanceSubmissions.forEach(sub => {
+      // Use the year of submitted_at to resolve the period end date
+      const refYear = new Date(sub.submittedAt).getFullYear();
+      const periodEnd = parsePeriodEnd(sub.periodLabel, refYear);
+      // If parsing fails, try with top10Year as fallback
+      const resolvedEnd = periodEnd ?? parsePeriodEnd(sub.periodLabel, top10Year);
+      if (!resolvedEnd) return;
+      if (resolvedEnd.getFullYear() !== top10Year || resolvedEnd.getMonth() !== top10Month) return;
+      const isEarly = earlyPeriodKeys.has(`${sub.branchId}::${sub.periodLabel}`);
+      const cur = map.get(sub.branchId) || { early: 0, total: 0 };
+      map.set(sub.branchId, { early: cur.early + (isEarly ? 1 : 0), total: cur.total + 1 });
+    });
+    return map;
+  }, [earlyRemitAdjs, remittanceSubmissions, top10Year, top10Month]);
+
+  // Derived: simple set for badge display on the standard tab
+  const earlyRemitSet = useMemo(() => {
+    const s = new Set<string>();
+    earlyRemitRateMap.forEach((v, k) => { if (v.early > 0) s.add(k); });
+    return s;
+  }, [earlyRemitRateMap]);
+
   const top10Data = useMemo(() => {
     // Performance ROI = grossSales - totalStaffPay - totalExpenses
     // Excludes vault provision and bills so branches with different vault targets
@@ -304,30 +382,53 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       { keyword: /TANDANG\s*SORA/i, label: 'TANDANG SORA' },
     ];
 
-    const merged: { shortName: string; gross: number; roi: number; score: number; isMerged?: boolean }[] = [];
-    const mergeAccum: Record<string, { gross: number; roi: number; label: string }> = {};
+    const merged: { shortName: string; gross: number; roi: number; score: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
+    const mergeAccum: Record<string, { gross: number; roi: number; label: string; branchIds: string[] }> = {};
 
     activeBranches
       .filter(b => map[b.id]?.gross > 0)
       .forEach(b => {
         const group = MERGE_GROUPS.find(g => g.keyword.test(b.name));
         if (group) {
-          if (!mergeAccum[group.label]) mergeAccum[group.label] = { gross: 0, roi: 0, label: group.label };
+          if (!mergeAccum[group.label]) mergeAccum[group.label] = { gross: 0, roi: 0, label: group.label, branchIds: [] };
           mergeAccum[group.label].gross += map[b.id].gross;
           mergeAccum[group.label].roi   += map[b.id].perfRoi;
+          mergeAccum[group.label].branchIds.push(b.id);
         } else {
           const shortName = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
           const { gross, perfRoi } = map[b.id];
-          merged.push({ shortName, gross, roi: perfRoi, score: (gross + perfRoi) / 2 });
+          merged.push({ shortName, gross, roi: perfRoi, score: (gross + perfRoi) / 2, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
         }
       });
 
     Object.values(mergeAccum).forEach(g => {
-      merged.push({ shortName: g.label, gross: g.gross, roi: g.roi, score: (g.gross + g.roi) / 2, isMerged: true });
+      const isEarlyRemit = g.branchIds.some(id => earlyRemitSet.has(id));
+      merged.push({ shortName: g.label, gross: g.gross, roi: g.roi, score: (g.gross + g.roi) / 2, isMerged: true, isEarlyRemit, branchIds: g.branchIds });
     });
 
-    return merged.sort((a, b) => b.score - a.score);
-  }, [activeBranches, top10Reports]);
+    // Primary sort: score descending. Tiebreaker: early remittance ranks higher.
+    return merged.sort((a, b) => b.score - a.score || (b.isEarlyRemit ? 1 : 0) - (a.isEarlyRemit ? 1 : 0));
+  }, [activeBranches, top10Reports, earlyRemitSet]);
+
+  // Option A: score × (1 + earlyRate × 0.10) — max 10% bonus for perfect remittance
+  const EARLY_REMIT_BONUS_CAP = 0.10;
+  const top10DataEarlyRemit = useMemo(() => {
+    const getRate = (branchIds: string[]) => {
+      let early = 0, total = 0;
+      branchIds.forEach(id => {
+        const r = earlyRemitRateMap.get(id);
+        if (r) { early += r.early; total += r.total; }
+      });
+      return total > 0 ? early / total : 0;
+    };
+    return top10Data
+      .map(d => {
+        const earlyRate = getRate(d.branchIds);
+        const adjustedScore = d.score * (1 + earlyRate * EARLY_REMIT_BONUS_CAP);
+        return { ...d, earlyRate, adjustedScore };
+      })
+      .sort((a, b) => b.adjustedScore - a.adjustedScore);
+  }, [top10Data, earlyRemitRateMap]);
 
   const availableYears = useMemo(() => {
     const s = new Set<number>([getManilaYear()]);
@@ -427,23 +528,32 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   return (
     <div className="space-y-4 md:space-y-5 pb-32">
 
-      {/* ── Header + Mode Tabs ─────────────────────────────── */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <div>
-          <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 10 Performers</h2>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
+      {/* ── Header + Mode Tabs (folder style) ──────────────── */}
+      <div>
+        <div className="flex flex-col sm:flex-row justify-between items-end gap-3 bg-white pl-4 md:pl-6 pr-4 md:pr-6 pt-4 md:pt-6 pb-0 rounded-t-2xl border border-b-0 border-slate-100 shadow-sm">
+          <div className="pb-3 md:pb-4">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 10 Performers</h2>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
+          </div>
+          {/* Folder tabs */}
+          <div className="flex items-end gap-1 -mb-px">
+            {([['chart','Ranking'],['heatmap','Heatmap'],['vs','VS Mode']] as [HubMode, string][]).map(([m, lbl]) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); playSound('click'); }}
+                className={`px-4 md:px-6 py-2.5 rounded-t-xl text-xs font-black uppercase tracking-wide transition-all border border-b-0 ${
+                  mode === m
+                    ? 'bg-slate-50 border-slate-200 text-slate-900 shadow-sm relative z-10'
+                    : 'bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-200'
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="bg-slate-100 p-1 rounded-xl flex gap-0.5">
-          {([['chart','Ranking'],['heatmap','Heatmap'],['vs','VS Mode']] as [HubMode, string][]).map(([m, lbl]) => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); playSound('click'); }}
-              className={`flex-1 py-2.5 px-3 md:px-5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mode === m ? 'bg-white text-slate-900 shadow-md border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+        {/* Divider connecting tabs to content area */}
+        <div className="h-px bg-slate-100" />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -452,18 +562,22 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       {mode === 'chart' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
 
-          {/* ── Monthly Top 10 ─────────────────────────────── */}
+          {/* ── Monthly Top 20 ─────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🏆</span>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Monthly Top 10</h3>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Monthly Top 20</h3>
                 </div>
-                <div className="flex items-center gap-2 mt-1.5 ml-7">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score = (Gross + Perf. ROI) ÷ 2</span>
-                  <span className="text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">excludes vault & bills</span>
+                <div className="mt-1.5 ml-7 space-y-0.5">
+                  {rankingTab === 'standard' ? (
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score = (Gross + Perf. ROI) ÷ 2</span>
+                  ) : (
+                    <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Score = ((Gross + Perf. ROI) ÷ 2) × (1 + EarlyRate × 10%)</span>
+                  )}
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">excludes vault & bills</p>
                 </div>
               </div>
               {/* Custom month/year picker */}
@@ -523,97 +637,166 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
               </div>
             </div>
 
-            {top10Data.length === 0 ? (
-              <div className="py-14 text-center">
-                <div className="text-4xl mb-3">🏅</div>
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No data for this month</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {top10Data.map((d, i) => {
-                  const rank     = i + 1;
-                  const isTop10  = rank <= 10;
-                  const isTop3   = rank <= 3;
-                  const medal    = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                  const topScore = top10Data[0].score;
-                  const pct      = topScore > 0 ? (d.score / topScore) * 100 : 0;
-                  const rowBg    = rank === 1 ? 'bg-amber-50 border-amber-200'
-                                 : rank === 2 ? 'bg-indigo-50 border-indigo-200'
-                                 : rank === 3 ? 'bg-orange-50 border-orange-200'
-                                 : rank === 4 ? 'bg-emerald-50 border-emerald-200'
-                                 : rank === 5 ? 'bg-sky-50 border-sky-200'
-                                 : rank === 6 ? 'bg-violet-50 border-violet-200'
-                                 : rank === 7 ? 'bg-rose-50 border-rose-200'
-                                 : isTop10    ? 'bg-teal-50 border-teal-200'
-                                 :              'bg-white border-slate-50 opacity-50';
-                  const barColor = rank === 1 ? 'bg-amber-400'
-                                 : rank === 2 ? 'bg-indigo-400'
-                                 : rank === 3 ? 'bg-orange-400'
-                                 : rank === 4 ? 'bg-emerald-400'
-                                 : rank === 5 ? 'bg-sky-400'
-                                 : rank === 6 ? 'bg-violet-400'
-                                 : rank === 7 ? 'bg-rose-400'
-                                 : isTop10    ? 'bg-teal-400'
-                                 :              'bg-slate-100';
-                  return (
-                    <React.Fragment key={d.shortName}>
-                      {/* Divider after rank 10 — always rendered so toggle is visible */}
-                      {rank === 11 && (
-                        <button
-                          onClick={() => setShowOtherBranches(v => !v)}
-                          className="w-full flex items-center gap-3 py-1 group"
-                        >
-                          <div className="flex-1 h-px bg-slate-100" />
-                          <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400 uppercase tracking-wide shrink-0 group-hover:text-slate-600 transition-colors">
-                            {showOtherBranches ? 'Hide' : `Show ${top10Data.length - 10} More`}
-                            <svg className={`w-3 h-3 transition-transform ${showOtherBranches ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                          </span>
-                          <div className="flex-1 h-px bg-slate-100" />
-                        </button>
-                      )}
-                      {(rank <= 10 || showOtherBranches) && <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl border ${rowBg}`}>
-                        {/* Rank */}
-                        <div className="w-8 shrink-0 flex items-center justify-center">
-                          {medal
-                            ? <span className="text-xl leading-none">{medal}</span>
-                            : <span className={`text-sm font-black ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>#{rank}</span>}
-                        </div>
+            {/* Ranking tabs */}
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 w-fit">
+              <button
+                onClick={() => { setRankingTab('standard'); playSound('click'); }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'standard' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Standard
+              </button>
+              <button
+                onClick={() => { setRankingTab('early_remit'); playSound('click'); }}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'early_remit' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <span>⚡</span> With Early Remit
+              </button>
+            </div>
 
-                        {/* Branch + breakdown */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <p className={`font-black uppercase truncate ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
-                                {d.shortName}
-                              </p>
-                              {d.isMerged && (
-                                <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 leading-none">
-                                  Combined
-                                </span>
-                              )}
-                            </div>
-                            <p className={`shrink-0 font-black tabular-nums ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
-                              ₱{Math.round(d.score).toLocaleString()}
-                            </p>
-                          </div> {/* end justify-between row */}
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
-                            <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
+            {(() => {
+              const listData = rankingTab === 'standard' ? top10Data : top10DataEarlyRemit;
+              const displayList = listData.slice(0, 20);
+              if (displayList.length === 0) return (
+                <div className="py-14 text-center">
+                  <div className="text-4xl mb-3">🏅</div>
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No data for this month</p>
+                </div>
+              );
+              const topScore = rankingTab === 'standard'
+                ? (displayList[0]?.score ?? 1)
+                : (displayList[0] as any)?.adjustedScore ?? 1;
+              return (
+                <div className="space-y-1.5">
+                  {displayList.map((d, i) => {
+                    const rank    = i + 1;
+                    const isTop10 = rank <= 10;
+                    const isTop3  = rank <= 3;
+                    const medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
+                    const displayScore = rankingTab === 'standard' ? d.score : (d as any).adjustedScore ?? d.score;
+                    const pct = topScore > 0 ? (displayScore / topScore) * 100 : 0;
+                    const rowBg = !isTop10 ? 'bg-white border-slate-100'
+                                : rank === 1 ? 'bg-amber-50 border-amber-200'
+                                : rank === 2 ? 'bg-indigo-50 border-indigo-200'
+                                : rank === 3 ? 'bg-orange-50 border-orange-200'
+                                : rank === 4 ? 'bg-emerald-50 border-emerald-200'
+                                : rank === 5 ? 'bg-sky-50 border-sky-200'
+                                : rank === 6 ? 'bg-violet-50 border-violet-200'
+                                : rank === 7 ? 'bg-rose-50 border-rose-200'
+                                :              'bg-teal-50 border-teal-200';
+                    const barColor = !isTop10 ? 'bg-slate-200'
+                                   : rank === 1 ? 'bg-amber-400'
+                                   : rank === 2 ? 'bg-indigo-400'
+                                   : rank === 3 ? 'bg-orange-400'
+                                   : rank === 4 ? 'bg-emerald-400'
+                                   : rank === 5 ? 'bg-sky-400'
+                                   : rank === 6 ? 'bg-violet-400'
+                                   : rank === 7 ? 'bg-rose-400'
+                                   :              'bg-teal-400';
+                    // Ranks 11-20: show a faint separator before rank 11, then dim everything
+                    const earlyRate = rankingTab === 'early_remit' ? ((d as any).earlyRate ?? 0) : null;
+                    return (
+                      <React.Fragment key={d.shortName}>
+                        {rank === 11 && (
+                          <div className="flex items-center gap-3 py-0.5">
+                            <div className="flex-1 h-px bg-slate-100" />
+                            <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest shrink-0">Ranks 11–20</span>
+                            <div className="flex-1 h-px bg-slate-100" />
                           </div>
-                          <div className="flex gap-3">
-                            <span className={`text-xs font-bold ${isTop10 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
-                            <span className="text-xs text-slate-400">+</span>
-                            <span className={`text-xs font-bold ${isTop10 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
-                            <span className="text-xs text-slate-400">÷ 2</span>
+                        )}
+                        <div className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all ${rowBg} ${!isTop10 ? 'opacity-40' : ''}`}>
+                          {/* Rank */}
+                          <div className="w-8 shrink-0 flex items-center justify-center">
+                            {medal
+                              ? <span className="text-xl leading-none">{medal}</span>
+                              : <span className={`text-xs font-black ${isTop10 ? 'text-slate-400' : 'text-slate-300'}`}>#{rank}</span>}
+                          </div>
+
+                          {/* Branch + breakdown */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className={`font-black uppercase truncate ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
+                                  {d.shortName}
+                                </p>
+                                {d.isMerged && (
+                                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 leading-none">
+                                    Combined
+                                  </span>
+                                )}
+                                {rankingTab === 'standard' && d.isEarlyRemit && isTop10 && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
+                                    ⚡ Early
+                                  </span>
+                                )}
+                                {rankingTab === 'early_remit' && earlyRate !== null && earlyRate > 0 && isTop10 && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
+                                    ⚡ {Math.round(earlyRate * 100)}%
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`font-black tabular-nums shrink-0 ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
+                                ₱{Math.round(displayScore).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-1">
+                              <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            {rankingTab === 'standard' ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-bold ${isTop10 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-300">+</span>
+                                <span className={`text-[10px] font-bold ${isTop10 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-300">÷ 2</span>
+                              </div>
+                            ) : (() => {
+                              const rate = earlyRate ?? 0;
+                              const multiplier = 1 + rate * EARLY_REMIT_BONUS_CAP;
+                              const bonusPct = Math.round(rate * EARLY_REMIT_BONUS_CAP * 100 * 10) / 10;
+                              return (
+                                <div className="space-y-0.5">
+                                  {/* Step 1: base score */}
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>
+                                      (₱{d.gross.toLocaleString()} + ₱{d.roi.toLocaleString()}) ÷ 2
+                                    </span>
+                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>=</span>
+                                    <span className={`text-[10px] font-black tabular-nums ${isTop10 ? 'text-slate-500' : 'text-slate-200'}`}>
+                                      ₱{Math.round(d.score).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {/* Step 2: × multiplier */}
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>
+                                      ₱{Math.round(d.score).toLocaleString()} × {multiplier.toFixed(3)}
+                                    </span>
+                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>=</span>
+                                    <span className={`text-[10px] font-black tabular-nums ${isTop10 ? 'text-teal-600' : 'text-slate-200'}`}>
+                                      ₱{Math.round(displayScore).toLocaleString()}
+                                    </span>
+                                    {rate > 0 ? (
+                                      <span className={`text-[10px] font-bold ${isTop10 ? 'text-teal-500' : 'text-slate-200'}`}>
+                                        (+{bonusPct}% · {Math.round(rate * 100)}% early)
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-semibold text-slate-300">(no early remittance)</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
-                      </div>}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            )}
+                      </React.Fragment>
+                    );
+                  })}
+                  {listData.length > 20 && (
+                    <p className="text-center text-[10px] font-semibold text-slate-300 uppercase tracking-widest pt-1">
+                      +{listData.length - 20} more branches not shown
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
         </div>

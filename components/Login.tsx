@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { UserRole, Branch, Employee, PortalPermissions } from '../types';
 import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { hashPin, generateSalt, verifyPin } from '../lib/crypto';
 import { saveAuthCredential, getAuthCredential, MAX_OFFLINE_CREDENTIAL_AGE_MS } from '../lib/offlineDb';
+import { mapDbEmployee } from '../lib/employeeMapper';
 
 // Modular Imports
 import { NodeSelector } from './login/NodeSelector';
@@ -29,6 +31,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 30000;
 
 const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, version, appName, connectionError, systemLatest = true, apkUrl }) => {
+    const queryClient = useQueryClient();
     const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
@@ -124,6 +127,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 ? { name: 'CENTRAL MAINFRAME', id: 'portal', isPinChanged: true } as any
                 : selectedBranchFull
         , [selectedBranchId, selectedBranchFull]);
+
+    // Pre-fetch employees for the selected branch as soon as it's picked.
+    // By the time the user types their PIN, data is ready — login becomes a local lookup,
+    // eliminating the cold-connection timeout that caused "Identity Not Found" on first attempt.
+    // Also primes the React Query cache so useGlobalData skips its own network call after login,
+    // eliminating the "PERSONNEL DATA: WAITING..." flash on the identity verification screen.
+    const [branchEmployeeCache, setBranchEmployeeCache] = useState<any[]>([]);
+    useEffect(() => {
+        setBranchEmployeeCache([]);
+        if (!selectedBranchId || selectedBranchId === 'portal') return;
+        supabase
+            .rpc('get_branch_employees', { p_branch_id: selectedBranchId })
+            .then(({ data }) => {
+                if (!data) return;
+                // branchEmployeeCache used for the login lookup (finds employee by username/name)
+                setBranchEmployeeCache(data);
+                // Prime useGlobalData's React Query cache — after login, employees are
+                // immediately available (home staff + relievers) without a second network call.
+                queryClient.setQueryData(['employees', selectedBranchId], data.map(mapDbEmployee));
+            });
+    }, [selectedBranchId, queryClient]);
 
     const [tempManagerIdentity, setTempManagerIdentity] = useState<Employee | null>(null);
 
@@ -393,8 +417,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                         }
                     } else {
                         let empData = null;
+
+                        // 1. Check pre-fetched cache first (populated when branch was selected)
+                        if (branchEmployeeCache.length > 0) {
+                            empData = isSetupAccountMode
+                                ? branchEmployeeCache.find(e =>
+                                    (e.name || '').toUpperCase().trim() === username.trim().toUpperCase() &&
+                                    e.branch_id === branch.id
+                                  ) ?? null
+                                : branchEmployeeCache.find(e =>
+                                    (e.username || '').toLowerCase() === finalUsername
+                                  ) ?? null;
+                        }
+
+                        // 2. Cache miss or pre-fetch not ready — fall back to direct query with retry
+                        if (!empData) {
+                        for (let attempt = 0; attempt < 2 && !empData; attempt++) {
                         const controller = new AbortController();
-                        const abortTimer = setTimeout(() => controller.abort(), 8000);
+                        const abortTimer = setTimeout(() => controller.abort(), 12000);
                         try {
                             const query = supabase
                                 .from(DB_TABLES.EMPLOYEES)
@@ -410,8 +450,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
                             const { data, error: empError } = await query.maybeSingle();
                             if (!empError) empData = data;
+                        } catch {
+                            // Absorb abort/network errors — retry on next iteration
                         } finally {
                             clearTimeout(abortTimer);
+                        }
+                        } // end retry loop
                         }
 
                         if (!empData) {

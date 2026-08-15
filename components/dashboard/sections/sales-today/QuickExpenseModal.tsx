@@ -471,7 +471,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   )}
 
                   {/* Large expense warning — vault can't fully cover this expense */}
-                  {expenseAmount > 0 && expenseAmount > vaultBal && vaultBal > 0 && (
+                  {expenseAmount > 0 && roiShortfall > 0 && expenseAmount > vaultBal && vaultBal > 0 && (
                     <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-100/60 border-b border-rose-200">
                         <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
