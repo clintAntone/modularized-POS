@@ -1934,17 +1934,17 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-700 pb-3">
                         <button
                           onClick={() => { setTxHistoryTab('deposits'); setVisibleDeposits(20); }}
-                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                         >
                           <span className="hidden sm:inline">↓ </span>Deposits
-                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{branchHistory.length}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-200' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-200'}`}>{branchHistory.length}</span>
                         </button>
                         <button
                           onClick={() => { setTxHistoryTab('withdrawals'); setVisibleWithdrawals(20); }}
-                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300' : 'text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                         >
                           <span className="hidden sm:inline">↑ </span>Withdrawals
-                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 text-rose-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{branchWithdrawals.length}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 dark:bg-rose-800 text-rose-700 dark:text-rose-200' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-200'}`}>{branchWithdrawals.length}</span>
                         </button>
                         <div className="ml-auto flex items-center gap-1.5">
                           {!isReadOnly && enabled && !isDepositing && !isEditing && (
