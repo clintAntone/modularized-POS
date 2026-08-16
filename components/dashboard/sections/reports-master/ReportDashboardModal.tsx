@@ -172,6 +172,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     return Number(r.totalVaultProvision || 0);
   };
 
+  // Vault-covered expense amount for a constituent — the portion of expenses paid from vault fund.
+  const getConstituentVaultCoveredExp = (r: SalesReport): number => {
+    if (getConstituentIsLegacy(r)) return 0;
+    const expData: any[] = r.expenseData || [];
+    const fromRecords = expData
+      .filter(e => e.category === 'VAULT_WITHDRAWAL')
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    if (fromRecords > 0) return fromRecords;
+    return expData
+      .filter(e => e.category === 'OPERATIONAL')
+      .reduce((s, e) => s + Number(e.from_vault || 0), 0);
+  };
+
   const rentAndBillsEntries = useMemo(() => [
     ...(report.vaultData || []).filter((e: any) => e.category === 'PROVISION'),
     ...(report.expenseData || []).filter((e: any) => e.category === 'PROVISION'),
@@ -812,7 +825,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     vaultWithdrawal={vaultWithdrawalTotal}
                     vaultCoveredExp={vaultCoveredExpTotal}
                     finalStaffPayTotal={displayStaffPay}
-                    net={Number(report.netRoi || 0)}
+                    net={isAggregate
+                      ? constituents.reduce((sum, c) => sum + c.netRoi, 0)
+                      : Number(report.netRoi || 0)}
                     totalAllowances={financialBreakdown.allowances}
                     otAdditions={financialBreakdown.ot}
                     lateDeductions={financialBreakdown.late}
@@ -887,6 +902,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             const weekCashOut = group.constituents.reduce((sum, r) => sum + getConstituentROIExp(r), 0);
                             const weekVault = group.constituents.reduce((sum, r) => sum + getConstituentProvision(r), 0);
                             const weekVaultDeposit = group.constituents.reduce((sum, r) => sum + getConstituentVaultDeposit(r), 0);
+                            const weekVaultCovered = group.constituents.reduce((sum, r) => sum + getConstituentVaultCoveredExp(r), 0);
                             const weekRoi = group.constituents.reduce((sum, r) => sum + r.netRoi, 0);
                             const clippedStart = new Date(Math.max(group.weekStart.getTime(), parseDate(report.sortDate!).getTime()));
                             const clippedEnd = new Date(Math.min(group.weekEnd.getTime(), parseDate(report.periodEnd!).getTime()));
@@ -904,6 +920,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                     exp={weekCashOut}
                                     vault={weekVault}
                                     vaultDeposit={weekVaultDeposit}
+                                    vaultCoveredExp={weekVaultCovered}
                                     isLegacy={weekIsLegacy}
                                     net={weekRoi}
                                     onClick={() => {
@@ -1001,16 +1018,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   gross={sub.grossSales}
                                   pay={sub.totalStaffPay}
                                   exp={isConsolidatedDay
-                                    ? group.constituents.reduce((s, c) => s + getConstituentROIExp(c), 0)
-                                    : getConstituentROIExp(sub)}
+                                    ? group.constituents.reduce((s, c) => s + getConstituentROIExp(c) + getConstituentVaultCoveredExp(c), 0)
+                                    : getConstituentROIExp(sub) + getConstituentVaultCoveredExp(sub)}
                                   vault={isConsolidatedDay
                                     ? group.constituents.reduce((s, c) => s + getConstituentProvision(c), 0)
                                     : getConstituentProvision(sub)}
                                   vaultDeposit={isConsolidatedDay
                                     ? group.constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0)
                                     : getConstituentVaultDeposit(sub)}
+                                  vaultCoveredExp={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + getConstituentVaultCoveredExp(c), 0)
+                                    : getConstituentVaultCoveredExp(sub)}
                                   isLegacy={subIsLegacy}
-                                  net={sub.netRoi}
+                                  net={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + c.netRoi, 0)
+                                    : sub.netRoi}
                                   onClick={() => {
                                     playSound('click');
                                     setDrilldownReport(sub);
@@ -1522,13 +1544,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-end items-center shrink-0 no-print">
             <div className="text-right">
               <p className="text-xs font-bold uppercase animate-pulse tracking-wide text-emerald-500/60 mb-1">Finalized Ledger ROI</p>
-              <p className={`font-medium uppercase tracking-wide text-emerald-400 tabular-nums leading-none ${
-                (report.netRoi || 0).toLocaleString().length > 10 ? 'text-sm sm:text-base' :
-                (report.netRoi || 0).toLocaleString().length > 7 ? 'text-base sm:text-lg' :
-                'text-xl sm:text-2xl'
-              }`}>
-                Total Net Yield: ₱{Number(report.netRoi || 0).toLocaleString()}
-              </p>
+              {(() => {
+                const footerNet = isAggregate
+                  ? constituents.reduce((sum, c) => sum + c.netRoi, 0)
+                  : Number(report.netRoi || 0);
+                const absNet = Math.abs(footerNet);
+                return (
+                  <p className={`font-medium uppercase tracking-wide tabular-nums leading-none ${footerNet < 0 ? 'text-rose-400' : 'text-emerald-400'} ${
+                    absNet.toLocaleString().length > 10 ? 'text-sm sm:text-base' :
+                    absNet.toLocaleString().length > 7 ? 'text-base sm:text-lg' :
+                    'text-xl sm:text-2xl'
+                  }`}>
+                    Total Net Yield: {footerNet < 0 ? '−' : ''}₱{absNet.toLocaleString()}
+                  </p>
+                );
+              })()}
             </div>
           </div>
         </div>
