@@ -1042,6 +1042,38 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                           );
                         });
                       })()}
+
+                      {/* Totals footer row */}
+                      {(() => {
+                        const totalGross = constituents.reduce((s, c) => s + c.grossSales, 0);
+                        const totalStaff = constituents.reduce((s, c) => s + c.totalStaffPay, 0);
+                        const totalRoiExp = constituents.reduce((s, c) => s + getConstituentROIExp(c), 0);
+                        const totalVaultExp = constituents.reduce((s, c) => s + getConstituentVaultCoveredExp(c), 0);
+                        const totalVaultDeposit = constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0);
+                        const totalNet = constituents.reduce((s, c) => s + c.netRoi, 0);
+                        return (
+                          <div className="hidden md:flex border-t-2 border-slate-700 bg-slate-900/80 items-center sticky bottom-0">
+                            <div className="px-8 py-4 w-[15%]">
+                              <span className="text-xs font-black text-slate-300 uppercase tracking-widest">TOTALS</span>
+                            </div>
+                            <div className="px-6 py-4 w-[17%]" />
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-slate-100 tabular-nums">₱{totalGross.toLocaleString()}</div>
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-amber-400 tabular-nums">₱{totalStaff.toLocaleString()}</div>
+                            <div className="px-6 py-4 w-[13%] text-right">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="font-black text-rose-400 tabular-nums">₱{totalRoiExp.toLocaleString()}</span>
+                                {totalVaultExp > 0 && <span className="text-[10px] font-black text-indigo-400 tabular-nums">+₱{totalVaultExp.toLocaleString()} vault</span>}
+                              </div>
+                            </div>
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-indigo-400 tabular-nums">₱{totalVaultDeposit.toLocaleString()}</div>
+                            <div className="px-8 py-4 w-[16%] text-right">
+                              <span className={`font-black tabular-nums text-lg ${totalNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {totalNet < 0 ? '−' : ''}₱{Math.abs(totalNet).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -141,82 +141,36 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         receiptUrl = data.publicUrl;
       }
 
-      const { error: dbError } = await supabase.from(DB_TABLES.EXPENSES).insert({
-        [DB_COLUMNS.ID]: expenseId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: timestamp,
-        [DB_COLUMNS.NAME]: name.toUpperCase(),
-        [DB_COLUMNS.AMOUNT]: expenseAmount,
-        [DB_COLUMNS.CATEGORY]: 'OPERATIONAL',
-        [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
-      });
-      if (dbError) throw dbError;
-
-      // Cover shortfall from vault if opted in
       if (withdrawFromVault && vaultCoverAmount > 0 && branchVault) {
-        // 1. Fetch live balance at save time — props may be stale if the modal was open for a while
-        const { data: liveVaultData } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single();
-        const liveVaultBalance = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
-
-        // Cap the withdrawal against the live balance — never withdraw more than what's actually there
-        const safeWithdrawAmount = Math.min(vaultCoverAmount, liveVaultBalance);
-        if (safeWithdrawAmount > 0) {
-          const vaultWithdrawId = Math.random().toString(36).substr(2, 9);
-          const vaultEntryName = `VAULT: ${name.toUpperCase()}`;
-          const newVaultBalance = Math.max(0, liveVaultBalance - safeWithdrawAmount);
-
-          // 2. Deduct vault balance FIRST — if this fails, rollback the OPERATIONAL expense
-          const { error: vaultErr } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: newVaultBalance })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-          if (vaultErr) {
-            await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, expenseId);
-            throw vaultErr;
-          }
-
-          // 3. Record in expenses table (used for ROI add-back calculation)
-          const { error: vwErr } = await supabase.from(DB_TABLES.EXPENSES).insert({
-            [DB_COLUMNS.ID]: vaultWithdrawId,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.NAME]: vaultEntryName,
-            [DB_COLUMNS.AMOUNT]: safeWithdrawAmount,
-            [DB_COLUMNS.CATEGORY]: 'VAULT_WITHDRAWAL',
-          });
-          if (vwErr) {
-            // Rollback vault balance
-            await supabase.from(DB_TABLES.BRANCH_VAULTS)
-              .update({ [DB_COLUMNS.VAULT_BALANCE]: liveVaultBalance })
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-            throw vwErr;
-          }
-
-          // 4. Record in vault_transactions — linked to today's sales report
-          const { error: vtErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-            [DB_COLUMNS.ID]: vaultWithdrawId,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
-            [DB_COLUMNS.AMOUNT]: safeWithdrawAmount,
-            [DB_COLUMNS.NAME]: vaultEntryName,
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
-            [DB_COLUMNS.REPORT_ID]: reportId ?? `${branch.id}_${todayStr.replace(/-/g, '')}`,
-          });
-          if (vtErr) {
-            // Rollback vault balance and expense record
-            await supabase.from(DB_TABLES.BRANCH_VAULTS)
-              .update({ [DB_COLUMNS.VAULT_BALANCE]: liveVaultBalance })
-              .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-            await supabase.from(DB_TABLES.EXPENSES)
-              .delete()
-              .eq(DB_COLUMNS.ID, vaultWithdrawId);
-            throw vtErr;
-          }
-        }
+        // Vault-covered expense: delegate all four DB writes to a single atomic RPC.
+        // The function inserts OPERATIONAL expense, deducts vault balance, inserts
+        // VAULT_WITHDRAWAL expense, and inserts vault_transaction — or rolls everything
+        // back if any step fails. No partial-write state possible.
+        const vaultWithdrawId = Math.random().toString(36).substr(2, 9);
+        const { error: rpcError } = await supabase.rpc('record_vault_covered_expense', {
+          p_expense_id:     expenseId,
+          p_vault_tx_id:    vaultWithdrawId,
+          p_branch_id:      branch.id,
+          p_expense_name:   name.toUpperCase(),
+          p_expense_amount: expenseAmount,
+          p_vault_cover:    vaultCoverAmount,
+          p_timestamp:      timestamp,
+          p_receipt_url:    receiptUrl || null,
+          p_report_id:      reportId ?? `${branch.id}_${todayStr.replace(/-/g, '')}`,
+        });
+        if (rpcError) throw rpcError;
+      } else {
+        // Simple expense — single atomic INSERT, no vault involvement.
+        const { error: dbError } = await supabase.from(DB_TABLES.EXPENSES).insert({
+          [DB_COLUMNS.ID]: expenseId,
+          [DB_COLUMNS.BRANCH_ID]: branch.id,
+          [DB_COLUMNS.TIMESTAMP]: timestamp,
+          [DB_COLUMNS.NAME]: name.toUpperCase(),
+          [DB_COLUMNS.AMOUNT]: expenseAmount,
+          [DB_COLUMNS.CATEGORY]: 'OPERATIONAL',
+          [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
+        });
+        if (dbError) throw dbError;
       }
 
       await logAudit({
