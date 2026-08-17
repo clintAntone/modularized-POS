@@ -301,48 +301,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       await supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).delete().eq(DB_COLUMNS.ID, id);
       setAdjustments(prev => prev.filter(a => a.id !== id));
 
-      // Cascade: if this was a vault remittance, remove the matching vault_data entry and reverse balance
+      // Cascade: if this was a vault deposit, remove the vault_transaction and reverse balance
       if (adj?.description === 'VAULT DEPOSIT' && adj.targetOwner) {
-        const vaultEntryId = adj.targetOwner;
-        const reportDate = adj.createdAt.slice(0, 10); // YYYY-MM-DD
-        const reportId = `${branch.id}_${reportDate.replace(/-/g, '')}`;
-
-        const { data: existingReport } = await supabase
-          .from(DB_TABLES.SALES_REPORTS)
-          .select(DB_COLUMNS.VAULT_DATA)
-          .eq(DB_COLUMNS.ID, reportId)
-          .maybeSingle();
-
-        if (existingReport) {
-          const existingVaultData: any[] = typeof existingReport[DB_COLUMNS.VAULT_DATA] === 'string'
-            ? JSON.parse(existingReport[DB_COLUMNS.VAULT_DATA])
-            : (existingReport[DB_COLUMNS.VAULT_DATA] || []);
-
-          const removedEntry = existingVaultData.find((e: any) => e.id === vaultEntryId);
-          const filteredVaultData = existingVaultData.filter((e: any) => e.id !== vaultEntryId);
-
-          await supabase.from(DB_TABLES.SALES_REPORTS)
-            .update({ [DB_COLUMNS.VAULT_DATA]: filteredVaultData })
-            .eq(DB_COLUMNS.ID, reportId);
-
-          if (removedEntry) {
-            const reverseAmt = Number(removedEntry.amount) || Math.abs(adj.amount);
-            const newBalance = (vaultBalance ?? 0) - reverseAmt;
-            await Promise.all([
-              // Remove the vault_transaction record so VaultFundHub stays in sync
-              supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
-                .delete()
-                .eq(DB_COLUMNS.ID, vaultEntryId),
-              // Reverse the vault balance
-              supabase.from(DB_TABLES.BRANCH_VAULTS)
-                .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-                .eq(DB_COLUMNS.BRANCH_ID, branch.id),
-            ]);
-            setVaultBalance(newBalance);
-            queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
-            onRefresh?.();
-          }
-        }
+        const reverseAmt = Math.abs(adj.amount);
+        const newBalance = (vaultBalance ?? 0) - reverseAmt;
+        await Promise.all([
+          supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
+            .delete()
+            .eq(DB_COLUMNS.ID, adj.targetOwner),
+          supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id),
+        ]);
+        setVaultBalance(newBalance);
+        queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+        onRefresh?.();
       }
 
       playSound('click');
@@ -407,7 +380,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         agg.totalStaffPay       += staffPay;
         agg.totalExpenses       += expenses;
         agg.totalVaultProvision += vaultDeposit;
-        agg.netRoi              += gross - staffPay - expenses - vaultDeposit;
+        agg.netRoi              += report.netRoi ?? 0;
         agg.reportCount         += 1;
         groups[key].reports.push(report);
       });
