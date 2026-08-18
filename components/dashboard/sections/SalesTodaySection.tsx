@@ -167,11 +167,12 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
   const activeRoster = useMemo(() => {
     return employees.filter(e => {
+      if (e.isActive === false) return false;
       const isHomeBranch = e.branchId === branch.id;
       const isDesignatedManager = branch.manager?.toUpperCase() === e.name?.toUpperCase();
       const isTempManager = branch.tempManager?.toUpperCase() === e.name?.toUpperCase();
       const isAuthorizedByAllowance = e.branchAllowances && typeof e.branchAllowances === 'object' && branch.id in (e.branchAllowances as any);
-      
+
       return isHomeBranch || isDesignatedManager || isTempManager || isAuthorizedByAllowance;
     });
   }, [employees, branch.id, branch.manager, branch.tempManager]);
