@@ -124,7 +124,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const isBackfill = report.id.includes('_BACKFILL_');
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
   const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
-  const isLegacy = !reportBranchVaultEnabled || !resolvedVaultStartDate || reportDateStr < resolvedVaultStartDate;
+  // isLegacy: vault is not enabled, OR vault is enabled but start date is known and report predates it.
+  // When vault is enabled but startDate is null (vault row missing / portal user with no branchVault fetched),
+  // treat as non-legacy — vault is active, we just don't have the exact start date.
+  const isLegacy = !reportBranchVaultEnabled || (resolvedVaultStartDate !== null && reportDateStr < resolvedVaultStartDate);
   const branchVault = branchVaults.find(v => v.branchId === report.branchId);
   const vaultBalance = branchVault?.balance ?? 0;
   const vaultTarget = branchVault?.target ?? 0;
@@ -157,12 +160,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     return Number(r.totalVaultProvision || 0);
   };
 
-  // Per-constituent legacy check using each branch's own vault start date and vaultEnabled flag
+  // Per-constituent legacy check using each branch's own vault start date and vaultEnabled flag.
+  // When startDate is null (vault row missing or not fetched), treat as non-legacy if vault is enabled.
   const getConstituentIsLegacy = (r: SalesReport) => {
     const constituentBranch = branches.find(b => b.id === r.branchId);
     if (!constituentBranch?.vaultEnabled) return true;
     const startDate = branchVaults.find(v => v.branchId === r.branchId)?.startDate ?? null;
-    return !startDate || r.reportDate < startDate;
+    return startDate !== null && r.reportDate < startDate;
   };
 
   // For legacy constituents, totalVaultProvision stores the sum of PROVISION (rent & bills) expenses.

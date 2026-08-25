@@ -20,8 +20,15 @@ interface ArchiveHubProps {
 }
 
 export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, salesReportsLoading = false, employees = [], isReadOnly, onRefresh }) => {
+  const allowedBranchIdSet = useMemo(() => new Set(branches.map(b => b.id)), [branches]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('archive_filter_branches') || '[]'); } catch { return []; }
+    try {
+      const saved: string[] = JSON.parse(localStorage.getItem('archive_filter_branches') || '[]');
+      const allowed = new Set(branches.map(b => b.id));
+      // Clamp to branches available in this session — prevents a superadmin's leftover
+      // filter from exposing data that a portal user isn't permitted to see.
+      return saved.filter(id => allowed.has(id));
+    } catch { return []; }
   });
   // Extra reports loaded on demand (older than the global 30-day window)
   const [olderReports, setOlderReports] = useState<SalesReport[]>([]);
@@ -65,9 +72,12 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
       );
 
       // Scope query to the active branch filter when set, else all known branches.
+      // Always intersect with allowedBranchIdSet so that stale localStorage selections
+      // from a previous superadmin session cannot pull data outside this user's scope.
+      const allowedIds = branches.map(b => b.id).filter(id => id !== 'all');
       const queryBranchIds = selectedBranchIds.length > 0
-        ? selectedBranchIds
-        : branches.map(b => b.id).filter(id => id !== 'all');
+        ? selectedBranchIds.filter(id => allowedBranchIdSet.has(id))
+        : allowedIds;
 
       let query = supabase
         .from(DB_TABLES.SALES_REPORTS)
@@ -85,7 +95,7 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
       if (data.length < 500) setAllLoaded(true);
 
       const mapped: SalesReport[] = data
-        .filter((r: any) => !allCurrentIds.has(r[DB_COLUMNS.ID]))
+        .filter((r: any) => !allCurrentIds.has(r[DB_COLUMNS.ID]) && allowedBranchIdSet.has(r[DB_COLUMNS.BRANCH_ID]))
         .map((r: any) => ({
           id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]),
           submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
@@ -104,7 +114,7 @@ export const ArchiveHub: React.FC<ArchiveHubProps> = ({ branches, salesReports, 
     } finally {
       setLoadingOlder(false);
     }
-  }, [filteredReports, combinedReports, selectedBranchIds, branches, loadingOlder, allLoaded, salesReportsLoading]);
+  }, [filteredReports, combinedReports, selectedBranchIds, branches, allowedBranchIdSet, loadingOlder, allLoaded, salesReportsLoading]);
 
   // Trigger load when sentinel scrolls into view. Re-attaches after each load
   // so if the sentinel is still in the viewport it fires again immediately.
