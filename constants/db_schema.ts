@@ -59,6 +59,7 @@ export const DB_COLUMNS = {
   SHIFT2_CLOSING_TIME: 'shift2_closing_time',
   CONTACT_NUMBER: 'contact_number',
   OWNERS: 'owners',
+  OWNERS_HISTORY: 'owners_history',
   GROUP_LEVY: 'group_levy',
   REFRESH_SIGNAL: 'refresh_signal',
   VAULT_ENABLED: 'vault_enabled',

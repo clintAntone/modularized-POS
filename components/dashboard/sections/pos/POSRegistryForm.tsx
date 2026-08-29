@@ -5,6 +5,7 @@ import { POSMode } from '../POSSection';
 import { POSServiceSelection } from './POSServiceSelection';
 import { POSStaffSelection } from './POSStaffSelection';
 import { POSSummary } from './POSSummary';
+import { MedicalHistoryPanel } from './MedicalHistoryPanel';
 import { playSound } from '../../../../lib/audio';
 import { Gift, Zap } from 'lucide-react';
 
@@ -157,16 +158,15 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                         )}
                     </div>
 
-                    {/* Note field */}
+                    {/* Medical history */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Note (optional)</label>
-                        <textarea
-                            value={props.formData.note}
-                            onChange={e => props.setFormData({...props.formData, note: e.target.value})}
-                            placeholder="Special instructions or notes"
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-medium text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all min-h-[72px] resize-none"
+                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Health Declaration</label>
+                        <MedicalHistoryPanel
+                            selected={props.formData.medical_history || []}
+                            onChange={selected => props.setFormData((f: any) => ({ ...f, medical_history: selected }))}
                         />
                     </div>
+
 
                     {/* Service type tab + service grid */}
                     <div className="flex flex-col gap-4 pt-1">

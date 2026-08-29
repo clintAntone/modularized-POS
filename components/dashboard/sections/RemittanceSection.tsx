@@ -508,7 +508,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (!currentGroup) return;
     playSound('click');
     const XLSX = await import('xlsx');
-    const owners: any[] = branch.owners || [];
+    const history = branch.ownersHistory;
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history && history.length > 0
+      ? history.filter((e: any) => e.effectiveDate <= weekStartDate).sort((a: any, b: any) => b.effectiveDate.localeCompare(a.effectiveDate))
+      : [];
+    const owners: any[] = applicable[0]?.owners ?? branch.owners ?? [];
     const agg = currentGroup.aggregate;
     const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
     const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
@@ -541,7 +546,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   }
 
   const agg = currentGroup.aggregate;
-  const owners: any[] = branch.owners || [];
+
+  // Resolve which owner percentages were in effect for this period's week start.
+  // Falls back to current branch.owners if no history exists.
+  const owners: any[] = (() => {
+    const history = branch.ownersHistory;
+    if (!history || history.length === 0) return branch.owners || [];
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history
+      .filter(e => e.effectiveDate <= weekStartDate)
+      .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+    return applicable[0]?.owners ?? branch.owners ?? [];
+  })();
+
   const levy = branch.groupLevy || null;
   const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
   // VAULT DEPOSIT uses targetOwner to store the vault_data entry ID (not an owner name)

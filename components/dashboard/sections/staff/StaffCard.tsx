@@ -182,38 +182,38 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       {/* Role / status badges — top right */}
 
       {/* Bookmark tags — hanging from top */}
-      <div className="absolute top-0 left-6 flex gap-2 z-10 pointer-events-none">
+      <div className="absolute top-0 left-5 sm:left-8 flex gap-2 z-10 pointer-events-none">
         {isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-emerald-500 text-white dark:bg-emerald-400 dark:text-emerald-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Manager
             </span>
           </div>
         )}
         {isTempManager && !isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-amber-500 text-white dark:bg-amber-400 dark:text-amber-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Delegate
             </span>
           </div>
         )}
         {isReliever && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-indigo-100 text-indigo-600 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-indigo-500 text-white dark:bg-indigo-400 dark:text-indigo-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Reliever
             </span>
           </div>
         )}
         {!isActive && !isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-slate-400 text-white dark:bg-slate-500 dark:text-white text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Disabled
             </span>
           </div>
         )}
         {isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-purple-100 text-purple-600 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-purple-500 text-white dark:bg-purple-400 dark:text-purple-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               On Leave
             </span>
           </div>

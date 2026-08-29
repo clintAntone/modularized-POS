@@ -10,7 +10,8 @@ import { playSound } from '../../../lib/audio';
 import { POSHeader } from './pos/POSHeader';
 import { POSRegistryForm } from './pos/POSRegistryForm';
 import { POSCorrections } from './pos/POSCorrections';
-import { POSConfirmModal } from './pos/POSConfirmModal';
+import { StaffReviewModal } from './pos/StaffReviewModal';
+import { ClientApprovalModal } from './pos/ClientApprovalModal';
 
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -59,7 +60,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         discount: 0,
         is_pwd_senior: false,
         note: '',
-        payment_method: 'CASH' as 'CASH' | 'GCASH'
+        payment_method: 'CASH' as 'CASH' | 'GCASH',
+        medical_history: [] as string[],
     });
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymongoLink, setPaymongoLink] = useState<{ url: string, id: string } | null>(null);
@@ -69,7 +71,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         clientName: string; total: number; serviceName: string;
         paymentMethod: string; isOffline: boolean;
     } | null>(null);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [showStaffReview, setShowStaffReview] = useState(false);
+    const [showClientApproval, setShowClientApproval] = useState(false);
     const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
     const addTransaction = useAddTransaction();
@@ -205,18 +208,20 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             id: '',
             original_timestamp: '',
             client_name: '',
-            therapist_name: '', 
-            therapist_id: '', 
-            bonesetter_name: '', 
+            therapist_name: '',
+            therapist_id: '',
+            bonesetter_name: '',
             bonesetter_id: '',
-            selected_service_ids: [], 
+            selected_service_ids: [],
             loyalty_service_ids: [],
-            discount: 0, 
-            is_pwd_senior: false, 
-            note: '', 
-            payment_method: 'CASH'
+            discount: 0,
+            is_pwd_senior: false,
+            note: '',
+            payment_method: 'CASH',
+            medical_history: [],
         });
-        setShowConfirm(false);
+        setShowStaffReview(false);
+        setShowClientApproval(false);
         setIsProcessing(false);
         setPaymongoLink(null);
         setIsCheckingPayment(false);
@@ -265,7 +270,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             loyalty_service_ids,
             discount: manualDiscount,
             is_pwd_senior: isPwdSenior,
-            note: tx.note || '',
+            medical_history: tx.note ? tx.note.split(', ').filter(Boolean) : [],
             payment_method: tx.paymentMethod || 'CASH'
         });
         setMode('EDITING');
@@ -366,7 +371,9 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             [DB_COLUMNS.SECONDARY_COMMISSION]: bonesetterComm,
             [DB_COLUMNS.TOTAL]: totalCalculated,
             [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.NOTE]: formData.note.trim(),
+            [DB_COLUMNS.NOTE]: (formData.medical_history || []).length > 0
+                ? (formData.medical_history as string[]).join(', ')
+                : '',
             payment_method: formData.payment_method,
             payment_status: (formData.payment_method === 'GCASH' && isPaymongoEnabled) ? 'PENDING' : 'PAID'
         };
@@ -394,7 +401,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     if (dbError) throw dbError;
                     
                     setIsProcessing(false);
-                    setShowConfirm(false);
+                    setShowClientApproval(false);
                     return; // Stop here, wait for payment
                 } else {
                     throw new Error("Failed to generate PayMongo link");
@@ -432,7 +439,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
 
         const onFinalSuccess = (isOffline = false) => {
             playSound('success');
-            setShowConfirm(false);
+            setShowClientApproval(false);
             setSuccessDetails({
                 clientName: clientNameUpper,
                 total: totalCalculated,
@@ -774,23 +781,48 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     isProcessing={isProcessing}
                     isClosedMode={isClosedMode}
                     isPaymongoEnabled={isPaymongoEnabled}
-                    onFinalize={() => setShowConfirm(true)}
+                    onFinalize={() => setShowStaffReview(true)}
                     onAbort={resetForm}
                     clientNameHistory={clientNameHistory}
                     onDemandIds={onDemandIds}
                 />
             )}
 
-            {showConfirm && (
-                <POSConfirmModal
+            {showStaffReview && (
+                <StaffReviewModal
                     mode={mode}
                     formData={formData}
                     activeServices={activeServices}
                     isProcessing={isProcessing}
-                    onClose={() => setShowConfirm(false)}
-                    onConfirm={handleFinalize}
+                    onClose={() => setShowStaffReview(false)}
+                    onProceed={() => { setShowStaffReview(false); setShowClientApproval(true); }}
                 />
             )}
+
+            {showClientApproval && (() => {
+                const stdServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
+                const loyServices = activeServices.filter(s => formData.loyalty_service_ids.includes(s.id));
+                const basePrice = stdServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                const pwdDiscount = (formData.is_pwd_senior && basePrice > 0)
+                    ? (basePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
+                const totalDiscount = Math.min(basePrice, (formData.discount || 0) + pwdDiscount);
+                const total = Math.max(0, basePrice - totalDiscount);
+                const serviceName = [
+                    ...stdServices.map(s => s.name),
+                    ...loyServices.map(s => `${s.name} (LOYALTY)`),
+                ].join(' + ');
+                return (
+                    <ClientApprovalModal
+                        clientName={formData.client_name}
+                        serviceName={serviceName}
+                        total={total}
+                        paymentMethod={formData.payment_method}
+                        isProcessing={isProcessing}
+                        onConfirm={handleFinalize}
+                        onBack={() => { setShowClientApproval(false); setShowStaffReview(true); }}
+                    />
+                );
+            })()}
         </div>
     );
 };

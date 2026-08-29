@@ -53,6 +53,23 @@ export function useAdminBranchHandlers({
       const newCutoff = updated.weeklyCutoff ?? 0;
       const cutoffChanged = oldBranch && oldCutoff !== newCutoff;
 
+      // When owners change: snapshot old owners into owners_history before overwriting
+      if (oldBranch && oldBranch.owners && oldBranch.owners.length > 0) {
+        const oldOwnersJson = JSON.stringify(oldBranch.owners);
+        const newOwnersJson = JSON.stringify(updated.owners || []);
+        if (oldOwnersJson !== newOwnersJson) {
+          const today = new Date().toISOString().slice(0, 10);
+          const history = [...(oldBranch.ownersHistory || [])];
+          // Seed the very first entry with the original owners from cycle start so
+          // periods before any change compute correctly.
+          if (history.length === 0) {
+            history.push({ effectiveDate: oldBranch.cycleStartDate || '2020-01-01', owners: oldBranch.owners });
+          }
+          history.push({ effectiveDate: today, owners: updated.owners || [] });
+          updated.ownersHistory = history;
+        }
+      }
+
       // When cutoff changes: append to cutoff_history with the effective date
       if (cutoffChanged && updated.cutoffEffectiveDate) {
         const history = [...(oldBranch.cutoffHistory || [])];
@@ -90,6 +107,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.VAULT_ENABLED]: updated.vaultEnabled ?? false,
         [DB_COLUMNS.COOP_OWNED]: updated.coopOwned ?? false,
         ...(updated.cutoffHistory ? { [DB_COLUMNS.CUTOFF_HISTORY]: updated.cutoffHistory } : {}),
+        ...(updated.ownersHistory ? { [DB_COLUMNS.OWNERS_HISTORY]: updated.ownersHistory } : {}),
       });
 
       if (managerChanged || tempManagerChanged) {

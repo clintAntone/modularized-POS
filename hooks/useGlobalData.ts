@@ -271,6 +271,11 @@ export const useGlobalData = (auth: AuthState) => {
                 if (!raw) return [];
                 try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); } catch { return []; }
             })(),
+            ownersHistory: (() => {
+                const raw = db[DB_COLUMNS.OWNERS_HISTORY];
+                if (!raw) return [];
+                try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); } catch { return []; }
+            })(),
         };
     };
 

@@ -469,7 +469,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                 <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
                   <span className="text-slate-400">Registry Status</span>
                   <span className={loading ? "text-emerald-400 animate-pulse" : error ? "text-rose-400" : "text-emerald-400"}>
-                    {loading ? "SYNCHRONIZING..." : error ? "OFFLINE" : "PAID"}
+                    {loading ? "SYNCHRONIZING..." : error ? "OFFLINE" : "ONLINE"}
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
