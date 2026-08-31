@@ -62,6 +62,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         note: '',
         payment_method: 'CASH' as 'CASH' | 'GCASH',
         medical_history: [] as string[],
+        original_total: 0,
     });
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymongoLink, setPaymongoLink] = useState<{ url: string, id: string } | null>(null);
@@ -271,6 +272,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             discount: manualDiscount,
             is_pwd_senior: isPwdSenior,
             medical_history: tx.note ? tx.note.split(', ').filter(Boolean) : [],
+            original_total: tx.total || 0,
             payment_method: tx.paymentMethod || 'CASH'
         });
         setMode('EDITING');
@@ -788,16 +790,39 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 />
             )}
 
-            {showStaffReview && (
+            {showStaffReview && (() => {
+                const _stdSvcs = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
+                const _base = _stdSvcs.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                const _pwdDisc = (formData.is_pwd_senior && _base > 0)
+                    ? (_base > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
+                const _totalDisc = Math.min(_base, Math.max(0, formData.discount || 0) + _pwdDisc);
+                const _newTotal = Math.max(0, _base - _totalDisc);
+                const requiresClientApproval = mode !== 'EDITING' || _newTotal > (formData.original_total || 0);
+                return (
                 <StaffReviewModal
                     mode={mode}
                     formData={formData}
                     activeServices={activeServices}
                     isProcessing={isProcessing}
+                    requiresClientApproval={requiresClientApproval}
                     onClose={() => setShowStaffReview(false)}
-                    onProceed={() => { setShowStaffReview(false); setShowClientApproval(true); }}
+                    onProceed={() => {
+                        setShowStaffReview(false);
+                        if (mode === 'EDITING') {
+                            if (_newTotal > (formData.original_total || 0)) {
+                                // Total increased — client must re-approve
+                                setShowClientApproval(true);
+                            } else {
+                                // Total same or lower — skip re-signing, save directly
+                                handleFinalize();
+                            }
+                        } else {
+                            setShowClientApproval(true);
+                        }
+                    }}
                 />
-            )}
+                );
+            })()}
 
             {showClientApproval && (() => {
                 const stdServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));

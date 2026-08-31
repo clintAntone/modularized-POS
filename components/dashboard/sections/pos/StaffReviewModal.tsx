@@ -11,11 +11,12 @@ interface StaffReviewModalProps {
     formData: any;
     activeServices: Service[];
     isProcessing: boolean;
+    requiresClientApproval: boolean;
     onClose: () => void;
     onProceed: () => void;
 }
 
-export const StaffReviewModal: React.FC<StaffReviewModalProps> = ({ mode, formData, activeServices, isProcessing, onClose, onProceed }) => {
+export const StaffReviewModal: React.FC<StaffReviewModalProps> = ({ mode, formData, activeServices, isProcessing, requiresClientApproval, onClose, onProceed }) => {
     const standardServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
     const loyaltyServices = activeServices.filter(s => formData.loyalty_service_ids.includes(s.id));
 
@@ -178,8 +179,8 @@ export const StaffReviewModal: React.FC<StaffReviewModalProps> = ({ mode, formDa
                         disabled={isProcessing}
                         className="flex-[2] bg-slate-900 text-white font-bold py-4 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                     >
-                        Hand to Client
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        {requiresClientApproval ? 'Hand to Client' : mode === 'EDITING' ? 'Apply Corrections' : 'Confirm'}
+                        {requiresClientApproval && <ArrowRight className="w-3.5 h-3.5" />}
                     </button>
                 </div>
             </div>

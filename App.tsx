@@ -441,82 +441,83 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
       const isReliefManager = auth.user.role === UserRole.BRANCH_MANAGER && employees.length > 0 && !currentEmployee;
       
       return (
-        <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 z-[9999] overflow-hidden">
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#1e293b,transparent)] animate-pulse"></div>
-          </div>
-          
-          <div className="w-full max-w-md space-y-10 relative z-10 text-center">
-            <div className="relative inline-block group">
-              <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-all duration-1000 animate-pulse"></div>
-              <div className="w-24 h-24 bg-slate-900 rounded-[32px] flex items-center justify-center text-4xl shadow-2xl border border-white/10 relative transform hover:rotate-12 transition-transform duration-500">
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-5 z-[9999]">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-7 space-y-6 text-center relative overflow-hidden">
+            {/* Ambient glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-emerald-500/10 blur-3xl rounded-full pointer-events-none" />
+
+            {/* Icon */}
+            <div className="relative inline-block">
+              <div className="absolute -inset-3 bg-emerald-500/15 rounded-full blur-xl animate-pulse" />
+              <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/10 relative">
                 {loading ? '🔐' : error ? '⚠️' : '👤'}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">
-                {loading ? 'SYNCING SECURE IDENTITY...' : error ? 'COMMUNICATION FAILURE' : 'IDENTITY VERIFICATION'}
+            {/* Title */}
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-black text-white uppercase tracking-tight leading-none">
+                {loading ? 'Syncing Identity...' : error ? 'Connection Failed' : 'Identity Verification'}
               </h2>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] leading-relaxed">
-                {loading ? 'Establishing encrypted link with global registry' : error ? 'The secure channel was interrupted' : 'Validating credentials against branch node'}
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-relaxed">
+                {loading ? 'Establishing encrypted link' : error ? 'The secure channel was interrupted' : 'Validating credentials against branch node'}
               </p>
             </div>
 
-            {/* Progress / Status */}
-            <div className="bg-white/5 border border-white/10 rounded-[32px] p-6 space-y-6 backdrop-blur-md">
-              <div className="space-y-4">
+            {/* Status card */}
+            <div className="bg-white/5 border border-white/8 rounded-2xl p-4 space-y-4 text-left">
+              <div className="space-y-2">
                 <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
                   <span className="text-slate-400">Registry Status</span>
-                  <span className={loading ? "text-emerald-400 animate-pulse" : error ? "text-rose-400" : "text-emerald-400"}>
-                    {loading ? "SYNCHRONIZING..." : error ? "OFFLINE" : "ONLINE"}
+                  <span className={loading ? 'text-emerald-400 animate-pulse' : error ? 'text-rose-400' : 'text-emerald-400'}>
+                    {loading ? 'Synchronizing...' : error ? 'Offline' : 'Online'}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-1000 ${error ? 'bg-rose-500 w-full' : loading ? 'bg-emerald-500 w-2/3 animate-pulse' : 'bg-emerald-500 w-full'}`}></div>
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-1000 ${error ? 'bg-rose-500 w-full' : loading ? 'bg-emerald-500 w-2/3 animate-pulse' : 'bg-emerald-500 w-full'}`} />
                 </div>
               </div>
 
-              <div className="space-y-2 text-left">
-                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className={`w-1.5 h-1.5 rounded-full ${branches.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`}></div>
-                  Branch Registry: {branches.length > 0 ? 'LOADED' : 'WAITING...'}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${branches.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                  Branch Registry: {branches.length > 0 ? 'Loaded' : 'Waiting...'}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className={`w-1.5 h-1.5 rounded-full ${employees.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`}></div>
-                  Personnel Data: {employees.length > 0 ? 'LOADED' : 'WAITING...'}
+                <div className="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${employees.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                  Personnel Data: {employees.length > 0 ? 'Loaded' : 'Waiting...'}
                 </div>
                 {isReliefManager && (
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-relaxed">
-                      RELIEF MANAGER DETECTED: Your home branch profile is being mapped to this terminal.
+                  <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest leading-relaxed">
+                      Relief Manager Detected — Home branch profile being mapped.
                     </p>
                   </div>
                 )}
                 {error && (
-                  <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
-                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-relaxed">
-                      ERROR: {error instanceof Error ? error.message : 'Unknown connection error'}
+                  <div className="mt-2 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                    <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed">
+                      {error instanceof Error ? error.message : 'Unknown connection error'}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            {/* Actions */}
+            <div className="flex flex-col gap-2">
               <button
                 onClick={() => refreshDatabase?.(true)}
                 disabled={loading}
-                className="w-full h-16 bg-white text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-[24px] shadow-2xl hover:bg-emerald-400 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                className="w-full py-3.5 bg-white text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg hover:bg-emerald-400 transition-all active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
               >
-                {loading ? 'SYNCING...' : 'RETRY SECURE SYNC'}
+                {loading ? 'Syncing...' : 'Retry Sync'}
               </button>
-              
               <button
                 onClick={handleLogout}
-                className="w-full py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+                className="w-full py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
               >
-                ABORT & LOGOUT
+                Logout
               </button>
             </div>
           </div>
