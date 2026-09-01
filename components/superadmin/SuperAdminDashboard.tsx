@@ -66,6 +66,7 @@ interface SuperAdminDashboardProps {
   fetchSystemConfig?: () => Promise<void>;
   permissions?: PortalPermissions; // undefined = superadmin (full access)
   onPreviewBranch?: (branchId: string) => void;
+  excludedBranches?: string[];
 }
 
 type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'service_templates';
@@ -89,6 +90,7 @@ const LiveClock = memo(() => {
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   user, branches, transactions, expenses, auditLogs, salesReports, salesReportsLoading = false, vaultTransactions = [],
   employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, fetchSystemConfig, permissions, onPreviewBranch,
+  excludedBranches = [],
 }) => {
   const queryClient = useQueryClient();
   const isPortalUser = !!permissions;
@@ -114,6 +116,13 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     scopedBranches, scopedSalesReports, scopedTransactions, scopedExpenses,
     scopedEmployees, scopedAttendance, scopedAuditLogs, scopedRequests,
   } = useScopedData({ isPortalUser, permissions, branches, salesReports, transactions, expenses, employees, attendance, auditLogs, requests: requests as any[] });
+
+  // ── Remittance-scoped branches (excludes tracking-excluded branches) ────────
+  const remittanceBranches = useMemo(() =>
+    excludedBranches.length === 0
+      ? scopedBranches
+      : scopedBranches.filter(b => !excludedBranches.some(name => b.name?.toUpperCase().includes(name.toUpperCase()))),
+  [scopedBranches, excludedBranches]);
 
   // ── Security flags ───────────────────────────────────────────────────────
   const { recentHighFlags, dismissFlag, dismissAllFlags } = useSuspiciousActivity(scopedAuditLogs, branches);
@@ -344,7 +353,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('payroll')      && <div className={activeTab !== 'payroll'      ? 'hidden' : ''}><PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={handleRefresh} /></div>}
           {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
-          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={remittanceBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('network')      && <div className={activeTab !== 'network'      ? 'hidden' : ''}><NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('catalogs')     && <div className={activeTab !== 'catalogs'     ? 'hidden' : ''}><ServiceCatalog branches={branches} catalogs={masterCatalogs} setConfirmState={setConfirmState} onSave={async () => { await refetchCatalogs(); playSound('success'); if (onRefresh) await onRefresh(true); }} /></div>}
