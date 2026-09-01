@@ -115,6 +115,7 @@ export const useGlobalData = (auth: AuthState) => {
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
     const [displayChanges, setDisplayChanges] = useState(false);
     const [faceIdDisabledBranches, setFaceIdDisabledBranches] = useState<string[]>([]);
+    const [excludedBranches, setExcludedBranches] = useState<string[]>([]);
     // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
     // loading to avoid a network congestion spike on login.
     const [deferredEnabled, setDeferredEnabled] = useState(false);
@@ -767,6 +768,8 @@ export const useGlobalData = (auth: AuthState) => {
                 const version = find('version');
                 setDisplayChanges(displayChangesVal === 'true');
                 try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+                const excludedVal = find('excluded_branches');
+                try { setExcludedBranches(excludedVal ? JSON.parse(excludedVal) : []); } catch { setExcludedBranches([]); }
                 if (nameVal) setDynamicAppName(nameVal);
                 if (version) setSystemVersion(version);
                 if (fontVal) setFontFamily(fontVal);
@@ -800,6 +803,8 @@ export const useGlobalData = (auth: AuthState) => {
             setDisplayChanges(displayChangesVal === 'true');
             const faceIdDisabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'face_id_disabled_branches')?.value;
             try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+            const excludedBranchesVal = configData.find(c => c[DB_COLUMNS.KEY] === 'excluded_branches')?.value;
+            try { setExcludedBranches(excludedBranchesVal ? JSON.parse(excludedBranchesVal) : []); } catch { setExcludedBranches([]); }
             if (nameVal) { setDynamicAppName(nameVal); localStorage.setItem('hilot_cached_app_name', nameVal); }
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
@@ -951,6 +956,6 @@ export const useGlobalData = (auth: AuthState) => {
         salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,
-        pendingSyncCount, forceLogoutRegistry, refreshDatabase
+        pendingSyncCount, forceLogoutRegistry, refreshDatabase, excludedBranches
     };
 };

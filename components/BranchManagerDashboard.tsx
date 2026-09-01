@@ -67,6 +67,7 @@ interface BranchManagerDashboardProps {
   onSwitchBranch?: (branchId: string) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   isPreview?: boolean;
+  excludedBranches?: string[];
 }
 
 export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill' | 'insights' | 'complaints';
@@ -458,6 +459,15 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           </React.Suspense>
         </div>
       </div>
+
+      {/* ── Tracking Excluded fixed footer ──────────────────────────────────── */}
+      {props.excludedBranches?.some(name =>
+        props.branch.name?.toUpperCase().includes(name.toUpperCase())
+      ) && (
+        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-amber-200 text-amber-700 text-center text-xs font-bold uppercase tracking-widest py-2 no-print">
+          Tracking Excluded
+        </div>
+      )}
     </div>
   );
 };

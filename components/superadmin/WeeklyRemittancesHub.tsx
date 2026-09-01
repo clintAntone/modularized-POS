@@ -500,7 +500,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       } else {
         const { data, error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .insert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now })
+          .upsert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now }, { onConflict: 'branch_id,period_label' })
           .select().single();
         if (error) throw error;
         setSubmissions(prev => [mapSubmission(data), ...prev]);

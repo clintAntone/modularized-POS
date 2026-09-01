@@ -184,7 +184,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             if (!isAuthorized || e.isActive !== true || e.onLeave) return false;
 
             const targetDate = todayStr;
-            const attendanceRecord = attendance.find(a => a.employeeId === e.id && a.date === targetDate);
+            const attendanceRecord = attendance.find(a => a.employeeId === e.id && a.date === targetDate && a.branchId === branch.id);
             const isOnDuty = attendanceRecord && attendanceRecord.clockIn && !attendanceRecord.clockOut;
 
             return isOnDuty;
