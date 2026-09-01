@@ -214,62 +214,53 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
               }).format(new Date(t.timestamp));
 
               return (
-                <div key={t.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div key={t.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                   {/* Accent bar */}
                   <div className={`h-0.5 ${isPaid ? 'bg-gradient-to-r from-slate-100 via-emerald-400 to-slate-100' : 'bg-gradient-to-r from-slate-100 via-amber-400 to-slate-100'}`} />
 
-                  <div className="p-5 space-y-4">
-                    {/* Top row: time + payment */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{time}</span>
-                      <div className="flex items-center gap-1.5">
-                        {!isPaid && (
-                          <span className="text-xs font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-lg uppercase tracking-widest animate-pulse">Pending</span>
-                        )}
-                        <span className={`text-xs font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border ${t.paymentMethod === 'GCASH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                          {t.paymentMethod === 'GCASH' ? 'GCash' : 'Cash'}
-                        </span>
-                      </div>
-                    </div>
-
+                  <div className="px-3 pt-3 pb-2 space-y-2">
                     {/* Client + amount */}
-                    <div className="flex items-start justify-between gap-3">
-                      <h5 className="font-black text-slate-900 text-[18px] uppercase tracking-tight leading-none">{t.clientName}</h5>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{time}</p>
+                        <h5 className="font-black text-slate-900 text-sm uppercase tracking-tight leading-tight truncate">{t.clientName}</h5>
+                      </div>
                       <div className="text-right shrink-0">
-                        <p className="font-black text-slate-900 text-[22px] tabular-nums tracking-tighter leading-none">₱{netTotal.toLocaleString()}</p>
+                        <p className="font-black text-slate-900 text-base tabular-nums tracking-tighter leading-none">₱{netTotal.toLocaleString()}</p>
                         {totalDeduction > 0 && (
-                          <p className="text-xs font-bold text-slate-300 line-through tabular-nums mt-0.5">₱{(Number(t.basePrice) || 0).toLocaleString()}</p>
+                          <p className="text-xs font-bold text-slate-300 line-through tabular-nums">₱{(Number(t.basePrice) || 0).toLocaleString()}</p>
                         )}
+                        <p className={`text-[11px] font-bold uppercase tracking-widest mt-0.5 ${t.paymentMethod === 'GCASH' ? 'text-indigo-500' : 'text-slate-400'}`}>
+                          {!isPaid && <span className="text-amber-500 animate-pulse mr-1">Pending ·</span>}
+                          {t.paymentMethod === 'GCASH' ? 'GCash' : 'Cash'}
+                        </p>
                       </div>
                     </div>
 
                     {/* Services */}
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="space-y-0.5">
                       {getServiceItems(t).map((srv, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-xl">
-                          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{srv.name}</span>
-                          {srv.price !== null && (
-                            <span className="text-xs font-bold text-slate-400 tabular-nums">₱{srv.price.toLocaleString()}</span>
-                          )}
-                        </div>
+                        <p key={idx} className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tight">
+                          <span className="text-slate-300 dark:text-slate-500 mr-1">•</span>{srv.name}
+                        </p>
                       ))}
                     </div>
 
                     {/* Staff */}
                     {(t.therapistName || t.bonesetterName) && (
-                      <div className="flex gap-4 pt-3 border-t border-slate-100">
+                      <div className="flex gap-3 pt-3 mt-1 border-t border-slate-100">
                         {t.therapistName && (
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Therapist</p>
-                            <p className="text-sm font-black text-slate-900 uppercase truncate leading-tight">{t.therapistName}</p>
-                            <p className="text-xs font-black text-emerald-600 tabular-nums mt-0.5">₱{therapistComm.toLocaleString()}</p>
+                            <p className="text-[11px] font-medium text-slate-400 tracking-wide">Therapist</p>
+                            <p className="text-xs font-black text-slate-900 uppercase truncate leading-tight">{t.therapistName}</p>
+                            <p className="text-xs font-black text-emerald-600 tabular-nums">₱{therapistComm.toLocaleString()}</p>
                           </div>
                         )}
                         {t.bonesetterName && (
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Bonesetter</p>
-                            <p className="text-sm font-black text-slate-900 uppercase truncate leading-tight">{t.bonesetterName}</p>
-                            <p className="text-xs font-black text-indigo-600 tabular-nums mt-0.5">₱{bonesetterComm.toLocaleString()}</p>
+                            <p className="text-[11px] font-medium text-slate-400 tracking-wide">Bonesetter</p>
+                            <p className="text-xs font-black text-slate-900 uppercase truncate leading-tight">{t.bonesetterName}</p>
+                            <p className="text-xs font-black text-indigo-600 tabular-nums">₱{bonesetterComm.toLocaleString()}</p>
                           </div>
                         )}
                       </div>
@@ -277,16 +268,16 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                   </div>
 
                   {/* Footer strip: status + ROI */}
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 bg-slate-50">
+                    <div className="flex items-center gap-1">
                       <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                       <span className={`text-xs font-semibold uppercase tracking-wide ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {isPaid ? 'Paid' : 'Pending'}
                       </span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Net ROI</p>
-                      <p className="text-[15px] font-black text-slate-900 tabular-nums tracking-tighter leading-none">₱{netRoi.toLocaleString()}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-slate-400 tracking-wide">Net ROI</span>
+                      <span className="text-xs font-black text-slate-900 tabular-nums tracking-tighter">₱{netRoi.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>

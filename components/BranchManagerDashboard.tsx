@@ -26,7 +26,7 @@ import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole } from '../lib/payroll';
 import { supabase } from '../lib/supabase';
-import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr } from '../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr, syncWithServerTime } from '../lib/time';
 import { DB_TABLES } from '../constants/db_schema';
 import { Clock, Store, ChevronRight } from 'lucide-react';
 
@@ -144,6 +144,20 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getTrueDate()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Force currentTime refresh when tab/app returns to foreground (device wake-up, background restore).
+  // Without this, performance.now() stalling during sleep keeps todayStr stuck on the previous day,
+  // causing yesterday's clients to appear in the live sales view until the 60s interval fires.
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      setCurrentTime(getTrueDate()); // immediate update with best available time
+      await syncWithServerTime();    // re-sync monotonic baseline with server
+      setCurrentTime(getTrueDate()); // update again with server-corrected time
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // Refetch sales reports immediately on tab entry + every 60s while active

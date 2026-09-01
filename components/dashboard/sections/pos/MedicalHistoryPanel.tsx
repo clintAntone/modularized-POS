@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ClipboardList, ChevronDown, ChevronUp } from 'lucide-react';
 
 const MEDICAL_CONDITIONS = [
@@ -20,14 +20,42 @@ interface MedicalHistoryPanelProps {
     onChange: (selected: string[]) => void;
 }
 
+const OTHER_PREFIX = 'Other: ';
+
 export const MedicalHistoryPanel: React.FC<MedicalHistoryPanelProps> = ({ selected, onChange }) => {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(true);
+    const otherInputRef = useRef<HTMLInputElement>(null);
+    const [otherText, setOtherText] = useState(() => {
+        const existing = selected.find(s => s.startsWith(OTHER_PREFIX));
+        return existing ? existing.slice(OTHER_PREFIX.length) : '';
+    });
 
     const toggle = (condition: string) => {
         if (selected.includes(condition)) {
             onChange(selected.filter(c => c !== condition));
         } else {
             onChange([...selected, condition]);
+        }
+    };
+
+    const otherChecked = selected.some(s => s.startsWith(OTHER_PREFIX));
+
+    const toggleOther = () => {
+        if (otherChecked) {
+            onChange(selected.filter(s => !s.startsWith(OTHER_PREFIX)));
+        } else {
+            onChange([...selected, `${OTHER_PREFIX}${otherText.trim()}`]);
+            setTimeout(() => otherInputRef.current?.focus(), 0);
+        }
+    };
+
+    const handleOtherTextChange = (val: string) => {
+        setOtherText(val);
+        if (otherChecked) {
+            onChange([
+                ...selected.filter(s => !s.startsWith(OTHER_PREFIX)),
+                `${OTHER_PREFIX}${val.trim()}`,
+            ]);
         }
     };
 
@@ -97,6 +125,33 @@ export const MedicalHistoryPanel: React.FC<MedicalHistoryPanelProps> = ({ select
                                 </label>
                             );
                         })}
+
+                        {/* Other */}
+                        <div className={`flex items-center gap-3 px-4 py-3 transition-colors ${otherChecked ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+                            <button
+                                type="button"
+                                onClick={toggleOther}
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                                    otherChecked ? 'bg-slate-700 border-slate-700' : 'border-slate-300'
+                                }`}
+                            >
+                                {otherChecked && (
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                )}
+                            </button>
+                            <input
+                                ref={otherInputRef}
+                                type="text"
+                                placeholder="Other — please specify"
+                                value={otherText}
+                                onFocus={() => { if (!otherChecked) toggleOther(); }}
+                                onChange={e => handleOtherTextChange(e.target.value)}
+
+                                className="flex-1 text-xs font-medium text-slate-700 placeholder:text-slate-400 bg-transparent outline-none"
+                            />
+                        </div>
                     </div>
                     {hasFlags && (
                         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">

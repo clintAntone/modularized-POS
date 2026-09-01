@@ -278,7 +278,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         setMode('EDITING');
     };
 
-    const handleFinalize = async () => {
+    const handleFinalize = async (signatureDataUrl = '') => {
         const standardServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
         const loyaltyServices = activeServices.filter(s => formData.loyalty_service_ids.includes(s.id));
         
@@ -357,6 +357,27 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             ...formData.loyalty_service_ids.map(sid => `${sid}:L`)
         ].join(',');
 
+        // Upload signature to Supabase Storage (non-blocking — failure doesn't abort transaction)
+        let signatureUrl: string | undefined;
+        if (signatureDataUrl) {
+            try {
+                const blob = await fetch(signatureDataUrl).then(r => r.blob());
+                const dateStr = toManilaDateStr(new Date().toISOString());
+                const path = `${branch.id}/${dateStr.replace(/-/g, '')}/${id}.png`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('signatures')
+                    .upload(path, blob, { contentType: 'image/png', upsert: true });
+                if (uploadError) {
+                    console.error('[Signature] Upload failed:', uploadError);
+                } else {
+                    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(uploadData.path);
+                    signatureUrl = urlData?.publicUrl || undefined;
+                }
+            } catch (sigErr) {
+                console.error('[Signature] Unexpected error during upload:', sigErr);
+            }
+        }
+
         const dbPayload = {
             [DB_COLUMNS.ID]: id,
             [DB_COLUMNS.BRANCH_ID]: branch.id,
@@ -377,7 +398,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 ? (formData.medical_history as string[]).join(', ')
                 : '',
             payment_method: formData.payment_method,
-            payment_status: (formData.payment_method === 'GCASH' && isPaymongoEnabled) ? 'PENDING' : 'PAID'
+            payment_status: (formData.payment_method === 'GCASH' && isPaymongoEnabled) ? 'PENDING' : 'PAID',
+            [DB_COLUMNS.SIGNATURE_URL]: signatureUrl || undefined
         };
 
         // PayMongo Integration
@@ -616,7 +638,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 no-print pb-10 px-2 sm:px-6">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 no-print pb-10 px-0 sm:px-6">
             {/* PAYMONGO MODAL */}
             {paymongoLink && (
                 <div className={UI_THEME.layout.modalWrapper}>
@@ -843,7 +865,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         total={total}
                         paymentMethod={formData.payment_method}
                         isProcessing={isProcessing}
-                        onConfirm={handleFinalize}
+                        onConfirm={(sig) => handleFinalize(sig)}
                         onBack={() => { setShowClientApproval(false); setShowStaffReview(true); }}
                     />
                 );

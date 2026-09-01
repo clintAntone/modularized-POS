@@ -1,5 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { AlertTriangle } from 'lucide-react';
 import { Branch, Service, Employee } from '../../../../types';
 import { POSMode } from '../POSSection';
 import { POSServiceSelection } from './POSServiceSelection';
@@ -30,6 +32,7 @@ interface POSRegistryFormProps {
 export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     const [activeTab, setActiveTab] = useState<'STANDARD' | 'LOYALTY'>('STANDARD');
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showOtherWarning, setShowOtherWarning] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const suggestionRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -81,12 +84,12 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     }, [hasSelectedLoyalty, hasSelectedStandard]);
 
     return (
-        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-5 ${props.isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 ${props.isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
             {/* Left panel — customer info, services, staff */}
             <div className="lg:col-span-8 space-y-5">
 
                 {/* Customer info card */}
-                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 space-y-5">
+                <div className="bg-white p-3 sm:p-5 md:p-6 rounded-2xl border border-slate-100 space-y-5">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Guest Details</h3>
                         {props.mode === 'EDITING' && (
@@ -240,12 +243,47 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                     selectedServices={allSelectedServices}
                     isDualProviderRequired={isDualProviderRequired}
                     isProcessing={props.isProcessing}
-                    onFinalize={props.onFinalize}
+                    onFinalize={() => {
+                        const hasBlankOther = (props.formData.medical_history as string[])
+                            .some((s: string) => s.startsWith('Other: ') && s.slice(7).trim() === '');
+                        if (hasBlankOther) {
+                            setShowOtherWarning(true);
+                            return;
+                        }
+                        props.onFinalize();
+                    }}
                     onAbort={props.onAbort}
                     primaryRole={primaryRole}
                     isPaymongoEnabled={props.isPaymongoEnabled}
                 />
             </div>
+
+            {showOtherWarning && ReactDOM.createPortal(
+                <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs animate-in zoom-in-95 duration-150 overflow-hidden">
+                        <div className="bg-slate-900 px-6 pt-6 pb-5 flex items-center gap-3">
+                            <div className="w-9 h-9 bg-amber-400/20 rounded-2xl flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <h3 className="text-white font-bold text-sm uppercase tracking-tight">Required Field</h3>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                You selected <span className="font-semibold text-slate-800">"Other"</span> under Medical History. Please specify the condition before proceeding.
+                            </p>
+                        </div>
+                        <div className="px-6 pb-6">
+                            <button
+                                onClick={() => setShowOtherWarning(false)}
+                                className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-all"
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

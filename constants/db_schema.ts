@@ -84,6 +84,7 @@ export const DB_COLUMNS = {
   PAYMENT_METHOD: 'payment_method',
   PAYMENT_STATUS: 'payment_status',
   PAYMONGO_LINK_ID: 'paymongo_link_id',
+  SIGNATURE_URL: 'signature_url',
 
   // Expenses
   AMOUNT: 'amount',

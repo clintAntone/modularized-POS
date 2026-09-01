@@ -141,6 +141,7 @@ export interface Transaction {
   paymentMethod?: 'CASH' | 'GCASH';
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED';
   paymongoLinkId?: string;
+  signatureUrl?: string;
 }
 
 export interface Attendance {

@@ -41,7 +41,7 @@ const COLS = {
         DB_COLUMNS.DISCOUNT, DB_COLUMNS.VOUCHER_VALUE,
         DB_COLUMNS.PRIMARY_COMMISSION, DB_COLUMNS.SECONDARY_COMMISSION,
         DB_COLUMNS.TOTAL, DB_COLUMNS.PAYMENT_METHOD, DB_COLUMNS.PAYMENT_STATUS,
-        DB_COLUMNS.PAYMONGO_LINK_ID, DB_COLUMNS.NOTE,
+        DB_COLUMNS.PAYMONGO_LINK_ID, DB_COLUMNS.NOTE, DB_COLUMNS.SIGNATURE_URL,
     ].join(','),
     expenses: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
@@ -392,7 +392,8 @@ export const useGlobalData = (auth: AuthState) => {
                 paymentMethod: t[DB_COLUMNS.PAYMENT_METHOD],
                 paymentStatus: t[DB_COLUMNS.PAYMENT_STATUS],
                 paymongoLinkId: t[DB_COLUMNS.PAYMONGO_LINK_ID],
-                note: t[DB_COLUMNS.NOTE]
+                note: t[DB_COLUMNS.NOTE],
+                signatureUrl: t[DB_COLUMNS.SIGNATURE_URL] || undefined
             }));
         }),
         enabled: !!supabase && deferredEnabled,

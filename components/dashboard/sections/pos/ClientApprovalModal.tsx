@@ -7,7 +7,7 @@ interface ClientApprovalModalProps {
     total: number;
     paymentMethod: string;
     isProcessing: boolean;
-    onConfirm: () => void;
+    onConfirm: (signatureDataUrl: string) => void;
     onBack: () => void;
 }
 
@@ -28,12 +28,17 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        const displayW = canvas.offsetWidth;
+        const displayH = canvas.offsetHeight;
+        canvas.width = displayW * dpr;
+        canvas.height = displayH * dpr;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.5 * dpr;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
     }, []);
@@ -88,12 +93,13 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
         if (!ctx) return;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.lineWidth = 2.5 * Math.min(window.devicePixelRatio || 1, 3);
         setHasSigned(false);
     };
 
     return (
         <div className="fixed inset-0 z-[9980] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm flex flex-col max-h-[95dvh] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-lg md:max-w-2xl flex flex-col max-h-[95dvh] overflow-hidden animate-in zoom-in-95 duration-200">
 
                 {/* Header */}
                 <div className="bg-slate-900 px-6 pt-6 pb-5 shrink-0">
@@ -115,20 +121,14 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
                 <div className="flex-1 overflow-y-auto no-scrollbar">
 
                     {/* Transaction summary */}
-                    <div className="px-5 pt-5 pb-3 space-y-3">
-                        <div className="bg-slate-50 rounded-2xl p-4 space-y-2 border border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">You are about to pay for</p>
-                            <p className="font-bold text-slate-900 text-sm uppercase leading-snug">{serviceName}</p>
-                            <div className="h-px bg-slate-200" />
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total</span>
-                                <span className="text-2xl font-black text-slate-900 tracking-tighter">₱{total.toLocaleString()}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Payment</span>
-                                <span className={`text-xs font-bold uppercase tracking-widest ${paymentMethod === 'GCASH' ? 'text-blue-600' : 'text-slate-700'}`}>
+                    <div className="px-5 pt-4 pb-2">
+                        <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-bold text-slate-900 uppercase leading-snug truncate flex-1">{serviceName}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${paymentMethod === 'GCASH' ? 'text-blue-600' : 'text-slate-400'}`}>
                                     {paymentMethod === 'CASH' ? '💵 Cash' : '📱 GCash'}
                                 </span>
+                                <span className="text-base font-black text-slate-900 tracking-tighter">₱{total.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -143,9 +143,7 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
                         <div className="relative border-2 border-slate-200 rounded-2xl overflow-hidden bg-white select-none">
                             <canvas
                                 ref={canvasRef}
-                                width={500}
-                                height={300}
-                                className="w-full h-56 cursor-crosshair block touch-none"
+                                className="w-full h-72 sm:h-80 md:h-96 cursor-crosshair block touch-none"
                                 onMouseDown={startDraw}
                                 onMouseMove={draw}
                                 onMouseUp={stopDraw}
@@ -177,6 +175,16 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
                             <div className="flex-1 border-t border-dashed border-slate-200" />
                         </div>
                     </div>
+
+                    {/* Legal notice */}
+                    <div className="px-5 pb-5">
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 space-y-1">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Data Privacy Notice</p>
+                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                By signing above, you consent to the collection and secure storage of your electronic signature solely for the purpose of verifying your approval of this transaction. Your signature will be retained for a period of <span className="font-semibold text-slate-600">three (3) months</span> in accordance with Republic Act No. 10173 (Data Privacy Act of 2012), after which it will be permanently deleted. It will not be shared with any third party without your express consent.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}
@@ -190,7 +198,11 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
                             Back
                         </button>
                         <button
-                            onClick={onConfirm}
+                            onClick={() => {
+                                const canvas = canvasRef.current;
+                                if (!canvas) return;
+                                onConfirm(canvas.toDataURL('image/png'));
+                            }}
                             disabled={!hasSigned || isProcessing}
                             className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
