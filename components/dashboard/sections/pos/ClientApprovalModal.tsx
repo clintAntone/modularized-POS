@@ -9,6 +9,7 @@ interface ClientApprovalModalProps {
     isProcessing: boolean;
     onConfirm: (signatureDataUrl: string) => void;
     onBack: () => void;
+    existingSignatureUrl?: string;
 }
 
 export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
@@ -19,6 +20,7 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
     isProcessing,
     onConfirm,
     onBack,
+    existingSignatureUrl,
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -41,7 +43,17 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
         ctx.lineWidth = 2.5 * dpr;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-    }, []);
+
+        if (existingSignatureUrl) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                setHasSigned(true);
+            };
+            img.src = existingSignatureUrl;
+        }
+    }, [existingSignatureUrl]);
 
     const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
         const rect = canvas.getBoundingClientRect();

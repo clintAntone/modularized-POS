@@ -65,6 +65,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         original_total: 0,
     });
     const [isProcessing, setIsProcessing] = useState(false);
+    const [editSignatureUrl, setEditSignatureUrl] = useState<string | undefined>();
     const [paymongoLink, setPaymongoLink] = useState<{ url: string, id: string } | null>(null);
     const [isCheckingPayment, setIsCheckingPayment] = useState(false);
     const [showPaymongoSuccess, setShowPaymongoSuccess] = useState(false);
@@ -276,6 +277,27 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             payment_method: tx.paymentMethod || 'CASH'
         });
         setMode('EDITING');
+        setEditSignatureUrl(undefined);
+        // Fetch just the signature URL for this one transaction
+        supabase
+            .from(DB_TABLES.TRANSACTIONS)
+            .select(DB_COLUMNS.SIGNATURE_URL)
+            .eq(DB_COLUMNS.ID, tx.id)
+            .single()
+            .then(async ({ data }) => {
+                const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+                if (!storedUrl) return;
+                // Convert public URLs to signed URLs (private bucket)
+                const publicMarker = '/object/public/signatures/';
+                const path = storedUrl.includes(publicMarker)
+                    ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+                    : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+                if (!path) { setEditSignatureUrl(storedUrl); return; }
+                const { data: signed } = await supabase.storage
+                    .from('signatures')
+                    .createSignedUrl(path, 60 * 60 * 24 * 90);
+                setEditSignatureUrl(signed?.signedUrl || storedUrl);
+            });
     };
 
     const handleFinalize = async (signatureDataUrl = '') => {
@@ -370,8 +392,11 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 if (uploadError) {
                     console.error('[Signature] Upload failed:', uploadError);
                 } else {
-                    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(uploadData.path);
-                    signatureUrl = urlData?.publicUrl || undefined;
+                    const { data: urlData, error: signedErr } = await supabase.storage
+                        .from('signatures')
+                        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 90); // 90 days
+                    if (signedErr) console.error('[Signature] Signed URL failed:', signedErr);
+                    else signatureUrl = urlData?.signedUrl || undefined;
                 }
             } catch (sigErr) {
                 console.error('[Signature] Unexpected error during upload:', sigErr);
@@ -819,7 +844,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     ? (_base > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
                 const _totalDisc = Math.min(_base, Math.max(0, formData.discount || 0) + _pwdDisc);
                 const _newTotal = Math.max(0, _base - _totalDisc);
-                const requiresClientApproval = mode !== 'EDITING' || _newTotal > (formData.original_total || 0);
+                const requiresClientApproval = true;
                 return (
                 <StaffReviewModal
                     mode={mode}
@@ -830,17 +855,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     onClose={() => setShowStaffReview(false)}
                     onProceed={() => {
                         setShowStaffReview(false);
-                        if (mode === 'EDITING') {
-                            if (_newTotal > (formData.original_total || 0)) {
-                                // Total increased — client must re-approve
-                                setShowClientApproval(true);
-                            } else {
-                                // Total same or lower — skip re-signing, save directly
-                                handleFinalize();
-                            }
-                        } else {
-                            setShowClientApproval(true);
-                        }
+                        setShowClientApproval(true);
                     }}
                 />
                 );
@@ -867,6 +882,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                         isProcessing={isProcessing}
                         onConfirm={(sig) => handleFinalize(sig)}
                         onBack={() => { setShowClientApproval(false); setShowStaffReview(true); }}
+                        existingSignatureUrl={mode === 'EDITING' ? editSignatureUrl : undefined}
                     />
                 );
             })()}
