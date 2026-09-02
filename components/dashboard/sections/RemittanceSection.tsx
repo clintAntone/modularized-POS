@@ -566,7 +566,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalGlobalAdj;
-  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+  const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
   const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
   const formKey = currentGroup.label;

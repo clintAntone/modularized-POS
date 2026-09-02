@@ -551,7 +551,7 @@ serve(async (req) => {
           if (!rawLevy) return null;
           try { return typeof rawLevy === 'string' ? JSON.parse(rawLevy) : rawLevy; } catch { return null; }
         })();
-        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
 
         const rawOwners = branch.owners;
