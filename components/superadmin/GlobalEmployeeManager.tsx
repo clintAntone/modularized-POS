@@ -181,24 +181,25 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
   const handleDeleteEmployee = async () => {
     if (!showDeleteConfirm) return;
-    
+
+    const emp = showDeleteConfirm;
     setIsSaving(true);
     try {
-      // Cleanup profile image if exists
-      if (showDeleteConfirm.profile) {
-        await deleteFileByUrl(showDeleteConfirm.profile, 'profiles');
-      }
-      
-      await deleteEmployee.mutateAsync(showDeleteConfirm.id);
-      
-      await addAuditLog.mutateAsync({
+      // Delete profile image and DB row in parallel
+      await Promise.all([
+        emp.profile ? deleteFileByUrl(emp.profile, 'profiles') : Promise.resolve(),
+        deleteEmployee.mutateAsync(emp.id),
+      ]);
+
+      // Audit log is fire-and-forget — don't block UX on it
+      addAuditLog.mutate({
         activity_type: 'DELETE',
         entity_type: 'EMPLOYEE',
-        entity_id: showDeleteConfirm.id,
-        description: `Deleted suspended employee: ${showDeleteConfirm.name}`,
+        entity_id: emp.id,
+        description: `Deleted suspended employee: ${emp.name}`,
         performer_name: 'SUPERADMIN'
       });
-      
+
       playSound('success');
       setShowDeleteConfirm(null);
       setEditingEmployee(null);
@@ -249,27 +250,27 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     if (onSyncStatusChange) onSyncStatusChange(true);
     
     try {
-        await updateEmployee.mutateAsync({
-            id: target.id,
-            [DB_COLUMNS.USERNAME]: null, 
-            [DB_COLUMNS.LOGIN_PIN]: null, 
-            [DB_COLUMNS.PIN_SALT]: null,
-            [DB_COLUMNS.REQUEST_RESET]: false 
-        });
-        
-        // Only reset branch setup status if the wiped employee is currently the assigned manager
         const branch = branches.find(b => b.id === target.branchId);
         const isManager = branch?.manager?.toUpperCase() === (target.name || '').toUpperCase();
 
-        if (isManager) {
-            await updateBranch.mutateAsync({
+        // Wipe credentials + reset branch setup status in parallel
+        await Promise.all([
+            updateEmployee.mutateAsync({
+                id: target.id,
+                [DB_COLUMNS.USERNAME]: null,
+                [DB_COLUMNS.LOGIN_PIN]: null,
+                [DB_COLUMNS.PIN_SALT]: null,
+                [DB_COLUMNS.REQUEST_RESET]: false,
+            }),
+            isManager ? updateBranch.mutateAsync({
                 id: target.branchId,
                 [DB_COLUMNS.IS_PIN_CHANGED]: false,
-                [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString()
-            });
-        }
+                [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
+            }) : Promise.resolve(),
+        ]);
 
-        await addAuditLog.mutateAsync({
+        // Audit log + session invalidation are fire-and-forget
+        addAuditLog.mutate({
             [DB_COLUMNS.BRANCH_ID]: null,
             [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
@@ -278,12 +279,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             [DB_COLUMNS.DESCRIPTION]: `Administrator handled credentials reset for: ${target.name || 'UNNAMED'}. Access reverted to Setup Mode.`,
             [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
         });
-
         const affectedBranchIds = [
             target.branchId,
             ...Object.keys(target.branchAllowances || {}),
         ].filter(Boolean) as string[];
-        if (affectedBranchIds.length > 0) await invalidateBranchSessions(affectedBranchIds);
+        if (affectedBranchIds.length > 0) invalidateBranchSessions(affectedBranchIds);
 
         playSound('success');
         setShowAdminWipeConfirm(null);
@@ -462,7 +462,8 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           await Promise.all(cascadePromises);
       }
 
-      await addAuditLog.mutateAsync({
+      // Audit log is fire-and-forget — don't block UX on it
+      addAuditLog.mutate({
         [DB_COLUMNS.BRANCH_ID]: null,
         [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee?.id ? 'UPDATE' : 'CREATE',

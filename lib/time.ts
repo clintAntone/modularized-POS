@@ -100,13 +100,24 @@ export const isTimeSynced = () => isInitialized;
  * Falls back to getTrueManilaISOString() if the server is unreachable.
  */
 export const getServerTimestamp = async (): Promise<string> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
   try {
     const url = import.meta.env.VITE_TIME_API_URL || '/api/time';
-    const res = await fetch(url, { cache: 'no-store' });
+    const t0 = performance.now();
+    const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    const t1 = performance.now();
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const ms = data.timestamp;
     if (!ms || isNaN(ms)) throw new Error('Invalid timestamp');
+
+    // Re-sync the monotonic baseline so getTrueManilaISOString() stays accurate
+    // even if visibilitychange hasn't fired yet (e.g., device just woke from sleep).
+    initialServerTime = ms + (t1 - t0) / 2;
+    initialPerformanceTime = t1;
+    isInitialized = true;
+
     const serverDate = new Date(ms);
     const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(serverDate);
     const manilaTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(serverDate);
@@ -114,6 +125,8 @@ export const getServerTimestamp = async (): Promise<string> => {
     return `${manilaDate}T${manilaTime}.${msStr}+08:00`;
   } catch {
     return getTrueManilaISOString();
+  } finally {
+    clearTimeout(timer);
   }
 };
 

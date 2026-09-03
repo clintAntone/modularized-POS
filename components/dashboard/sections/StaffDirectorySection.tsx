@@ -46,10 +46,13 @@ interface Toast {
   type: 'success' | 'error';
 }
 
+const STANDARD_ROLES = new Set(['THERAPIST', 'BONESETTER', 'MANAGER', 'RELIEVER']);
+
 export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -140,6 +143,13 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   useEffect(() => {
     const timer = setInterval(() => setNow(getTrueDate()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq(DB_COLUMNS.KEY, 'custom_roles').maybeSingle()
+      .then(({ data }) => {
+        try { setCustomRoles(data?.value ? JSON.parse(data.value) : []); } catch { setCustomRoles([]); }
+      });
   }, []);
 
   const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
@@ -1387,7 +1397,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       ? () => setRemoveRelieversEmployee(emp)
                       : undefined
                   }
-                  onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+                  onFaceTimeIn={(() => {
+                    if (isClosedMode || branch.faceIdEnabled === false || getShiftState(emp.id) !== 'NOT_STARTED') return undefined;
+                    // Custom-role-only staff skip facial ID — they clock in manually
+                    const empRoles = (getEmployeeRole(emp, branch.id) || '').split(',').map(r => r.trim()).filter(Boolean);
+                    const isCustomRoleOnly = empRoles.length > 0 && empRoles.every(r => customRoles.includes(r) && !STANDARD_ROLES.has(r));
+                    if (isCustomRoleOnly) return undefined;
+                    return () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); };
+                  })()}
                   onRegisterFace={!isClosedMode && branch.faceIdEnabled !== false ? () => { setEditingEmployee({ ...emp }); setIsModalOpen(true); setOpenFaceEnrollOnEdit(true); } : undefined}
                   faceIdEnabled={branch.faceIdEnabled !== false}
                 />
