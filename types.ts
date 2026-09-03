@@ -54,6 +54,7 @@ export interface Branch {
   owners?: { name: string; percentage: number }[];
   ownersHistory?: { effectiveDate: string; owners: { name: string; percentage: number }[] }[];
   groupLevy?: { name: string; percentage: number } | null;
+  rankingBoost?: number | null;
   refreshSignal?: number | null;
   vaultEnabled?: boolean;
   coopOwned?: boolean;

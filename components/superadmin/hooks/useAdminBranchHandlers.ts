@@ -104,6 +104,7 @@ export function useAdminBranchHandlers({
         [DB_COLUMNS.CONTACT_NUMBER]: updated.contactNumber || null,
         [DB_COLUMNS.OWNERS]: JSON.stringify(updated.owners || []),
         [DB_COLUMNS.GROUP_LEVY]: updated.groupLevy ? JSON.stringify(updated.groupLevy) : null,
+        [DB_COLUMNS.RANKING_BOOST]: updated.rankingBoost ?? null,
         [DB_COLUMNS.VAULT_ENABLED]: updated.vaultEnabled ?? false,
         [DB_COLUMNS.COOP_OWNED]: updated.coopOwned ?? false,
         ...(updated.cutoffHistory ? { [DB_COLUMNS.CUTOFF_HISTORY]: updated.cutoffHistory } : {}),

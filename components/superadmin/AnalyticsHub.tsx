@@ -252,7 +252,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const barData = useMemo(() =>
     [...branchWeekData]
       .sort((a, b) => b[metric] - a[metric])
-      .slice(0, 25),
+      .slice(0, 50),
   [branchWeekData, metric]);
 
   const maxBarValue = useMemo(() =>
@@ -382,7 +382,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       { keyword: /TANDANG\s*SORA/i, label: 'TANDANG SORA' },
     ];
 
-    const merged: { shortName: string; gross: number; roi: number; score: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
+    const merged: { shortName: string; gross: number; roi: number; score: number; rankingBoost?: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
     const mergeAccum: Record<string, { gross: number; roi: number; label: string; branchIds: string[] }> = {};
 
     activeBranches
@@ -397,7 +397,9 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         } else {
           const shortName = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
           const { gross, perfRoi } = map[b.id];
-          merged.push({ shortName, gross, roi: perfRoi, score: (gross + perfRoi) / 2, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
+          const baseScore = (gross + perfRoi) / 2;
+          const boost = b.rankingBoost ? (1 + b.rankingBoost / 100) : 1;
+          merged.push({ shortName, gross, roi: perfRoi, score: baseScore * boost, rankingBoost: b.rankingBoost ?? undefined, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
         }
       });
 
@@ -532,7 +534,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       <div>
         <div className="flex flex-col sm:flex-row justify-between items-end gap-3 bg-white pl-4 md:pl-6 pr-4 md:pr-6 pt-4 md:pt-6 pb-0 rounded-t-2xl border border-b-0 border-slate-100 shadow-sm">
           <div className="pb-3 md:pb-4">
-            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 10 Performers</h2>
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 50 Performers</h2>
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
           </div>
           {/* Folder tabs */}
@@ -655,7 +657,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
             {(() => {
               const listData = rankingTab === 'standard' ? top10Data : top10DataEarlyRemit;
-              const displayList = listData.slice(0, 20);
+              const displayList = listData.slice(0, 50);
               if (displayList.length === 0) return (
                 <div className="py-14 text-center">
                   <div className="text-4xl mb-3">🏅</div>
@@ -669,6 +671,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 <div className="space-y-1.5">
                   {displayList.map((d, i) => {
                     const rank    = i + 1;
+                    const isTop20 = rank <= 20;
                     const isTop10 = rank <= 10;
                     const isTop3  = rank <= 3;
                     const medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
@@ -692,7 +695,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                    : rank === 6 ? 'bg-violet-400'
                                    : rank === 7 ? 'bg-rose-400'
                                    :              'bg-teal-400';
-                    // Ranks 11-20: show a faint separator before rank 11, then dim everything
                     const earlyRate = rankingTab === 'early_remit' ? ((d as any).earlyRate ?? 0) : null;
                     return (
                       <React.Fragment key={d.shortName}>
@@ -703,19 +705,26 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             <div className="flex-1 h-px bg-slate-100" />
                           </div>
                         )}
-                        <div className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all ${rowBg} ${!isTop10 ? 'opacity-40' : ''}`}>
+                        {rank === 21 && (
+                          <div className="flex items-center gap-3 py-0.5">
+                            <div className="flex-1 h-px bg-slate-100" />
+                            <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest shrink-0">Ranks 21–50</span>
+                            <div className="flex-1 h-px bg-slate-100" />
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all ${rowBg} ${!isTop20 ? 'opacity-30' : !isTop10 ? 'opacity-60' : ''}`}>
                           {/* Rank */}
                           <div className="w-8 shrink-0 flex items-center justify-center">
                             {medal
                               ? <span className="text-xl leading-none">{medal}</span>
-                              : <span className={`text-xs font-black ${isTop10 ? 'text-slate-400' : 'text-slate-300'}`}>#{rank}</span>}
+                              : <span className={`text-xs font-black ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>#{rank}</span>}
                           </div>
 
                           {/* Branch + breakdown */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-1">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <p className={`font-black uppercase truncate ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
+                                <p className={`font-black uppercase truncate ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
                                   {d.shortName}
                                 </p>
                                 {d.isMerged && (
@@ -723,18 +732,23 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                     Combined
                                   </span>
                                 )}
-                                {rankingTab === 'standard' && d.isEarlyRemit && isTop10 && (
+                                {rankingTab === 'standard' && d.isEarlyRemit && isTop20 && (
                                   <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
                                     ⚡ Early
                                   </span>
                                 )}
-                                {rankingTab === 'early_remit' && earlyRate !== null && earlyRate > 0 && isTop10 && (
+                                {d.rankingBoost && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 leading-none">
+                                    +{d.rankingBoost}% boost
+                                  </span>
+                                )}
+                                {rankingTab === 'early_remit' && earlyRate !== null && earlyRate > 0 && isTop20 && (
                                   <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
                                     ⚡ {Math.round(earlyRate * 100)}%
                                   </span>
                                 )}
                               </div>
-                              <p className={`font-black tabular-nums shrink-0 ${isTop3 ? 'text-sm text-slate-900' : isTop10 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
+                              <p className={`font-black tabular-nums shrink-0 ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
                                 ₱{Math.round(displayScore).toLocaleString()}
                               </p>
                             </div>
@@ -743,10 +757,13 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             </div>
                             {rankingTab === 'standard' ? (
                               <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-bold ${isTop10 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
+                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-300">+</span>
-                                <span className={`text-[10px] font-bold ${isTop10 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
+                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-300">÷ 2</span>
+                                {d.rankingBoost ? (
+                                  <span className="text-[10px] font-bold text-rose-500">× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
+                                ) : null}
                               </div>
                             ) : (() => {
                               const rate = earlyRate ?? 0;

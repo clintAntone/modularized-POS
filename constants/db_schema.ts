@@ -61,6 +61,7 @@ export const DB_COLUMNS = {
   OWNERS: 'owners',
   OWNERS_HISTORY: 'owners_history',
   GROUP_LEVY: 'group_levy',
+  RANKING_BOOST: 'ranking_boost',
   REFRESH_SIGNAL: 'refresh_signal',
   VAULT_ENABLED: 'vault_enabled',
   COOP_OWNED: 'coop_owned',
