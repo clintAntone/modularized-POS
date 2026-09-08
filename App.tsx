@@ -129,6 +129,37 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // VERSION CHECK: Detect when PM2 restarts with a new build and prompt reload
+  useEffect(() => {
+    let knownVersion: string | null = null;
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (!knownVersion) {
+          knownVersion = version;
+        } else if (version !== knownVersion) {
+          setHasNewVersion(true);
+        }
+      } catch { /* server unreachable — ignore */ }
+    };
+
+    checkVersion();
+    const interval = setInterval(checkVersion, 5 * 60 * 1000); // every 5 min
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkVersion();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
   // Modular Auth Hub First
   const {
     auth, previousBranchId,
@@ -150,6 +181,7 @@ const App: React.FC = () => {
 const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReady, setSwUpdateReady] = useState(false);
+  const [hasNewVersion, setHasNewVersion] = useState(false);
 
   // SW_UPDATED message from service worker means a new bundle has been activated.
   // Show a brief banner then reload so users always run the latest version.
@@ -723,6 +755,18 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           </div>
         </header>
         <OfflineBanner isOffline={isOffline} />
+
+        {hasNewVersion && (
+          <div className="fixed top-0 left-0 right-0 z-[99999] bg-emerald-600 text-white text-center text-xs font-black uppercase tracking-widest py-3 flex items-center justify-center gap-3 shadow-lg no-print">
+            <span>New version available</span>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-white text-emerald-700 font-black text-xs uppercase tracking-widest px-3 py-1 rounded-lg active:scale-95 transition-all"
+            >
+              Reload
+            </button>
+          </div>
+        )}
 
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>

@@ -19,6 +19,9 @@ function safeEqual(a: string, b: string): boolean {
   }
 }
 
+// Captured once at process start — changes every time PM2 restarts
+const SERVER_START_TIME = Date.now().toString();
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -266,6 +269,10 @@ async function startServer() {
   });
 
   // ── Server Time ───────────────────────────────────────────────────────────────
+  app.get("/api/version", (_req, res) => {
+    res.json({ version: SERVER_START_TIME });
+  });
+
   app.get("/api/time", (_req, res) => {
     const now = new Date();
     res.json({
