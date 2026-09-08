@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { getTrueDate, getTrueISOString } from '../lib/time';
@@ -169,6 +170,22 @@ export const useTransactions = (branchId?: string) => {
 };
 
 export const useBranchServiceTemplates = (branchId: string) => {
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        if (!branchId) return;
+        const channel = supabase
+            .channel(`branch_service_templates:${branchId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.BRANCH_SERVICES, filter: `branch_id=eq.${branchId}` }, () => {
+                queryClient.invalidateQueries({ queryKey: ['branch_service_templates', branchId] });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_TEMPLATES }, () => {
+                queryClient.invalidateQueries({ queryKey: ['branch_service_templates', branchId] });
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [branchId, queryClient]);
+
     return useQuery({
         queryKey: ['branch_service_templates', branchId],
         queryFn: async () => {

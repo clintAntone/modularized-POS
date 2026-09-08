@@ -559,6 +559,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 onClose={() => setSelectedReport(null)}
                 canEdit={false}
                 canValidate={true}
+                isSuperAdmin={true}
                 branches={branches}
                 branchVaults={branchVaults}
             />

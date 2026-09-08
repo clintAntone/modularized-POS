@@ -21,13 +21,14 @@ interface ReportDashboardModalProps {
   employees?: any[];
   onClose: () => void;
   canEdit?: boolean;
+  isSuperAdmin?: boolean;
   branch?: Branch;
   branches?: Branch[];
   branchVaults?: BranchVault[];
   vaultStartDate?: string | null;
 }
 
-export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report: reportProp, constituents: constituentsProp = [], branchName, employees = [], onClose, canEdit, branch, branches = [], branchVaults = [], vaultStartDate }) => {
+export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report: reportProp, constituents: constituentsProp = [], branchName, employees = [], onClose, canEdit, isSuperAdmin, branch, branches = [], branchVaults = [], vaultStartDate }) => {
   const [report, setReport] = useState<SalesReport>(reportProp);
   const [constituents, setConstituents] = useState<SalesReport[]>(constituentsProp);
   const [vaultDepositTxs, setVaultDepositTxs] = useState<any[]>([]);
@@ -1181,6 +1182,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   {isHalfDay && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-amber-50 text-amber-700 border-amber-100">Half</span>}
                                 </div>
                               </div>
+
+                              {isSuperAdmin && (s.attendance?.clockInPhotoUrl || s.attendance?.clock_in_photo_url) && (
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-0.5">Clock-in Photo</p>
+                                  <img
+                                    src={s.attendance.clockInPhotoUrl || s.attendance.clock_in_photo_url}
+                                    alt={`${resolvedName} clock-in`}
+                                    className="w-full rounded-xl object-cover border border-slate-100 shadow-sm"
+                                    style={{ maxHeight: '160px' }}
+                                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         );

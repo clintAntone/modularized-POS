@@ -138,6 +138,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const addAuditLog = useAddAuditLog();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFacePhotoRef = useRef<string | undefined>(undefined);
 
   const [now, setNow] = useState(getTrueDate());
   useEffect(() => {
@@ -760,10 +761,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime.name,
             [DB_COLUMNS.DATE]: todayStr,
             [DB_COLUMNS.CLOCK_IN]: timestamp,
-            [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL',
+            [DB_COLUMNS.CLOCK_IN_METHOD]: isFaceInitiated ? 'FACE' : 'MANUAL',
             [DB_COLUMNS.STATUS]: 'REGULAR',
-            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {})
+            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {}),
+            ...(isFaceInitiated && pendingFacePhotoRef.current ? { [DB_COLUMNS.CLOCK_IN_PHOTO_URL]: pendingFacePhotoRef.current } : {})
           });
+          pendingFacePhotoRef.current = undefined;
           showToast(`${selectedEmpForTime.name} is now ON DUTY${branch.shift2OpeningTime ? ` (Shift ${effectiveShift})` : ''}`);
         }
       } 
@@ -877,7 +880,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
-  const handleFaceTimeIn = async (emp: Employee) => {
+  const handleFaceTimeIn = async (emp: Employee, photoUrl?: string) => {
     if (!emp.isActive || emp.onLeave || isSyncing || isClosedMode) return;
     const state = getShiftState(emp.id);
     if (state !== 'NOT_STARTED' && state !== 'COMPLETED') return;
@@ -923,7 +926,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           [DB_COLUMNS.DATE]: todayStr,
           [DB_COLUMNS.CLOCK_IN]: timestamp,
           [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE',
-          [DB_COLUMNS.STATUS]: 'REGULAR'
+          [DB_COLUMNS.STATUS]: 'REGULAR',
+          ...(photoUrl ? { [DB_COLUMNS.CLOCK_IN_PHOTO_URL]: photoUrl } : {})
         });
         showToast(`${emp.name} is now ON DUTY`);
       }
@@ -1455,7 +1459,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         employees={employees.filter(e => e.isActive)}
         branchId={branch.id}
         targetEmployee={faceTimeInTarget ?? undefined}
-        onMatch={(emp) => {
+        onMatch={(emp, photoUrl) => {
+          pendingFacePhotoRef.current = photoUrl;
           // Dual-shift branch: face used for identification only — open shift picker instead of directly inserting
           if (branch.shift2OpeningTime) {
             setShowFaceTimeIn(false);
@@ -1463,7 +1468,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             setIsFaceInitiated(true);
             handleOpenTimeModal(emp);
           } else {
-            handleFaceTimeIn(emp);
+            handleFaceTimeIn(emp, photoUrl);
           }
         }}
         onClose={() => { setShowFaceTimeIn(false); setFaceTimeInTarget(null); }}

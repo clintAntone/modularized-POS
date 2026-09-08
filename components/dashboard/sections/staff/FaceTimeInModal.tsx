@@ -29,7 +29,7 @@ interface FaceTimeInModalProps {
     employees: Employee[];
     branchId: string;
     targetEmployee?: Employee;
-    onMatch: (emp: Employee) => void;
+    onMatch: (emp: Employee, photoUrl?: string) => void;
     onClose: () => void;
     onManualOverride?: () => void;
     onEnroll?: () => void;
@@ -202,12 +202,43 @@ export const FaceTimeInModal: React.FC<FaceTimeInModalProps> = ({ employees, bra
                 return;
             }
 
+            // Capture frame from video before stopping the camera
+            let photoPromise: Promise<string | undefined> = Promise.resolve(undefined);
+            if (videoRef.current && videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoRef.current.videoWidth;
+                canvas.height = videoRef.current.videoHeight;
+                canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
+                photoPromise = new Promise(resolve => {
+                    canvas.toBlob(async blob => {
+                        if (!blob) { resolve(undefined); return; }
+                        try {
+                            const date = new Date().toISOString().slice(0, 10);
+                            const path = `${branchId}/${date}/${emp.id}_${Date.now()}.jpg`;
+                            const { error } = await supabase.storage
+                                .from('clock-in-photos')
+                                .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+                            if (error) { resolve(undefined); return; }
+                            const { data: urlData } = supabase.storage.from('clock-in-photos').getPublicUrl(path);
+                            resolve(urlData?.publicUrl ?? undefined);
+                        } catch { resolve(undefined); }
+                    }, 'image/jpeg', 0.8);
+                });
+            }
+
             playSound('success');
             setMatchedEmp(emp);
             setMatchConfidence(Math.round((1 - match.distance) * 100));
             setStatus('matched');
             stopCamera();
-            setTimeout(() => { onMatch(emp); onClose(); }, 1800);
+            setTimeout(async () => {
+                const photoUrl = await Promise.race([
+                    photoPromise,
+                    new Promise<undefined>(r => setTimeout(r, 2500)),
+                ]);
+                onMatch(emp, photoUrl);
+                onClose();
+            }, 1800);
 
         } catch {
             setFailedAttempts(prev => prev + 1);

@@ -154,6 +154,7 @@ export interface Attendance {
   clockIn: string;
   clockOut?: string;
   clockInMethod?: 'FACE' | 'MANUAL';
+  clockInPhotoUrl?: string;
   status: string;
   lateDeduction: number;
   otPay: number;

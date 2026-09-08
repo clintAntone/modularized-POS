@@ -125,6 +125,7 @@ export const DB_COLUMNS = {
   CLOCK_IN: 'clock_in',
   CLOCK_OUT: 'clock_out',
   CLOCK_IN_METHOD: 'clock_in_method',
+  CLOCK_IN_PHOTO_URL: 'clock_in_photo_url',
   STATUS: 'status',
   DATE: 'date',
   LATE_DEDUCTION: 'late_deduction',
