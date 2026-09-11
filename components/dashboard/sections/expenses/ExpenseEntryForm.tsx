@@ -15,6 +15,7 @@ interface ExpenseEntryFormProps {
   isClosedMode: boolean;
   existingImage?: string;
   fixedCategory?: string;
+  requiresReceipt?: boolean;
 }
 
 const COMMON_EXPENSES = [
@@ -42,11 +43,14 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                                                                     onCancel,
                                                                     isClosedMode,
                                                                     existingImage,
-                                                                    fixedCategory
+                                                                    fixedCategory,
+                                                                    requiresReceipt = false,
                                                                   }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const isFormValid = formData.name.trim() !== '' && formData.amount > 0;
+  const hasProof = !!(file || existingImage);
+  const receiptBlocking = requiresReceipt && !hasProof;
+  const isFormValid = formData.name.trim() !== '' && formData.amount > 0 && !receiptBlocking;
 
   return (
       <div className={`space-y-4 sm:space-y-6 ${isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
@@ -165,16 +169,28 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex justify-between items-center ml-2">
-                  <label className="text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em]">
-                    3. Receipt Evidence <span className="text-xs sm:text-xs opacity-50 font-bold">(Optional)</span>
+                  <label className={`text-xs sm:text-xs font-black uppercase tracking-[0.28em] ${receiptBlocking ? 'text-rose-500' : 'text-slate-400'}`}>
+                    3. Receipt Evidence{' '}
+                    {requiresReceipt
+                      ? <span className="text-rose-500 font-black">(REQUIRED)</span>
+                      : <span className="opacity-50 font-bold">(Optional)</span>}
                   </label>
 
-                  {(file || existingImage) && (
-                      <span className="text-xs sm:text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    Proof Attached
-                  </span>
+                  {hasProof && (
+                    <span className="text-xs sm:text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      Proof Attached
+                    </span>
                   )}
                 </div>
+
+                {receiptBlocking && (
+                  <div className="flex items-start gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl animate-in fade-in duration-200">
+                    <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
+                    <p className="text-xs font-black text-rose-700 uppercase tracking-wide leading-relaxed">
+                      Attach Facebook attendance post screenshot as proof
+                    </p>
+                  </div>
+                )}
 
                 {file || existingImage ? (
                     <div className="w-full p-4 sm:p-6 rounded-2xl sm:rounded-[30px] border-2 border-emerald-500 bg-emerald-50 flex items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-300">

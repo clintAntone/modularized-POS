@@ -1184,6 +1184,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               onDeposit={handleVaultDeposit}
               hideDepositTab={isAddExpenseModalOpen && !openExpenseModalOnDeposit && !openExpenseModalOnLegacyDeposit}
               reportId={`${branch.id}_${todayStr.replace(/-/g, '')}`}
+              isSuperAdmin={user?.role === 'SUPERADMIN'}
             />
           )}
           {viewingExpense && (<ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />)}

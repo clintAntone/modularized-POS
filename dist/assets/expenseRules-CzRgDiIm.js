@@ -1,0 +1,1 @@
+const r=["FOOD","MERYENDA","SNACKS","PAGKAIN","MEAL","MEALS","ULAM","KAIN","LUNCH","DINNER","BREAKFAST","ALMUSAL"],E=(A,e)=>{if(!A.trim()||e.length===0)return!1;const t=A.trim().toUpperCase();return e.some(s=>t.includes(s.trim().toUpperCase()))};export{r as D,E as i};

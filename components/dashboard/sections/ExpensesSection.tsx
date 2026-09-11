@@ -11,6 +11,7 @@ import { useAddExpense, useUpdateExpense, useDeleteExpense } from '../../../hook
 import { logAudit } from '../../../lib/audit';
 import { getTrueDate, getTrueISOString, getTrueManilaISOString, toManilaDateStr } from '../../../lib/time';
 import { Plus, Trash2 } from 'lucide-react';
+import { isFoodExpense, DEFAULT_FOOD_KEYWORDS } from '../../../lib/expenseRules';
 
 const OFFLINE_QUEUE_KEY = 'hilot_core_pending_sync_v1';
 
@@ -46,6 +47,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
   const [toast, setToast] = useState<Toast | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [foodKeywords, setFoodKeywords] = useState<string[]>(DEFAULT_FOOD_KEYWORDS);
 
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
@@ -58,6 +60,22 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
     timeZone: 'Asia/Manila',
     year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(getTrueDate()), []);
+
+  useEffect(() => {
+    supabase
+      .from(DB_TABLES.SYSTEM_CONFIG)
+      .select('value')
+      .eq('key', 'food_expense_keywords')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            if (Array.isArray(parsed)) setFoodKeywords(parsed);
+          } catch {}
+        }
+      });
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -87,9 +105,13 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
 
   const totalDailyBurn = useMemo(() => dailyExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0), [dailyExpenses]);
 
+  const isFoodItem = isFoodExpense(formData.name, foodKeywords);
+  const requiresReceipt = isFoodItem && !editingExpense && user?.role !== 'SUPERADMIN';
+
   const handleSaveExpense = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!formData.name || !formData.amount || isUploading || isClosedMode) return;
+    if (requiresReceipt && !file) return;
     
     setIsUploading(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
@@ -326,7 +348,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
                 </div>
               </div>
             ) : (
-              <ExpenseEntryForm 
+              <ExpenseEntryForm
                 formData={formData}
                 setFormData={setFormData}
                 file={file}
@@ -339,6 +361,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
                 isClosedMode={isClosedMode}
                 existingImage={editingExpense?.receiptImage}
                 fixedCategory={fixedCategory}
+                requiresReceipt={requiresReceipt}
               />
             )}
 

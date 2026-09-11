@@ -8,6 +8,7 @@ import { playSound } from '../../../../lib/audio';
 import { compressImage } from '../../../../lib/image';
 import { getTrueDate } from '../../../../lib/time';
 import { logAudit } from '../../../../lib/audit';
+import { isFoodExpense, DEFAULT_FOOD_KEYWORDS } from '../../../../lib/expenseRules';
 
 type ModalMode = 'expense' | 'deposit' | 'legacy_deposit';
 
@@ -25,12 +26,13 @@ interface QuickExpenseModalProps {
   onDeposit?: (amount: number) => Promise<void>;
   hideDepositTab?: boolean;
   reportId?: string;
+  isSuperAdmin?: boolean;
 }
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   branch, todayStr, onClose, onRefresh, performerName, branchVault,
   defaultIsVaultDeposit = false, defaultIsLegacyDeposit = false, currentNetRoi, todayVaultDeposit = 0, onDeposit,
-  hideDepositTab = false, reportId,
+  hideDepositTab = false, reportId, isSuperAdmin = false,
 }) => {
   const initialMode: ModalMode = defaultIsLegacyDeposit ? 'legacy_deposit' : defaultIsVaultDeposit ? 'deposit' : 'expense';
   const [mode, setMode] = useState<ModalMode>(initialMode);
@@ -60,6 +62,23 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  // Fetch food expense keywords from system_config
+  useEffect(() => {
+    supabase
+      .from(DB_TABLES.SYSTEM_CONFIG)
+      .select('value')
+      .eq('key', 'food_expense_keywords')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            if (Array.isArray(parsed)) setFoodKeywords(parsed);
+          } catch {}
+        }
+      });
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     if (!showSuggestions) return;
@@ -75,6 +94,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [foodKeywords, setFoodKeywords] = useState<string[]>(DEFAULT_FOOD_KEYWORDS);
+
 
   const netRoi = currentNetRoi ?? 0;
   const vaultBal = branchVault?.balance ?? 0;
@@ -85,7 +106,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const maxDeposit = Math.max(0, netRoi);
   const afterDepositBalance = vaultBal + (depositAmount || 0);
 
-  const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile));
+  const requiresReceipt = !isSuperAdmin && isFoodExpense(expenseName, foodKeywords);
+  const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile) && (!requiresReceipt || expenseFile));
 
   // Cover from vault — vault covers the expense AND any existing ROI deficit (e.g. payroll shortfall).
   // roiShortfall = how much the vault needs to withdraw so that net ROI hits 0 after this expense.
@@ -479,13 +501,23 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                   {/* Receipt */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">
+                    <label className={`text-xs font-medium uppercase tracking-wide ml-1 ${requiresReceipt && !expenseFile ? 'text-rose-500' : 'text-slate-400'}`}>
                       Receipt{' '}
-                      {withdrawFromVault
-                        ? <span className="text-rose-500">*</span>
-                        : <span className="opacity-50 font-bold normal-case">(optional)</span>
+                      {requiresReceipt
+                        ? <span className="font-black">(REQUIRED)</span>
+                        : withdrawFromVault
+                          ? <span className="text-rose-500">*</span>
+                          : <span className="opacity-50 font-bold normal-case">(optional)</span>
                       }
                     </label>
+                    {requiresReceipt && !expenseFile && (
+                      <div className="flex items-start gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl">
+                        <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
+                        <p className="text-xs font-black text-rose-700 uppercase tracking-wide leading-relaxed">
+                          Attach Facebook attendance post screenshot as proof
+                        </p>
+                      </div>
+                    )}
                     {expenseFile ? (
                       <div className="w-full px-4 py-3 rounded-xl border-2 border-emerald-400 bg-emerald-50 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5">
