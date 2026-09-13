@@ -70,6 +70,31 @@ const BLANK: Omit<ServiceTemplate, 'id'> = {
   can_be_loyalty: false,
 };
 
+// Isolated input — local state while typing, only writes to DB on blur
+const BranchPriceInput: React.FC<{
+  initialValue: number | null;
+  placeholder: string;
+  disabled: boolean;
+  onCommit: (raw: string) => void;
+}> = ({ initialValue, placeholder, disabled, onCommit }) => {
+  const [local, setLocal] = React.useState(initialValue == null ? '' : String(initialValue));
+  React.useEffect(() => {
+    setLocal(initialValue == null ? '' : String(initialValue));
+  }, [initialValue]);
+  return (
+    <input
+      type="number"
+      min="0"
+      disabled={disabled}
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={() => onCommit(local)}
+      placeholder={placeholder}
+      className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+    />
+  );
+};
+
 export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branches, isReadOnly = false, onRefresh }) => {
   const queryClient = useQueryClient();
   const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
@@ -1110,14 +1135,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         <span className="text-xs text-slate-400 shrink-0">Custom price</span>
                         <div className="flex items-center gap-1 ml-auto">
                           <span className="text-xs text-slate-400">₱</span>
-                          <input
-                            type="number"
-                            min="0"
-                            disabled={isReadOnly || !assignment}
-                            value={assignment?.price ?? ''}
-                            onChange={e => assignment && handleUpdatePrice(b.id, managingTemplate.id, e.target.value)}
+                          <BranchPriceInput
+                            initialValue={assignment?.price ?? null}
                             placeholder={String(managingTemplate.default_price)}
-                            className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            disabled={isReadOnly || !assignment}
+                            onCommit={raw => assignment && handleUpdatePrice(b.id, managingTemplate.id, raw)}
                           />
                         </div>
                         {!assignment && <span className="text-xs text-slate-300 italic">Save first</span>}
