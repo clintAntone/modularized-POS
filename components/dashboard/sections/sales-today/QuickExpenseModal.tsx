@@ -386,14 +386,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <>
                   {/* Label Input */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">What's the expense?</label>
+                    <div className="flex items-baseline justify-between ml-1">
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">What's the expense?</label>
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">One expense per entry</span>
+                    </div>
                     <div className="relative suggestion-wrapper">
                       <input
                         ref={labelInputRef}
                         value={expenseName}
-                        onChange={e => { setExpenseName(e.target.value); setShowSuggestions(true); }}
+                        onChange={e => { setExpenseName(e.target.value.replace(/[,/]/g, '')); setShowSuggestions(true); }}
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 placeholder:font-semibold placeholder:normal-case placeholder:text-slate-300"
-                        placeholder="e.g. Rent, Electricity, Food..."
+                        placeholder="e.g. WATER BILL, LAUNDRY..."
                         autoFocus
                         autoComplete="off"
                       />

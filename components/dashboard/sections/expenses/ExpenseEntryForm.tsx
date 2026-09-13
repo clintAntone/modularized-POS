@@ -123,21 +123,24 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {/* ===================== */}
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
-                <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
-                  2. Expense Label / Purpose
-                </label>
+                <div className="flex items-baseline justify-between ml-2">
+                  <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em]">
+                    2. Expense Label / Purpose
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">One expense per entry</span>
+                </div>
 
                 <div className="relative group">
                   <input
                       required
                       value={formData.name}
                       onChange={e =>
-                          setFormData({ ...formData, name: e.target.value.toUpperCase() })
+                          setFormData({ ...formData, name: e.target.value.replace(/[,/]/g, '').toUpperCase() })
                       }
                       onFocus={() => setShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                       className="w-full p-4 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-black text-sm sm:text-base uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-300"
-                      placeholder="E.G. WATER BILL, LAUNDRY"
+                      placeholder="E.G. WATER BILL"
                       aria-label="Expense purpose"
                   />
                   
