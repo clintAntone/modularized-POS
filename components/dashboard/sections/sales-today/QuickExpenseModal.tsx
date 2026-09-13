@@ -8,7 +8,7 @@ import { playSound } from '../../../../lib/audio';
 import { compressImage } from '../../../../lib/image';
 import { getTrueDate } from '../../../../lib/time';
 import { logAudit } from '../../../../lib/audit';
-import { isFoodExpense, DEFAULT_FOOD_KEYWORDS } from '../../../../lib/expenseRules';
+import { getReceiptRule, DEFAULT_RECEIPT_RULES, ReceiptRequiredRule } from '../../../../lib/expenseRules';
 
 type ModalMode = 'expense' | 'deposit' | 'legacy_deposit';
 
@@ -62,18 +62,18 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // Fetch food expense keywords from system_config
+  // Fetch receipt-required rules from system_config
   useEffect(() => {
     supabase
       .from(DB_TABLES.SYSTEM_CONFIG)
       .select('value')
-      .eq('key', 'food_expense_keywords')
+      .eq('key', 'receipt_required_rules')
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value) {
           try {
             const parsed = JSON.parse(data.value);
-            if (Array.isArray(parsed)) setFoodKeywords(parsed);
+            if (Array.isArray(parsed)) setReceiptRules(parsed);
           } catch {}
         }
       });
@@ -94,7 +94,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [foodKeywords, setFoodKeywords] = useState<string[]>(DEFAULT_FOOD_KEYWORDS);
+  const [receiptRules, setReceiptRules] = useState<ReceiptRequiredRule[]>(DEFAULT_RECEIPT_RULES);
 
 
   const netRoi = currentNetRoi ?? 0;
@@ -106,7 +106,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const maxDeposit = Math.max(0, netRoi);
   const afterDepositBalance = vaultBal + (depositAmount || 0);
 
-  const requiresReceipt = !isSuperAdmin && isFoodExpense(expenseName, foodKeywords);
+  const matchedReceiptRule = getReceiptRule(expenseName, receiptRules);
+  const requiresReceipt = !isSuperAdmin && !!matchedReceiptRule;
   const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile) && (!requiresReceipt || expenseFile));
 
   // Cover from vault — vault covers the expense AND any existing ROI deficit (e.g. payroll shortfall).
@@ -514,7 +515,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       <div className="flex items-start gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl">
                         <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
                         <p className="text-xs font-black text-rose-700 uppercase tracking-wide leading-relaxed">
-                          Attach Facebook attendance post screenshot as proof
+                          {matchedReceiptRule?.message || 'Receipt is required for this expense type'}
                         </p>
                       </div>
                     )}

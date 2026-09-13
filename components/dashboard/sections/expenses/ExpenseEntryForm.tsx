@@ -16,6 +16,7 @@ interface ExpenseEntryFormProps {
   existingImage?: string;
   fixedCategory?: string;
   requiresReceipt?: boolean;
+  receiptRuleMessage?: string;
 }
 
 const COMMON_EXPENSES = [
@@ -45,6 +46,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                                                                     existingImage,
                                                                     fixedCategory,
                                                                     requiresReceipt = false,
+                                                                    receiptRuleMessage,
                                                                   }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -187,7 +189,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                   <div className="flex items-start gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl animate-in fade-in duration-200">
                     <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
                     <p className="text-xs font-black text-rose-700 uppercase tracking-wide leading-relaxed">
-                      Attach Facebook attendance post screenshot as proof
+                      {receiptRuleMessage || 'Receipt is required for this expense type'}
                     </p>
                   </div>
                 )}
