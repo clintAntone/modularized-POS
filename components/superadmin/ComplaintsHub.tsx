@@ -520,10 +520,10 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         </div>
       </div>
 
-      {/* Search + filter — stacked on mobile, single row on desktop */}
-      <div className="bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/50 rounded-2xl p-1 space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-1">
+      {/* Search + filter — separate rows on mobile, single row on desktop */}
+      <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-1 sm:bg-slate-100 sm:dark:bg-slate-800 sm:border sm:border-transparent sm:dark:border-slate-700/50 sm:rounded-2xl sm:p-1">
         {/* Search */}
-        <div className="relative flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/50 rounded-2xl sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:rounded-none sm:dark:border-0">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
@@ -542,8 +542,8 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         {/* Divider — desktop only */}
         <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-        {/* Filter tabs — scrollable strip on mobile */}
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+        {/* Filter tabs — fully independent scrollable strip on mobile */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/50 rounded-2xl p-1 sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:rounded-none sm:dark:border-0 sm:p-0 sm:gap-1">
           {FILTER_TABS.map(tab => (
             <button
               key={tab.id}
