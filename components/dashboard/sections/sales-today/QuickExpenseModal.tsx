@@ -512,9 +512,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       }
                     </label>
                     {requiresReceipt && !expenseFile && (
-                      <div className="flex items-start gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl">
-                        <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
-                        <p className="text-xs font-black text-rose-700 uppercase tracking-wide leading-relaxed">
+                      <div className="flex items-center gap-3 px-4 py-3.5 bg-rose-500 rounded-2xl animate-beat">
+                        <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-black text-white uppercase tracking-wide leading-relaxed">
                           {matchedReceiptRule?.message || 'Receipt is required for this expense type'}
                         </p>
                       </div>
