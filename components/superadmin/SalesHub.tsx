@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useQuery } from '@tanstack/react-query';
 import ReactDOM from 'react-dom';
-import { Branch, SalesReport, Employee } from '../../types';
+import { Branch, BranchVault, SalesReport, Employee } from '../../types';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { ReportDashboardModal } from '../dashboard/sections/reports-master/ReportDashboardModal';
 import { Pagination } from '../dashboard/sections/common/Pagination';
 import { parseDate, toDateStr } from '@/src/utils/reportUtils';
 import { getTrueDate, getManilaTodayStr } from '../../lib/time';
+import { supabase } from '../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -19,7 +22,7 @@ interface SalesHubProps {
   onRefresh?: (quiet?: boolean) => void;
 }
 
-type SortKey = 'gross' | 'net' | 'sessions' | 'name';
+type SortKey = 'name' | 'sessions' | 'gross' | 'staffPay' | 'operational' | 'vault' | 'net';
 
 export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, salesReportsLoading = false, employees, onRefresh }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getManilaTodayStr());
@@ -38,6 +41,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [lastSync, setLastSync] = useState<Date>(getTrueDate());
   const [mobileSortBy, setMobileSortBy] = useState<SortKey>('gross');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedReport, setSelectedReport] = useState<{ report: SalesReport; branch: Branch } | null>(null);
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('all');
   const [managerFilter, setManagerFilter] = useState<'all' | 'has_manager' | 'no_manager'>('all');
@@ -68,6 +72,28 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     return () => clearInterval(interval);
   }, []);
 
+  const { data: branchVaults = [] } = useQuery<BranchVault[]>({
+    queryKey: ['all_branch_vaults'],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from(DB_TABLES.BRANCH_VAULTS)
+        .select(`${DB_COLUMNS.BRANCH_ID}, ${DB_COLUMNS.VAULT_TARGET}, ${DB_COLUMNS.VAULT_BALANCE}, ${DB_COLUMNS.VAULT_INITIAL_BALANCE}, ${DB_COLUMNS.VAULT_START_DATE}`);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        branchId: r[DB_COLUMNS.BRANCH_ID],
+        target: Number(r[DB_COLUMNS.VAULT_TARGET] ?? 0),
+        balance: Number(r[DB_COLUMNS.VAULT_BALANCE] ?? 0),
+        initialBalance: Number(r[DB_COLUMNS.VAULT_INITIAL_BALANCE] ?? 0),
+        lastDepositedDate: null,
+        startDate: r[DB_COLUMNS.VAULT_START_DATE] ?? null,
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // Auto-refresh data every 30 seconds
   useEffect(() => {
     if (!onRefresh) return;
@@ -85,6 +111,25 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     playSound('click');
   };
 
+  // Index reports by "branchId|date" for O(1) lookup — avoids O(n²) inside branchStats and missedDaysMap
+  const reportIndex = useMemo(() => {
+    const map = new Map<string, SalesReport>();
+    for (const r of salesReports) {
+      map.set(`${r.branchId}|${r.reportDate}`, r);
+    }
+    return map;
+  }, [salesReports]);
+
+  // Index report dates per branch for O(1) existence checks in missedDaysMap
+  const reportDatesByBranch = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of salesReports) {
+      if (!map.has(r.branchId)) map.set(r.branchId, new Set());
+      map.get(r.branchId)!.add(r.reportDate);
+    }
+    return map;
+  }, [salesReports]);
+
   // Compute consecutive days without a report (going back from Manila today) per branch
   const missedDaysMap = useMemo(() => {
     const manilaToday = getManilaTodayStr();
@@ -92,22 +137,22 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     branches.forEach(branch => {
       let count = 0;
       const d = new Date(manilaToday + 'T12:00:00');
-      for (let i = 0; i < 60; i++) {
+      const branchDates = reportDatesByBranch.get(branch.id);
+      for (let i = 0; i < 30; i++) {
         const dateStr = toDateStr(d);
-        const hasReport = salesReports.some(r => r.branchId === branch.id && r.reportDate === dateStr);
-        if (hasReport) break;
+        if (branchDates?.has(dateStr)) break;
         count++;
         d.setDate(d.getDate() - 1);
       }
       map[branch.id] = count;
     });
     return map;
-  }, [branches, salesReports]);
+  }, [branches, reportDatesByBranch]);
 
   const branchStats = useMemo(() => {
     // Ensure we process ALL branches in the registry
     let stats = branches.map(branch => {
-      const report = salesReports.find(r => r.branchId === branch.id && r.reportDate === selectedDate);
+      const report = reportIndex.get(`${branch.id}|${selectedDate}`);
 
       return {
         id: branch.id,
@@ -117,7 +162,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         manager: branch.manager,
         tempManager: branch.tempManager,
         dailyProvisionAmount: branch.dailyProvisionAmount,
-        sessionCount: report ? (report.sessionData?.length || 0) : 0,
+        sessions: report ? (report.sessionData?.length || 0) : 0,
         gross: report?.grossSales || 0,
         staffPay: report?.totalStaffPay || 0,
         isLegacy: !branch.vaultEnabled,
@@ -146,9 +191,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       stats = stats.filter(b => b.missedDays >= missedDaysThreshold);
     }
 
-    // Apply Live Filter
+    // Apply Live Filter — inactive branches are excluded from both ONLINE and OFFLINE views
     if (liveFilter !== 'all') {
-      stats = stats.filter(b => liveFilter === 'live' ? b.isOpen : !b.isOpen);
+      stats = stats.filter(b => b.isEnabled && (liveFilter === 'live' ? b.isOpen : !b.isOpen));
     }
 
     // Apply Manager Filter
@@ -172,12 +217,13 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
     }
 
     // Apply Sort
+    const dir = sortDir === 'asc' ? 1 : -1;
     return stats.sort((a, b) => {
       if (!a || !b) return 0;
-      if (mobileSortBy === 'name') return (a.name || '').localeCompare(b.name || '');
-      return (b[mobileSortBy] || 0) - (a[mobileSortBy] || 0);
+      if (mobileSortBy === 'name') return dir * (a.name || '').localeCompare(b.name || '');
+      return dir * ((a[mobileSortBy] || 0) - (b[mobileSortBy] || 0));
     });
-  }, [branches, salesReports, selectedDate, mobileSortBy, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
+  }, [branches, reportIndex, selectedDate, mobileSortBy, sortDir, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
 
   const paginatedStats = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -194,7 +240,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       operational: acc.operational + curr.operational,
       vault: acc.vault + curr.vault,
       net: acc.net + curr.net,
-      sessions: acc.sessions + curr.sessionCount
+      sessions: acc.sessions + curr.sessions
     }), { gross: 0, staffPay: 0, operational: 0, vault: 0, net: 0, sessions: 0 });
   }, [branchStats]);
 
@@ -213,11 +259,10 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if (!branch.openingTime) return false;
       if ((branch.name || '').toUpperCase().includes('TEST')) return false;
       // If the branch already has a report for today, it opened at some point — don't flag it
-      const hasReportToday = salesReports.some(r => r.branchId === branch.id && r.reportDate === manilaToday);
-      if (hasReportToday) return false;
+      if (reportIndex.has(`${branch.id}|${manilaToday}`)) return false;
       return manilaTime > branch.openingTime;
     });
-  }, [branches, salesReports, selectedDate, lastSync]);
+  }, [branches, reportIndex, selectedDate, lastSync]);
 
 
   const isToday = selectedDate === getManilaTodayStr();
@@ -233,9 +278,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if ((b.name || '').toUpperCase().includes('TEST')) return false;
       // Only flag branches whose opening time has already passed
       if (b.openingTime && manilaTime < b.openingTime) return false;
-      return !salesReports.some(r => r.branchId === b.id && r.reportDate === selectedDate);
+      return !reportIndex.has(`${b.id}|${selectedDate}`);
     }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [branches, salesReports, salesReportsLoading, selectedDate, isToday, lastSync]);
+  }, [branches, reportIndex, salesReportsLoading, selectedDate, isToday, lastSync]);
 
   const formattedDisplayDate = useMemo(() => {
     const d = parseDate(selectedDate);
@@ -245,7 +290,12 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   const handleSortChange = (key: SortKey) => {
     resumeAudioContext();
     playSound('click');
-    setMobileSortBy(key);
+    if (mobileSortBy === key) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setMobileSortBy(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
   };
 
   const handleRowClick = (b: any) => {
@@ -366,7 +416,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       b.operational,
       b.vault,
       b.net,
-      b.sessionCount ?? '',
+      b.sessions ?? '',
     ]);
     const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [headers, ...rows].map(r => r.map(escape).join(',')).join('\n');
@@ -509,7 +559,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 onClose={() => setSelectedReport(null)}
                 canEdit={false}
                 canValidate={true}
+                isSuperAdmin={true}
                 branches={branches}
+                branchVaults={branchVaults}
             />
         )}
         
@@ -549,7 +601,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                   placeholder="Search branch name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all outline-none placeholder:text-slate-300"
+                  className="w-full pl-12 md:pl-14 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all outline-none placeholder:text-slate-300"
               />
             </div>
 
@@ -559,7 +611,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
             >
               <svg className={`w-4 h-4 transition-transform duration-300 ${isFiltersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
               <span className="hidden sm:inline">{isFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
-              {(managerFilter !== 'all' || liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
+              {(liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
             </button>
           </div>
 
@@ -599,8 +651,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               {/* — Secondary: filter groups — */}
               <div className="space-y-3">
 
-                {/* Row 1: 4 equal-width toggles */}
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                {/* Row 1: 2 equal-width toggles */}
+                <div className="grid grid-cols-2 gap-3">
                   {/* Live Status */}
                   <div className="space-y-1.5">
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Live Status</p>
@@ -627,40 +679,15 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     </div>
                   </div>
 
-                  {/* Manager Status */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Manager</p>
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                      {(['all', 'has_manager', 'no_manager'] as const).map((val) => (
-                        <button key={val} onClick={() => { setManagerFilter(val); playSound('click'); }}
-                          className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${managerFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                          {val === 'all' ? 'All' : val === 'has_manager' ? 'Assigned' : 'Empty'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sort By */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Sort By</p>
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                      {(['gross', 'net', 'sessions', 'name'] as SortKey[]).map((key) => (
-                        <button key={key} onClick={() => handleSortChange(key)}
-                          className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${mobileSortBy === key ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                          {key === 'sessions' ? 'Units' : key === 'name' ? 'A–Z' : key}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Row 2: No Report For — compact, left-aligned */}
                 <div className="space-y-1.5">
                   <p className="text-xs font-black text-rose-400 uppercase tracking-widest ml-1">No Report For</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10 w-full xl:w-fit gap-0.5">
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10 w-full gap-0.5">
                     {([null, 3, 5, 7, 14, 30] as (number | null)[]).map((val) => (
                       <button key={val ?? 'all'} onClick={() => { setMissedDaysThreshold(val); playSound('click'); }}
-                        className={`flex-1 xl:flex-none xl:px-5 rounded-lg text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                        className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                           missedDaysThreshold === val
                             ? val === null ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'bg-rose-600 text-white shadow-sm'
                             : 'text-slate-400 hover:text-slate-600'
@@ -674,7 +701,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               </div>
 
               {/* Active filters summary chips */}
-              {(liveFilter !== 'all' || complianceFilter !== 'all' || managerFilter !== 'all' || missedDaysThreshold !== null) && (
+              {(liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {liveFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-black text-emerald-700 uppercase tracking-widest">
@@ -688,12 +715,6 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                       <button onClick={() => setComplianceFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
                     </span>
                   )}
-                  {managerFilter !== 'all' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs font-black text-amber-700 uppercase tracking-widest">
-                      {managerFilter === 'has_manager' ? 'Has Manager' : 'No Manager'}
-                      <button onClick={() => setManagerFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
-                    </span>
-                  )}
                   {missedDaysThreshold !== null && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 rounded-full text-xs font-black text-rose-700 uppercase tracking-widest">
                       No report {missedDaysThreshold}d+
@@ -701,7 +722,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     </span>
                   )}
                   <button
-                    onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setManagerFilter('all'); setMissedDaysThreshold(null); playSound('click'); }}
+                    onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setMissedDaysThreshold(null); playSound('click'); }}
                     className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors px-2"
                   >
                     Clear all
@@ -821,14 +842,36 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className={`px-8 py-5 w-[20%] ${UI_THEME.text.metadata}`}>Branch Node</th>
-                <th className={`px-4 py-5 w-[10%] text-center ${UI_THEME.text.metadata}`}>Status</th>
-                <th className={`px-4 py-5 w-[8%] text-right ${UI_THEME.text.metadata}`}>Units</th>
-                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Gross Yield</th>
-                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Payroll</th>
-                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Expenses</th>
-                <th className={`px-4 py-5 w-[12%] text-right ${UI_THEME.text.metadata}`}>Rent & Bills</th>
-                <th className={`px-8 py-5 w-[14%] text-right ${UI_THEME.text.metadata}`}>Net ROI</th>
+                {([
+                  { key: 'name',        label: 'Branch Node',  align: 'left',   px: 'px-8', w: 'w-[20%]' },
+                  { key: null,          label: 'Status',       align: 'center', px: 'px-4', w: 'w-[10%]' },
+                  { key: 'sessions',    label: 'Units',        align: 'right',  px: 'px-4', w: 'w-[8%]'  },
+                  { key: 'gross',       label: 'Gross Yield',  align: 'right',  px: 'px-4', w: 'w-[12%]' },
+                  { key: 'staffPay',    label: 'Payroll',      align: 'right',  px: 'px-4', w: 'w-[12%]' },
+                  { key: 'operational', label: 'Expenses',     align: 'right',  px: 'px-4', w: 'w-[12%]' },
+                  { key: 'vault',       label: 'Rent & Bills', align: 'right',  px: 'px-4', w: 'w-[12%]' },
+                  { key: 'net',         label: 'Net ROI',      align: 'right',  px: 'px-8', w: 'w-[14%]' },
+                ] as { key: SortKey | null; label: string; align: string; px: string; w: string }[]).map(col => (
+                  <th key={col.label} className={`${col.px} py-5 ${col.w} text-${col.align} ${UI_THEME.text.metadata} ${col.key ? 'cursor-pointer select-none hover:text-slate-700 group' : ''}`}
+                    onClick={col.key ? () => handleSortChange(col.key!) : undefined}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      {col.label}
+                      {col.key && mobileSortBy === col.key && (
+                        <svg className="w-3 h-3 shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                          {sortDir === 'desc'
+                            ? <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            : <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />}
+                        </svg>
+                      )}
+                      {col.key && mobileSortBy !== col.key && (
+                        <svg className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-30 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </span>
+                  </th>
+                ))}
               </tr>
               </thead>
               <tbody>
@@ -881,7 +924,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                         )}
                       </td>
                       <td className="px-4 py-6 text-right">
-                        <span className="text-sm font-semibold text-slate-900 tabular-nums">{b.sessionCount}</span>
+                        <span className="text-sm font-semibold text-slate-900 tabular-nums">{b.sessions}</span>
                       </td>
                       <td className="px-4 py-6 text-right">
                         <span className="text-sm font-bold text-slate-900 tabular-nums">₱{b.gross.toLocaleString()}</span>
@@ -945,9 +988,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                     </div>
                   )}
                 </div>
-                {b.sessionCount > 0 && (
+                {b.sessions > 0 && (
                   <div className="shrink-0 bg-slate-100 rounded-lg px-2 py-1 text-xs font-black text-slate-600 uppercase tracking-wide">
-                    {b.sessionCount} clients
+                    {b.sessions} clients
                   </div>
                 )}
               </div>

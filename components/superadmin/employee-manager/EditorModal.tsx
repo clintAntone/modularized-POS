@@ -404,7 +404,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                 onChange={ids => {
                   setAuthorizedBranchIds(ids);
                   const next = { ...(localEmployee.branchAllowances || {}) };
-                  ids.forEach(id => { if (!next[id]) next[id] = { allowance: 0, role: 'THERAPIST' }; });
+                  ids.forEach(id => { if (!next[id]) next[id] = { allowance: 200, role: 'THERAPIST' }; });
                   setLocalEmployee(prev => ({ ...prev, branchAllowances: next }));
                 }}
                 disabled={isSaving}
@@ -449,7 +449,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                           <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Daily Allowance</p>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₱</span>
-                            <input type="text" inputMode="decimal" value={allowance === 0 ? '' : allowance}
+                            <input type="text" inputMode="decimal" value={allowance}
                               onChange={e => {
                                 const raw = e.target.value;
                                 if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
@@ -687,12 +687,12 @@ export const EditorModal: React.FC<EditorModalProps> = ({
         {/* Footer */}
         <div className="pt-3 sm:pt-5 shrink-0 space-y-1.5">
           {activeTab === 'assignment' && (() => {
-            const zeroIds = authorizedBranchIds.filter(id => { const cfg = localEmployee.branchAllowances?.[id]; const v = typeof cfg === 'object' && cfg !== null ? cfg.allowance : (typeof cfg === 'number' ? cfg : 0); return (v ?? 0) <= 0; });
+            const zeroIds = authorizedBranchIds.filter(id => { const cfg = localEmployee.branchAllowances?.[id]; const v = typeof cfg === 'object' && cfg !== null ? cfg.allowance : (typeof cfg === 'number' ? cfg : 0); return (v ?? 0) < 0; });
             const ok = zeroIds.length === 0;
             const canSubmit = isExisting ? authorizedBranchIds.length > 0 && ok : !!localEmployee.firstName && !!localEmployee.lastName && authorizedBranchIds.length > 0 && ok;
             return (
               <>
-                {!ok && (localEmployee.firstName || isExisting) && <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest animate-pulse">All branches must have a non-zero allowance</p>}
+                {!ok && (localEmployee.firstName || isExisting) && <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest animate-pulse">Allowance cannot be negative</p>}
                 <button type="submit" disabled={isSaving || !canSubmit} className="w-full bg-slate-900 text-white font-black py-3.5 sm:py-5 rounded-[16px] sm:rounded-xl uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                   {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : (isExisting ? 'Save Assignment' : 'Register Employee')}
                 </button>

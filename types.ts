@@ -50,10 +50,14 @@ export interface Branch {
   closingTime?: string;
   shift2OpeningTime?: string;
   shift2ClosingTime?: string;
+  contactNumber?: string;
   owners?: { name: string; percentage: number }[];
+  ownersHistory?: { effectiveDate: string; owners: { name: string; percentage: number }[] }[];
   groupLevy?: { name: string; percentage: number } | null;
+  rankingBoost?: number | null;
   refreshSignal?: number | null;
   vaultEnabled?: boolean;
+  coopOwned?: boolean;
   cutoffHistory?: { cutoff: number; effectiveFrom: string }[];
   /** Ephemeral — only used during save to pass the effective date for a cutoff change */
   cutoffEffectiveDate?: string;
@@ -138,6 +142,7 @@ export interface Transaction {
   paymentMethod?: 'CASH' | 'GCASH';
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED';
   paymongoLinkId?: string;
+  signatureUrl?: string;
 }
 
 export interface Attendance {
@@ -149,6 +154,7 @@ export interface Attendance {
   clockIn: string;
   clockOut?: string;
   clockInMethod?: 'FACE' | 'MANUAL';
+  clockInPhotoUrl?: string;
   status: string;
   lateDeduction: number;
   otPay: number;

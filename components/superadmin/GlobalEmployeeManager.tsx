@@ -40,7 +40,6 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
-  const [resetRequestedOnly, setResetRequestedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'pay_asc' | 'pay_desc'>('name');
   
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
@@ -113,9 +112,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
         const isRoleMatch = roleFilter === 'all' || (e.role || '').includes(roleFilter);
 
-        const isResetMatch = !resetRequestedOnly || e.requestReset;
-
-        return isTarget && isStatusValid && isRoleMatch && isResetMatch;
+        return isTarget && isStatusValid && isRoleMatch;
     });
 
     if (debouncedSearch.trim()) {
@@ -145,15 +142,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       if (sortBy === 'pay_desc') return (b.allowance || 0) - (a.allowance || 0);
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [employees, selectedBranchIds, debouncedSearch, statusFilter, roleFilter, sortBy, branches, resetRequestedOnly]);
+  }, [employees, selectedBranchIds, debouncedSearch, statusFilter, roleFilter, sortBy, branches]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, selectedBranchIds, roleFilter, statusFilter, sortBy, resetRequestedOnly]);
-
-  const resetRequestedCount = useMemo(() => 
-    employees.filter(e => e.requestReset).length
-  , [employees]);
+  }, [debouncedSearch, selectedBranchIds, roleFilter, statusFilter, sortBy]);
 
   const paginatedEmployees = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -188,24 +181,25 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
   const handleDeleteEmployee = async () => {
     if (!showDeleteConfirm) return;
-    
+
+    const emp = showDeleteConfirm;
     setIsSaving(true);
     try {
-      // Cleanup profile image if exists
-      if (showDeleteConfirm.profile) {
-        await deleteFileByUrl(showDeleteConfirm.profile, 'profiles');
-      }
-      
-      await deleteEmployee.mutateAsync(showDeleteConfirm.id);
-      
-      await addAuditLog.mutateAsync({
+      // Delete profile image and DB row in parallel
+      await Promise.all([
+        emp.profile ? deleteFileByUrl(emp.profile, 'profiles') : Promise.resolve(),
+        deleteEmployee.mutateAsync(emp.id),
+      ]);
+
+      // Audit log is fire-and-forget — don't block UX on it
+      addAuditLog.mutate({
         activity_type: 'DELETE',
         entity_type: 'EMPLOYEE',
-        entity_id: showDeleteConfirm.id,
-        description: `Deleted suspended employee: ${showDeleteConfirm.name}`,
+        entity_id: emp.id,
+        description: `Deleted suspended employee: ${emp.name}`,
         performer_name: 'SUPERADMIN'
       });
-      
+
       playSound('success');
       setShowDeleteConfirm(null);
       setEditingEmployee(null);
@@ -256,27 +250,27 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     if (onSyncStatusChange) onSyncStatusChange(true);
     
     try {
-        await updateEmployee.mutateAsync({
-            id: target.id,
-            [DB_COLUMNS.USERNAME]: null, 
-            [DB_COLUMNS.LOGIN_PIN]: null, 
-            [DB_COLUMNS.PIN_SALT]: null,
-            [DB_COLUMNS.REQUEST_RESET]: false 
-        });
-        
-        // Only reset branch setup status if the wiped employee is currently the assigned manager
         const branch = branches.find(b => b.id === target.branchId);
         const isManager = branch?.manager?.toUpperCase() === (target.name || '').toUpperCase();
 
-        if (isManager) {
-            await updateBranch.mutateAsync({
+        // Wipe credentials + reset branch setup status in parallel
+        await Promise.all([
+            updateEmployee.mutateAsync({
+                id: target.id,
+                [DB_COLUMNS.USERNAME]: null,
+                [DB_COLUMNS.LOGIN_PIN]: null,
+                [DB_COLUMNS.PIN_SALT]: null,
+                [DB_COLUMNS.REQUEST_RESET]: false,
+            }),
+            isManager ? updateBranch.mutateAsync({
                 id: target.branchId,
                 [DB_COLUMNS.IS_PIN_CHANGED]: false,
-                [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString()
-            });
-        }
+                [DB_COLUMNS.PIN]: Math.floor(100000 + Math.random() * 900000).toString(),
+            }) : Promise.resolve(),
+        ]);
 
-        await addAuditLog.mutateAsync({
+        // Audit log + session invalidation are fire-and-forget
+        addAuditLog.mutate({
             [DB_COLUMNS.BRANCH_ID]: null,
             [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
@@ -285,12 +279,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             [DB_COLUMNS.DESCRIPTION]: `Administrator handled credentials reset for: ${target.name || 'UNNAMED'}. Access reverted to Setup Mode.`,
             [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
         });
-
         const affectedBranchIds = [
             target.branchId,
             ...Object.keys(target.branchAllowances || {}),
         ].filter(Boolean) as string[];
-        if (affectedBranchIds.length > 0) await invalidateBranchSessions(affectedBranchIds);
+        if (affectedBranchIds.length > 0) invalidateBranchSessions(affectedBranchIds);
 
         playSound('success');
         setShowAdminWipeConfirm(null);
@@ -469,7 +462,8 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           await Promise.all(cascadePromises);
       }
 
-      await addAuditLog.mutateAsync({
+      // Audit log is fire-and-forget — don't block UX on it
+      addAuditLog.mutate({
         [DB_COLUMNS.BRANCH_ID]: null,
         [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
         [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee?.id ? 'UPDATE' : 'CREATE',
@@ -762,7 +756,10 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">Staff Directory</h3>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Global Identity Management</p>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                <span className="text-emerald-400 font-black">{filteredEmployees.length}</span>
+                {' '}{statusFilter === 'active' ? 'Active' : statusFilter === 'inactive' ? 'Inactive' : 'Total'}
+              </p>
             </div>
           </div>
 
@@ -794,11 +791,11 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
           <button
             onClick={() => { setShowFilters(!showFilters); playSound('click'); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
+            className={`flex items-center gap-2 px-4 sm:px-5 h-12 sm:h-14 rounded-2xl border transition-all text-xs font-semibold uppercase tracking-wide shrink-0 ${showFilters ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600'}`}
           >
             <svg className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
             <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
-            {(selectedBranchIds.length > 0 || roleFilter !== 'all' || statusFilter !== 'active' || resetRequestedOnly) && !showFilters && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
+            {(selectedBranchIds.length > 0 || roleFilter !== 'all' || statusFilter !== 'active') && !showFilters && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
           </button>
         </div>
 
@@ -838,22 +835,6 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
                   </div>
                 )}
               </div>
-
-              {/* RESET REQUEST TOGGLE */}
-              <button
-                onClick={() => { setResetRequestedOnly(!resetRequestedOnly); playSound('click'); }}
-                className={`h-11 sm:h-12 px-5 rounded-2xl border transition-all flex items-center gap-3 ${resetRequestedOnly ? 'bg-rose-600 border-rose-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600'}`}
-              >
-                <div className={`w-2 h-2 rounded-full ${resetRequestedOnly ? 'bg-white animate-pulse' : 'bg-rose-500'}`}></div>
-                <span className="text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
-                  {resetRequestedOnly ? 'Showing Requests' : 'Filter Requests'}
-                </span>
-                {resetRequestedCount > 0 && !resetRequestedOnly && (
-                  <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-md text-xs font-black">
-                    {resetRequestedCount}
-                  </span>
-                )}
-              </button>
 
               {/* STATUS DROPDOWN */}
               <div className="relative flex-1 sm:flex-none" ref={statusDropdownRef}>

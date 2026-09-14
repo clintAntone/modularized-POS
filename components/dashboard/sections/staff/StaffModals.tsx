@@ -9,6 +9,7 @@ import { FaceEnrollment } from './FaceEnrollment';
 import { Lock, Clock, X, UserPlus, Search, AlertCircle, Plus, Camera, RefreshCw, MapPin, ScanFace, IdCard } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { DB_TABLES } from '../../../../constants/db_schema';
+import { logAudit } from '../../../../lib/audit';
 import { EmployeeIDCardModal } from '../../../superadmin/employee-manager/EmployeeIDCardModal';
 
 interface StaffModalsProps {
@@ -44,6 +45,8 @@ interface StaffModalsProps {
   toggleRole: (role: string) => void;
   getShiftState: (empId: string) => 'OFF' | 'ONGOING';
   isManagerView?: boolean;
+  /** Auto-open the Face ID enrollment sub-modal when the edit modal opens */
+  openFaceEnroll?: boolean;
 }
 
 export const StaffModals: React.FC<StaffModalsProps> = (props) => {
@@ -60,7 +63,9 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
   const [empIdCopied, setEmpIdCopied] = React.useState(false);
   const [isSavingFace, setIsSavingFace] = React.useState(false);
   const [showFaceEnrollModal, setShowFaceEnrollModal] = React.useState(false);
+  React.useEffect(() => { if (props.openFaceEnroll) setShowFaceEnrollModal(true); }, [props.openFaceEnroll]);
   const [showIdCard, setShowIdCard] = React.useState(false);
+  const [isSearching, setIsSearching] = React.useState(false);
 
   // ── Hold-to-confirm state ──────────────────────────────────────
   const [holdProgress, setHoldProgress] = React.useState(0);
@@ -117,7 +122,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
   const isNewStaff = !props.editingEmployee?.id;
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     const raw = searchQuery.toUpperCase().trim();
     // Strip legacy EMP-XX-XX- prefix so old-format IDs still resolve
     const term = raw.replace(/^EMP-\d{2}-\d{2}-/, '');
@@ -130,27 +135,33 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
       return;
     }
 
-    const stripEmpPrefix = (s: string) => s.replace(/^EMP-\d{2}-\d{2}-/, '');
-
-    const allMatches = (props.allEmployees || []).filter(emp => {
-      if (!emp.isActive) return false;
-
-      const name = (emp.name || '').toUpperCase();
-      const firstName = (emp.firstName || '').toUpperCase();
-      const lastName = (emp.lastName || '').toUpperCase();
-      const fullName = `${firstName} ${lastName}`.trim();
-      const id = (emp.id || '').toUpperCase();
-      // Normalize stored ID the same way so EMP-04-05-YZKA7KYV ↔ YZKA7KYV both match
-      const idNorm = stripEmpPrefix(id);
-
-      return name.includes(term) ||
-             firstName.includes(term) ||
-             lastName.includes(term) ||
-             fullName.includes(term) ||
-             id.includes(term) ||
-             idNorm.includes(term) ||
-             term.includes(idNorm);
-    });
+    // Query DB directly — local employees are scoped to this branch only,
+    // so we can't rely on props.allEmployees for cross-branch reliever lookup.
+    setIsSearching(true);
+    let allMatches: Employee[] = [];
+    try {
+      const { data, error } = await supabase
+        .from(DB_TABLES.EMPLOYEES)
+        .select('*')
+        .or(`name.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%,id.ilike.%${term}%`)
+        .limit(20);
+      if (error) throw error;
+      allMatches = (data || []).map((e: any) => ({
+        id: e.id, branchId: e.branch_id, name: e.name, firstName: e.first_name,
+        middleName: e.middle_name, lastName: e.last_name, username: e.username,
+        hasPinSet: Boolean(e.login_pin), requestReset: Boolean(e.request_reset),
+        role: e.role, allowance: Number(e.allowance || 0), isActive: e.is_active !== false,
+        profile: e.profile, branchAllowances: (() => { try { return typeof e.branch_allowances === 'string' ? JSON.parse(e.branch_allowances) : (e.branch_allowances || {}); } catch { return {}; } })(),
+        details: e.details || null, faceDescriptors: e.face_descriptors || undefined,
+        timestamp: e.timestamp || e.created_at,
+      }));
+    } catch {
+      setSearchError('Search failed — check your connection and try again');
+      playSound('warning');
+      return;
+    } finally {
+      setIsSearching(false);
+    }
 
     if (allMatches.length === 0) {
       setSearchError('No personnel found with that name or ID');
@@ -166,10 +177,12 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
       return;
     }
 
-    if (matchesOutside.length === 1) {
+    const activeOutside = matchesOutside.filter(e => e.isActive);
+
+    if (matchesOutside.length === 1 && activeOutside.length === 1) {
       const found = matchesOutside[0];
-      
-      // RELIEVER status is derived from branchId mismatch. 
+
+      // RELIEVER status is derived from branchId mismatch.
       // We no longer inject or require 'RELIEVER' in the role string.
       const defaultRole = found.role || '';
 
@@ -177,8 +190,8 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
         ...found,
         branchAllowances: {
           ...(found.branchAllowances || {}),
-          [props.branchId]: { 
-            allowance: found.allowance || 0, 
+          [props.branchId]: {
+            allowance: found.allowance || 0,
             role: defaultRole
           }
         }
@@ -521,9 +534,10 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                         />
                         <button
                           onClick={handleSearch}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all active:scale-95 font-black text-xs uppercase tracking-widest"
+                          disabled={isSearching}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all active:scale-95 font-black text-xs uppercase tracking-widest disabled:opacity-60"
                         >
-                          Search
+                          {isSearching ? '...' : 'Search'}
                         </button>
                       </div>
 
@@ -536,42 +550,59 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
 
                       {searchResults.length > 0 && (
                         <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide px-1">{searchResults.length} match{searchResults.length > 1 ? 'es' : ''} found</p>
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide px-1">
+                            {searchResults.filter(e => e.isActive).length} active · {searchResults.length} total
+                          </p>
                           <div className="space-y-1.5 max-h-[280px] overflow-y-auto no-scrollbar">
-                            {searchResults.map(emp => (
-                              <button
-                                key={emp.id}
-                                onClick={() => {
-                                  props.setEditingEmployee({
-                                    ...emp,
-                                    branchAllowances: {
-                                      ...(emp.branchAllowances || {}),
-                                      [props.branchId]: { allowance: emp.allowance || 0, role: emp.role || '' }
-                                    }
-                                  });
-                                  setSearchQuery('');
-                                  setSearchResults([]);
-                                  playSound('success');
-                                }}
-                                className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-slate-100 hover:border-emerald-400 hover:shadow-sm transition-all group text-left disabled:opacity-50"
-                              >
-                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black text-xs shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors overflow-hidden">
-                                  {emp.profile
-                                    ? <img src={emp.profile} className="w-full h-full object-cover" alt="" />
-                                    : getInitials(emp.name)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-black text-slate-900 uppercase truncate">{emp.name}</p>
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" strokeWidth={2} />
-                                    <p className="text-xs font-bold text-slate-400 uppercase truncate">{props.branches.find(b => b.id === emp.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}</p>
+                            {searchResults.map(emp => {
+                              const isDisabled = !emp.isActive;
+                              return (
+                                <button
+                                  key={emp.id}
+                                  disabled={isDisabled}
+                                  onClick={isDisabled ? undefined : () => {
+                                    props.setEditingEmployee({
+                                      ...emp,
+                                      branchAllowances: {
+                                        ...(emp.branchAllowances || {}),
+                                        [props.branchId]: { allowance: emp.allowance || 0, role: emp.role || '' }
+                                      }
+                                    });
+                                    setSearchQuery('');
+                                    setSearchResults([]);
+                                    playSound('success');
+                                  }}
+                                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                                    isDisabled
+                                      ? 'bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed grayscale'
+                                      : 'bg-white border-slate-100 hover:border-emerald-400 hover:shadow-sm group'
+                                  }`}
+                                >
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shrink-0 overflow-hidden ${isDisabled ? 'bg-slate-200 text-slate-400' : 'bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors'}`}>
+                                    {emp.profile
+                                      ? <img src={emp.profile} className="w-full h-full object-cover" alt="" />
+                                      : getInitials(emp.name)}
                                   </div>
-                                </div>
-                                <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shrink-0">
-                                  <Plus className="w-3.5 h-3.5" strokeWidth={3} />
-                                </div>
-                              </button>
-                            ))}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className={`text-xs font-black uppercase truncate ${isDisabled ? 'text-slate-400' : 'text-slate-900'}`}>{emp.name}</p>
+                                      {isDisabled && (
+                                        <span className="shrink-0 text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded-md">Disabled</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" strokeWidth={2} />
+                                      <p className="text-xs font-bold text-slate-400 uppercase truncate">{props.branches.find(b => b.id === emp.branchId)?.name?.replace('BRANCH - ', '') || 'Unknown'}</p>
+                                    </div>
+                                  </div>
+                                  {!isDisabled && (
+                                    <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shrink-0">
+                                      <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -873,7 +904,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                   currentBranch?.tempManager?.toUpperCase() === (props.editingEmployee.name || '').toUpperCase() ||
                   branchRole.includes('MANAGER');
                 const roleOk = hasRole || isManager;
-                const allowanceOk = (branchAllowance ?? 0) > 0;
+                const allowanceOk = (branchAllowance ?? 0) >= 0;
                 return (
                   <div className="px-5 pt-3 pb-5 shrink-0 space-y-2 border-t border-slate-100">
                     {!roleOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
@@ -883,7 +914,7 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                     )}
                     {!allowanceOk && props.editingEmployee.firstName && props.editingEmployee.lastName && (
                       <p className="text-center text-xs font-black text-rose-500 uppercase tracking-widest">
-                        Allowance cannot be zero
+                        Allowance cannot be negative
                       </p>
                     )}
                     <button
@@ -946,6 +977,14 @@ export const StaffModals: React.FC<StaffModalsProps> = (props) => {
                       alert(`Failed to save face data: ${error.message}`);
                     } else {
                       props.setEditingEmployee({ ...props.editingEmployee!, faceDescriptors: descriptors });
+                      logAudit({
+                        branchId: props.branchId,
+                        activityType: 'FACE_ID_UPDATED',
+                        entityType: 'employee',
+                        entityId: empId,
+                        description: `Face ID re-enrolled for ${props.editingEmployee!.name}`,
+                        performerName: props.branch?.name || 'Branch Manager',
+                      });
                       playSound('success');
                       setShowFaceEnrollModal(false);
                       props.onRefresh(true);

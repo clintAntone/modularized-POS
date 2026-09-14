@@ -29,7 +29,7 @@ export function useScopedData({
   const allowedBranchIds = useMemo<string[] | null>(() => {
     if (!isPortalUser || !permissions) return null;
     const ids = permissions.branchIds;
-    if (!ids || ids.length === 0) return null;
+    if (!ids || ids.length === 0) return [];
     return ids;
   }, [isPortalUser, permissions]);
 

@@ -10,7 +10,7 @@ import { compressImage } from '../../../lib/image';
 import { deleteFileByUrl } from '../../../lib/storage';
 import { getEmployeeAllowance, getEmployeeRole } from '../../../lib/payroll';
 import { useAddEmployee, useUpdateEmployee, useAddAttendance, useUpdateAttendance, useAddAuditLog } from '../../../hooks/useNetworkData';
-import { getTrueDate, getTrueISOString, getTrueManilaISOString } from '../../../lib/time';
+import { getTrueDate, getTrueISOString, getTrueManilaISOString, getServerTimestamp } from '../../../lib/time';
 import { syncRelieverPayouts } from '@/src/services/relieverPayoutService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -46,10 +46,13 @@ interface Toast {
   type: 'success' | 'error';
 }
 
+const STANDARD_ROLES = new Set(['THERAPIST', 'BONESETTER', 'MANAGER', 'RELIEVER']);
+
 export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -63,6 +66,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const [isFaceInitiated, setIsFaceInitiated] = useState(false);
   const [showFaceTimeIn, setShowFaceTimeIn] = useState(false);
   const [faceTimeInTarget, setFaceTimeInTarget] = useState<Employee | null>(null);
+  const [openFaceEnrollOnEdit, setOpenFaceEnrollOnEdit] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [recoveryEmployee, setRecoveryEmployee] = useState<Employee | null>(null);
   const [originalName, setOriginalName] = useState<string>('');
@@ -134,11 +138,19 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   const addAuditLog = useAddAuditLog();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFacePhotoRef = useRef<string | undefined>(undefined);
 
   const [now, setNow] = useState(getTrueDate());
   useEffect(() => {
     const timer = setInterval(() => setNow(getTrueDate()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq(DB_COLUMNS.KEY, 'custom_roles').maybeSingle()
+      .then(({ data }) => {
+        try { setCustomRoles(data?.value ? JSON.parse(data.value) : []); } catch { setCustomRoles([]); }
+      });
   }, []);
 
   const todayStr = useMemo(() => new Intl.DateTimeFormat('en-CA', {
@@ -680,7 +692,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
   };
 
   const getShiftState = (empId: string): 'NOT_STARTED' | 'ONGOING' | 'COMPLETED' => {
-    const todayRecords = (attendance || []).filter(a => a.employeeId === empId && a.date === todayStr);
+    const todayRecords = (attendance || []).filter(a => a.employeeId === empId && a.date === todayStr && a.branchId === branch.id);
     if (todayRecords.length === 0) return 'NOT_STARTED';
     
     // If any record is ongoing, the overall state is ongoing
@@ -699,7 +711,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     if (onSyncStatusChange) onSyncStatusChange(true);
 
     const state = getShiftState(selectedEmpForTime.id);
-    const timestamp = getTrueManilaISOString();
+    const timestamp = await getServerTimestamp();
 
     try {
       if (state === 'NOT_STARTED' || state === 'COMPLETED') {
@@ -749,10 +761,12 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             [DB_COLUMNS.STAFF_NAME]: selectedEmpForTime.name,
             [DB_COLUMNS.DATE]: todayStr,
             [DB_COLUMNS.CLOCK_IN]: timestamp,
-            [DB_COLUMNS.CLOCK_IN_METHOD]: 'MANUAL',
+            [DB_COLUMNS.CLOCK_IN_METHOD]: isFaceInitiated ? 'FACE' : 'MANUAL',
             [DB_COLUMNS.STATUS]: 'REGULAR',
-            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {})
+            ...(branch.shift2OpeningTime ? { [DB_COLUMNS.SHIFT]: effectiveShift } : {}),
+            ...(isFaceInitiated && pendingFacePhotoRef.current ? { [DB_COLUMNS.CLOCK_IN_PHOTO_URL]: pendingFacePhotoRef.current } : {})
           });
+          pendingFacePhotoRef.current = undefined;
           showToast(`${selectedEmpForTime.name} is now ON DUTY${branch.shift2OpeningTime ? ` (Shift ${effectiveShift})` : ''}`);
         }
       } 
@@ -866,14 +880,14 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     }
   };
 
-  const handleFaceTimeIn = async (emp: Employee) => {
+  const handleFaceTimeIn = async (emp: Employee, photoUrl?: string) => {
     if (!emp.isActive || emp.onLeave || isSyncing || isClosedMode) return;
     const state = getShiftState(emp.id);
     if (state !== 'NOT_STARTED' && state !== 'COMPLETED') return;
 
     setIsSyncing(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
-    const timestamp = getTrueManilaISOString();
+    const timestamp = await getServerTimestamp();
 
     try {
       const isManager = (emp.role || '').toUpperCase().includes('MANAGER');
@@ -912,7 +926,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
           [DB_COLUMNS.DATE]: todayStr,
           [DB_COLUMNS.CLOCK_IN]: timestamp,
           [DB_COLUMNS.CLOCK_IN_METHOD]: 'FACE',
-          [DB_COLUMNS.STATUS]: 'REGULAR'
+          [DB_COLUMNS.STATUS]: 'REGULAR',
+          ...(photoUrl ? { [DB_COLUMNS.CLOCK_IN_PHOTO_URL]: photoUrl } : {})
         });
         showToast(`${emp.name} is now ON DUTY`);
       }
@@ -1267,7 +1282,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         isFaceInitiated={isFaceInitiated}
         onTimeAction={handleTimeAction}
         onSaveEmployee={handleSaveWithComplaintCheck}
-        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); }}
+        onCloseModals={() => { setIsModalOpen(false); setIsTimeModalOpen(false); setShowBranchClosedModal(false); setIsPullMode(false); setIsFaceInitiated(false); setOpenFaceEnrollOnEdit(false); }}
         onCloseRecovery={() => setRecoveryEmployee(null)}
         onRefresh={() => onRefresh?.()}
         onSyncStatusChange={onSyncStatusChange}
@@ -1277,6 +1292,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         allEmployees={employees}
         branchId={branch.id}
         isManagerView={isManagerView}
+        openFaceEnroll={openFaceEnrollOnEdit}
       />
 
       {/* DEBUG: dual-shift indicator — remove after validating */}
@@ -1385,7 +1401,16 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                       ? () => setRemoveRelieversEmployee(emp)
                       : undefined
                   }
-                  onFaceTimeIn={!isClosedMode && branch.faceIdEnabled !== false && getShiftState(emp.id) === 'NOT_STARTED' ? () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); } : undefined}
+                  onFaceTimeIn={(() => {
+                    if (isClosedMode || branch.faceIdEnabled === false || getShiftState(emp.id) !== 'NOT_STARTED') return undefined;
+                    // Custom-role-only staff skip facial ID — they clock in manually
+                    const empRoles = (getEmployeeRole(emp, branch.id) || '').split(',').map(r => r.trim()).filter(Boolean);
+                    const isCustomRoleOnly = empRoles.length > 0 && empRoles.every(r => customRoles.includes(r) && !STANDARD_ROLES.has(r));
+                    if (isCustomRoleOnly) return undefined;
+                    return () => { setFaceTimeInTarget(emp); setShowFaceTimeIn(true); };
+                  })()}
+                  onRegisterFace={!isClosedMode && branch.faceIdEnabled !== false ? () => { setEditingEmployee({ ...emp }); setIsModalOpen(true); setOpenFaceEnrollOnEdit(true); } : undefined}
+                  faceIdEnabled={branch.faceIdEnabled !== false}
                 />
               </React.Fragment>
             );
@@ -1434,7 +1459,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         employees={employees.filter(e => e.isActive)}
         branchId={branch.id}
         targetEmployee={faceTimeInTarget ?? undefined}
-        onMatch={(emp) => {
+        onMatch={(emp, photoUrl) => {
+          pendingFacePhotoRef.current = photoUrl;
           // Dual-shift branch: face used for identification only — open shift picker instead of directly inserting
           if (branch.shift2OpeningTime) {
             setShowFaceTimeIn(false);
@@ -1442,13 +1468,20 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
             setIsFaceInitiated(true);
             handleOpenTimeModal(emp);
           } else {
-            handleFaceTimeIn(emp);
+            handleFaceTimeIn(emp, photoUrl);
           }
         }}
         onClose={() => { setShowFaceTimeIn(false); setFaceTimeInTarget(null); }}
         onManualOverride={faceTimeInTarget ? () => {
           setShowFaceTimeIn(false);
           handleOpenTimeModal(faceTimeInTarget);
+          setFaceTimeInTarget(null);
+        } : undefined}
+        onEnroll={faceTimeInTarget ? () => {
+          setShowFaceTimeIn(false);
+          setEditingEmployee({ ...faceTimeInTarget });
+          setIsModalOpen(true);
+          setOpenFaceEnrollOnEdit(true);
           setFaceTimeInTarget(null);
         } : undefined}
       />

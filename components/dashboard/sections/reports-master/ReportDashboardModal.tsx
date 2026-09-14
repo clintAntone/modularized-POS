@@ -21,17 +21,18 @@ interface ReportDashboardModalProps {
   employees?: any[];
   onClose: () => void;
   canEdit?: boolean;
+  isSuperAdmin?: boolean;
   branch?: Branch;
   branches?: Branch[];
   branchVaults?: BranchVault[];
   vaultStartDate?: string | null;
 }
 
-export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report: reportProp, constituents: constituentsProp = [], branchName, employees = [], onClose, canEdit, branch, branches = [], branchVaults = [], vaultStartDate }) => {
+export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ report: reportProp, constituents: constituentsProp = [], branchName, employees = [], onClose, canEdit, isSuperAdmin, branch, branches = [], branchVaults = [], vaultStartDate }) => {
   const [report, setReport] = useState<SalesReport>(reportProp);
   const [constituents, setConstituents] = useState<SalesReport[]>(constituentsProp);
   const [vaultDepositTxs, setVaultDepositTxs] = useState<any[]>([]);
-  const [isFetchingLatest, setIsFetchingLatest] = useState(!reportProp.id.includes('-')); // skip for synthetic aggregate IDs
+  const [isFetchingLatest, setIsFetchingLatest] = useState(false); // background-only — never blocks render
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [drilldownReport, setDrilldownReport] = useState<SalesReport | null>(null);
   const [drilldownConstituents, setDrilldownConstituents] = useState<SalesReport[]>([]);
@@ -49,12 +50,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     };
   }, []);
 
-  // Always fetch the latest report data on open — avoids showing stale cached props
+  // Stale-while-revalidate: show prop data immediately, silently refresh in background.
+  // isFetchingLatest is only used for a subtle indicator — never blocks rendering.
   useEffect(() => {
     const isAggregateSyntheticId = reportProp.id.includes('-') && !reportProp.id.match(/^[0-9a-f-]{36}$/i);
-    if (isAggregateSyntheticId) { setIsFetchingLatest(false); return; }
-    if (!supabase) { setIsFetchingLatest(false); return; }
+    if (isAggregateSyntheticId || !supabase) return;
 
+    let cancelled = false;
     (async () => {
       setIsFetchingLatest(true);
       try {
@@ -64,8 +66,6 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             .select('*')
             .eq(DB_COLUMNS.ID, reportProp.id)
             .single(),
-          // Also fetch vault_transactions deposits for this report date/branch
-          // so total_vault_provision is always accurate even if auto-save was stale
           supabase
             .from(DB_TABLES.VAULT_TRANSACTIONS)
             .select('id, amount, name, timestamp, performed_by')
@@ -74,20 +74,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00+08:00`)
             .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999+08:00`),
         ]);
-        if (error || !data) return;
+        if (cancelled || error || !data) return;
 
-        // Derive vault provision directly from vault_transactions (source of truth)
         const liveVaultProvision = (vaultTxData || []).reduce(
           (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
         );
         const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
-        // Use whichever is larger — protects against stale auto-save
         const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
-
-        // Trust the stored net_roi — it was computed at submission time and already
-        // accounts for any vault deposit even if total_vault_provision was not saved correctly.
-        // Re-deriving net_roi from the provision delta caused double-subtraction when
-        // the vault deposit was already baked into the stored net_roi.
         const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
 
         setVaultDepositTxs(vaultTxData || []);
@@ -109,10 +102,11 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           sortDate: reportProp.sortDate,
           periodEnd: reportProp.periodEnd,
         });
-      } catch { /* silent — fall back to prop data */ } finally {
-        setIsFetchingLatest(false);
+      } catch { /* silent — prop data remains visible */ } finally {
+        if (!cancelled) setIsFetchingLatest(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [reportProp.id]);
 
   const isAggregate = constituents.length > 0;
@@ -131,7 +125,10 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const isBackfill = report.id.includes('_BACKFILL_');
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
   const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
-  const isLegacy = !reportBranchVaultEnabled || !resolvedVaultStartDate || reportDateStr < resolvedVaultStartDate;
+  // isLegacy: vault is not enabled, OR vault is enabled but start date is known and report predates it.
+  // When vault is enabled but startDate is null (vault row missing / portal user with no branchVault fetched),
+  // treat as non-legacy — vault is active, we just don't have the exact start date.
+  const isLegacy = !reportBranchVaultEnabled || (resolvedVaultStartDate !== null && reportDateStr < resolvedVaultStartDate);
   const branchVault = branchVaults.find(v => v.branchId === report.branchId);
   const vaultBalance = branchVault?.balance ?? 0;
   const vaultTarget = branchVault?.target ?? 0;
@@ -164,12 +161,13 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     return Number(r.totalVaultProvision || 0);
   };
 
-  // Per-constituent legacy check using each branch's own vault start date and vaultEnabled flag
+  // Per-constituent legacy check using each branch's own vault start date and vaultEnabled flag.
+  // When startDate is null (vault row missing or not fetched), treat as non-legacy if vault is enabled.
   const getConstituentIsLegacy = (r: SalesReport) => {
     const constituentBranch = branches.find(b => b.id === r.branchId);
     if (!constituentBranch?.vaultEnabled) return true;
     const startDate = branchVaults.find(v => v.branchId === r.branchId)?.startDate ?? null;
-    return !startDate || r.reportDate < startDate;
+    return startDate !== null && r.reportDate < startDate;
   };
 
   // For legacy constituents, totalVaultProvision stores the sum of PROVISION (rent & bills) expenses.
@@ -177,6 +175,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const getConstituentProvision = (r: SalesReport): number => {
     if (!getConstituentIsLegacy(r)) return 0;
     return Number(r.totalVaultProvision || 0);
+  };
+
+  // Vault-covered expense amount for a constituent — the portion of expenses paid from vault fund.
+  const getConstituentVaultCoveredExp = (r: SalesReport): number => {
+    if (getConstituentIsLegacy(r)) return 0;
+    const expData: any[] = r.expenseData || [];
+    const fromRecords = expData
+      .filter(e => e.category === 'VAULT_WITHDRAWAL')
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    if (fromRecords > 0) return fromRecords;
+    return expData
+      .filter(e => e.category === 'OPERATIONAL')
+      .reduce((s, e) => s + Number(e.from_vault || 0), 0);
   };
 
   const rentAndBillsEntries = useMemo(() => [
@@ -793,22 +804,14 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 no-scrollbar pb-32 print:hidden">
 
             {isFetchingLatest && (
-              <div className="space-y-2.5 animate-pulse">
-                <div className="bg-slate-100 rounded-2xl h-24 w-full" />
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-slate-100 rounded-2xl h-20" />
-                  <div className="bg-slate-100 rounded-2xl h-20" />
-                </div>
-                <div className="bg-slate-100 rounded-2xl h-20 w-full" />
-                <div className="flex items-center justify-center pt-4 gap-2">
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
-                  <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:300ms]" />
-                </div>
+              <div className="flex items-center gap-1.5 px-1 -mb-8">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:300ms]" />
               </div>
             )}
 
-            {!isFetchingLatest && (() => {
+            {(() => {
               const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
               // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
               const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
@@ -827,7 +830,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                     vaultWithdrawal={vaultWithdrawalTotal}
                     vaultCoveredExp={vaultCoveredExpTotal}
                     finalStaffPayTotal={displayStaffPay}
-                    net={Number(report.netRoi || 0)}
+                    net={isAggregate
+                      ? constituents.reduce((sum, c) => sum + c.netRoi, 0)
+                      : Number(report.netRoi || 0)}
                     totalAllowances={financialBreakdown.allowances}
                     otAdditions={financialBreakdown.ot}
                     lateDeductions={financialBreakdown.late}
@@ -837,7 +842,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               );
             })()}
 
-            {!isFetchingLatest && (isAggregate ? (
+            {(isAggregate ? (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between px-4">
                     <h4 className={`${UI_THEME.text.label}`}>Constituent Unit Breakdown</h4>
@@ -902,6 +907,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                             const weekCashOut = group.constituents.reduce((sum, r) => sum + getConstituentROIExp(r), 0);
                             const weekVault = group.constituents.reduce((sum, r) => sum + getConstituentProvision(r), 0);
                             const weekVaultDeposit = group.constituents.reduce((sum, r) => sum + getConstituentVaultDeposit(r), 0);
+                            const weekVaultCovered = group.constituents.reduce((sum, r) => sum + getConstituentVaultCoveredExp(r), 0);
                             const weekRoi = group.constituents.reduce((sum, r) => sum + r.netRoi, 0);
                             const clippedStart = new Date(Math.max(group.weekStart.getTime(), parseDate(report.sortDate!).getTime()));
                             const clippedEnd = new Date(Math.min(group.weekEnd.getTime(), parseDate(report.periodEnd!).getTime()));
@@ -919,6 +925,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                     exp={weekCashOut}
                                     vault={weekVault}
                                     vaultDeposit={weekVaultDeposit}
+                                    vaultCoveredExp={weekVaultCovered}
                                     isLegacy={weekIsLegacy}
                                     net={weekRoi}
                                     onClick={() => {
@@ -1016,16 +1023,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   gross={sub.grossSales}
                                   pay={sub.totalStaffPay}
                                   exp={isConsolidatedDay
-                                    ? group.constituents.reduce((s, c) => s + getConstituentROIExp(c), 0)
-                                    : getConstituentROIExp(sub)}
+                                    ? group.constituents.reduce((s, c) => s + getConstituentROIExp(c) + getConstituentVaultCoveredExp(c), 0)
+                                    : getConstituentROIExp(sub) + getConstituentVaultCoveredExp(sub)}
                                   vault={isConsolidatedDay
                                     ? group.constituents.reduce((s, c) => s + getConstituentProvision(c), 0)
                                     : getConstituentProvision(sub)}
                                   vaultDeposit={isConsolidatedDay
                                     ? group.constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0)
                                     : getConstituentVaultDeposit(sub)}
+                                  vaultCoveredExp={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + getConstituentVaultCoveredExp(c), 0)
+                                    : getConstituentVaultCoveredExp(sub)}
                                   isLegacy={subIsLegacy}
-                                  net={sub.netRoi}
+                                  net={isConsolidatedDay
+                                    ? group.constituents.reduce((s, c) => s + c.netRoi, 0)
+                                    : sub.netRoi}
                                   onClick={() => {
                                     playSound('click');
                                     setDrilldownReport(sub);
@@ -1034,6 +1046,38 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                               />
                           );
                         });
+                      })()}
+
+                      {/* Totals footer row */}
+                      {(() => {
+                        const totalGross = constituents.reduce((s, c) => s + c.grossSales, 0);
+                        const totalStaff = constituents.reduce((s, c) => s + c.totalStaffPay, 0);
+                        const totalRoiExp = constituents.reduce((s, c) => s + getConstituentROIExp(c), 0);
+                        const totalVaultExp = constituents.reduce((s, c) => s + getConstituentVaultCoveredExp(c), 0);
+                        const totalVaultDeposit = constituents.reduce((s, c) => s + getConstituentVaultDeposit(c), 0);
+                        const totalNet = constituents.reduce((s, c) => s + c.netRoi, 0);
+                        return (
+                          <div className="hidden md:flex border-t-2 border-slate-700 bg-slate-900/80 items-center sticky bottom-0">
+                            <div className="px-8 py-4 w-[15%]">
+                              <span className="text-xs font-black text-slate-300 uppercase tracking-widest">TOTALS</span>
+                            </div>
+                            <div className="px-6 py-4 w-[17%]" />
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-slate-100 tabular-nums">₱{totalGross.toLocaleString()}</div>
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-amber-400 tabular-nums">₱{totalStaff.toLocaleString()}</div>
+                            <div className="px-6 py-4 w-[13%] text-right">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="font-black text-rose-400 tabular-nums">₱{totalRoiExp.toLocaleString()}</span>
+                                {totalVaultExp > 0 && <span className="text-[10px] font-black text-indigo-400 tabular-nums">+₱{totalVaultExp.toLocaleString()} vault</span>}
+                              </div>
+                            </div>
+                            <div className="px-6 py-4 w-[13%] text-right font-black text-indigo-400 tabular-nums">₱{totalVaultDeposit.toLocaleString()}</div>
+                            <div className="px-8 py-4 w-[16%] text-right">
+                              <span className={`font-black tabular-nums text-lg ${totalNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {totalNet < 0 ? '−' : ''}₱{Math.abs(totalNet).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        );
                       })()}
                     </div>
                   </div>
@@ -1138,6 +1182,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                                   {isHalfDay && <span className="text-xs sm:text-xs font-bold uppercase px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border bg-amber-50 text-amber-700 border-amber-100">Half</span>}
                                 </div>
                               </div>
+
+                              {isSuperAdmin && (s.attendance?.clockInPhotoUrl || s.attendance?.clock_in_photo_url) && (
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-0.5">Clock-in Photo</p>
+                                  <img
+                                    src={s.attendance.clockInPhotoUrl || s.attendance.clock_in_photo_url}
+                                    alt={`${resolvedName} clock-in`}
+                                    className="w-full rounded-xl object-cover border border-slate-100 shadow-sm"
+                                    style={{ maxHeight: '160px' }}
+                                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -1537,13 +1594,21 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-end items-center shrink-0 no-print">
             <div className="text-right">
               <p className="text-xs font-bold uppercase animate-pulse tracking-wide text-emerald-500/60 mb-1">Finalized Ledger ROI</p>
-              <p className={`font-medium uppercase tracking-wide text-emerald-400 tabular-nums leading-none ${
-                (report.netRoi || 0).toLocaleString().length > 10 ? 'text-sm sm:text-base' :
-                (report.netRoi || 0).toLocaleString().length > 7 ? 'text-base sm:text-lg' :
-                'text-xl sm:text-2xl'
-              }`}>
-                Total Net Yield: ₱{Number(report.netRoi || 0).toLocaleString()}
-              </p>
+              {(() => {
+                const footerNet = isAggregate
+                  ? constituents.reduce((sum, c) => sum + c.netRoi, 0)
+                  : Number(report.netRoi || 0);
+                const absNet = Math.abs(footerNet);
+                return (
+                  <p className={`font-medium uppercase tracking-wide tabular-nums leading-none ${footerNet < 0 ? 'text-rose-400' : 'text-emerald-400'} ${
+                    absNet.toLocaleString().length > 10 ? 'text-sm sm:text-base' :
+                    absNet.toLocaleString().length > 7 ? 'text-base sm:text-lg' :
+                    'text-xl sm:text-2xl'
+                  }`}>
+                    Total Net Yield: {footerNet < 0 ? '−' : ''}₱{absNet.toLocaleString()}
+                  </p>
+                );
+              })()}
             </div>
           </div>
         </div>

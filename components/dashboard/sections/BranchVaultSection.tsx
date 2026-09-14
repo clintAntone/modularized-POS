@@ -585,6 +585,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setDepositSelectedDate(null);
       await queryClient.invalidateQueries({ queryKey: ['salesReports'] });
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -699,6 +700,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setWithdrawAmount('');
       setWithdrawFile(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -809,6 +811,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       showToast('Bill payment reversed');
       setVaultBillToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {

@@ -10,6 +10,7 @@ interface PerformanceRowProps {
     exp: number;
     vault: number;
     vaultDeposit?: number;
+    vaultCoveredExp?: number;
     net: number;
     onClick: () => void;
     isMissing?: boolean;
@@ -19,7 +20,7 @@ interface PerformanceRowProps {
 
 export const PerformanceRow: React.FC<PerformanceRowProps> = ({
     label, sublabel, branchName, gross, pay, exp, vault,
-    vaultDeposit = 0, net, onClick, isMissing = false, isLegacy = false, isBackfill = false,
+    vaultDeposit = 0, vaultCoveredExp = 0, net, onClick, isMissing = false, isLegacy = false, isBackfill = false,
 }) => {
     const isPositive = net >= 0;
 
@@ -77,7 +78,18 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 </div>
                 <div className="px-6 py-5 w-[13%] text-right font-bold text-slate-900 dark:text-slate-100 text-[15px] tabular-nums whitespace-nowrap">₱{gross.toLocaleString()}</div>
                 <div className="px-6 py-5 w-[13%] text-right font-semibold text-amber-600 dark:text-amber-400 text-[15px] tabular-nums whitespace-nowrap">₱{pay.toLocaleString()}</div>
-                <div className="px-6 py-5 w-[13%] text-right font-semibold text-rose-500 dark:text-rose-400 text-[15px] tabular-nums whitespace-nowrap">₱{exp.toLocaleString()}</div>
+                <div className="px-6 py-5 w-[13%] text-right">
+                    <div className="flex flex-col items-end gap-0.5">
+                        {vaultCoveredExp > 0 ? (
+                            <>
+                                <span className="font-semibold text-rose-500 dark:text-rose-400 text-[13px] tabular-nums whitespace-nowrap">₱{(exp - vaultCoveredExp).toLocaleString()} from ROI</span>
+                                <span className="font-semibold text-indigo-400 text-[13px] tabular-nums whitespace-nowrap">₱{vaultCoveredExp.toLocaleString()} via vault</span>
+                            </>
+                        ) : (
+                            <span className="font-semibold text-rose-500 dark:text-rose-400 text-[15px] tabular-nums whitespace-nowrap">₱{exp.toLocaleString()}</span>
+                        )}
+                    </div>
+                </div>
                 <div className="px-6 py-5 w-[13%] text-right">
                     <div className="flex flex-col items-end gap-0.5">
                         <span className="font-semibold text-indigo-600 dark:text-indigo-400 text-[15px] tabular-nums whitespace-nowrap">
@@ -138,7 +150,14 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-3 py-2.5">
                         <p className="text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
-                        <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{exp.toLocaleString()}</p>
+                        {vaultCoveredExp > 0 ? (
+                            <>
+                                <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{(exp - vaultCoveredExp).toLocaleString()} ROI</p>
+                                <p className="text-[10px] font-black text-indigo-400 tabular-nums leading-none mt-0.5">₱{vaultCoveredExp.toLocaleString()} vault</p>
+                            </>
+                        ) : (
+                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{exp.toLocaleString()}</p>
+                        )}
                     </div>
                 </div>
 

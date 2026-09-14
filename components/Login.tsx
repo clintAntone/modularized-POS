@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { UserRole, Branch, Employee, PortalPermissions } from '../types';
 import { supabase } from '../lib/supabase';
 import { playSound } from '../lib/audio';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { hashPin, generateSalt, verifyPin } from '../lib/crypto';
 import { saveAuthCredential, getAuthCredential, MAX_OFFLINE_CREDENTIAL_AGE_MS } from '../lib/offlineDb';
+import { mapDbEmployee } from '../lib/employeeMapper';
 
 // Modular Imports
 import { NodeSelector } from './login/NodeSelector';
@@ -29,6 +31,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 30000;
 
 const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, version, appName, connectionError, systemLatest = true, apkUrl }) => {
+    const queryClient = useQueryClient();
     const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
@@ -40,6 +43,41 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const [shake, setShake] = useState(false);
     const [attempts, setAttempts] = useState(0);
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+
+    const [selectedBranchFull, setSelectedBranchFull] = useState<Branch | null>(null);
+    const [selectedBranchLoading, setSelectedBranchLoading] = useState(false);
+
+    // Fetch the full branch record for the selected branch on demand.
+    // Login.tsx no longer relies on useGlobalData's branches array (which only
+    // loads post-login). NodeSelector has its own lightweight fetch for display.
+    useEffect(() => {
+        if (!selectedBranchId || selectedBranchId === 'portal') {
+            setSelectedBranchFull(null);
+            setSelectedBranchLoading(false);
+            return;
+        }
+        const existing = branches.find(b => b.id === selectedBranchId);
+        if (existing) { setSelectedBranchFull(existing); setSelectedBranchLoading(false); return; }
+        setSelectedBranchFull(null);
+        setSelectedBranchLoading(true);
+        supabase
+            .from(DB_TABLES.BRANCHES)
+            .select('id,name,is_enabled,is_pin_changed,pin,manager,temp_manager')
+            .eq(DB_COLUMNS.ID, selectedBranchId)
+            .single()
+            .then(({ data }) => {
+                if (data) setSelectedBranchFull({
+                    id: data.id,
+                    name: data.name,
+                    isEnabled: Boolean(data.is_enabled),
+                    isPinChanged: Boolean(data.is_pin_changed),
+                    pin: data.pin ?? '',
+                    manager: data.manager ?? '',
+                    tempManager: data.temp_manager ?? '',
+                } as Branch);
+                setSelectedBranchLoading(false);
+            });
+    }, [selectedBranchId, branches]);
 
     const [isRecoveryMode, setIsRecoveryMode] = useState(false);
     const [isReliefMode, setIsReliefMode] = useState(false);
@@ -87,13 +125,48 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
     const selectedBranch = useMemo(() =>
             selectedBranchId === 'portal'
                 ? { name: 'CENTRAL MAINFRAME', id: 'portal', isPinChanged: true } as any
-                : branches.find(b => b.id === selectedBranchId)
-        , [selectedBranchId, branches]);
+                : selectedBranchFull
+        , [selectedBranchId, selectedBranchFull]);
 
-    const tempManagerIdentity = useMemo(() => {
-        if (!selectedBranch || !selectedBranch.tempManager) return null;
+    // Pre-fetch employees for the selected branch as soon as it's picked.
+    // By the time the user types their PIN, data is ready — login becomes a local lookup,
+    // eliminating the cold-connection timeout that caused "Identity Not Found" on first attempt.
+    // Also primes the React Query cache so useGlobalData skips its own network call after login,
+    // eliminating the "PERSONNEL DATA: WAITING..." flash on the identity verification screen.
+    const [branchEmployeeCache, setBranchEmployeeCache] = useState<any[]>([]);
+    useEffect(() => {
+        setBranchEmployeeCache([]);
+        if (!selectedBranchId || selectedBranchId === 'portal') return;
+        supabase
+            .rpc('get_branch_employees', { p_branch_id: selectedBranchId })
+            .then(({ data }) => {
+                if (!data) return;
+                // branchEmployeeCache used for the login lookup (finds employee by username/name)
+                setBranchEmployeeCache(data);
+                // Prime useGlobalData's React Query cache — after login, employees are
+                // immediately available (home staff + relievers) without a second network call.
+                queryClient.setQueryData(['employees', selectedBranchId], data.map(mapDbEmployee));
+            });
+    }, [selectedBranchId, queryClient]);
+
+    const [tempManagerIdentity, setTempManagerIdentity] = useState<Employee | null>(null);
+
+    // Fetch temp manager identity when branch changes.
+    // Can't use the global employees cache here — it's empty pre-login.
+    useEffect(() => {
+        setTempManagerIdentity(null);
+        if (!selectedBranch?.tempManager) return;
         const cleanTempName = selectedBranch.tempManager.toUpperCase().trim();
-        return employees.find(e => e.name?.toUpperCase().trim() === cleanTempName);
+        // Check cache first (post-login the employees array is populated)
+        const cached = employees.find(e => e.name?.toUpperCase().trim() === cleanTempName);
+        if (cached) { setTempManagerIdentity(cached); return; }
+        // Pre-login fallback: targeted query
+        supabase
+            .from(DB_TABLES.EMPLOYEES)
+            .select('id, name, role, branch_id, branch_allowances, is_active')
+            .eq(DB_COLUMNS.NAME, selectedBranch.tempManager.trim().toUpperCase())
+            .maybeSingle()
+            .then(({ data }) => { if (data) setTempManagerIdentity(data as unknown as Employee); });
     }, [selectedBranch, employees]);
 
     const handleRemoteResetSignal = async () => {
@@ -152,7 +225,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
         if (isReliefMode && reliefStep === 'pin') {
             setIsAuthenticating(true);
             setError('');
-            const branch = branches.find(b => b.id === selectedBranchId);
+            const branch = selectedBranchFull;
             if (!branch) {
                 handleFailure('Branch Lost');
                 setIsAuthenticating(false);
@@ -173,7 +246,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                 return;
             }
 
-            const emp = employees.find(e => (e.name || '').toUpperCase().trim() === tempName);
+            const emp = tempManagerIdentity;
             if (!emp) {
                 handleFailure('Relief Manager not found in Registry');
                 setIsAuthenticating(false);
@@ -283,12 +356,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
         try {
             if (selectedBranchId === 'portal') {
-                const { data: portalUser, error: portalError } = await supabase
-                    .from(DB_TABLES.PORTAL_USERS)
-                    .select('*')
-                    .eq(DB_COLUMNS.USERNAME, finalUsername)
-                    .eq(DB_COLUMNS.IS_ACTIVE, true)
-                    .single();
+                const portalController = new AbortController();
+                const portalAbortTimer = setTimeout(() => portalController.abort(), 8000);
+                let portalUser = null, portalError = null;
+                try {
+                    const res = await supabase
+                        .from(DB_TABLES.PORTAL_USERS)
+                        .select('id, login_pin, pin_salt, is_superadmin, display_name, permissions')
+                        .eq(DB_COLUMNS.USERNAME, finalUsername)
+                        .eq(DB_COLUMNS.IS_ACTIVE, true)
+                        .abortSignal(portalController.signal)
+                        .single();
+                    portalUser = res.data;
+                    portalError = res.error;
+                } finally {
+                    clearTimeout(portalAbortTimer);
+                }
 
                 if (portalError || !portalUser) {
                     handleFailure('Identity Not Found');
@@ -319,7 +402,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                     }
                 }
             } else {
-                const branch = branches.find(b => b.id === selectedBranchId);
+                const branch = selectedBranchFull;
                 if (!branch) {
                     handleFailure('Branch Lost');
                 } else if (!branch.isEnabled) {
@@ -334,19 +417,46 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
                         }
                     } else {
                         let empData = null;
-                        const query = supabase
-                            .from(DB_TABLES.EMPLOYEES)
-                            .select('*');
-                        
-                        if (isSetupAccountMode) {
-                            query.eq(DB_COLUMNS.NAME, username.trim().toUpperCase())
-                                 .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-                        } else {
-                            query.eq(DB_COLUMNS.USERNAME, finalUsername);
+
+                        // 1. Check pre-fetched cache first (populated when branch was selected)
+                        if (branchEmployeeCache.length > 0) {
+                            empData = isSetupAccountMode
+                                ? branchEmployeeCache.find(e =>
+                                    (e.name || '').toUpperCase().trim() === username.trim().toUpperCase() &&
+                                    e.branch_id === branch.id
+                                  ) ?? null
+                                : branchEmployeeCache.find(e =>
+                                    (e.username || '').toLowerCase() === finalUsername
+                                  ) ?? null;
                         }
 
-                        const { data, error: empError } = await query.maybeSingle();
-                        if (!empError) empData = data;
+                        // 2. Cache miss or pre-fetch not ready — fall back to direct query with retry
+                        if (!empData) {
+                        for (let attempt = 0; attempt < 2 && !empData; attempt++) {
+                        const controller = new AbortController();
+                        const abortTimer = setTimeout(() => controller.abort(), 12000);
+                        try {
+                            const query = supabase
+                                .from(DB_TABLES.EMPLOYEES)
+                                .select('id, name, username, is_active, role, branch_id, branch_allowances, login_pin, pin_salt')
+                                .abortSignal(controller.signal);
+
+                            if (isSetupAccountMode) {
+                                query.eq(DB_COLUMNS.NAME, username.trim().toUpperCase())
+                                     .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+                            } else {
+                                query.eq(DB_COLUMNS.USERNAME, finalUsername);
+                            }
+
+                            const { data, error: empError } = await query.maybeSingle();
+                            if (!empError) empData = data;
+                        } catch {
+                            // Absorb abort/network errors — retry on next iteration
+                        } finally {
+                            clearTimeout(abortTimer);
+                        }
+                        } // end retry loop
+                        }
 
                         if (!empData) {
                             handleFailure(isSetupAccountMode ? 'Name not in Branch Registry' : 'Identity Not Found');
@@ -559,7 +669,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, branches, employees, logo, versi
 
                     {/* ── BODY ── */}
                     <div className="px-6 py-6">
-                        {isRecoveryMode ? (
+                        {selectedBranchLoading ? (
+                            <div className="space-y-5 animate-pulse">
+                                <div className="h-10 bg-gray-100 rounded-xl" />
+                                <div className="h-10 bg-gray-100 rounded-xl" />
+                                <div className="h-12 bg-gray-100 rounded-xl" />
+                            </div>
+                        ) : isRecoveryMode ? (
                             <RecoveryForm
                                 onCancel={() => setIsRecoveryMode(false)}
                             />

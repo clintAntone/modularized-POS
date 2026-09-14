@@ -3,7 +3,7 @@ import { Branch, SalesReport } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { playSound } from '../../../lib/audio';
-import { getTrueDate, getTrueManilaISOString } from '../../../lib/time';
+import { getTrueDate, getTrueManilaISOString, getServerTimestamp } from '../../../lib/time';
 
 interface UseBranchStatusParams {
   branch: Branch;
@@ -119,7 +119,7 @@ export function useBranchStatus({
         await supabase
           .from(DB_TABLES.ATTENDANCE)
           .update({
-            [DB_COLUMNS.CLOCK_OUT]: getTrueManilaISOString(),
+            [DB_COLUMNS.CLOCK_OUT]: await getServerTimestamp(),
             [DB_COLUMNS.STATUS]: 'AUTO-LOGOUT',
           })
           .eq(DB_COLUMNS.BRANCH_ID, branch.id)

@@ -7,13 +7,14 @@ interface OperatingHoursProps {
   closingTime: string;
   shift2OpeningTime?: string;
   shift2ClosingTime?: string;
+  contactNumber?: string;
   isSaving: boolean;
   isOperationalToday: boolean;
   onUpdate: (updates: Partial<Branch>) => void;
 }
 
 export const OperatingHours: React.FC<OperatingHoursProps> = ({
-  openingTime, closingTime, shift2OpeningTime, shift2ClosingTime, isSaving, isOperationalToday, onUpdate
+  openingTime, closingTime, shift2OpeningTime, shift2ClosingTime, contactNumber, isSaving, isOperationalToday, onUpdate
 }) => {
   const inputClass = (disabled: boolean) =>
     `w-full p-4 border rounded-2xl font-bold text-sm uppercase tracking-wider outline-none transition-all shadow-sm ${disabled ? 'bg-slate-100 border-transparent text-slate-400 cursor-not-allowed' : 'bg-white border-slate-100 text-slate-900 focus:border-emerald-500'}`;
@@ -118,6 +119,19 @@ export const OperatingHours: React.FC<OperatingHoursProps> = ({
           </p>
         )}
 
+      </div>
+
+      {/* Contact Number */}
+      <div className="space-y-2 px-1">
+        <label className="block text-xs font-semibold uppercase text-slate-500 tracking-widest">Contact Number</label>
+        <input
+          type="tel"
+          disabled={isSaving}
+          value={contactNumber || ''}
+          onChange={(e) => onUpdate({ contactNumber: e.target.value || undefined })}
+          placeholder="e.g. 09171234567"
+          className={`w-full p-4 border rounded-2xl font-bold text-sm outline-none transition-all shadow-sm ${isSaving ? 'bg-slate-100 border-transparent text-slate-400 cursor-not-allowed' : 'bg-white border-slate-100 text-slate-900 focus:border-emerald-500'}`}
+        />
       </div>
     </section>
   );

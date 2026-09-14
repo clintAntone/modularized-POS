@@ -394,6 +394,7 @@ serve(async (req) => {
     const email: string | undefined = body.email;
     const ownerSummary: { name: string; amount: number }[] | undefined = body.ownerSummary;
     const networkRoi: number | undefined = typeof body.networkRoi === 'number' ? body.networkRoi : undefined;
+    const selectedCutoffs: number[] = Array.isArray(body.selectedCutoffs) ? body.selectedCutoffs.map(Number) : [];
     if (!email || !email.includes('@')) return json({ error: 'Valid email address required' }, 400);
 
     const todayStr = getManilaDateStr();
@@ -405,7 +406,9 @@ serve(async (req) => {
     if (branchErr) return json({ error: branchErr.message }, 500);
 
     const activeBranches = (branches ?? []).filter((b: any) =>
-      b.is_enabled === true && !(b.name || '').toUpperCase().includes('TEST')
+      b.is_enabled === true &&
+      !(b.name || '').toUpperCase().includes('TEST') &&
+      (selectedCutoffs.length === 0 || selectedCutoffs.includes(Number(b.weekly_cutoff ?? 0)))
     );
 
     // Compute per-branch period ranges upfront
@@ -548,7 +551,7 @@ serve(async (req) => {
           if (!rawLevy) return null;
           try { return typeof rawLevy === 'string' ? JSON.parse(rawLevy) : rawLevy; } catch { return null; }
         })();
-        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
 
         const rawOwners = branch.owners;

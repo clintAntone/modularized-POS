@@ -111,21 +111,30 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         grossSales: (existingReport.grossSales || 0).toString(),
         notes: existingReport.notes || prev.notes
       }));
-      setExpenseItems(existingReport.expenseData || []);
+      // expenseData and staffBreakdown are NOT fetched for branch-manager role in useGlobalData
+      // (only aggregate totals are fetched to reduce egress). Fall back to the live props instead.
+      const dayExpenses = expenses.filter(e => e.branchId === branch.id && toManilaDateStr(e.timestamp) === formData.date);
+      const reportExpenseData = (existingReport.expenseData && existingReport.expenseData.length > 0)
+        ? existingReport.expenseData
+        : dayExpenses;
+      setExpenseItems(reportExpenseData.filter((e: any) => e.category === 'OPERATIONAL'));
+
       // Load vault deposits from vault_transactions (single source of truth)
       // For legacy branches, fall back to vaultData PROVISION entries
       const vaultDepositsFromTx = vaultTransactions
         .filter(t => t.branchId === branch.id && t.type === 'DEPOSIT' && toManilaDateStr(t.timestamp) === formData.date)
         .map(t => ({ id: t.id, branchId: branch.id, name: t.name ?? 'VAULT DEPOSIT', amount: t.amount, category: 'VAULT_DEPOSIT', timestamp: t.timestamp } as Expense));
       const legacyProvision = (existingReport.vaultData || []).filter((e: any) => e.category === 'PROVISION');
-      setProvisionItems([...legacyProvision, ...vaultDepositsFromTx]);
+      const liveProvision = dayExpenses.filter(e => e.category === 'PROVISION');
+      const provisionBase = legacyProvision.length > 0 ? legacyProvision : liveProvision;
+      setProvisionItems([...provisionBase, ...vaultDepositsFromTx]);
 
       const payroll: Record<string, any> = {};
       const restoredRelievers: Employee[] = [];
       const branchStaffIds = new Set(branchStaff.map(e => e.id));
 
       // Detect relievers from expenseData (new format: RELIEVER PAYOUT: NAME)
-      const relieverExpenseEntries = (existingReport.expenseData || []).filter((e: any) =>
+      const relieverExpenseEntries = reportExpenseData.filter((e: any) =>
         typeof e.name === 'string' && e.name.startsWith('RELIEVER PAYOUT:')
       );
       // Legacy: relievers stored as RELIEVER PAYOUT expenses (before staffBreakdown approach)
@@ -159,6 +168,34 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
           isHalfDay: !!(b.isHalfDay || att.isHalfDay || att.is_half_day)
         };
       });
+
+      // For any branch staff not covered by staffBreakdown (old reports or missing entries),
+      // compute commission from session transactions and pull allowance from their employee record.
+      // Only include staff who had sessions or clocked in that day — skip idle staff.
+      const dayTxs = transactions.filter(t => t.branchId === branch.id && toManilaDateStr(t.timestamp) === formData.date);
+      const dayAtt = attendance.filter(a => a.branchId === branch.id && a.date === formData.date);
+      branchStaff.forEach(emp => {
+        if (payroll[emp.id]) return; // already restored from staffBreakdown
+        const empTxs = dayTxs.filter(t => t.therapistId === emp.id || t.bonesetterId === emp.id);
+        const commission = empTxs.reduce((sum, t) => {
+          if (t.therapistId === emp.id) return sum + (Number(t.primaryCommission) || 0);
+          if (t.bonesetterId === emp.id) return sum + (Number(t.secondaryCommission) || 0);
+          return sum;
+        }, 0);
+        const att = dayAtt.find(a => a.employeeId === emp.id);
+        if (commission === 0 && !att) return; // no activity that day — skip
+        let allowance = getEmployeeAllowance(emp, branch.id);
+        if (att?.isHalfDay) allowance /= 2;
+        payroll[emp.id] = {
+          commission: commission.toString(),
+          ot: (att?.otPay || 0).toString(),
+          late: (att?.lateDeduction || 0).toString(),
+          allowance: allowance.toString(),
+          cashAdvance: '0',
+          isHalfDay: !!att?.isHalfDay
+        };
+      });
+
       setExtraStaff(restoredRelievers);
       setStaffPayroll(payroll);
       return;
@@ -183,6 +220,7 @@ export const BackfillRequestSection: React.FC<BackfillRequestSectionProps> = ({
         return sum;
       }, 0);
       const att = dayAtt.find(a => a.employeeId === emp.id);
+      if (commission === 0 && !att) return; // no activity that day — skip
       let allowance = getEmployeeAllowance(emp, branch.id);
       if (att?.isHalfDay) allowance /= 2;
       payroll[emp.id] = {

@@ -10,7 +10,8 @@ import { playSound } from '../../../lib/audio';
 import { POSHeader } from './pos/POSHeader';
 import { POSRegistryForm } from './pos/POSRegistryForm';
 import { POSCorrections } from './pos/POSCorrections';
-import { POSConfirmModal } from './pos/POSConfirmModal';
+import { StaffReviewModal } from './pos/StaffReviewModal';
+import { ClientApprovalModal } from './pos/ClientApprovalModal';
 
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -59,9 +60,12 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         discount: 0,
         is_pwd_senior: false,
         note: '',
-        payment_method: 'CASH' as 'CASH' | 'GCASH'
+        payment_method: 'CASH' as 'CASH' | 'GCASH',
+        medical_history: [] as string[],
+        original_total: 0,
     });
     const [isProcessing, setIsProcessing] = useState(false);
+    const [editSignatureUrl, setEditSignatureUrl] = useState<string | undefined>();
     const [paymongoLink, setPaymongoLink] = useState<{ url: string, id: string } | null>(null);
     const [isCheckingPayment, setIsCheckingPayment] = useState(false);
     const [showPaymongoSuccess, setShowPaymongoSuccess] = useState(false);
@@ -69,7 +73,8 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         clientName: string; total: number; serviceName: string;
         paymentMethod: string; isOffline: boolean;
     } | null>(null);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [showStaffReview, setShowStaffReview] = useState(false);
+    const [showClientApproval, setShowClientApproval] = useState(false);
     const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
     const addTransaction = useAddTransaction();
@@ -123,6 +128,35 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     const { data: branchServiceTemplates, isLoading: isServicesLoading } = useBranchServiceTemplates(branch.id);
     const activeServices = useMemo(() => branchServiceTemplates || [], [branchServiceTemplates]);
 
+    // Popular service: the single most-booked non-add-on service in the last 7 days.
+    // Computed after first paint so it never delays the service list render.
+    const [onDemandIds, setOnDemandIds] = React.useState<Set<string>>(new Set());
+    React.useEffect(() => {
+        const id = setTimeout(() => {
+            const addOnIds = new Set(
+                activeServices
+                    .filter(s => s.catalogName?.toLowerCase().includes('add'))
+                    .map(s => s.id)
+            );
+            const cutoff = new Date(getTrueDate());
+            cutoff.setDate(cutoff.getDate() - 7);
+            const cutoffIso = cutoff.toISOString();
+            const counts: Record<string, number> = {};
+            transactions.forEach(tx => {
+                if (tx.branchId === branch.id && tx.timestamp >= cutoffIso && tx.serviceId) {
+                    tx.serviceId.split(',').forEach(segment => {
+                        const sid = segment.split(':')[0].trim();
+                        if (sid && !addOnIds.has(sid)) counts[sid] = (counts[sid] || 0) + 1;
+                    });
+                }
+            });
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            setOnDemandIds(top ? new Set([top[0]]) : new Set());
+        }, 0);
+        return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, branch.id]);
+
     // Unique client names from all branch history, sorted by most recent first
     const clientNameHistory = useMemo(() => {
         const seen = new Map<string, string>(); // name → latest timestamp
@@ -150,7 +184,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             if (!isAuthorized || e.isActive !== true || e.onLeave) return false;
 
             const targetDate = todayStr;
-            const attendanceRecord = attendance.find(a => a.employeeId === e.id && a.date === targetDate);
+            const attendanceRecord = attendance.find(a => a.employeeId === e.id && a.date === targetDate && a.branchId === branch.id);
             const isOnDuty = attendanceRecord && attendanceRecord.clockIn && !attendanceRecord.clockOut;
 
             return isOnDuty;
@@ -176,18 +210,20 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             id: '',
             original_timestamp: '',
             client_name: '',
-            therapist_name: '', 
-            therapist_id: '', 
-            bonesetter_name: '', 
+            therapist_name: '',
+            therapist_id: '',
+            bonesetter_name: '',
             bonesetter_id: '',
-            selected_service_ids: [], 
+            selected_service_ids: [],
             loyalty_service_ids: [],
-            discount: 0, 
-            is_pwd_senior: false, 
-            note: '', 
-            payment_method: 'CASH'
+            discount: 0,
+            is_pwd_senior: false,
+            note: '',
+            payment_method: 'CASH',
+            medical_history: [],
         });
-        setShowConfirm(false);
+        setShowStaffReview(false);
+        setShowClientApproval(false);
         setIsProcessing(false);
         setPaymongoLink(null);
         setIsCheckingPayment(false);
@@ -212,6 +248,18 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             }
         });
 
+        // Determine whether the original transaction used the PWD/Senior toggle.
+        // The toggle auto-applies a fixed discount (50 or 100 depending on price);
+        // detect it and subtract it so the manual discount field shows only the extra portion.
+        const correctionBasePrice = activeServices
+            .filter(s => selected_service_ids.includes(s.id))
+            .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+        const isPwdSenior = tx.discount >= 50 && (tx.discount === 50 || tx.discount === 100 || (tx.discount % 50 === 0));
+        const inferredPwdDiscount = isPwdSenior && correctionBasePrice > 0
+            ? (correctionBasePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW)
+            : 0;
+        const manualDiscount = Math.max(0, (tx.discount || 0) - inferredPwdDiscount);
+
         setFormData({
             id: tx.id,
             original_timestamp: tx.timestamp,
@@ -222,15 +270,37 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             bonesetter_id: tx.bonesetterId || '',
             selected_service_ids,
             loyalty_service_ids,
-            discount: tx.discount || 0,
-            is_pwd_senior: tx.discount >= 50 && (tx.discount === 50 || tx.discount === 100 || (tx.discount % 50 === 0)),
-            note: tx.note || '',
+            discount: manualDiscount,
+            is_pwd_senior: isPwdSenior,
+            medical_history: tx.note ? tx.note.split(', ').filter(Boolean) : [],
+            original_total: tx.total || 0,
             payment_method: tx.paymentMethod || 'CASH'
         });
         setMode('EDITING');
+        setEditSignatureUrl(undefined);
+        // Fetch just the signature URL for this one transaction
+        supabase
+            .from(DB_TABLES.TRANSACTIONS)
+            .select(DB_COLUMNS.SIGNATURE_URL)
+            .eq(DB_COLUMNS.ID, tx.id)
+            .single()
+            .then(async ({ data }) => {
+                const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+                if (!storedUrl) return;
+                // Convert public URLs to signed URLs (private bucket)
+                const publicMarker = '/object/public/signatures/';
+                const path = storedUrl.includes(publicMarker)
+                    ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+                    : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+                if (!path) { setEditSignatureUrl(storedUrl); return; }
+                const { data: signed } = await supabase.storage
+                    .from('signatures')
+                    .createSignedUrl(path, 60 * 60 * 24 * 90);
+                setEditSignatureUrl(signed?.signedUrl || storedUrl);
+            });
     };
 
-    const handleFinalize = async () => {
+    const handleFinalize = async (signatureDataUrl = '') => {
         const standardServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
         const loyaltyServices = activeServices.filter(s => formData.loyalty_service_ids.includes(s.id));
         
@@ -309,6 +379,30 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             ...formData.loyalty_service_ids.map(sid => `${sid}:L`)
         ].join(',');
 
+        // Upload signature to Supabase Storage (non-blocking — failure doesn't abort transaction)
+        let signatureUrl: string | undefined;
+        if (signatureDataUrl) {
+            try {
+                const blob = await fetch(signatureDataUrl).then(r => r.blob());
+                const dateStr = toManilaDateStr(new Date().toISOString());
+                const path = `${branch.id}/${dateStr.replace(/-/g, '')}/${id}.png`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('signatures')
+                    .upload(path, blob, { contentType: 'image/png', upsert: true });
+                if (uploadError) {
+                    console.error('[Signature] Upload failed:', uploadError);
+                } else {
+                    const { data: urlData, error: signedErr } = await supabase.storage
+                        .from('signatures')
+                        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 90); // 90 days
+                    if (signedErr) console.error('[Signature] Signed URL failed:', signedErr);
+                    else signatureUrl = urlData?.signedUrl || undefined;
+                }
+            } catch (sigErr) {
+                console.error('[Signature] Unexpected error during upload:', sigErr);
+            }
+        }
+
         const dbPayload = {
             [DB_COLUMNS.ID]: id,
             [DB_COLUMNS.BRANCH_ID]: branch.id,
@@ -325,9 +419,12 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
             [DB_COLUMNS.SECONDARY_COMMISSION]: bonesetterComm,
             [DB_COLUMNS.TOTAL]: totalCalculated,
             [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.NOTE]: formData.note.trim(),
+            [DB_COLUMNS.NOTE]: (formData.medical_history || []).length > 0
+                ? (formData.medical_history as string[]).join(', ')
+                : '',
             payment_method: formData.payment_method,
-            payment_status: (formData.payment_method === 'GCASH' && isPaymongoEnabled) ? 'PENDING' : 'PAID'
+            payment_status: (formData.payment_method === 'GCASH' && isPaymongoEnabled) ? 'PENDING' : 'PAID',
+            [DB_COLUMNS.SIGNATURE_URL]: signatureUrl || undefined
         };
 
         // PayMongo Integration
@@ -353,7 +450,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     if (dbError) throw dbError;
                     
                     setIsProcessing(false);
-                    setShowConfirm(false);
+                    setShowClientApproval(false);
                     return; // Stop here, wait for payment
                 } else {
                     throw new Error("Failed to generate PayMongo link");
@@ -391,7 +488,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
 
         const onFinalSuccess = (isOffline = false) => {
             playSound('success');
-            setShowConfirm(false);
+            setShowClientApproval(false);
             setSuccessDetails({
                 clientName: clientNameUpper,
                 total: totalCalculated,
@@ -566,7 +663,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 no-print pb-10 px-2 sm:px-6">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 no-print pb-10 px-0 sm:px-6">
             {/* PAYMONGO MODAL */}
             {paymongoLink && (
                 <div className={UI_THEME.layout.modalWrapper}>
@@ -733,22 +830,62 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     isProcessing={isProcessing}
                     isClosedMode={isClosedMode}
                     isPaymongoEnabled={isPaymongoEnabled}
-                    onFinalize={() => setShowConfirm(true)}
+                    onFinalize={() => setShowStaffReview(true)}
                     onAbort={resetForm}
                     clientNameHistory={clientNameHistory}
+                    onDemandIds={onDemandIds}
                 />
             )}
 
-            {showConfirm && (
-                <POSConfirmModal
+            {showStaffReview && (() => {
+                const _stdSvcs = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
+                const _base = _stdSvcs.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                const _pwdDisc = (formData.is_pwd_senior && _base > 0)
+                    ? (_base > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
+                const _totalDisc = Math.min(_base, Math.max(0, formData.discount || 0) + _pwdDisc);
+                const _newTotal = Math.max(0, _base - _totalDisc);
+                const requiresClientApproval = true;
+                return (
+                <StaffReviewModal
                     mode={mode}
                     formData={formData}
                     activeServices={activeServices}
                     isProcessing={isProcessing}
-                    onClose={() => setShowConfirm(false)}
-                    onConfirm={handleFinalize}
+                    requiresClientApproval={requiresClientApproval}
+                    onClose={() => setShowStaffReview(false)}
+                    onProceed={() => {
+                        setShowStaffReview(false);
+                        setShowClientApproval(true);
+                    }}
                 />
-            )}
+                );
+            })()}
+
+            {showClientApproval && (() => {
+                const stdServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));
+                const loyServices = activeServices.filter(s => formData.loyalty_service_ids.includes(s.id));
+                const basePrice = stdServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                const pwdDiscount = (formData.is_pwd_senior && basePrice > 0)
+                    ? (basePrice > PWD_BASE_THRESHOLD ? PWD_DISCOUNT_HIGH : PWD_DISCOUNT_LOW) : 0;
+                const totalDiscount = Math.min(basePrice, (formData.discount || 0) + pwdDiscount);
+                const total = Math.max(0, basePrice - totalDiscount);
+                const serviceName = [
+                    ...stdServices.map(s => s.name),
+                    ...loyServices.map(s => `${s.name} (LOYALTY)`),
+                ].join(' + ');
+                return (
+                    <ClientApprovalModal
+                        clientName={formData.client_name}
+                        serviceName={serviceName}
+                        total={total}
+                        paymentMethod={formData.payment_method}
+                        isProcessing={isProcessing}
+                        onConfirm={(sig) => handleFinalize(sig)}
+                        onBack={() => { setShowClientApproval(false); setShowStaffReview(true); }}
+                        existingSignatureUrl={mode === 'EDITING' ? editSignatureUrl : undefined}
+                    />
+                );
+            })()}
         </div>
     );
 };

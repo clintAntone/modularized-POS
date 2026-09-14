@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport, VaultTransaction } from '../../types';
+import { useReportStaffBreakdown } from '../../hooks/useReportStaffBreakdown';
 
 interface ReportAuditHubProps {
   branches: Branch[];
@@ -140,6 +141,7 @@ const BranchPicker: React.FC<{
 export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
   branches, salesReports, vaultTransactions,
 }) => {
+  const { staffBreakdownMap } = useReportStaffBreakdown();
   const [branchFilter, setBranchFilter] = useState('');
   const [diagFilter, setDiagFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -181,7 +183,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
       });
 
       // --- Computed salary (exclude relievers) ---
-      const staffBreakdown: any[] = Array.isArray(r.staffBreakdown) ? r.staffBreakdown : [];
+      const staffBreakdown: any[] = staffBreakdownMap[r.id] ?? [];
       let computedSalary = 0;
       staffBreakdown.forEach(s => {
         const staffName = (s.name || '').toUpperCase().trim();
@@ -254,7 +256,7 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
         diagnosis,
       };
     });
-  }, [salesReports, vaultByReport, branchMap]);
+  }, [salesReports, vaultByReport, branchMap, staffBreakdownMap]);
 
   const filtered = useMemo(() => {
     let r = rows;
@@ -511,9 +513,20 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                     }
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
-                      {row.diagnosis}
-                    </span>
+                    <div className="relative group inline-block">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-bold uppercase tracking-wide cursor-default ${diagColor(row.diagnosis)}`}>
+                        {row.diagnosis}
+                      </span>
+                      {DIAG_DESCRIPTIONS[row.diagnosis] && (
+                        <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                          <div className="bg-slate-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2.5 shadow-xl">
+                            <p className="font-black uppercase tracking-widest text-[10px] mb-1.5 opacity-50">{row.diagnosis}</p>
+                            <p className="font-medium leading-relaxed">{DIAG_DESCRIPTIONS[row.diagnosis]}</p>
+                          </div>
+                          <div className="w-2 h-2 bg-slate-900 rotate-45 ml-auto mr-3 -mt-1" />
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -534,9 +547,20 @@ export const ReportAuditHub: React.FC<ReportAuditHubProps> = ({
                 <p className="font-bold text-slate-800 text-sm">{row.branchName}</p>
                 <p className="font-mono text-xs text-slate-500">{row.reportDate}</p>
               </div>
-              <span className={`px-2.5 py-1 rounded-xl border text-xs font-bold uppercase tracking-wide ${diagColor(row.diagnosis)}`}>
-                {row.diagnosis}
-              </span>
+              <div className="relative group">
+                <span className={`px-2.5 py-1 rounded-xl border text-xs font-bold uppercase tracking-wide cursor-default ${diagColor(row.diagnosis)}`}>
+                  {row.diagnosis}
+                </span>
+                {DIAG_DESCRIPTIONS[row.diagnosis] && (
+                  <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <div className="bg-slate-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2.5 shadow-xl">
+                      <p className="font-black uppercase tracking-widest text-[10px] mb-1.5 opacity-50">{row.diagnosis}</p>
+                      <p className="font-medium leading-relaxed">{DIAG_DESCRIPTIONS[row.diagnosis]}</p>
+                    </div>
+                    <div className="w-2 h-2 bg-slate-900 rotate-45 ml-auto mr-3 -mt-1" />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
               <div className="flex justify-between">

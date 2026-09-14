@@ -33,6 +33,8 @@ interface StaffCardProps {
   onRequestDisable?: (emp: Employee) => void;
   onRemoveReliever?: (emp: Employee) => void;
   onFaceTimeIn?: () => void;
+  onRegisterFace?: () => void;
+  faceIdEnabled?: boolean;
 }
 
 export const StaffCard: React.FC<StaffCardProps> = ({
@@ -54,6 +56,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   onRequestDisable,
   onRemoveReliever,
   onFaceTimeIn,
+  onRegisterFace,
+  faceIdEnabled = false,
 }) => {
   const isOngoing = shiftState === 'ONGOING';
   const isCompleted = shiftState === 'COMPLETED';
@@ -62,7 +66,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   const currentAllowance = getEmployeeAllowance(emp, branchId);
   const currentRole = getEmployeeRole(emp, branchId);
   const isReliever = isRelieverProp ?? (emp.branchId !== branchId);
-  const hasFace = !!(emp.faceDescriptors && emp.faceDescriptors.length > 0);
 
   // Long press for reliever promote
   const [isLongPressing, setIsLongPressing] = useState(false);
@@ -179,38 +182,38 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       {/* Role / status badges — top right */}
 
       {/* Bookmark tags — hanging from top */}
-      <div className="absolute top-0 left-6 flex gap-2 z-10 pointer-events-none">
+      <div className="absolute top-0 left-5 sm:left-8 flex gap-2 z-10 pointer-events-none">
         {isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-emerald-500 text-white dark:bg-emerald-400 dark:text-emerald-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Manager
             </span>
           </div>
         )}
         {isTempManager && !isMainManager && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-amber-500 text-white dark:bg-amber-400 dark:text-amber-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Delegate
             </span>
           </div>
         )}
         {isReliever && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-indigo-100 text-indigo-600 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-indigo-500 text-white dark:bg-indigo-400 dark:text-indigo-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Reliever
             </span>
           </div>
         )}
         {!isActive && !isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-slate-400 text-white dark:bg-slate-500 dark:text-white text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               Disabled
             </span>
           </div>
         )}
         {isOnLeave && (
           <div className="flex flex-col items-center" style={{clipPath:'polygon(0 0,100% 0,100% 75%,50% 100%,0 75%)'}}>
-            <span className="bg-purple-100 text-purple-600 text-xs font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
+            <span className="bg-purple-500 text-white dark:bg-purple-400 dark:text-purple-900 text-xs font-bold uppercase tracking-wide px-2.5 pt-1.5 pb-3 leading-none">
               On Leave
             </span>
           </div>
@@ -303,6 +306,12 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wide">No Role Assigned</span>
               </div>
             ) : null}
+            {onFaceTimeIn && !emp.faceDescriptors?.length && (
+              <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-600 px-2 py-1 rounded-lg w-fit">
+                <ScanFace className="w-3 h-3" strokeWidth={2.5} />
+                <span className="text-xs font-semibold uppercase tracking-wide">Face ID not enrolled</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -335,7 +344,17 @@ export const StaffCard: React.FC<StaffCardProps> = ({
                 {isOngoing ? 'Time Out' : 'Shift Done'}
               </button>
             </div>
-          ) : hasFace && onFaceTimeIn && !isReliever ? (
+          ) : faceIdEnabled && !isReliever && !emp.faceDescriptors?.length ? (
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onRegisterFace?.(); }}
+              className="h-11 px-5 rounded-2xl text-xs font-medium uppercase tracking-wide transition-all active:scale-90 shadow-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-2"
+            >
+              <ScanFace className="w-4 h-4" strokeWidth={2} />
+              Register Face
+            </button>
+          ) : onFaceTimeIn && (!isReliever || !!emp.faceDescriptors?.length) ? (
             <button
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
@@ -344,17 +363,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             >
               <ScanFace className="w-4 h-4" strokeWidth={2} />
               Time In
-            </button>
-          ) : onFaceTimeIn && !hasFace && !isReliever ? (
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onEdit?.(emp); }}
-              className="h-11 px-4 rounded-2xl text-xs font-medium uppercase tracking-wide bg-amber-100 text-amber-700 flex items-center gap-2 active:scale-90 transition-all"
-              title="Face not enrolled. Tap to open employee profile and register face."
-            >
-              <ScanFace className="w-4 h-4" strokeWidth={2} />
-              Enroll Face
             </button>
           ) : (
             <button

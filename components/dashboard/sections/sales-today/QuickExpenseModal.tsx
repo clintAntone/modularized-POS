@@ -8,6 +8,7 @@ import { playSound } from '../../../../lib/audio';
 import { compressImage } from '../../../../lib/image';
 import { getTrueDate } from '../../../../lib/time';
 import { logAudit } from '../../../../lib/audit';
+import { getReceiptRule, DEFAULT_RECEIPT_RULES, ReceiptRequiredRule } from '../../../../lib/expenseRules';
 
 type ModalMode = 'expense' | 'deposit' | 'legacy_deposit';
 
@@ -24,12 +25,14 @@ interface QuickExpenseModalProps {
   todayVaultDeposit?: number;
   onDeposit?: (amount: number) => Promise<void>;
   hideDepositTab?: boolean;
+  reportId?: string;
+  isSuperAdmin?: boolean;
 }
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   branch, todayStr, onClose, onRefresh, performerName, branchVault,
   defaultIsVaultDeposit = false, defaultIsLegacyDeposit = false, currentNetRoi, todayVaultDeposit = 0, onDeposit,
-  hideDepositTab = false,
+  hideDepositTab = false, reportId, isSuperAdmin = false,
 }) => {
   const initialMode: ModalMode = defaultIsLegacyDeposit ? 'legacy_deposit' : defaultIsVaultDeposit ? 'deposit' : 'expense';
   const [mode, setMode] = useState<ModalMode>(initialMode);
@@ -59,6 +62,23 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  // Fetch receipt-required rules from system_config
+  useEffect(() => {
+    supabase
+      .from(DB_TABLES.SYSTEM_CONFIG)
+      .select('value')
+      .eq('key', 'receipt_required_rules')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            if (Array.isArray(parsed)) setReceiptRules(parsed);
+          } catch {}
+        }
+      });
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     if (!showSuggestions) return;
@@ -74,6 +94,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [receiptRules, setReceiptRules] = useState<ReceiptRequiredRule[]>(DEFAULT_RECEIPT_RULES);
+
 
   const netRoi = currentNetRoi ?? 0;
   const vaultBal = branchVault?.balance ?? 0;
@@ -84,7 +106,9 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const maxDeposit = Math.max(0, netRoi);
   const afterDepositBalance = vaultBal + (depositAmount || 0);
 
-  const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile));
+  const matchedReceiptRule = getReceiptRule(expenseName, receiptRules);
+  const requiresReceipt = !isSuperAdmin && !!matchedReceiptRule;
+  const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile) && (!requiresReceipt || expenseFile));
 
   // Cover from vault — vault covers the expense AND any existing ROI deficit (e.g. payroll shortfall).
   // roiShortfall = how much the vault needs to withdraw so that net ROI hits 0 after this expense.
@@ -140,57 +164,36 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         receiptUrl = data.publicUrl;
       }
 
-      const { error: dbError } = await supabase.from(DB_TABLES.EXPENSES).insert({
-        [DB_COLUMNS.ID]: expenseId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: timestamp,
-        [DB_COLUMNS.NAME]: name.toUpperCase(),
-        [DB_COLUMNS.AMOUNT]: expenseAmount,
-        [DB_COLUMNS.CATEGORY]: 'OPERATIONAL',
-        [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
-      });
-      if (dbError) throw dbError;
-
-      // Cover shortfall from vault if opted in
       if (withdrawFromVault && vaultCoverAmount > 0 && branchVault) {
-        // Use same ID for both records so cascade-delete can find the vault_transactions entry
+        // Vault-covered expense: delegate all four DB writes to a single atomic RPC.
+        // The function inserts OPERATIONAL expense, deducts vault balance, inserts
+        // VAULT_WITHDRAWAL expense, and inserts vault_transaction — or rolls everything
+        // back if any step fails. No partial-write state possible.
         const vaultWithdrawId = Math.random().toString(36).substr(2, 9);
-        const vaultEntryName = `VAULT: ${name.toUpperCase()}`;
-
-        // Record in expenses table (used for badge display + ROI add-back)
-        const { error: vwErr } = await supabase.from(DB_TABLES.EXPENSES).insert({
-          [DB_COLUMNS.ID]: vaultWithdrawId,
-          [DB_COLUMNS.BRANCH_ID]: branch.id,
-          [DB_COLUMNS.TIMESTAMP]: timestamp,
-          [DB_COLUMNS.NAME]: vaultEntryName,
-          [DB_COLUMNS.AMOUNT]: vaultCoverAmount,
-          [DB_COLUMNS.CATEGORY]: 'VAULT_WITHDRAWAL',
+        const { error: rpcError } = await supabase.rpc('record_vault_covered_expense', {
+          p_expense_id:     expenseId,
+          p_vault_tx_id:    vaultWithdrawId,
+          p_branch_id:      branch.id,
+          p_expense_name:   name.toUpperCase(),
+          p_expense_amount: expenseAmount,
+          p_vault_cover:    vaultCoverAmount,
+          p_timestamp:      timestamp,
+          p_receipt_url:    receiptUrl || null,
+          p_report_id:      reportId ?? `${branch.id}_${todayStr.replace(/-/g, '')}`,
         });
-        if (vwErr) throw vwErr;
-
-        // Also record in vault_transactions so it shows in Vault Fund tab (same ID for easy lookup)
-        const { error: vtErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-          [DB_COLUMNS.ID]: vaultWithdrawId,
+        if (rpcError) throw rpcError;
+      } else {
+        // Simple expense — single atomic INSERT, no vault involvement.
+        const { error: dbError } = await supabase.from(DB_TABLES.EXPENSES).insert({
+          [DB_COLUMNS.ID]: expenseId,
           [DB_COLUMNS.BRANCH_ID]: branch.id,
-          [DB_COLUMNS.TYPE]: 'WITHDRAWAL',
-          [DB_COLUMNS.AMOUNT]: vaultCoverAmount,
-          [DB_COLUMNS.NAME]: vaultEntryName,
           [DB_COLUMNS.TIMESTAMP]: timestamp,
+          [DB_COLUMNS.NAME]: name.toUpperCase(),
+          [DB_COLUMNS.AMOUNT]: expenseAmount,
+          [DB_COLUMNS.CATEGORY]: 'OPERATIONAL',
           [DB_COLUMNS.RECEIPT_IMAGE]: receiptUrl || null,
         });
-        if (vtErr) throw vtErr;
-
-        // Re-fetch live balance to avoid stale prop writing a wrong value
-        const { data: liveVaultData } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single();
-        const liveVaultBalance = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
-        const { error: vaultErr } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveVaultBalance - vaultCoverAmount) })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        if (vaultErr) throw vaultErr;
+        if (dbError) throw dbError;
       }
 
       await logAudit({
@@ -383,14 +386,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <>
                   {/* Label Input */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">What's the expense?</label>
+                    <div className="flex items-baseline justify-between ml-1">
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">What's the expense?</label>
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">One expense per entry</span>
+                    </div>
                     <div className="relative suggestion-wrapper">
                       <input
                         ref={labelInputRef}
                         value={expenseName}
-                        onChange={e => { setExpenseName(e.target.value); setShowSuggestions(true); }}
+                        onChange={e => { setExpenseName(e.target.value.replace(/[,/]/g, '')); setShowSuggestions(true); }}
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 placeholder:font-semibold placeholder:normal-case placeholder:text-slate-300"
-                        placeholder="e.g. Rent, Electricity, Food..."
+                        placeholder="e.g. WATER BILL, LAUNDRY..."
                         autoFocus
                         autoComplete="off"
                       />
@@ -445,7 +451,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   )}
 
                   {/* Large expense warning — vault can't fully cover this expense */}
-                  {expenseAmount > 0 && expenseAmount > vaultBal && vaultBal > 0 && (
+                  {expenseAmount > 0 && roiShortfall > 0 && expenseAmount > vaultBal && vaultBal > 0 && (
                     <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-100/60 border-b border-rose-200">
                         <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -499,13 +505,27 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                   {/* Receipt */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">
+                    <label className={`text-xs font-medium uppercase tracking-wide ml-1 ${requiresReceipt && !expenseFile ? 'text-rose-500' : 'text-slate-400'}`}>
                       Receipt{' '}
-                      {withdrawFromVault
-                        ? <span className="text-rose-500">*</span>
-                        : <span className="opacity-50 font-bold normal-case">(optional)</span>
+                      {requiresReceipt
+                        ? <span className="font-black">(REQUIRED)</span>
+                        : withdrawFromVault
+                          ? <span className="text-rose-500">*</span>
+                          : <span className="opacity-50 font-bold normal-case">(optional)</span>
                       }
                     </label>
+                    {requiresReceipt && !expenseFile && (
+                      <div className="flex items-center gap-3 px-4 py-3.5 bg-rose-500 rounded-2xl animate-beat">
+                        <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-black text-white uppercase tracking-wide leading-relaxed">
+                          {matchedReceiptRule?.message || 'Receipt is required for this expense type'}
+                        </p>
+                      </div>
+                    )}
                     {expenseFile ? (
                       <div className="w-full px-4 py-3 rounded-xl border-2 border-emerald-400 bg-emerald-50 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5">

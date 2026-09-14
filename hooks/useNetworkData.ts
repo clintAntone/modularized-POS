@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../constants/db_schema';
 import { getTrueDate, getTrueISOString } from '../lib/time';
@@ -33,8 +34,10 @@ const mapDbBranch = (db: any): Branch => ({
         if (!raw) return null;
         try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
     })(),
+    rankingBoost: db[DB_COLUMNS.RANKING_BOOST] != null ? Number(db[DB_COLUMNS.RANKING_BOOST]) : null,
     refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
     vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
+    coopOwned: Boolean(db[DB_COLUMNS.COOP_OWNED]),
 });
 
 const mapDbEmployee = (db: any): Employee => ({
@@ -70,7 +73,7 @@ const BRANCH_COLS = [
     DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
     DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
     DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
-    DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED,
+    DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.RANKING_BOOST, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.COOP_OWNED,
 ].join(',');
 
 // face_descriptors intentionally excluded — large blob not needed for any list view
@@ -167,6 +170,22 @@ export const useTransactions = (branchId?: string) => {
 };
 
 export const useBranchServiceTemplates = (branchId: string) => {
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        if (!branchId) return;
+        const channel = supabase
+            .channel(`branch_service_templates:${branchId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.BRANCH_SERVICES, filter: `branch_id=eq.${branchId}` }, () => {
+                queryClient.invalidateQueries({ queryKey: ['branch_service_templates', branchId] });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_TEMPLATES }, () => {
+                queryClient.invalidateQueries({ queryKey: ['branch_service_templates', branchId] });
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [branchId, queryClient]);
+
     return useQuery({
         queryKey: ['branch_service_templates', branchId],
         queryFn: async () => {
