@@ -756,59 +756,31 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       const liveDeposit = liveDepositRows?.[0] ?? null;
       const liveBalance: number = (liveVaultRow as any)?.[DB_COLUMNS.VAULT_BALANCE] ?? vaultRows[branchId]?.balance ?? 0;
 
-      let txErr: any;
-      if (liveDeposit) {
-        // Update existing ADMIN_DEPOSIT row for that date
-        const newAmt = (liveDeposit.amount ?? 0) + amt;
-        ({ error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .update({ [DB_COLUMNS.AMOUNT]: newAmt, [DB_COLUMNS.TIMESTAMP]: timestamp })
-          .eq(DB_COLUMNS.ID, liveDeposit.id));
-        if (txErr) throw txErr;
-      } else {
-        // No ADMIN_DEPOSIT yet for that date — insert with deterministic ID
-        ({ error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .insert({
-            [DB_COLUMNS.ID]: deterministicId,
-            [DB_COLUMNS.BRANCH_ID]: branchId,
-            [DB_COLUMNS.TYPE]: 'ADMIN_DEPOSIT',
-            [DB_COLUMNS.AMOUNT]: amt,
-            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (ADMIN)',
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.PERFORMED_BY]: 'ADMIN',
-          }));
-        if (txErr) throw txErr;
-      }
-
-      // Update vault balance
-      const newBalance = liveBalance + amt;
-      const { error: vaultErr } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branchId);
-      if (vaultErr) throw vaultErr;
-      setVaultRows(prev => ({ ...prev, [branchId]: { ...prev[branchId], branchId, balance: newBalance } }));
-
-      // If pulling from a specific report's ROI, update that report's net_roi and vault provision
+      // Resolve report ID if pulling from a specific ROI date
+      let reportId: string | null = null;
       if (roiSourceDate) {
         const { data: reportRows } = await supabase
           .from(DB_TABLES.SALES_REPORTS)
-          .select('id, net_roi, total_vault_provision')
+          .select('id')
           .eq(DB_COLUMNS.BRANCH_ID, branchId)
           .eq(DB_COLUMNS.REPORT_DATE, roiSourceDate)
           .limit(1);
-        const sourceReport = reportRows?.[0] ?? null;
-        if (sourceReport) {
-          await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.NET_ROI]: Number(sourceReport[DB_COLUMNS.NET_ROI] ?? 0) - amt,
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: Number(sourceReport[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0) + amt,
-            })
-            .eq(DB_COLUMNS.ID, sourceReport.id);
-        }
+        reportId = reportRows?.[0]?.id ?? null;
       }
+
+      const { error: rpcErr } = await supabase.rpc('record_vault_admin_deposit', {
+        p_branch_id:       branchId,
+        p_amount:          amt,
+        p_timestamp:       timestamp,
+        p_new_tx_id:       deterministicId,
+        p_existing_tx_id:  liveDeposit?.id ?? null,
+        p_existing_amount: liveDeposit?.amount ?? 0,
+        p_report_id:       reportId,
+      });
+      if (rpcErr) throw rpcErr;
+
+      const newBalance = liveBalance + amt;
+      setVaultRows(prev => ({ ...prev, [branchId]: { ...prev[branchId], branchId, balance: newBalance } }));
 
       setDepositingId(null);
       setDepositInput('');

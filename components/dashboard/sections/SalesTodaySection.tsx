@@ -405,20 +405,14 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           (e.name || '').toUpperCase() === `VAULT: ${(target.name || '').toUpperCase()}`
         );
         if (pairedVaultCover) {
+          // Atomically delete the vault_transaction and restore vault balance
+          const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+            p_tx_id:     pairedVaultCover.id,
+            p_branch_id: branch.id,
+          });
+          if (rpcErr) throw rpcErr;
+          // Delete the VAULT_WITHDRAWAL expense record (does not affect vault balance)
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
-          // Also delete the vault_transactions record (same ID if created via cover-from-vault)
-          await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
-          // Restore vault balance
-          const { data: liveVault } = await supabase
-            .from(DB_TABLES.BRANCH_VAULTS)
-            .select(DB_COLUMNS.VAULT_BALANCE)
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-            .single();
-          const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-          await supabase
-            .from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + (Number(pairedVaultCover.amount) || 0) })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
         }
       }
 
@@ -455,40 +449,11 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     const { id: depositId } = vaultDepositToDelete;
     setIsDeletingVaultDeposit(true);
     try {
-      // Fetch the authoritative deposit amount from DB before deleting — never trust stale cache
-      // for the refund amount, otherwise a concurrent update could leave the balance wrong.
-      const [{ data: depositRecord }, { data: liveVault }] = await Promise.all([
-        supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .select('amount')
-          .eq(DB_COLUMNS.ID, depositId)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .maybeSingle(),
-        supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single(),
-      ]);
-
-      if (!depositRecord) throw new Error(`Deposit ${depositId} not found — vault balance unchanged.`);
-      const refundAmount = Number(depositRecord.amount) || 0;
-
-      // Delete the vault_transaction record
-      const { error: txErr } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete()
-        .eq(DB_COLUMNS.ID, depositId)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (txErr) throw txErr;
-
-      // Reduce vault balance by the authoritative deposit amount
-      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-      const { error: vaultErr } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveBalance - refundAmount) })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (vaultErr) throw vaultErr;
+      const { error: rpcErr } = await supabase.rpc('reverse_vault_deposit', {
+        p_tx_id:     depositId,
+        p_branch_id: branch.id,
+      });
+      if (rpcErr) throw rpcErr;
 
       await logAudit({
         branchId: branch.id,
@@ -534,40 +499,35 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     setIsDeletingVaultWithdrawal(true);
     try {
       if (source === 'vault_transactions') {
-        // Delete the vault_transaction WITHDRAWAL record
-        const { error: wErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, withdrawalId);
-        if (wErr) throw wErr;
+        // Atomically delete the WITHDRAWAL tx and restore vault balance
+        const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+          p_tx_id:     withdrawalId,
+          p_branch_id: branch.id,
+        });
+        if (rpcErr) throw rpcErr;
 
-        // Also delete the paired OPERATIONAL expense (full reversal — restores ROI)
+        // Delete the paired OPERATIONAL expense (does not affect vault balance)
         const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
         if (pairedOp) {
           if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
         }
       } else {
-        // Cover-from-vault: delete the VAULT_WITHDRAWAL expense record
-        const { error: wErr } = await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, withdrawalId);
-        if (wErr) throw wErr;
+        // Cover-from-vault: vault_transaction shares the same ID as the VAULT_WITHDRAWAL expense
+        const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+          p_tx_id:     withdrawalId,
+          p_branch_id: branch.id,
+        });
+        if (rpcErr) throw rpcErr;
 
-        // Also delete the paired OPERATIONAL expense if it still exists
+        // Delete both expense records (does not affect vault balance)
+        await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, withdrawalId);
         const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
         if (pairedOp) {
           if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
         }
       }
-
-      // Refund vault balance
-      const { data: liveVault } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-      await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + refundAmount })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
 
       await logAudit({
         branchId: branch.id,

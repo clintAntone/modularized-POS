@@ -170,12 +170,18 @@ export const StaffCard: React.FC<StaffCardProps> = ({
         </div>
       )}
 
-      {/* Reliever hint (idle) */}
+      {/* Promote to Regular — visible button for relievers */}
       {isReliever && onPromote && !isLongPressing && !isOnLeave && (
-        <div className="absolute bottom-0 inset-x-0 z-10 flex justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <span className="text-xs font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-            Hold to Promote
-          </span>
+        <div className="absolute bottom-0 inset-x-0 z-10 flex justify-center pb-2">
+          <button
+            type="button"
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onPromote(emp); }}
+            className="text-xs font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 hover:bg-indigo-600 hover:text-white px-3 py-1 rounded-full border border-indigo-100 hover:border-indigo-600 transition-all active:scale-95"
+          >
+            Promote to Regular
+          </button>
         </div>
       )}
 

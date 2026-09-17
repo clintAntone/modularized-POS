@@ -4,7 +4,7 @@ import { Employee } from '../../types';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'vault_audit' | 'transaction_audit';
 
 interface SuperAdminNavbarProps {
   activeTab: AdminTab;
@@ -42,7 +42,7 @@ const Icons = {
 };
 
 // Ordered category list for the More modal
-const CATEGORY_ORDER = ['Operations', 'Finance', 'Reports', 'People', 'Branches', 'System'] as const;
+const CATEGORY_ORDER = ['Operations', 'Finance', 'Reports', 'Audit', 'People', 'Branches', 'System'] as const;
 
 export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, onTabChange, employees = [], isSticky = true, pendingRequestsCount = 0, pendingComplaintsCount = 0, allowedTabs }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -98,7 +98,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
 
     // ── Reports ──
     { id: 'analytics',    label: 'Analytics',   icon: Icons.analytics, desc: 'Performance Charts',   color: 'bg-indigo-50 text-indigo-600',  category: 'Reports',    adminOnly: false },
-    { id: 'audit',        label: 'Audit',       icon: Icons.audit,     desc: 'Security Registry',    color: 'bg-rose-50 text-rose-600',      category: 'Reports',    adminOnly: false },
+    { id: 'audit',        label: 'Audit',       icon: Icons.audit,     desc: 'Security Registry',    color: 'bg-rose-50 text-rose-600',      category: 'Audit',      adminOnly: false },
 
     // ── People ──
     { id: 'requests',     label: 'Approvals',   icon: Icons.requests,  desc: 'Pending Requests',     color: 'bg-amber-50 text-amber-600',    category: 'People',     adminOnly: false },
@@ -108,7 +108,9 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     { id: 'devices',      label: 'Devices',     icon: Icons.devices,   desc: 'POS Device Registry',  color: 'bg-violet-50 text-violet-600',  category: 'System',     adminOnly: false },
     { id: 'settings',     label: 'Settings',    icon: Icons.settings,  desc: 'Core Configuration',   color: 'bg-slate-900 text-white',       category: 'System',     adminOnly: false },
     { id: 'portal_users', label: 'Portal Users',icon: Icons.portal,    desc: 'User Accounts',        color: 'bg-slate-100 text-slate-600',   category: 'System',     adminOnly: true  },
-    { id: 'report_audit', label: 'Report Audit',icon: Icons.audit,     desc: 'Report Math Diagnostic', color: 'bg-rose-50 text-rose-600',     category: 'Reports',    adminOnly: true  },
+    { id: 'report_audit', label: 'Report Audit',icon: Icons.audit,     desc: 'Report Math Diagnostic', color: 'bg-rose-50 text-rose-600',     category: 'Audit',      adminOnly: true  },
+    { id: 'vault_audit',       label: 'Vault Audit',   icon: Icons.vault,  desc: 'Balance Integrity Check',  color: 'bg-emerald-50 text-emerald-700', category: 'Audit', adminOnly: true },
+    { id: 'transaction_audit', label: 'Tx Audit',      icon: Icons.audit,  desc: 'Transaction Cross-check',  color: 'bg-violet-50 text-violet-600',  category: 'Audit', adminOnly: true },
     { id: 'how_to',       label: 'SOP',         icon: Icons.how_to,    desc: 'Admin Manual',         color: 'bg-slate-100 text-slate-500',   category: 'System',     adminOnly: false },
   ], []);
 
@@ -441,6 +443,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                   Operations: 'text-sky-500',
                   Finance:    'text-emerald-600',
                   Reports:    'text-indigo-500',
+                  Audit:      'text-rose-500',
                   People:     'text-violet-500',
                   Branches:   'text-amber-600',
                   System:     'text-slate-400',

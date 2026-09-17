@@ -448,6 +448,28 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const vaultStartDate = branchVaultStartDates[branch.id] ?? null;
             const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
             if (!reportIsLegacy && branch.vaultEnabled) {
+                // ── Step 1: Upsert vault_transaction DEPOSIT records ─────────────
+                // Must run BEFORE the balance recalculation. If this fails, the
+                // balance update is never attempted — no drift. If this succeeds
+                // but the balance update fails, Vault Audit Fix All can repair it.
+                const vaultDepositItems = vaultData.filter((e: any) => e.category === 'VAULT_DEPOSIT');
+                if (vaultDepositItems.length > 0) {
+                    const txRows = vaultDepositItems.map((d: any) => ({
+                        [DB_COLUMNS.ID]: d.id,
+                        [DB_COLUMNS.BRANCH_ID]: branch.id,
+                        [DB_COLUMNS.TYPE]: 'DEPOSIT',
+                        [DB_COLUMNS.AMOUNT]: d.amount,
+                        [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+                        [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+                        [DB_COLUMNS.PERFORMED_BY]: null,
+                    }));
+                    const { error: txErr } = await supabase
+                        .from(DB_TABLES.VAULT_TRANSACTIONS)
+                        .upsert(txRows, { onConflict: 'id' });
+                    if (txErr) throw txErr;
+                }
+
+                // ── Step 2: Recompute branch_vaults.balance from scratch ─────────
                 // Fetch: initial_balance, all report total_vault_provision (covers daily + backfill
                 // deposits which don't create vault_transaction records), and all vault_transactions
                 // that adjust the balance outside of daily deposits (withdrawals + admin deposits).
@@ -487,26 +509,6 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
                         .eq(DB_COLUMNS.BRANCH_ID, branch.id);
                     if (vaultErr) throw vaultErr;
-                }
-
-                // Upsert vault_transaction DEPOSIT records for backfill deposits so they
-                // appear in VaultFundHub deposit history. Balance is derived from
-                // total_vault_provision (reports), so this won't double-count.
-                const vaultDepositItems = vaultData.filter((e: any) => e.category === 'VAULT_DEPOSIT');
-                if (vaultDepositItems.length > 0) {
-                    const txRows = vaultDepositItems.map((d: any) => ({
-                        [DB_COLUMNS.ID]: d.id,
-                        [DB_COLUMNS.BRANCH_ID]: branch.id,
-                        [DB_COLUMNS.TYPE]: 'DEPOSIT',
-                        [DB_COLUMNS.AMOUNT]: d.amount,
-                        [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
-                        [DB_COLUMNS.TIMESTAMP]: d.timestamp,
-                        [DB_COLUMNS.PERFORMED_BY]: null,
-                    }));
-                    const { error: txErr } = await supabase
-                        .from(DB_TABLES.VAULT_TRANSACTIONS)
-                        .upsert(txRows, { onConflict: 'id' });
-                    if (txErr) throw txErr;
                 }
             }
 

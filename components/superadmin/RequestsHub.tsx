@@ -270,69 +270,85 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const existingReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === reportDate);
 
           // session_data is intentionally omitted — backfills adjust totals only and should not
-          // overwrite (or clear) the original POS transaction log stored in that column
-          // Run sales_report upsert and vault_transactions chain in parallel — they touch different tables
-          const [{ error }] = await Promise.all([
-            supabase.from(DB_TABLES.SALES_REPORTS).upsert({
-              [DB_COLUMNS.ID]: reportId,
-              [DB_COLUMNS.BRANCH_ID]: request.branchId,
-              [DB_COLUMNS.REPORT_DATE]: reportDate,
-              [DB_COLUMNS.SUBMITTED_AT]: getTrueISOString(),
-              [DB_COLUMNS.GROSS_SALES]: grossSales,
-              [DB_COLUMNS.TOTAL_STAFF_PAY]: totalStaffPay,
-              [DB_COLUMNS.TOTAL_EXPENSES]: totalExpenses,
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalVaultProvision,
-              [DB_COLUMNS.NET_ROI]: netRoi,
-              [DB_COLUMNS.STAFF_BREAKDOWN]: staffBreakdown,
-              [DB_COLUMNS.EXPENSE_DATA]: finalExpenseData,
-              [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
-              [DB_COLUMNS.BACKFILLED]: true,
-            }),
-            // Sync vault deposits — fetch existing, delete old, insert new, update balance
-            (async () => {
-              const { data: existingTx } = await supabase
-                .from(DB_TABLES.VAULT_TRANSACTIONS)
-                .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT}`)
-                .eq(DB_COLUMNS.REPORT_ID, reportId)
-                .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
-
-              const previousTotal = (existingTx || []).reduce((s: number, t: any) => s + (Number(t[DB_COLUMNS.AMOUNT]) || 0), 0);
-              const newTotal = (vaultDeposits || []).reduce((s: number, d: any) => s + (Number(d.amount) || 0), 0);
-
-              // Delete old, then insert new (sequential — same table, same report)
-              if ((existingTx || []).length > 0) {
-                await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete()
-                  .eq(DB_COLUMNS.REPORT_ID, reportId).eq(DB_COLUMNS.TYPE, 'DEPOSIT');
-              }
-              if ((vaultDeposits || []).length > 0) {
-                const txRows = vaultDeposits.map((d: any) => ({
-                  [DB_COLUMNS.ID]: d.id,
-                  [DB_COLUMNS.BRANCH_ID]: request.branchId,
-                  [DB_COLUMNS.REPORT_ID]: reportId,
-                  [DB_COLUMNS.TYPE]: 'DEPOSIT',
-                  [DB_COLUMNS.AMOUNT]: d.amount,
-                  [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
-                  [DB_COLUMNS.TIMESTAMP]: d.timestamp,
-                  [DB_COLUMNS.PERFORMED_BY]: null,
-                }));
-                const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert(txRows);
-                if (txErr) throw txErr;
-              }
-
-              // Apply delta to vault balance
-              const delta = newTotal - previousTotal;
-              if (delta !== 0) {
-                const { data: vaultRow } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
-                  .select(DB_COLUMNS.VAULT_BALANCE).eq(DB_COLUMNS.BRANCH_ID, request.branchId).single();
-                if (vaultRow) {
-                  await supabase.from(DB_TABLES.BRANCH_VAULTS)
-                    .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + delta })
-                    .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
-                }
-              }
-            })(),
-          ]);
+          // overwrite (or clear) the original POS transaction log stored in that column.
+          // Save report first — vault is only touched if the report write succeeds.
+          const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert({
+            [DB_COLUMNS.ID]: reportId,
+            [DB_COLUMNS.BRANCH_ID]: request.branchId,
+            [DB_COLUMNS.REPORT_DATE]: reportDate,
+            [DB_COLUMNS.SUBMITTED_AT]: getTrueISOString(),
+            [DB_COLUMNS.GROSS_SALES]: grossSales,
+            [DB_COLUMNS.TOTAL_STAFF_PAY]: totalStaffPay,
+            [DB_COLUMNS.TOTAL_EXPENSES]: totalExpenses,
+            [DB_COLUMNS.TOTAL_VAULT_PROVISION]: totalVaultProvision,
+            [DB_COLUMNS.NET_ROI]: netRoi,
+            [DB_COLUMNS.STAFF_BREAKDOWN]: staffBreakdown,
+            [DB_COLUMNS.EXPENSE_DATA]: finalExpenseData,
+            [DB_COLUMNS.VAULT_DATA]: vaultData || existingReport?.vaultData || [],
+            [DB_COLUMNS.BACKFILLED]: true,
+          });
           if (error) throw error;
+
+          // Atomically sync vault deposits and balance via RPC.
+          // Runs after the report is confirmed saved — vault is never touched if report fails.
+          const depositsJson = (vaultDeposits || []).map((d: any) => ({
+            id: d.id,
+            amount: Number(d.amount) || 0,
+            name: d.name ?? 'VAULT DEPOSIT',
+            timestamp: d.timestamp,
+          }));
+          const { error: rpcErr } = await supabase.rpc('sync_backfill_vault_deposits', {
+            p_branch_id: request.branchId,
+            p_report_id: reportId,
+            p_deposits:  depositsJson,
+          });
+
+          if (rpcErr) {
+            const isRpcMissing = rpcErr.code === 'PGRST202' || rpcErr.message?.toLowerCase().includes('could not find the function');
+            if (!isRpcMissing) throw rpcErr;
+
+            // RPC not deployed yet — fall back to direct writes
+            console.warn('[vault] sync_backfill_vault_deposits RPC not found — using direct writes. Run supabase/vault_atomic_ops.sql to enable atomic vault syncs.');
+
+            const { data: existingTx } = await supabase
+              .from(DB_TABLES.VAULT_TRANSACTIONS)
+              .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT}`)
+              .eq(DB_COLUMNS.REPORT_ID, reportId)
+              .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+
+            const previousTotal = (existingTx || []).reduce((s: number, t: any) => s + (Number(t[DB_COLUMNS.AMOUNT]) || 0), 0);
+            const newTotal = depositsJson.reduce((s, d) => s + d.amount, 0);
+
+            if ((existingTx || []).length > 0) {
+              await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete()
+                .eq(DB_COLUMNS.REPORT_ID, reportId).eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+            }
+            if (depositsJson.length > 0) {
+              const txRows = depositsJson.map(d => ({
+                [DB_COLUMNS.ID]: d.id,
+                [DB_COLUMNS.BRANCH_ID]: request.branchId,
+                [DB_COLUMNS.REPORT_ID]: reportId,
+                [DB_COLUMNS.TYPE]: 'DEPOSIT',
+                [DB_COLUMNS.AMOUNT]: d.amount,
+                [DB_COLUMNS.NAME]: d.name,
+                [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+                [DB_COLUMNS.PERFORMED_BY]: null,
+              }));
+              const { error: txErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert(txRows);
+              if (txErr) throw txErr;
+            }
+
+            const delta = newTotal - previousTotal;
+            if (delta !== 0) {
+              const { data: vaultRow } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
+                .select(DB_COLUMNS.VAULT_BALANCE).eq(DB_COLUMNS.BRANCH_ID, request.branchId).single();
+              if (vaultRow) {
+                await supabase.from(DB_TABLES.BRANCH_VAULTS)
+                  .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + delta })
+                  .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
+              }
+            }
+          }
         } else if (request.type === 'PASSWORD_RESET') {
           const { error } = await supabase.from(DB_TABLES.EMPLOYEES)
             .update({ [DB_COLUMNS.REQUEST_RESET]: true, [DB_COLUMNS.RESET_APPROVED]: true })

@@ -11,6 +11,7 @@
   let allBranches    = [];
   let activeRegion   = 'All';
   let searchTerm     = '';
+  let filterOpenNow  = false;
   let servicesLoaded = false;
   let contactRendered = false;
 
@@ -65,6 +66,12 @@
                (b.address || '').toLowerCase().includes(searchTerm);
       });
     }
+    if (filterOpenNow) {
+      result = result.filter(function (b) {
+        var s = getBranchStatus(b);
+        return s === 'open' || s === 'closing';
+      });
+    }
     renderCards(result);
   }
 
@@ -89,6 +96,13 @@
 
   document.getElementById('search').addEventListener('input', function (e) {
     searchTerm = e.target.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  document.getElementById('open-now-btn').addEventListener('click', function () {
+    filterOpenNow = !filterOpenNow;
+    this.classList.toggle('active', filterOpenNow);
+    this.setAttribute('aria-pressed', filterOpenNow);
     applyFilters();
   });
 
@@ -133,6 +147,25 @@
     return '\u20b1' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 0 });
   }
 
+  // ── Branch open/closed status (Manila time, UTC+8) ─────────────────────────
+  function getBranchStatus(b) {
+    if (!b.opening_time || !b.closing_time) return null;
+    var now = new Date();
+    var cur = (now.getUTCHours() * 60 + now.getUTCMinutes() + 8 * 60) % (24 * 60);
+    function toMins(t) {
+      if (!t) return -1;
+      var p = t.split(':');
+      return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+    }
+    var s1o = toMins(b.opening_time), s1c = toMins(b.closing_time);
+    var s2o = toMins(b.shift2_opening_time), s2c = toMins(b.shift2_closing_time);
+    var inS1 = cur >= s1o && cur < s1c;
+    var inS2 = s2o >= 0 && s2c >= 0 && cur >= s2o && cur < s2c;
+    if (!inS1 && !inS2) return 'closed';
+    var closingSoon = (inS1 && (s1c - cur) <= 30) || (inS2 && (s2c - cur) <= 30);
+    return closingSoon ? 'closing' : 'open';
+  }
+
   // ── Render cards ───────────────────────────────────────────────────────────
   function renderCards(branches) {
     var grid  = document.getElementById('grid');
@@ -165,6 +198,13 @@
     var houseSvg = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 22V12h6v10"/></svg>';
 
     grid.innerHTML = branches.map(function (b) {
+      var status = getBranchStatus(b);
+      var statusBadge = '';
+      if (status === 'open')    statusBadge = '<span class="card-status card-status-open">Open</span>';
+      if (status === 'closing') statusBadge = '<span class="card-status card-status-closing">Closing Soon</span>';
+      if (status === 'closed')  statusBadge = '<span class="card-status card-status-closed">Closed</span>';
+      var pinClass = 'card-pin-icon' + (status === 'open' ? ' card-pin-open' : status === 'closing' ? ' card-pin-closing' : '');
+
       var s1Open  = formatTime(b.opening_time);
       var s1Close = formatTime(b.closing_time);
       var s2Open  = formatTime(b.shift2_opening_time);
@@ -173,8 +213,8 @@
       var displayOpen  = s1Open;
       var displayClose = hasShift2 ? s2Close : s1Close;
       var hoursHtml = (displayOpen && displayClose)
-        ? '<div class="card-hours"><div class="card-shift">' + clockSvg + escHtml(displayOpen) + ' \u2013 ' + escHtml(displayClose) + '</div></div>'
-        : '';
+        ? '<div class="card-hours"><div class="card-shift">' + clockSvg + escHtml(displayOpen) + ' \u2013 ' + escHtml(displayClose) + statusBadge + '</div></div>'
+        : (statusBadge ? '<div class="card-hours"><div class="card-shift">' + statusBadge + '</div></div>' : '');
       var contactHtml = b.contact_number
         ? '<a class="card-contact" href="tel:' + escHtml(b.contact_number) + '">' + phoneSvg + escHtml(b.contact_number) + '</a>'
         : '';
@@ -183,7 +223,7 @@
       return '<div class="card" data-maps-url="' + escHtml(mapsUrl) + '">' +
         '<div class="card-body">' +
           '<div class="card-top">' +
-            '<div class="card-pin-icon">' + houseSvg + '</div>' +
+            '<div class="' + pinClass + '">' + houseSvg + '</div>' +
             '<div class="card-info">' +
               '<span class="card-name">' + escHtml(cleanName(b.name)) + '</span>' +
               (b.address ? '<div class="card-address">' + escHtml(cleanAddress(b.address)) + '</div>' : '') +
@@ -212,7 +252,7 @@
     servicesLoaded = true;
     try {
       var res = await fetch(
-        SUPABASE_URL + '/rest/v1/service_templates?select=id,name,duration,catalog_name&order=catalog_name.asc,name.asc',
+        SUPABASE_URL + '/rest/v1/service_templates?select=id,name,duration,catalog_name,image_url&order=catalog_name.asc,name.asc',
         { headers: HEADERS }
       );
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -234,11 +274,6 @@
         return;
       }
 
-      var placeholderSvg =
-        '<svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" opacity="0.3">' +
-          '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/>' +
-        '</svg>';
-
       el.innerHTML = sorted.map(function (entry, groupIdx) {
         var cat   = entry[0];
         var items = entry[1];
@@ -250,9 +285,16 @@
           '</div>' +
           '<div class="svc-card-grid">' +
             items.map(function (s) {
+              var words = titleCase(s.name).replace(/[()]/g, '').trim().split(/\s+/).filter(function (w) { return w.length > 1; });
+              var initials = words.length >= 2
+                ? (words[0][0] + words[1][0]).toUpperCase()
+                : words.length === 1 ? words[0].substring(0, 2).toUpperCase() : '?';
               var meta = s.duration > 0 ? s.duration + ' min' : '';
+              var imgHtml = s.image_url
+                ? '<img src="' + escHtml(s.image_url) + '" alt="' + escHtml(titleCase(s.name)) + '" class="svc-card-actual-img" loading="lazy" />'
+                : '<span class="svc-card-initial">' + escHtml(initials) + '</span>';
               return '<div class="svc-card" data-action="book-now">' +
-                '<div class="svc-card-img svc-color-' + color + '">' + placeholderSvg + '</div>' +
+                '<div class="svc-card-img svc-color-' + (s.image_url ? 'none' : color) + '">' + imgHtml + '</div>' +
                 '<div class="svc-card-body">' +
                   '<h3 class="svc-card-name">' + escHtml(titleCase(s.name)) + '</h3>' +
                   (meta ? '<p class="svc-card-meta">' + escHtml(meta) + '</p>' : '') +
@@ -373,6 +415,12 @@
 
     buildRegionDropdown();
     renderCards(data);
+
+    // Hero stats
+    var statEl = document.getElementById('stat-branches');
+    if (statEl) statEl.textContent = data.length + '+';
+    var heroStats = document.getElementById('hero-stats');
+    if (heroStats) heroStats.style.display = 'flex';
   }).catch(function (err) {
     document.getElementById('grid').innerHTML =
       '<div class="empty">' +
