@@ -55,29 +55,23 @@ export const RemittanceBanners: React.FC<RemittanceBannersProps> = ({
     )}
 
     {showFollowUpReminder && (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-        <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-          <AlertCircle className="w-5 h-5" />
-        </div>
-        <div className="flex-1">
-          <h4 className="text-xs font-black text-amber-900 uppercase tracking-tight">Remittance Not Yet Submitted</h4>
-          <p className="text-xs font-bold text-amber-700/80 uppercase tracking-widest leading-none mt-1">
-            Last week's remittance report has not been submitted. Please finalize and submit it now.
-          </p>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-black text-amber-900 leading-none">Remittance Not Yet Submitted</p>
+          <p className="text-[10px] font-medium text-amber-700 leading-snug mt-0.5">Last week's remittance report has not been submitted. Please finalize and submit it now.</p>
         </div>
         <button
           onClick={() => { onGoToRemittance(); playSound('click'); }}
-          className="px-4 py-2 bg-amber-600 text-white text-xs font-semibold uppercase tracking-wide rounded-lg shadow-sm hover:bg-amber-700 transition-colors shrink-0"
-        >
-          Go
-        </button>
+          className="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-colors shrink-0"
+        >Go</button>
         <button
           onClick={() => {
             const manilaDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
             localStorage.setItem(`remittance_followup_reminded_${manilaDateStr}`, '1');
             onDismissFollowUp();
           }}
-          className="w-7 h-7 bg-amber-100 hover:bg-amber-200 rounded-lg flex items-center justify-center text-amber-600 text-xs font-black shrink-0 transition-colors"
+          className="w-6 h-6 bg-amber-100 hover:bg-amber-200 rounded-md flex items-center justify-center text-amber-600 text-xs font-black shrink-0 transition-colors"
           aria-label="Dismiss"
         >✕</button>
       </div>

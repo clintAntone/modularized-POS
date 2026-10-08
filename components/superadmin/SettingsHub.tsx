@@ -6,6 +6,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { generateSalt, hashPin } from '../../lib/crypto';
 import { playSound } from '../../lib/audio';
 import { invalidateGlobalSessions, logAudit } from '../../lib/audit';
+import { ReceiptRequiredRule, DEFAULT_RECEIPT_RULES } from '../../lib/expenseRules';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared primitives
@@ -162,6 +163,15 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
   const [newRoleName, setNewRoleName] = useState('');
   const [roleError, setRoleError] = useState('');
 
+  // ── Receipt-required rules state ─────────────────────────────────────
+  const [receiptRules, setReceiptRules] = useState<ReceiptRequiredRule[]>(DEFAULT_RECEIPT_RULES);
+  const [showAddRule, setShowAddRule] = useState(false);
+  const [newRuleLabel, setNewRuleLabel] = useState('');
+  const [newRuleMessage, setNewRuleMessage] = useState('');
+  const [newRuleKeywords, setNewRuleKeywords] = useState('');
+  const [newRuleError, setNewRuleError] = useState('');
+  const [addKwInputs, setAddKwInputs] = useState<Record<string, string>>({});
+
   // ── Security state ───────────────────────────────────────────────────
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -190,6 +200,10 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
         const raw = map.find(c => c.key === 'custom_roles')?.value;
         setCustomRoles(raw ? JSON.parse(raw) : []);
       } catch { setCustomRoles([]); }
+      try {
+        const raw = map.find(c => c.key === 'receipt_required_rules')?.value;
+        setReceiptRules(raw ? JSON.parse(raw) : DEFAULT_RECEIPT_RULES);
+      } catch { setReceiptRules(DEFAULT_RECEIPT_RULES); }
     }
     setIsLoading(false);
   };
@@ -240,6 +254,58 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
     const updated = customRoles.filter(r => r !== role);
     setCustomRoles(updated);
     await handleUpdate('custom_roles', JSON.stringify(updated));
+  };
+
+  const saveReceiptRules = async (rules: ReceiptRequiredRule[]) => {
+    await handleUpdate('receipt_required_rules', JSON.stringify(rules));
+  };
+
+  const handleAddReceiptRule = async () => {
+    const label = newRuleLabel.trim();
+    if (!label) { setNewRuleError('Label is required'); return; }
+    if (receiptRules.some(r => r.label.toUpperCase() === label.toUpperCase())) {
+      setNewRuleError('A rule with that label already exists'); return;
+    }
+    const keywords = newRuleKeywords.split(',').map(k => k.trim().toUpperCase()).filter(Boolean);
+    if (keywords.length === 0) { setNewRuleError('Add at least one keyword'); return; }
+    const rule: ReceiptRequiredRule = {
+      label,
+      keywords,
+      ...(newRuleMessage.trim() ? { message: newRuleMessage.trim() } : {}),
+    };
+    const updated = [...receiptRules, rule];
+    setReceiptRules(updated);
+    setNewRuleLabel('');
+    setNewRuleMessage('');
+    setNewRuleKeywords('');
+    setNewRuleError('');
+    setShowAddRule(false);
+    await saveReceiptRules(updated);
+  };
+
+  const handleRemoveReceiptRule = async (label: string) => {
+    const updated = receiptRules.filter(r => r.label !== label);
+    setReceiptRules(updated);
+    await saveReceiptRules(updated);
+  };
+
+  const handleAddKeyword = async (label: string) => {
+    const kw = (addKwInputs[label] || '').trim().toUpperCase();
+    if (!kw) return;
+    const updated = receiptRules.map(r =>
+      r.label === label ? { ...r, keywords: [...r.keywords, kw] } : r
+    );
+    setReceiptRules(updated);
+    setAddKwInputs(prev => ({ ...prev, [label]: '' }));
+    await saveReceiptRules(updated);
+  };
+
+  const handleRemoveKeyword = async (label: string, kw: string) => {
+    const updated = receiptRules.map(r =>
+      r.label === label ? { ...r, keywords: r.keywords.filter(k => k !== kw) } : r
+    );
+    setReceiptRules(updated);
+    await saveReceiptRules(updated);
   };
 
   const handleUpdatePin = async () => {
@@ -594,6 +660,133 @@ const SettingsPanel: React.FC<{ onRefresh?: (quiet?: boolean) => void }> = ({ on
       </div>
       </div>{/* end section 6 */}
 
+      {/* ── 7. Receipt-Required Expenses ── */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden sm:bg-transparent sm:dark:bg-transparent sm:rounded-none sm:border-0 sm:shadow-none sm:overflow-visible">
+      <div className="bg-slate-50 dark:bg-slate-700/50 px-6 py-2.5 border-b border-slate-100 dark:border-slate-700 sm:border-t sm:border-t-slate-100 sm:dark:border-t-slate-700">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Receipt-Required Expenses</p>
+      </div>
+      <div className="px-6 py-4 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="sm:w-52 shrink-0">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Expense Rules</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-snug">
+              Expenses matching these keywords will require an attached receipt before submitting.
+            </p>
+          </div>
+          <div className="flex-1 space-y-3">
+
+            {/* Existing rules */}
+            {receiptRules.map(rule => (
+              <div key={rule.label} className="border border-slate-100 dark:border-slate-700 rounded-2xl overflow-hidden">
+                {/* Rule header */}
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{rule.label}</span>
+                    {rule.message && (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 italic truncate hidden sm:block">— {rule.message}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemoveReceiptRule(rule.label)}
+                    disabled={isSaving === 'receipt_required_rules'}
+                    className="w-6 h-6 flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-500 transition-colors shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" strokeWidth={3} />
+                  </button>
+                </div>
+
+                {/* Keywords */}
+                <div className="px-4 py-3 space-y-2.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {rule.keywords.map(kw => (
+                      <div key={kw} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">{kw}</span>
+                        <button
+                          onClick={() => handleRemoveKeyword(rule.label, kw)}
+                          disabled={isSaving === 'receipt_required_rules'}
+                          className="w-3.5 h-3.5 flex items-center justify-center text-amber-400 dark:text-amber-600 hover:text-rose-500 transition-colors"
+                        >
+                          <X className="w-2.5 h-2.5" strokeWidth={3} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add keyword input */}
+                  <div className="flex gap-2">
+                    <input
+                      value={addKwInputs[rule.label] || ''}
+                      onChange={e => setAddKwInputs(prev => ({ ...prev, [rule.label]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddKeyword(rule.label); }}
+                      placeholder="Add keyword..."
+                      className="flex-1 h-8 px-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 uppercase outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
+                    />
+                    <button
+                      onClick={() => handleAddKeyword(rule.label)}
+                      disabled={isSaving === 'receipt_required_rules' || !addKwInputs[rule.label]?.trim()}
+                      className="h-8 px-3 rounded-xl bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 active:scale-95 transition-all flex items-center gap-1 disabled:opacity-40 shrink-0"
+                    >
+                      <Plus className="w-3 h-3" strokeWidth={3} />
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add new rule */}
+            {showAddRule ? (
+              <div className="border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-2xl p-4 space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    value={newRuleLabel}
+                    onChange={e => { setNewRuleLabel(e.target.value); setNewRuleError(''); }}
+                    placeholder="Category label (e.g. Supplies)"
+                    className="flex-1 h-9 px-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-all placeholder:font-normal placeholder:text-slate-400 placeholder:normal-case"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => { setShowAddRule(false); setNewRuleError(''); }}
+                    className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors shrink-0"
+                  >
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
+                </div>
+                <input
+                  value={newRuleKeywords}
+                  onChange={e => { setNewRuleKeywords(e.target.value); setNewRuleError(''); }}
+                  placeholder="Keywords, comma-separated (e.g. SUPPLIES, CLEANING, SOAP)"
+                  className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 uppercase outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-all placeholder:font-normal placeholder:text-slate-400 placeholder:normal-case"
+                />
+                <input
+                  value={newRuleMessage}
+                  onChange={e => setNewRuleMessage(e.target.value)}
+                  placeholder="Warning message (optional)"
+                  className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-normal text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-all placeholder:text-slate-400"
+                />
+                {newRuleError && <p className="text-xs font-bold text-rose-500">{newRuleError}</p>}
+                <button
+                  onClick={handleAddReceiptRule}
+                  disabled={isSaving === 'receipt_required_rules'}
+                  className="w-full h-9 rounded-xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  {isSaving === 'receipt_required_rules' ? '…' : 'Save Rule'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddRule(true)}
+                className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                Add new rule
+              </button>
+            )}
+
+          </div>
+        </div>
+      </div>
+      </div>{/* end section 7 */}
 
       {/* ── 8. Danger Zone ── */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-rose-100 dark:border-rose-900/40 shadow-sm overflow-hidden sm:bg-transparent sm:dark:bg-transparent sm:rounded-none sm:border-0 sm:shadow-none sm:overflow-visible">

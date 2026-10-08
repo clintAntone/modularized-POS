@@ -756,59 +756,31 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       const liveDeposit = liveDepositRows?.[0] ?? null;
       const liveBalance: number = (liveVaultRow as any)?.[DB_COLUMNS.VAULT_BALANCE] ?? vaultRows[branchId]?.balance ?? 0;
 
-      let txErr: any;
-      if (liveDeposit) {
-        // Update existing ADMIN_DEPOSIT row for that date
-        const newAmt = (liveDeposit.amount ?? 0) + amt;
-        ({ error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .update({ [DB_COLUMNS.AMOUNT]: newAmt, [DB_COLUMNS.TIMESTAMP]: timestamp })
-          .eq(DB_COLUMNS.ID, liveDeposit.id));
-        if (txErr) throw txErr;
-      } else {
-        // No ADMIN_DEPOSIT yet for that date — insert with deterministic ID
-        ({ error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .insert({
-            [DB_COLUMNS.ID]: deterministicId,
-            [DB_COLUMNS.BRANCH_ID]: branchId,
-            [DB_COLUMNS.TYPE]: 'ADMIN_DEPOSIT',
-            [DB_COLUMNS.AMOUNT]: amt,
-            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (ADMIN)',
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.PERFORMED_BY]: 'ADMIN',
-          }));
-        if (txErr) throw txErr;
-      }
-
-      // Update vault balance
-      const newBalance = liveBalance + amt;
-      const { error: vaultErr } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branchId);
-      if (vaultErr) throw vaultErr;
-      setVaultRows(prev => ({ ...prev, [branchId]: { ...prev[branchId], branchId, balance: newBalance } }));
-
-      // If pulling from a specific report's ROI, update that report's net_roi and vault provision
+      // Resolve report ID if pulling from a specific ROI date
+      let reportId: string | null = null;
       if (roiSourceDate) {
         const { data: reportRows } = await supabase
           .from(DB_TABLES.SALES_REPORTS)
-          .select('id, net_roi, total_vault_provision')
+          .select('id')
           .eq(DB_COLUMNS.BRANCH_ID, branchId)
           .eq(DB_COLUMNS.REPORT_DATE, roiSourceDate)
           .limit(1);
-        const sourceReport = reportRows?.[0] ?? null;
-        if (sourceReport) {
-          await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.NET_ROI]: Number(sourceReport[DB_COLUMNS.NET_ROI] ?? 0) - amt,
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: Number(sourceReport[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0) + amt,
-            })
-            .eq(DB_COLUMNS.ID, sourceReport.id);
-        }
+        reportId = reportRows?.[0]?.id ?? null;
       }
+
+      const { error: rpcErr } = await supabase.rpc('record_vault_admin_deposit', {
+        p_branch_id:       branchId,
+        p_amount:          amt,
+        p_timestamp:       timestamp,
+        p_new_tx_id:       deterministicId,
+        p_existing_tx_id:  liveDeposit?.id ?? null,
+        p_existing_amount: liveDeposit?.amount ?? 0,
+        p_report_id:       reportId,
+      });
+      if (rpcErr) throw rpcErr;
+
+      const newBalance = liveBalance + amt;
+      setVaultRows(prev => ({ ...prev, [branchId]: { ...prev[branchId], branchId, balance: newBalance } }));
 
       setDepositingId(null);
       setDepositInput('');
@@ -850,7 +822,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
 
   const filteredBranches = useMemo(() => {
-    let result = [...branches];
+    let result = branches.filter(b => b.isEnabled);
 
     // Branch multi-select filter
     if (selectedBranchIds.length > 0) {
@@ -943,11 +915,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
                   ₱{networkSummary.totalBalance.toLocaleString()}
                 </p>
-                {networkSummary.totalTarget > 0 && (
-                  <p className="text-xs font-medium text-slate-400 mt-1">
-                    of ₱{networkSummary.totalTarget.toLocaleString()} combined target
-                  </p>
-                )}
               </div>
 
               {/* KPI pills */}
@@ -1934,17 +1901,17 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                       <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-700 pb-3">
                         <button
                           onClick={() => { setTxHistoryTab('deposits'); setVisibleDeposits(20); }}
-                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'deposits' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                         >
                           <span className="hidden sm:inline">↓ </span>Deposits
-                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{branchHistory.length}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'deposits' ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-200' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-200'}`}>{branchHistory.length}</span>
                         </button>
                         <button
                           onClick={() => { setTxHistoryTab('withdrawals'); setVisibleWithdrawals(20); }}
-                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${txHistoryTab === 'withdrawals' ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300' : 'text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                         >
                           <span className="hidden sm:inline">↑ </span>Withdrawals
-                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 text-rose-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{branchWithdrawals.length}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 dark:bg-rose-800 text-rose-700 dark:text-rose-200' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-200'}`}>{branchWithdrawals.length}</span>
                         </button>
                         <div className="ml-auto flex items-center gap-1.5">
                           {!isReadOnly && enabled && !isDepositing && !isEditing && (

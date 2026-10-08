@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AuthState, UserRole, PortalPermissions } from '../types';
 import { SESSION_TIMEOUT_MS, SESSION_TIMEOUT_SUPERADMIN_MS } from '../constants';
 import { playSound } from '../lib/audio';
@@ -8,6 +9,7 @@ import { logAudit } from '../lib/audit';
 const AUTH_STORAGE_KEY = 'hilot_core_session_v4';
 
 export const useAuth = () => {
+  const queryClient = useQueryClient();
   const [auth, setAuth] = useState<AuthState>(() => {
     try {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -106,6 +108,8 @@ export const useAuth = () => {
     setPreviousBranchId(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     window.history.replaceState({ root: true }, '');
+    // Clear all cached data so the next user never sees the previous session's cross-branch data
+    queryClient.clear();
   }, [auth.user]);
 
   const handleSwitchBranch = (branchId: string, employees?: any[]) => {

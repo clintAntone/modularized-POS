@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect, useDeferredValue, useTransition } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Request, Employee, Branch, Transaction, Attendance, SalesReport } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -16,6 +17,7 @@ interface RequestsHubProps {
   onRefresh?: () => void;
   isReadOnly?: boolean;
   reviewerName?: string;
+  allowedRequestTypes?: string[];
 }
 
 const TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -101,10 +103,17 @@ const STATUS_STYLE = {
 
 const fmt = (n: number) => formatPeso(n || 0);
 
-export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
+export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN', allowedRequestTypes }) => {
+  const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const isProcessingRef = useRef(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, 'APPROVED' | 'REJECTED'>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [confirmState, setConfirmState] = useState<{ request: Request; action: 'APPROVE' | 'REJECT'; hasConflict: boolean; duplicateEmployee?: string } | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -131,17 +140,56 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   // Realtime for requests is already handled by useGlobalData's global channel —
   // no local listener needed here to avoid double full-refresh on every change.
 
-  const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
+  // Once Realtime delivers the real status, drop the optimistic override
+  useEffect(() => {
+    setOptimisticStatus(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const id of Object.keys(updated)) {
+        const real = requests.find(r => r.id === id);
+        if (real && real.status === updated[id]) { delete updated[id]; changed = true; }
+      }
+      return changed ? updated : prev;
+    });
+  }, [requests]);
+
+  // Merge optimistic overrides so the card moves tabs instantly after action
+  const effectiveRequests = useMemo(() =>
+    Object.keys(optimisticStatus).length === 0
+      ? requests
+      : requests.map(r => optimisticStatus[r.id] ? { ...r, status: optimisticStatus[r.id] } : r),
+  [requests, optimisticStatus]);
+
+  const typeFilteredRequests = useMemo(() =>
+    allowedRequestTypes?.length
+      ? effectiveRequests.filter(r => allowedRequestTypes.includes(r.type))
+      : effectiveRequests,
+  [effectiveRequests, allowedRequestTypes]);
+
+  const pendingCount = useMemo(() => typeFilteredRequests.filter(r => r.status === 'PENDING').length, [typeFilteredRequests]);
 
   const branchScopedRequests = useMemo(() =>
-    selectedBranchIds.length > 0 ? requests.filter(r => selectedBranchIds.includes(r.branchId)) : requests,
-  [requests, selectedBranchIds]);
+    selectedBranchIds.length > 0 ? typeFilteredRequests.filter(r => selectedBranchIds.includes(r.branchId)) : typeFilteredRequests,
+  [typeFilteredRequests, selectedBranchIds]);
 
   const filteredRequests = useMemo(() => {
-    let list = filter === 'ALL' ? requests : requests.filter(r => r.status === filter);
+    let list = filter === 'ALL' ? typeFilteredRequests : typeFilteredRequests.filter(r => r.status === filter);
     if (selectedBranchIds.length > 0) list = list.filter(r => selectedBranchIds.includes(r.branchId));
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase();
+      list = list.filter(r => {
+        const branch = branches.find(b => b.id === r.branchId);
+        return (
+          (branch?.name || '').toLowerCase().includes(q) ||
+          (r.requesterName || '').toLowerCase().includes(q) ||
+          (r.type || '').toLowerCase().includes(q) ||
+          (r.data?.reportDate || '').includes(q) ||
+          (r.data?.notes || '').toLowerCase().includes(q)
+        );
+      });
+    }
     return list;
-  }, [requests, filter, selectedBranchIds]);
+  }, [effectiveRequests, filter, selectedBranchIds, deferredSearch, branches]);
 
   const triggerConfirm = (request: Request, action: 'APPROVE' | 'REJECT') => {
     const hasConflict = action === 'APPROVE' && request.type === 'BACKFILL_REPORT'
@@ -172,6 +220,8 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   };
 
   const handleAction = async (request: Request, action: 'APPROVE' | 'REJECT') => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setConfirmState(null);
     setAdminComment('');
     setIsProcessing(request.id);
@@ -218,11 +268,17 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           const totalExpenses = finalExpenseData.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
 
           const netRoi = grossSales - totalExpenses - totalVaultProvision - totalStaffPay;
-          const reportId = `${request.branchId}_${reportDate.replace(/-/g, '')}`;
+          const dateCompact = reportDate.replace(/-/g, '');
+          const standardId = `${request.branchId}_${dateCompact}`;
+          const backfillId = `${request.branchId}_${dateCompact}_BACKFILL_INCOMPLETE`;
+          // Use the backfill ID if a _BACKFILL_INCOMPLETE record already exists, otherwise standard
+          const existingBackfill = salesReports.find(r => r.id === backfillId);
+          const reportId = existingBackfill ? backfillId : standardId;
           const existingReport = salesReports.find(r => r.branchId === request.branchId && r.reportDate === reportDate);
 
           // session_data is intentionally omitted — backfills adjust totals only and should not
-          // overwrite (or clear) the original POS transaction log stored in that column
+          // overwrite (or clear) the original POS transaction log stored in that column.
+          // Save report first — vault is only touched if the report write succeeds.
           const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert({
             [DB_COLUMNS.ID]: reportId,
             [DB_COLUMNS.BRANCH_ID]: request.branchId,
@@ -239,9 +295,28 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.BACKFILLED]: true,
           });
           if (error) throw error;
-          // Sync vault deposits into vault_transactions — replace previous entries for this report
-          {
-            // Fetch whatever was previously deposited for this report
+
+          // Atomically sync vault deposits and balance via RPC.
+          // Runs after the report is confirmed saved — vault is never touched if report fails.
+          const depositsJson = (vaultDeposits || []).map((d: any) => ({
+            id: d.id,
+            amount: Number(d.amount) || 0,
+            name: d.name ?? 'VAULT DEPOSIT',
+            timestamp: d.timestamp,
+          }));
+          const { error: rpcErr } = await supabase.rpc('sync_backfill_vault_deposits', {
+            p_branch_id: request.branchId,
+            p_report_id: reportId,
+            p_deposits:  depositsJson,
+          });
+
+          if (rpcErr) {
+            const isRpcMissing = rpcErr.code === 'PGRST202' || rpcErr.message?.toLowerCase().includes('could not find the function');
+            if (!isRpcMissing) throw rpcErr;
+
+            // RPC not deployed yet — fall back to direct writes
+            console.warn('[vault] sync_backfill_vault_deposits RPC not found — using direct writes. Run supabase/vault_atomic_ops.sql to enable atomic vault syncs.');
+
             const { data: existingTx } = await supabase
               .from(DB_TABLES.VAULT_TRANSACTIONS)
               .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT}`)
@@ -249,26 +324,20 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
 
             const previousTotal = (existingTx || []).reduce((s: number, t: any) => s + (Number(t[DB_COLUMNS.AMOUNT]) || 0), 0);
-            const newTotal = (vaultDeposits || []).reduce((s: number, d: any) => s + (Number(d.amount) || 0), 0);
+            const newTotal = depositsJson.reduce((s, d) => s + d.amount, 0);
 
-            // Delete all prior deposit rows for this report (handles removed or re-keyed entries)
             if ((existingTx || []).length > 0) {
-              await supabase
-                .from(DB_TABLES.VAULT_TRANSACTIONS)
-                .delete()
-                .eq(DB_COLUMNS.REPORT_ID, reportId)
-                .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+              await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete()
+                .eq(DB_COLUMNS.REPORT_ID, reportId).eq(DB_COLUMNS.TYPE, 'DEPOSIT');
             }
-
-            // Insert the new set
-            if ((vaultDeposits || []).length > 0) {
-              const txRows = vaultDeposits.map((d: any) => ({
+            if (depositsJson.length > 0) {
+              const txRows = depositsJson.map(d => ({
                 [DB_COLUMNS.ID]: d.id,
                 [DB_COLUMNS.BRANCH_ID]: request.branchId,
                 [DB_COLUMNS.REPORT_ID]: reportId,
                 [DB_COLUMNS.TYPE]: 'DEPOSIT',
                 [DB_COLUMNS.AMOUNT]: d.amount,
-                [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+                [DB_COLUMNS.NAME]: d.name,
                 [DB_COLUMNS.TIMESTAMP]: d.timestamp,
                 [DB_COLUMNS.PERFORMED_BY]: null,
               }));
@@ -276,17 +345,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
               if (txErr) throw txErr;
             }
 
-            // Apply only the delta to avoid double-counting on re-approvals
             const delta = newTotal - previousTotal;
             if (delta !== 0) {
-              const { data: vaultRow } = await supabase
-                .from(DB_TABLES.BRANCH_VAULTS)
-                .select(DB_COLUMNS.VAULT_BALANCE)
-                .eq(DB_COLUMNS.BRANCH_ID, request.branchId)
-                .single();
+              const { data: vaultRow } = await supabase.from(DB_TABLES.BRANCH_VAULTS)
+                .select(DB_COLUMNS.VAULT_BALANCE).eq(DB_COLUMNS.BRANCH_ID, request.branchId).single();
               if (vaultRow) {
-                await supabase
-                  .from(DB_TABLES.BRANCH_VAULTS)
+                await supabase.from(DB_TABLES.BRANCH_VAULTS)
                   .update({ [DB_COLUMNS.VAULT_BALANCE]: (Number(vaultRow[DB_COLUMNS.VAULT_BALANCE]) || 0) + delta })
                   .eq(DB_COLUMNS.BRANCH_ID, request.branchId);
               }
@@ -357,6 +421,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
         }).eq(DB_COLUMNS.ID, request.id);
+        setOptimisticStatus(prev => ({ ...prev, [request.id]: 'APPROVED' }));
+        setActionSuccess('Request approved.');
+        setTimeout(() => setActionSuccess(null), 1000);
         playSound('success');
       } else {
         if (request.type === 'PASSWORD_RESET') {
@@ -370,13 +437,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
           [DB_COLUMNS.UPDATED_AT]: getTrueISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
         }).eq(DB_COLUMNS.ID, request.id);
+        setOptimisticStatus(prev => ({ ...prev, [request.id]: 'REJECTED' }));
+        setActionSuccess('Request rejected.');
+        setTimeout(() => setActionSuccess(null), 1000);
         playSound('warning');
       }
+      // Force a fresh fetch so the real DB status replaces the optimistic immediately
+      await queryClient.invalidateQueries({ queryKey: ['requests'] });
       // useGlobalData's Realtime channel handles targeted refreshes for requests/employees/salesReports
     } catch (err) {
       console.error(err);
       alert('Action failed. Check connection.');
     } finally {
+      isProcessingRef.current = false;
       setIsProcessing(null);
     }
   };
@@ -410,6 +483,13 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
   return (
     <div className="space-y-6">
+
+      {/* Action success banner */}
+      {actionSuccess && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {actionSuccess}
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmState && confirmMeta && createPortal(
@@ -547,11 +627,35 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2.5">
+          {/* Search */}
+          <div className="relative sm:flex-1">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search branch, date, type…"
+              className="w-full h-11 pl-9 pr-3 text-xs rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-slate-400 dark:focus:border-slate-500 focus:ring-2 focus:ring-slate-100 dark:focus:ring-slate-700 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+          </div>
+
           {/* Branch filter — full width on mobile */}
           <BranchCheckboxDropdown
             branches={branches}
             selectedIds={selectedBranchIds}
-            onChange={setSelectedBranchIds}
+            onChange={ids => startTransition(() => setSelectedBranchIds(ids))}
             className="sm:w-48"
           />
 
@@ -560,7 +664,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             {FILTERS.map(({ key, label, count }) => (
               <button
                 key={key}
-                onClick={() => setFilter(key)}
+                onClick={() => startTransition(() => setFilter(key))}
                 className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${
                   filter === key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'
                 }`}

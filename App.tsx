@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
 import { UserRole, BranchVault } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
@@ -94,17 +94,67 @@ const App: React.FC = () => {
     
     performSync();
 
-    // Periodic re-sync every 15 minutes to account for any drift
-    const interval = setInterval(performSync, 15 * 60 * 1000);
+    // Periodic re-sync every 10 minutes — only while tab is visible
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let lastSyncAt = Date.now();
+    const SYNC_COOLDOWN_MS = 60 * 1000; // at most once per minute on tab focus
 
-    // Re-sync immediately when tab/app returns to foreground
-    // (performance.now() pauses on some mobile browsers when the device sleeps,
-    //  causing the clock to lag until the next 15-min interval fires)
-    const onVisible = () => { if (document.visibilityState === 'visible') performSync(); };
+    const startInterval = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(() => { performSync(); lastSyncAt = Date.now(); }, 10 * 60 * 1000);
+    };
+    const stopInterval = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+
+    // Re-sync when tab returns to foreground — skip if synced recently
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        if (Date.now() - lastSyncAt >= SYNC_COOLDOWN_MS) {
+          performSync();
+          lastSyncAt = Date.now();
+        }
+        startInterval();
+      } else {
+        stopInterval();
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
+    startInterval();
 
     return () => {
       mounted = false;
+      stopInterval();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  // VERSION CHECK: Detect when PM2 restarts with a new build and prompt reload
+  useEffect(() => {
+    let knownVersion: string | null = null;
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (!knownVersion) {
+          knownVersion = version;
+        } else if (version !== knownVersion) {
+          setHasNewVersion(true);
+        }
+      } catch { /* server unreachable — ignore */ }
+    };
+
+    checkVersion();
+    const interval = setInterval(checkVersion, 5 * 60 * 1000); // every 5 min
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkVersion();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };
@@ -113,19 +163,25 @@ const App: React.FC = () => {
   // Modular Auth Hub First
   const {
     auth, previousBranchId,
-    handleLogin, handleLogout, handleSwitchBranch
+    handleLogin, handleLogout: _handleLogout, handleSwitchBranch
   } = useAuth();
+
+  const handleLogout = useCallback(() => {
+    setPreviewBranchId(null);
+    _handleLogout();
+  }, [_handleLogout]);
 
   // Pass actual auth state to Data Hub
   const {
     branches, transactions, expenses,
     attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
-    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig
+    systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig, excludedBranches
   } = useGlobalData(auth);
 
 const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReady, setSwUpdateReady] = useState(false);
+  const [hasNewVersion, setHasNewVersion] = useState(false);
 
   // SW_UPDATED message from service worker means a new bundle has been activated.
   // Show a brief banner then reload so users always run the latest version.
@@ -226,9 +282,10 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
     }
   }, [systemLogo]);
 
-  // FONT SYNC: Apply global font family from system configuration
+  // FONT SYNC: Apply global font family from system configuration.
+  // Only apply after login — the NodeSelector page uses Space Grotesk by default.
   useEffect(() => {
-    if (fontFamily) {
+    if (fontFamily && auth.user) {
       document.body.style.fontFamily = `'${fontFamily}', sans-serif`;
       
       // Also update tailwind config dynamically if possible, but body style is usually enough for inheritance
@@ -245,8 +302,13 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
           font-family: '${fontFamily}', sans-serif !important;
         }
       `;
+    } else if (!auth.user) {
+      // Clear injected font on logout so NodeSelector reverts to Space Grotesk
+      document.body.style.fontFamily = '';
+      const styleTag = document.getElementById('dynamic-font-style');
+      if (styleTag) styleTag.innerHTML = '';
     }
-  }, [fontFamily]);
+  }, [fontFamily, auth.user]);
 
   // SECURITY FIX: Explicitly reset UI state on identity change
   useEffect(() => {
@@ -411,82 +473,83 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
       const isReliefManager = auth.user.role === UserRole.BRANCH_MANAGER && employees.length > 0 && !currentEmployee;
       
       return (
-        <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 z-[9999] overflow-hidden">
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#1e293b,transparent)] animate-pulse"></div>
-          </div>
-          
-          <div className="w-full max-w-md space-y-10 relative z-10 text-center">
-            <div className="relative inline-block group">
-              <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-all duration-1000 animate-pulse"></div>
-              <div className="w-24 h-24 bg-slate-900 rounded-[32px] flex items-center justify-center text-4xl shadow-2xl border border-white/10 relative transform hover:rotate-12 transition-transform duration-500">
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-5 z-[9999]">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-7 space-y-6 text-center relative overflow-hidden">
+            {/* Ambient glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-emerald-500/10 blur-3xl rounded-full pointer-events-none" />
+
+            {/* Icon */}
+            <div className="relative inline-block">
+              <div className="absolute -inset-3 bg-emerald-500/15 rounded-full blur-xl animate-pulse" />
+              <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/10 relative">
                 {loading ? '🔐' : error ? '⚠️' : '👤'}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">
-                {loading ? 'SYNCING SECURE IDENTITY...' : error ? 'COMMUNICATION FAILURE' : 'IDENTITY VERIFICATION'}
+            {/* Title */}
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-black text-white uppercase tracking-tight leading-none">
+                {loading ? 'Syncing Identity...' : error ? 'Connection Failed' : 'Identity Verification'}
               </h2>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] leading-relaxed">
-                {loading ? 'Establishing encrypted link with global registry' : error ? 'The secure channel was interrupted' : 'Validating credentials against branch node'}
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-relaxed">
+                {loading ? 'Establishing encrypted link' : error ? 'The secure channel was interrupted' : 'Validating credentials against branch node'}
               </p>
             </div>
 
-            {/* Progress / Status */}
-            <div className="bg-white/5 border border-white/10 rounded-[32px] p-6 space-y-6 backdrop-blur-md">
-              <div className="space-y-4">
+            {/* Status card */}
+            <div className="bg-white/5 border border-white/8 rounded-2xl p-4 space-y-4 text-left">
+              <div className="space-y-2">
                 <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
                   <span className="text-slate-400">Registry Status</span>
-                  <span className={loading ? "text-emerald-400 animate-pulse" : error ? "text-rose-400" : "text-emerald-400"}>
-                    {loading ? "SYNCHRONIZING..." : error ? "OFFLINE" : "PAID"}
+                  <span className={loading ? 'text-emerald-400 animate-pulse' : error ? 'text-rose-400' : 'text-emerald-400'}>
+                    {loading ? 'Synchronizing...' : error ? 'Offline' : 'Online'}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-1000 ${error ? 'bg-rose-500 w-full' : loading ? 'bg-emerald-500 w-2/3 animate-pulse' : 'bg-emerald-500 w-full'}`}></div>
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-1000 ${error ? 'bg-rose-500 w-full' : loading ? 'bg-emerald-500 w-2/3 animate-pulse' : 'bg-emerald-500 w-full'}`} />
                 </div>
               </div>
 
-              <div className="space-y-2 text-left">
-                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className={`w-1.5 h-1.5 rounded-full ${branches.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`}></div>
-                  Branch Registry: {branches.length > 0 ? 'LOADED' : 'WAITING...'}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${branches.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                  Branch Registry: {branches.length > 0 ? 'Loaded' : 'Waiting...'}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className={`w-1.5 h-1.5 rounded-full ${employees.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`}></div>
-                  Personnel Data: {employees.length > 0 ? 'LOADED' : 'WAITING...'}
+                <div className="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${employees.length > 0 ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                  Personnel Data: {employees.length > 0 ? 'Loaded' : 'Waiting...'}
                 </div>
                 {isReliefManager && (
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-relaxed">
-                      RELIEF MANAGER DETECTED: Your home branch profile is being mapped to this terminal.
+                  <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest leading-relaxed">
+                      Relief Manager Detected — Home branch profile being mapped.
                     </p>
                   </div>
                 )}
                 {error && (
-                  <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
-                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-relaxed">
-                      ERROR: {error instanceof Error ? error.message : 'Unknown connection error'}
+                  <div className="mt-2 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                    <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed">
+                      {error instanceof Error ? error.message : 'Unknown connection error'}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            {/* Actions */}
+            <div className="flex flex-col gap-2">
               <button
                 onClick={() => refreshDatabase?.(true)}
                 disabled={loading}
-                className="w-full h-16 bg-white text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-[24px] shadow-2xl hover:bg-emerald-400 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                className="w-full py-3.5 bg-white text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg hover:bg-emerald-400 transition-all active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
               >
-                {loading ? 'SYNCING...' : 'RETRY SECURE SYNC'}
+                {loading ? 'Syncing...' : 'Retry Sync'}
               </button>
-              
               <button
                 onClick={handleLogout}
-                className="w-full py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+                className="w-full py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
               >
-                ABORT & LOGOUT
+                Logout
               </button>
             </div>
           </div>
@@ -627,13 +690,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
               <img src={systemLogo || '/icon.png'} alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl shrink-0" decoding="async" loading="eager" />
               <div className="min-w-0 flex-1">
                 <h1 className="font-black text-sm sm:text-base tracking-tight text-slate-900 truncate leading-none">{dynamicAppName}</h1>
-                {previewBranchId ? (
-                  <p className="text-xs font-bold text-indigo-500 truncate mt-0.5 leading-none">
-                    Previewing: {branches.find(b => b.id === previewBranchId)?.name ?? 'Branch'}
-                  </p>
-                ) : (
-                  <p className="text-xs font-medium text-slate-400 truncate mt-0.5 leading-none">{identityDisplay}</p>
-                )}
+                <p className="text-xs font-medium text-slate-400 truncate mt-0.5 leading-none">{identityDisplay}</p>
               </div>
             </div>
 
@@ -699,6 +756,18 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
         </header>
         <OfflineBanner isOffline={isOffline} />
 
+        {hasNewVersion && (
+          <div className="fixed top-0 left-0 right-0 z-[99999] bg-emerald-600 text-white text-center text-xs font-black uppercase tracking-widest py-3 flex items-center justify-center gap-3 shadow-lg no-print">
+            <span>New version available</span>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-white text-emerald-700 font-black text-xs uppercase tracking-widest px-3 py-1 rounded-lg active:scale-95 transition-all"
+            >
+              Reload
+            </button>
+          </div>
+        )}
+
         <main className="flex-1 w-full flex flex-col relative">
           <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div></div>}>
             {(auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) && previewBranchId ? (() => {
@@ -710,13 +779,15 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                   {/* Preview mode banner */}
                   <div className="sticky top-14 sm:top-[4.5rem] z-[999] bg-indigo-600 text-white no-print">
                     <div className={`${UI_THEME.layout.maxContent} px-6 sm:px-10 lg:px-12 py-2 flex items-center justify-between gap-3`}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
                         <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span className="text-xs font-black uppercase tracking-wide">Previewing as Manager</span>
-                        <span className="text-xs font-semibold text-indigo-200 truncate">— {previewBranch.name}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none">Previewing as Manager</p>
+                          <p className="text-xs font-semibold text-indigo-200 truncate leading-snug">{previewBranch.name}</p>
+                        </div>
                       </div>
                       <button
                         onClick={() => setPreviewBranchId(null)}
@@ -726,13 +797,13 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       </button>
                     </div>
                   </div>
-                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} />
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
-                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} onPreviewBranch={setPreviewBranchId} />
+                <SuperAdminDashboard user={auth.user!} branches={branches} transactions={transactions} expenses={expenses} employees={employees} attendance={attendance} auditLogs={auditLogs} requests={requests} complaints={employeeComplaints} onlineUsers={{}} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} fetchSystemConfig={fetchSystemConfig} permissions={auth.user.role === UserRole.PORTAL_USER ? (auth.user.permissions ?? { tabs: {} }) : undefined} onPreviewBranch={setPreviewBranchId} excludedBranches={excludedBranches} />
             ) : (
-                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} />
+                auth.user && currentBranch && <BranchManagerDashboard user={auth.user} branch={currentBranch} isRelief={isRelief} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={branchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSwitchBranch={handleSwitchBranch} onSyncStatusChange={setGlobalSync} loading={loading} excludedBranches={excludedBranches} />
             )}
           </Suspense>
         </main>

@@ -285,6 +285,7 @@ export const EmployeeIDCardModal: React.FC<EmployeeIDCardModalProps> = ({ employ
             {/* Barcode decoration */}
             <div className="w-full mb-4">
               <svg width="100%" height="36" viewBox="0 0 200 36" preserveAspectRatio="none">
+                <rect x="0" y="0" width="200" height="36" fill="white" />
                 {Array.from({ length: 60 }).map((_, i) => {
                   const x = i * 3.4;
                   const w = i % 5 === 0 ? 2.2 : i % 3 === 0 ? 1.6 : 1;

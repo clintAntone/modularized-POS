@@ -614,9 +614,9 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   </p>
                 </div>
                 <button
-                  onClick={handleToggleFaceId}
-                  disabled={isSavingFaceId}
-                  className={`relative rounded-full transition-all duration-300 disabled:opacity-40 shrink-0 ${localFaceIdEnabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-200'}`}
+                  disabled
+                  title="Face ID settings are managed by the administrator"
+                  className={`relative rounded-full transition-all duration-300 opacity-40 cursor-not-allowed shrink-0 ${localFaceIdEnabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-200'}`}
                   style={{ height: '24px', width: '44px' }}
                 >
                   <span className={`absolute top-[3px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all duration-300 ${localFaceIdEnabled ? 'left-[23px]' : 'left-[3px]'}`} />

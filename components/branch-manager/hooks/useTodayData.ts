@@ -227,18 +227,16 @@ export function useTodayData({
       .filter(e => e.category === 'PROVISION')
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // Only credit back vault withdrawals paired with a VAULT_WITHDRAWAL expense.
-    // QuickExpenseModal creates both records with the same ID when covering an expense
-    // from vault. BranchVaultSection direct withdrawals (rent, bills) have no paired
-    // expense and must NOT inflate net_roi.
-    const vaultWithdrawalExpIds = new Set(
-      todayExps.filter(e => e.category === 'VAULT_WITHDRAWAL').map(e => e.id)
-    );
-    const effectiveVaultCredit = (vaultTransactions ?? [])
-      .filter(t => t.branchId === branch.id && t.type === 'WITHDRAWAL'
-        && toManilaDateStr(t.timestamp) === todayStr
-        && vaultWithdrawalExpIds.has(t.id))
-      .reduce((s, t) => s + t.amount, 0);
+    // VAULT_WITHDRAWAL expenses are the authoritative source for vault-covered costs.
+    // Using vault_transactions for this was fragile: if the vault_transaction INSERT
+    // failed (e.g. constraint error), the credit was lost even though the VAULT_WITHDRAWAL
+    // expense and vault balance deduction had already succeeded — causing negative net_roi.
+    // VAULT_WITHDRAWAL expenses are only ever created by QuickExpenseModal when the vault
+    // covers an expense; direct vault withdrawals (rent, bills via BranchVaultSection)
+    // do NOT create VAULT_WITHDRAWAL expense records, so there is no double-credit risk.
+    const effectiveVaultCredit = todayExps
+      .filter(e => e.category === 'VAULT_WITHDRAWAL')
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const rawNet = gross - operationalExp + effectiveVaultCredit - provisionExp - (isVaultActive ? vaultDeposit : 0) - totalStaffLiability;
     const net = rawNet;
 

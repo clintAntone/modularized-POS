@@ -76,6 +76,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
 
     // Update form when branch or date changes
     useEffect(() => {
+        const run = async () => {
         if (selectedBranchId && selectedDate) {
             const isNewSelection = !lastLoadedRef.current || 
                                   lastLoadedRef.current.branchId !== selectedBranchId || 
@@ -87,10 +88,14 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const standardId  = `${selectedBranchId}_${dateCompact}`;
             const backfillId  = `${selectedBranchId}_${dateCompact}_BACKFILL_INCOMPLETE`;
 
-            // Prefer loading from the backfill record if it exists; fall back to standard
-            const existingBackfill = salesReports.find(r => r.id === backfillId);
-            const standardReport   = salesReports.find(r => r.id === standardId);
-            const existingReport   = existingBackfill ?? standardReport;
+            // Prefer loading from the backfill record if it exists; fall back to standard ID.
+            // Always verify report_date matches selectedDate to avoid loading a mismatched record
+            // (e.g. ID has 20260727 but report_date is 2026-07-28).
+            // Final fallback: match by report_date + branch in case the ID was recorded with a wrong date.
+            const existingBackfill = salesReports.find(r => r.id === backfillId && r.reportDate === selectedDate);
+            const standardReport   = salesReports.find(r => r.id === standardId && r.reportDate === selectedDate);
+            const dateFallback     = salesReports.find(r => r.branchId === selectedBranchId && r.reportDate === selectedDate);
+            const existingReport   = existingBackfill ?? standardReport ?? dateFallback;
 
             const branchEmployees = employees.filter(e => e.branchId === selectedBranchId && e.isActive);
 
@@ -99,18 +104,59 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
 
             if (existingReport) {
-                setGrossSales(existingReport.grossSales);
-                setTotalExpenses(existingReport.totalExpenses);
-                setTotalSalary(existingReport.totalStaffPay);
-                setRentAndBills(existingReport.totalVaultProvision);
+                // Re-fetch financial fields + blobs directly from DB to avoid stale/partial in-memory values
+                const { data: blobData } = await supabase
+                    .from(DB_TABLES.SALES_REPORTS)
+                    .select(`${DB_COLUMNS.GROSS_SALES},${DB_COLUMNS.TOTAL_STAFF_PAY},${DB_COLUMNS.TOTAL_EXPENSES},${DB_COLUMNS.TOTAL_VAULT_PROVISION},${DB_COLUMNS.STAFF_BREAKDOWN},${DB_COLUMNS.VAULT_DATA}`)
+                    .eq(DB_COLUMNS.ID, existingReport.id)
+                    .single();
 
-                // Vault deposits always live in vault_data (both legacy PROVISION and modern VAULT_DEPOSIT)
-                setVaultData(existingReport.vaultData || []);
+                setGrossSales(blobData?.[DB_COLUMNS.GROSS_SALES] ?? existingReport.grossSales);
+                setTotalExpenses(blobData?.[DB_COLUMNS.TOTAL_EXPENSES] ?? existingReport.totalExpenses);
+                setTotalSalary(blobData?.[DB_COLUMNS.TOTAL_STAFF_PAY] ?? existingReport.totalStaffPay);
+                setRentAndBills(blobData?.[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? existingReport.totalVaultProvision);
+
+                const fetchedVaultData = blobData
+                    ? (Array.isArray(blobData[DB_COLUMNS.VAULT_DATA])
+                        ? blobData[DB_COLUMNS.VAULT_DATA]
+                        : typeof blobData[DB_COLUMNS.VAULT_DATA] === 'string'
+                        ? JSON.parse(blobData[DB_COLUMNS.VAULT_DATA])
+                        : [])
+                    : [];
+                const fetchedStaffBreakdown = blobData
+                    ? (Array.isArray(blobData[DB_COLUMNS.STAFF_BREAKDOWN])
+                        ? blobData[DB_COLUMNS.STAFF_BREAKDOWN]
+                        : typeof blobData[DB_COLUMNS.STAFF_BREAKDOWN] === 'string'
+                        ? JSON.parse(blobData[DB_COLUMNS.STAFF_BREAKDOWN])
+                        : [])
+                    : [];
+
+                // Also fetch DEPOSIT entries from vault_transactions — these are created by the
+                // BackfillRequest approval flow and are NOT stored in vault_data on the sales report.
+                const { data: vaultTxData } = await supabase
+                    .from(DB_TABLES.VAULT_TRANSACTIONS)
+                    .select(`${DB_COLUMNS.ID},${DB_COLUMNS.AMOUNT},${DB_COLUMNS.NAME},${DB_COLUMNS.TIMESTAMP}`)
+                    .eq(DB_COLUMNS.REPORT_ID, existingReport.id)
+                    .eq(DB_COLUMNS.TYPE, 'DEPOSIT');
+
+                const depositItems = (vaultTxData || []).map((tx: any) => ({
+                    id: tx[DB_COLUMNS.ID],
+                    name: tx[DB_COLUMNS.NAME] || 'VAULT DEPOSIT',
+                    amount: Number(tx[DB_COLUMNS.AMOUNT]),
+                    category: 'VAULT_DEPOSIT',
+                    timestamp: tx[DB_COLUMNS.TIMESTAMP],
+                }));
+
+                // Merge: PROVISION items from vault_data + DEPOSIT items from vault_transactions
+                // Avoid duplicates in case vault_data also has VAULT_DEPOSIT entries (MassBackfill path)
+                const depositIds = new Set(depositItems.map((d: any) => d.id));
+                const provisionOnly = fetchedVaultData.filter((v: any) => !depositIds.has(v.id));
+                setVaultData([...provisionOnly, ...depositItems]);
 
                 const branchEmpIds = new Set(branchEmployees.map((e: any) => e.id));
 
                 // All staff in breakdown restore to employeeEntries with isReliever flag preserved
-                const reportEntries = existingReport.staffBreakdown
+                const reportEntries = fetchedStaffBreakdown
                     .map((s: any) => ({
                         employeeId: s.employeeId,
                         name: s.staffName || employees.find(e => e.id === s.employeeId)?.name || 'UNKNOWN',
@@ -123,7 +169,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         isReliever: !!(s.isReliever || !branchEmpIds.has(s.employeeId)),
                     }));
 
-                setExpenseData(existingReport.expenseData || []);
+                setExpenseData(existingReport.expenseData || []); // expenseData is still in global payload
 
                 // Automatically add active branch employees who are NOT in the report
                 const missingEmployees = branchEmployees
@@ -173,6 +219,8 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             setStatus('');
             lastLoadedRef.current = null;
         }
+        };
+        run();
     }, [selectedBranchId, selectedDate, salesReports, employees, branchVaultStartDates]);
 
     // Relievers are excluded from payroll totals — their pay goes to expenses
@@ -400,6 +448,28 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const vaultStartDate = branchVaultStartDates[branch.id] ?? null;
             const reportIsLegacy = !(branch?.vaultEnabled) || !vaultStartDate || selectedDate < vaultStartDate;
             if (!reportIsLegacy && branch.vaultEnabled) {
+                // ── Step 1: Upsert vault_transaction DEPOSIT records ─────────────
+                // Must run BEFORE the balance recalculation. If this fails, the
+                // balance update is never attempted — no drift. If this succeeds
+                // but the balance update fails, Vault Audit Fix All can repair it.
+                const vaultDepositItems = vaultData.filter((e: any) => e.category === 'VAULT_DEPOSIT');
+                if (vaultDepositItems.length > 0) {
+                    const txRows = vaultDepositItems.map((d: any) => ({
+                        [DB_COLUMNS.ID]: d.id,
+                        [DB_COLUMNS.BRANCH_ID]: branch.id,
+                        [DB_COLUMNS.TYPE]: 'DEPOSIT',
+                        [DB_COLUMNS.AMOUNT]: d.amount,
+                        [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
+                        [DB_COLUMNS.TIMESTAMP]: d.timestamp,
+                        [DB_COLUMNS.PERFORMED_BY]: null,
+                    }));
+                    const { error: txErr } = await supabase
+                        .from(DB_TABLES.VAULT_TRANSACTIONS)
+                        .upsert(txRows, { onConflict: 'id' });
+                    if (txErr) throw txErr;
+                }
+
+                // ── Step 2: Recompute branch_vaults.balance from scratch ─────────
                 // Fetch: initial_balance, all report total_vault_provision (covers daily + backfill
                 // deposits which don't create vault_transaction records), and all vault_transactions
                 // that adjust the balance outside of daily deposits (withdrawals + admin deposits).
@@ -439,26 +509,6 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
                         .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
                         .eq(DB_COLUMNS.BRANCH_ID, branch.id);
                     if (vaultErr) throw vaultErr;
-                }
-
-                // Upsert vault_transaction DEPOSIT records for backfill deposits so they
-                // appear in VaultFundHub deposit history. Balance is derived from
-                // total_vault_provision (reports), so this won't double-count.
-                const vaultDepositItems = vaultData.filter((e: any) => e.category === 'VAULT_DEPOSIT');
-                if (vaultDepositItems.length > 0) {
-                    const txRows = vaultDepositItems.map((d: any) => ({
-                        [DB_COLUMNS.ID]: d.id,
-                        [DB_COLUMNS.BRANCH_ID]: branch.id,
-                        [DB_COLUMNS.TYPE]: 'DEPOSIT',
-                        [DB_COLUMNS.AMOUNT]: d.amount,
-                        [DB_COLUMNS.NAME]: d.name ?? 'VAULT DEPOSIT',
-                        [DB_COLUMNS.TIMESTAMP]: d.timestamp,
-                        [DB_COLUMNS.PERFORMED_BY]: null,
-                    }));
-                    const { error: txErr } = await supabase
-                        .from(DB_TABLES.VAULT_TRANSACTIONS)
-                        .upsert(txRows, { onConflict: 'id' });
-                    if (txErr) throw txErr;
                 }
             }
 

@@ -57,10 +57,14 @@ export const DB_COLUMNS = {
   CLOSING_TIME: 'closing_time',
   SHIFT2_OPENING_TIME: 'shift2_opening_time',
   SHIFT2_CLOSING_TIME: 'shift2_closing_time',
+  CONTACT_NUMBER: 'contact_number',
   OWNERS: 'owners',
+  OWNERS_HISTORY: 'owners_history',
   GROUP_LEVY: 'group_levy',
+  RANKING_BOOST: 'ranking_boost',
   REFRESH_SIGNAL: 'refresh_signal',
   VAULT_ENABLED: 'vault_enabled',
+  COOP_OWNED: 'coop_owned',
   CUTOFF_HISTORY: 'cutoff_history',
 
   // Transactions
@@ -81,6 +85,7 @@ export const DB_COLUMNS = {
   PAYMENT_METHOD: 'payment_method',
   PAYMENT_STATUS: 'payment_status',
   PAYMONGO_LINK_ID: 'paymongo_link_id',
+  SIGNATURE_URL: 'signature_url',
 
   // Expenses
   AMOUNT: 'amount',
@@ -120,6 +125,7 @@ export const DB_COLUMNS = {
   CLOCK_IN: 'clock_in',
   CLOCK_OUT: 'clock_out',
   CLOCK_IN_METHOD: 'clock_in_method',
+  CLOCK_IN_PHOTO_URL: 'clock_in_photo_url',
   STATUS: 'status',
   DATE: 'date',
   LATE_DEDUCTION: 'late_deduction',

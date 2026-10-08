@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { TabID } from '../BranchManagerDashboard';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
+import { supabase } from '../../lib/supabase';
+import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import {
   LayoutGrid,
   TrendingUp,
@@ -60,6 +63,22 @@ const estimateTabWidth = (label: string) => 62 + label.length * 9;
 const MORE_BUTTON_WIDTH = 96; // "More" button estimated width
 
 export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChange, enableShiftTracking, isRelief, showBillsAlert = false, vaultEnabled = false, hasVaultRecord = false }) => {
+  const { data: navFooterText } = useQuery({
+    queryKey: ['system_config', 'nav_footer_text'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(DB_TABLES.SYSTEM_CONFIG)
+        .select(DB_COLUMNS.VALUE)
+        .eq(DB_COLUMNS.KEY, 'nav_footer_text')
+        .maybeSingle();
+      return (data as any)?.[DB_COLUMNS.VALUE] as string | null ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const footerTextRef = useRef<HTMLSpanElement>(null);
+  const [needsMarquee, setNeedsMarquee] = useState(false);
+
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   // containerWidth tracks the actual pixel width of the desktop nav strip
   const [containerWidth, setContainerWidth] = useState(
@@ -102,6 +121,13 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Check if footer text overflows the screen width — only marquee if it does
+  useEffect(() => {
+    const span = footerTextRef.current;
+    if (!span) return;
+    setNeedsMarquee(span.scrollWidth > window.innerWidth);
+  }, [navFooterText, windowWidth]);
 
   const masterTabRegistry = useMemo(() => {
     const tabs = [
@@ -148,16 +174,17 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
     // Each button slot is ~60px (min-w-[56px] + justify-around spacing allowance).
     if (windowWidth < 640) {
       const pillWidth = windowWidth - 48;
-      // Use 68px slot width so that 360px+ phones (pillWidth=312) fit 4 slots → 3 visible + More.
+      // Use 60px slot width so that 310px+ phones (pillWidth=262) get 4 slots → 3 visible + More.
       // Buttons use flex-1 so they expand evenly regardless of this estimate.
-      const slotWidth = 68;
+      const slotWidth = 60;
       const maxSlots = Math.floor(pillWidth / slotWidth);
       // If everything fits, skip the MORE button
       if (maxSlots >= masterTabRegistry.length) {
         return { visibleTabs: masterTabRegistry, overflowTabs: [], isMoreActive: false };
       }
-      // Reserve 1 slot for the MORE button
-      const visibleCount = Math.max(1, maxSlots - 1);
+      // Reserve 1 slot for the MORE button.
+      // Always show at least 3 tabs so POS/Sales/Attendance remain accessible on small screens.
+      const visibleCount = Math.max(3, maxSlots - 1);
       const visible = masterTabRegistry.slice(0, visibleCount);
       const overflow = masterTabRegistry.slice(visibleCount);
       return { visibleTabs: visible, overflowTabs: overflow, isMoreActive: overflow.some(t => t.id === activeTab) };
@@ -253,7 +280,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
         </nav>
       ) : (
         /* MOBILE NAV */
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
+        <div className={`fixed ${navFooterText ? 'bottom-7' : 'bottom-5'} left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4`} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
           {/* Glow */}
           <div className="absolute inset-x-4 bottom-0 h-12 bg-indigo-400/20 dark:bg-indigo-500/25 blur-2xl rounded-full pointer-events-none" />
           <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-white/60 dark:border-slate-700
@@ -303,6 +330,22 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
         </div>
       )}
 
+      {navFooterText && (
+        <div className="fixed bottom-0 left-0 right-0 z-[99] no-print bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-1.5 overflow-hidden">
+          {needsMarquee && windowWidth < 768 ? (
+            <div className="flex whitespace-nowrap" style={{ animation: 'navFooterScroll 20s linear infinite' }}>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide px-8">{navFooterText}</span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide px-8" aria-hidden>{navFooterText}</span>
+            </div>
+          ) : (
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight tracking-wide text-center truncate px-8">{navFooterText}</p>
+          )}
+          {/* Hidden measuring span — used to detect overflow */}
+          <span ref={footerTextRef} className="text-[11px] tracking-wide absolute invisible whitespace-nowrap pointer-events-none">{navFooterText}</span>
+          <style>{`@keyframes navFooterScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+        </div>
+      )}
+
       {showMoreModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md no-print animate-in fade-in duration-300">
           <div className={`bg-white dark:bg-slate-800 ${UI_THEME.radius.modal} w-[96vw] sm:w-[92vw] sm:max-w-2xl shadow-xl relative animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto no-scrollbar border border-slate-200 dark:border-slate-700 flex flex-col`}>
@@ -339,19 +382,19 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                       onPointerLeave={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
                       onPointerCancel={() => { if (starLongPressRef.current) { clearTimeout(starLongPressRef.current); starLongPressRef.current = null; } }}
                       style={{ transform: 'translateZ(0)' }}
-                      className={`p-4 sm:p-6 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[110px] sm:min-h-[140px] sm:col-span-2 transform-gpu select-none ${
+                      className={`p-3.5 sm:p-5 ${UI_THEME.radius.card} border text-left flex flex-col justify-between transition-all duration-300 group relative overflow-hidden min-h-[99px] sm:min-h-[126px] sm:col-span-2 transform-gpu select-none ${
                         isSoon
                           ? 'border-slate-200/60 bg-white shadow-sm opacity-50 cursor-not-allowed'
                           : isStarred
-                            ? 'border-amber-300 bg-amber-50/40 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
+                            ? 'border-amber-300 bg-amber-50/40 dark:bg-amber-900/25 dark:border-amber-600/60 shadow-[0_0_16px_rgba(251,191,36,0.12)]'
                             : activeTab === item.id
-                              ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/25 shadow-[0_0_20px_rgba(16,185,129,0.1)] dark:shadow-none'
                               : showBillsAlert && item.id === 'monthly_bills'
                                 ? 'border-amber-300 bg-amber-50/50 shadow-[0_0_16px_rgba(251,191,36,0.15)]'
-                                : 'border-slate-200/60 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300/60'
+                                : 'border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300/60 dark:hover:border-slate-600'
                       }`}
                     >
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md mb-3 sm:mb-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
+                      <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md mb-2.5 sm:mb-3.5 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                         {item.icon}
                       </div>
                       <div>

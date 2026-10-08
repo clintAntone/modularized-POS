@@ -282,6 +282,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         closingTime={localBranch.closingTime || '22:00'}
                         shift2OpeningTime={localBranch.shift2OpeningTime}
                         shift2ClosingTime={localBranch.shift2ClosingTime}
+                        contactNumber={localBranch.contactNumber}
                         isSaving={isSaving}
                         isOperationalToday={false}
                         onUpdate={handleUpdateLocal}
@@ -305,6 +306,7 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                     <OwnerShares
                         owners={localBranch.owners || []}
                         groupLevy={localBranch.groupLevy}
+                        rankingBoost={localBranch.rankingBoost}
                         isSaving={isSaving}
                         onUpdate={handleUpdateLocal}
                     />
@@ -344,6 +346,22 @@ export const BranchEditor: React.FC<BranchEditorProps> = ({
                         </button>
                       </div>
                     )}
+
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Cooperative Owned</p>
+                            <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                {localBranch.coopOwned ? 'This branch is under cooperative ownership' : 'Standard branch — not coop owned'}
+                            </p>
+                        </div>
+                        <button
+                            disabled={isReadOnly}
+                            onClick={() => handleUpdateLocal({ coopOwned: !localBranch.coopOwned })}
+                            className={`relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200 disabled:opacity-40 ${localBranch.coopOwned ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                        >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${localBranch.coopOwned ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
 
                     <ConnectivityControls
                         isEnabled={localBranch.isEnabled}

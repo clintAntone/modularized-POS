@@ -4,7 +4,7 @@ import { getEmployeeRole } from '../../../lib/payroll';
 import { playSound } from '../../../lib/audio';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { EmployeeReportModal } from '../../shared/EmployeeReportModal';
-import { Flag, ChevronDown, AlertTriangle, CheckCircle2, Clock, Lock } from 'lucide-react';
+import { Flag, ChevronDown, AlertTriangle, CheckCircle2, Clock, Lock, Search, X } from 'lucide-react';
 
 // ── Inline PIN gate ───────────────────────────────────────────────
 const PinGate: React.FC<{
@@ -150,6 +150,7 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
   const [expandedComplaintId, setExpandedComplaintId] = useState<string | null>(null);
   const [pendingComplaintId, setPendingComplaintId] = useState<string | null>(null); // complaint awaiting PIN
   const [submitted, setSubmitted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const branchStaff = useMemo(() => {
     return employees.filter(e => {
@@ -211,6 +212,21 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
   [branchStaff, branch.id, complaintsByEmp]);
 
   const sortedStaff = useMemo(() => [...regularStaff, ...relievers], [regularStaff, relievers]);
+
+  // When searching: expand to ALL active employees in the network so no one is unfindable
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toUpperCase();
+    if (!q) return null;
+    return employees
+      .filter(e => e.isActive && (e.name || '').toUpperCase().includes(q))
+      .sort((a, b) => {
+        // Prioritise branch staff first, then alphabetical
+        const aLocal = a.branchId === branch.id || (a.branchAllowances && branch.id in (a.branchAllowances as any));
+        const bLocal = b.branchId === branch.id || (b.branchAllowances && branch.id in (b.branchAllowances as any));
+        if (aLocal !== bLocal) return aLocal ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [searchQuery, employees, branch.id]);
 
   if (!tabUnlocked) {
     return (
@@ -275,14 +291,73 @@ export const ComplaintsSection: React.FC<ComplaintsSectionProps> = ({
         </div>
       )}
 
+      {/* ── Search ── */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search employee by name…"
+          className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 shadow-sm"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        )}
+      </div>
+
       {/* ── Staff list ── */}
       <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Branch Staff</p>
-          <p className="text-xs font-medium text-slate-400">{sortedStaff.length} member{sortedStaff.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            {searchResults ? 'Search Results' : 'Branch Staff'}
+          </p>
+          <p className="text-xs font-medium text-slate-400">
+            {searchResults ? `${searchResults.length} found` : `${sortedStaff.length} member${sortedStaff.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
 
-        {sortedStaff.length === 0 ? (
+        {/* Search results view */}
+        {searchResults ? (
+          searchResults.length === 0 ? (
+            <div className="py-14 text-center">
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">No employees found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {searchResults.map(emp => {
+                const role = getEmployeeRole(emp, branch.id);
+                const displayRole = role.split(',').filter(r => r.trim().toUpperCase() !== 'MANAGER').join(', ');
+                const isLocal = emp.branchId === branch.id || (emp.branchAllowances && branch.id in (emp.branchAllowances as any));
+                return (
+                  <div key={emp.id} className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="w-9 h-9 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
+                      <ProfileAvatar name={emp.name} src={emp.profile} initialsClassName="text-xs text-slate-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{emp.name}</p>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide truncate mt-0.5">
+                        {displayRole || 'Staff'}{!isLocal && <span className="ml-1 text-indigo-400">· Other Branch</span>}
+                      </p>
+                    </div>
+                    {!isDelegate && (
+                      <button
+                        onClick={() => { playSound('click'); setReportEmployee(emp); setSearchQuery(''); }}
+                        className="shrink-0 h-8 rounded-xl bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-600 active:scale-95 transition-all flex items-center justify-center gap-1.5 px-2 sm:px-3"
+                        title="File a report"
+                      >
+                        <Flag className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                        <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide">Report</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : sortedStaff.length === 0 ? (
           <div className="py-14 text-center">
             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">No staff assigned</p>
           </div>

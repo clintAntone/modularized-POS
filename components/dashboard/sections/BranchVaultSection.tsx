@@ -100,16 +100,11 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   const [selectedTx, setSelectedTx] = useState<VaultTransaction | null>(null);
   const historyBottomRef = useRef<HTMLDivElement>(null);
   const billsBottomRef = useRef<HTMLDivElement>(null);
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
-  const [revealedBillId, setRevealedBillId] = useState<string | null>(null);
-  const billPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // ── Deposit to Vault state ────────────────────────────────────────────────
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSelectedDate, setDepositSelectedDate] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false);
-  const billDidLongPress = useRef(false);
 
   // ── Withdraw from Vault state ─────────────────────────────────────────────
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -132,14 +127,6 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       return () => clearTimeout(t);
     }
   }, [toast]);
-
-  // Dismiss long-press revealed bill when tapping outside
-  useEffect(() => {
-    if (!revealedBillId) return;
-    const dismiss = () => setRevealedBillId(null);
-    document.addEventListener('pointerdown', dismiss, { capture: true });
-    return () => document.removeEventListener('pointerdown', dismiss, { capture: true });
-  }, [revealedBillId]);
 
   // Infinite scroll — shared sentinel observer for both history and bills panels
   useEffect(() => {
@@ -301,74 +288,6 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     });
   }, [bills, billPayments]);
 
-  // ── Bill long-press helpers ───────────────────────────────────────────────
-  const startBillPress = (id: string) => {
-    billDidLongPress.current = false;
-    billPressTimer.current = setTimeout(() => {
-      billDidLongPress.current = true;
-      setRevealedBillId(id);
-      playSound('click');
-    }, 600);
-  };
-  const cancelBillPress = () => {
-    if (billPressTimer.current) { clearTimeout(billPressTimer.current); billPressTimer.current = null; }
-  };
-
-  // ── Mark paid / unpaid ───────────────────────────────────────────────────
-  const handleTogglePaid = async (bill: BillEntry) => {
-    if (markingPaidId) return;
-    setMarkingPaidId(bill.id);
-    const today = getManilaTodayStr();
-    const [y, m] = today.split('-');
-    const todayMonth = parseInt(m, 10);
-    const todayYear = parseInt(y, 10);
-    const nextM = todayMonth === 12 ? 1 : todayMonth + 1;
-    const nextY = todayMonth === 12 ? todayYear + 1 : todayYear;
-    const currentPeriod = `${y}-${m}`;
-    const nextPeriod = `${nextY}-${String(nextM).padStart(2, '0')}`;
-    const period = bill.dueNextMonth ? nextPeriod : currentPeriod;
-    const billAmount = bill.amount > 0 ? bill.amount : 0;
-    try {
-      if (bill.status === 'paid') {
-        await supabase.from(DB_TABLES.BILL_PAYMENTS)
-          .delete()
-          .eq(DB_COLUMNS.BILL_ID, bill.id)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .eq(DB_COLUMNS.PERIOD_COVERED, period);
-
-        // Restore vault balance when un-marking a paid bill
-        if (branchVault && billAmount > 0) {
-          await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: branchVault.balance + billAmount })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        }
-      } else {
-        await supabase.from(DB_TABLES.BILL_PAYMENTS).insert({
-          [DB_COLUMNS.BRANCH_ID]: branch.id,
-          [DB_COLUMNS.BILL_ID]: bill.id,
-          [DB_COLUMNS.PERIOD_COVERED]: period,
-          [DB_COLUMNS.AMOUNT_PAID]: billAmount,
-          [DB_COLUMNS.PAID_AT]: getTrueISOString(),
-        });
-
-        // Deduct from vault balance when marking a bill as paid
-        if (branchVault && billAmount > 0) {
-          const newBalance = Math.max(0, branchVault.balance - billAmount);
-          await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        }
-      }
-      playSound('success');
-      refetchBillPayments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update', 'error');
-      playSound('warning');
-    } finally {
-      setMarkingPaidId(null);
-    }
-  };
-
   // ── Bill CRUD handlers ────────────────────────────────────────────────────
   const handleSaveBill = async () => {
     if (!billForm) return;
@@ -484,89 +403,30 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       const timestamp = `${depositSelectedDate}T${manilaTime}.000+08:00`;
       const reportId = `${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
 
-      // Always fetch the live deposit and vault balance from DB — never trust local state
-      // for write decisions. This prevents 409 conflicts and double-increments caused by
-      // stale React state (old deposits may have random IDs that differ from local cache).
-      const [{ data: liveDepositRows }, { data: liveVaultRow }] = await Promise.all([
-        supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .select('id, amount')
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-          .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
-          .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
-          .limit(1),
-        supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single(),
-      ]);
+      // Fetch the live deposit ID so the RPC knows whether to INSERT or UPDATE.
+      // We still need this one pre-flight read — the RPC handles the balance lock internally.
+      const { data: liveDepositRows } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select('id, amount')
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+        .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
+        .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
+        .limit(1);
 
       const liveDeposit = liveDepositRows?.[0] ?? null;
-      const liveBalance: number = liveVaultRow?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
+      const newTxId = `vault_deposit_${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
 
-      if (liveDeposit) {
-        // UPDATE existing deposit row (whatever ID it has — old random or new deterministic)
-        const delta = amount - liveDeposit.amount;
-
-        const { error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .update({ [DB_COLUMNS.AMOUNT]: amount, [DB_COLUMNS.TIMESTAMP]: timestamp })
-          .eq(DB_COLUMNS.ID, liveDeposit.id);
-        if (txErr) throw txErr;
-
-        const { error: vaultErr } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + delta })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        if (vaultErr) throw vaultErr;
-
-        if (report) {
-          const { error: reportErr } = await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + delta,
-              [DB_COLUMNS.NET_ROI]: report.netRoi - delta,
-            })
-            .eq(DB_COLUMNS.ID, reportId);
-          if (reportErr) throw reportErr;
-        }
-      } else {
-        // INSERT new deposit with deterministic ID
-        const txId = `vault_deposit_${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
-
-        const { error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .insert({
-            [DB_COLUMNS.ID]: txId,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.REPORT_ID]: reportId,
-            [DB_COLUMNS.TYPE]: 'DEPOSIT',
-            [DB_COLUMNS.AMOUNT]: amount,
-            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT',
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.PERFORMED_BY]: null,
-          });
-        if (txErr) throw txErr;
-
-        const { error: vaultErr } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + amount })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        if (vaultErr) throw vaultErr;
-
-        if (report) {
-          const { error: reportErr } = await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + amount,
-              [DB_COLUMNS.NET_ROI]: report.netRoi - amount,
-            })
-            .eq(DB_COLUMNS.ID, reportId);
-          if (reportErr) throw reportErr;
-        }
-      }
+      const { error: rpcErr } = await supabase.rpc('record_vault_deposit', {
+        p_branch_id:      branch.id,
+        p_amount:         amount,
+        p_timestamp:      timestamp,
+        p_new_tx_id:      newTxId,
+        p_existing_tx_id: liveDeposit?.id ?? null,
+        p_report_id:      report ? reportId : null,
+        p_performed_by:   performedBy ?? null,
+      });
+      if (rpcErr) throw rpcErr;
 
       logAudit({
         branchId: branch.id,
@@ -585,6 +445,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setDepositSelectedDate(null);
       await queryClient.invalidateQueries({ queryKey: ['salesReports'] });
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -699,6 +560,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setWithdrawAmount('');
       setWithdrawFile(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -769,31 +631,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     if (!vaultBillToDelete || isDeletingVaultBill || !branchVault) return;
     setIsDeletingVaultBill(true);
     try {
-      // Re-fetch live balance to prevent stale state
-      const { data: liveVaultData } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
       const refundAmount = vaultBillToDelete.amount;
 
-      // Delete the vault_transaction record
-      const { error: txErr } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete()
-        .eq(DB_COLUMNS.ID, vaultBillToDelete.id);
-      if (txErr) throw txErr;
-
-      // Restore vault balance (capped at target to avoid exceeding it)
-      const target = branchVault.target ?? 0;
-      const newBalance = target > 0
-        ? Math.min(liveBalance + refundAmount, target)
-        : liveBalance + refundAmount;
-      await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      // Atomic reversal — locks vault row, deletes tx, restores balance in one transaction
+      const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+        p_tx_id:     vaultBillToDelete.id,
+        p_branch_id: branch.id,
+      });
+      if (rpcErr) throw rpcErr;
 
       logAudit({
         branchId: branch.id,
@@ -809,6 +654,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       showToast('Bill payment reversed');
       setVaultBillToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {

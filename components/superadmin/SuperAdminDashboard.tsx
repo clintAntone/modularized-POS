@@ -29,6 +29,8 @@ const DevicesHub        = React.memo(React.lazy(() => import('./DevicesHub').the
 const InsightsHub       = React.memo(React.lazy(() => import('./InsightsHub').then(m => ({ default: m.InsightsHub }))));
 const HowToSection      = React.memo(React.lazy(() => import('../dashboard/sections/HowToSection').then(m => ({ default: m.HowToSection }))));
 const ReportAuditHub    = React.memo(React.lazy(() => import('./ReportAuditHub').then(m => ({ default: m.ReportAuditHub }))));
+const VaultAuditHub      = React.memo(React.lazy(() => import('./VaultAuditHub').then(m => ({ default: m.VaultAuditHub }))));
+const TransactionAuditHub = React.memo(React.lazy(() => import('./TransactionAuditHub').then(m => ({ default: m.TransactionAuditHub }))));
 const ServiceTemplatesHub = React.memo(React.lazy(() => import('./ServiceTemplatesHub').then(m => ({ default: m.ServiceTemplatesHub }))));
 
 import { SuperAdminNavbar } from '../navigation/SuperAdminNavbar';
@@ -66,9 +68,10 @@ interface SuperAdminDashboardProps {
   fetchSystemConfig?: () => Promise<void>;
   permissions?: PortalPermissions; // undefined = superadmin (full access)
   onPreviewBranch?: (branchId: string) => void;
+  excludedBranches?: string[];
 }
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'service_templates';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'service_templates' | 'vault_audit' | 'transaction_audit';
 
 // Isolated clock — has its own 1s timer so the parent dashboard doesn't re-render every second
 const LiveClock = memo(() => {
@@ -89,6 +92,7 @@ const LiveClock = memo(() => {
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   user, branches, transactions, expenses, auditLogs, salesReports, salesReportsLoading = false, vaultTransactions = [],
   employees, attendance, requests, complaints = [], onRefresh, onSyncStatusChange, fetchSystemConfig, permissions, onPreviewBranch,
+  excludedBranches = [],
 }) => {
   const queryClient = useQueryClient();
   const isPortalUser = !!permissions;
@@ -114,6 +118,13 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     scopedBranches, scopedSalesReports, scopedTransactions, scopedExpenses,
     scopedEmployees, scopedAttendance, scopedAuditLogs, scopedRequests,
   } = useScopedData({ isPortalUser, permissions, branches, salesReports, transactions, expenses, employees, attendance, auditLogs, requests: requests as any[] });
+
+  // ── Remittance-scoped branches (excludes tracking-excluded branches) ────────
+  const remittanceBranches = useMemo(() =>
+    excludedBranches.length === 0
+      ? scopedBranches
+      : scopedBranches.filter(b => !excludedBranches.some(name => b.name?.toUpperCase().includes(name.toUpperCase()))),
+  [scopedBranches, excludedBranches]);
 
   // ── Security flags ───────────────────────────────────────────────────────
   const { recentHighFlags, dismissFlag, dismissAllFlags } = useSuspiciousActivity(scopedAuditLogs, branches);
@@ -155,12 +166,25 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }));
   }, [serviceCatalogsData]);
 
-  // Refetch sales reports immediately on archive tab entry + every 60s while active
+  // Live tab: poll every 2 minutes as a fallback when the realtime WebSocket drops.
+  // Reports tab: poll hourly — historical data doesn't need frequent polling.
+  // No immediate invalidation on tab entry: staleTime (2 min) on the query already
+  // prevents a redundant refetch if data just loaded.
   useEffect(() => {
-    if (activeTab !== 'archive') return;
-    queryClient.invalidateQueries({ queryKey: ['salesReports'] });
-    const interval = setInterval(() => queryClient.invalidateQueries({ queryKey: ['salesReports'] }), 60000);
-    return () => clearInterval(interval);
+    if (activeTab === 'sales_hub') {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+        queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      }, 2 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+    if (activeTab === 'archive') {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+        queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      }, 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
   }, [activeTab, queryClient]);
 
   const handleTabChange = (id: AdminTab) => {
@@ -210,7 +234,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onTabChange={handleTabChange}
           employees={employees}
           isSticky={false}
-          pendingRequestsCount={(scopedRequests as any[]).filter((r: any) => r.status === 'PENDING').length}
+          pendingRequestsCount={(scopedRequests as any[]).filter((r: any) => r.status === 'PENDING' && (!isPortalUser || r.type === 'CREATE_EMPLOYEE')).length}
           pendingComplaintsCount={complaints.filter(c => c.status === 'PENDING').length}
           allowedTabs={isPortalUser ? Object.entries(permissions!.tabs).filter(([, v]) => v).map(([k]) => k) : undefined}
         />
@@ -325,13 +349,13 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('expenses')     && <div className={activeTab !== 'expenses'     ? 'hidden' : ''}><ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} openAllDates={auditOpenAllDates} /></div>}
           {mountedTabs.has('analytics')   && <div className={activeTab !== 'analytics'    ? 'hidden' : ''}><AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
-          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} canEditAllowances={!isPortalUser} /></div>}
           {mountedTabs.has('archive')      && <div className={activeTab !== 'archive'      ? 'hidden' : ''}><ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
           {mountedTabs.has('vault')        && <div className={activeTab !== 'vault'        ? 'hidden' : ''}><VaultFundHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
           {mountedTabs.has('payroll')      && <div className={activeTab !== 'payroll'      ? 'hidden' : ''}><PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={handleRefresh} /></div>}
-          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} allowedRequestTypes={isPortalUser ? ['CREATE_EMPLOYEE'] : undefined} /></div>}
           {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
-          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={remittanceBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('network')      && <div className={activeTab !== 'network'      ? 'hidden' : ''}><NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} /></div>}
           {mountedTabs.has('catalogs')     && <div className={activeTab !== 'catalogs'     ? 'hidden' : ''}><ServiceCatalog branches={branches} catalogs={masterCatalogs} setConfirmState={setConfirmState} onSave={async () => { await refetchCatalogs(); playSound('success'); if (onRefresh) await onRefresh(true); }} /></div>}
@@ -339,6 +363,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('portal_users') && <div className={activeTab !== 'portal_users' ? 'hidden' : ''}><PortalUsersSection currentUserId={user.employeeId} branches={branches} /></div>}
           {mountedTabs.has('insights')      && <div className={activeTab !== 'insights'      ? 'hidden' : ''}><InsightsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('report_audit')  && <div className={activeTab !== 'report_audit'  ? 'hidden' : ''}><ReportAuditHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} /></div>}
+          {mountedTabs.has('vault_audit')       && <div className={activeTab !== 'vault_audit'       ? 'hidden' : ''}><VaultAuditHub branches={scopedBranches} /></div>}
+          {mountedTabs.has('transaction_audit') && <div className={activeTab !== 'transaction_audit' ? 'hidden' : ''}><TransactionAuditHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} /></div>}
           {mountedTabs.has('how_to')            && <div className={activeTab !== 'how_to'            ? 'hidden' : ''}><HowToSection role={UserRole.SUPERADMIN} /></div>}
           {mountedTabs.has('service_templates') && <div className={activeTab !== 'service_templates' ? 'hidden' : ''}><ServiceTemplatesHub branches={branches} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
         </React.Suspense>

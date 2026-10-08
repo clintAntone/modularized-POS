@@ -22,6 +22,7 @@ import { VaultExpenses } from './sales-today/VaultExpenses';
 import { SalesKPIStrip } from './sales-today/SalesKPIStrip';
 import { QuickExpenseModal } from './sales-today/QuickExpenseModal';
 import { ExpenseDetailModal } from './sales-today/ExpenseDetailModal';
+import { SessionDetailModal } from './pos/SessionDetailModal';
 
 interface SalesTodayProps {
   user?: any;
@@ -84,6 +85,9 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
   const [isSlowNetwork, setIsSlowNetwork] = useState(false);
+  const [viewingTx, setViewingTx] = useState<Transaction | null>(null);
+  const [viewSignatureUrl, setViewSignatureUrl] = useState<string | null>(null);
+  const [isLoadingViewSignature, setIsLoadingViewSignature] = useState(false);
 
   // Slow network detection — check effectiveType and probe with timing fallback
   useEffect(() => {
@@ -167,11 +171,12 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
 
   const activeRoster = useMemo(() => {
     return employees.filter(e => {
+      if (e.isActive === false) return false;
       const isHomeBranch = e.branchId === branch.id;
       const isDesignatedManager = branch.manager?.toUpperCase() === e.name?.toUpperCase();
       const isTempManager = branch.tempManager?.toUpperCase() === e.name?.toUpperCase();
       const isAuthorizedByAllowance = e.branchAllowances && typeof e.branchAllowances === 'object' && branch.id in (e.branchAllowances as any);
-      
+
       return isHomeBranch || isDesignatedManager || isTempManager || isAuthorizedByAllowance;
     });
   }, [employees, branch.id, branch.manager, branch.tempManager]);
@@ -254,15 +259,21 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     // 3. Populate counts and commissions
     txs.forEach(t => {
       [
-        { name: t.therapistName, comm: t.primaryCommission },
-        { name: t.bonesetterName, comm: t.secondaryCommission }
+        { id: t.therapistId, name: t.therapistName, comm: t.primaryCommission },
+        { id: t.bonesetterId, name: t.bonesetterName, comm: t.secondaryCommission }
       ].forEach((staff, idx) => {
-        if (!staff.name) return;
-        const n = staff.name.trim().toUpperCase();
-        if (summary[n]) {
-          if (idx === 0 || n !== t.therapistName?.trim().toUpperCase()) summary[n].count += 1;
-          summary[n].commission += idx === 0 ? (Number(t.primaryCommission) || 0) : (Number(t.secondaryCommission) || 0);
-          summary[n].txs = [...(summary[n].txs || []), t];
+        if (!staff.id && !staff.name) return;
+        const n = staff.name?.trim().toUpperCase() ?? '';
+        // ID-first lookup (matches useTodayData behaviour); fall back to name key
+        let item: any = null;
+        if (staff.id) {
+          item = Object.values(summary).find((s: any) => s.employeeId === staff.id);
+        }
+        if (!item && n) item = summary[n];
+        if (item) {
+          if (idx === 0 || n !== t.therapistName?.trim().toUpperCase()) item.count += 1;
+          item.commission += idx === 0 ? (Number(t.primaryCommission) || 0) : (Number(t.secondaryCommission) || 0);
+          item.txs = [...(item.txs || []), t];
         }
       });
     });
@@ -336,6 +347,34 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     }
   }, [loading, metrics.vaultProvision]);
 
+  const handleViewSessionDetails = async (tx: Transaction) => {
+    setViewingTx(tx);
+    setViewSignatureUrl(null);
+    setIsLoadingViewSignature(true);
+    try {
+      const { data } = await supabase
+        .from(DB_TABLES.TRANSACTIONS)
+        .select(DB_COLUMNS.SIGNATURE_URL)
+        .eq(DB_COLUMNS.ID, tx.id)
+        .single();
+      const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+      if (!storedUrl) { setIsLoadingViewSignature(false); return; }
+      const publicMarker = '/object/public/signatures/';
+      const path = storedUrl.includes(publicMarker)
+        ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+        : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+      if (!path) { setViewSignatureUrl(storedUrl); setIsLoadingViewSignature(false); return; }
+      const { data: signed } = await supabase.storage
+        .from('signatures')
+        .createSignedUrl(path, 60 * 60);
+      setViewSignatureUrl(signed?.signedUrl || storedUrl);
+    } catch {
+      // signature not critical — show modal without it
+    } finally {
+      setIsLoadingViewSignature(false);
+    }
+  };
+
   const handleHideStaff = async (name: string) => {
     playSound('warning');
     const upperName = name.toUpperCase();
@@ -398,20 +437,14 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           (e.name || '').toUpperCase() === `VAULT: ${(target.name || '').toUpperCase()}`
         );
         if (pairedVaultCover) {
+          // Atomically delete the vault_transaction and restore vault balance
+          const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+            p_tx_id:     pairedVaultCover.id,
+            p_branch_id: branch.id,
+          });
+          if (rpcErr) throw rpcErr;
+          // Delete the VAULT_WITHDRAWAL expense record (does not affect vault balance)
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
-          // Also delete the vault_transactions record (same ID if created via cover-from-vault)
-          await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, pairedVaultCover.id);
-          // Restore vault balance
-          const { data: liveVault } = await supabase
-            .from(DB_TABLES.BRANCH_VAULTS)
-            .select(DB_COLUMNS.VAULT_BALANCE)
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-            .single();
-          const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-          await supabase
-            .from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + (Number(pairedVaultCover.amount) || 0) })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
         }
       }
 
@@ -448,40 +481,11 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     const { id: depositId } = vaultDepositToDelete;
     setIsDeletingVaultDeposit(true);
     try {
-      // Fetch the authoritative deposit amount from DB before deleting — never trust stale cache
-      // for the refund amount, otherwise a concurrent update could leave the balance wrong.
-      const [{ data: depositRecord }, { data: liveVault }] = await Promise.all([
-        supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .select('amount')
-          .eq(DB_COLUMNS.ID, depositId)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .maybeSingle(),
-        supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single(),
-      ]);
-
-      if (!depositRecord) throw new Error(`Deposit ${depositId} not found — vault balance unchanged.`);
-      const refundAmount = Number(depositRecord.amount) || 0;
-
-      // Delete the vault_transaction record
-      const { error: txErr } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete()
-        .eq(DB_COLUMNS.ID, depositId)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (txErr) throw txErr;
-
-      // Reduce vault balance by the authoritative deposit amount
-      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-      const { error: vaultErr } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: Math.max(0, liveBalance - refundAmount) })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-      if (vaultErr) throw vaultErr;
+      const { error: rpcErr } = await supabase.rpc('reverse_vault_deposit', {
+        p_tx_id:     depositId,
+        p_branch_id: branch.id,
+      });
+      if (rpcErr) throw rpcErr;
 
       await logAudit({
         branchId: branch.id,
@@ -527,40 +531,35 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     setIsDeletingVaultWithdrawal(true);
     try {
       if (source === 'vault_transactions') {
-        // Delete the vault_transaction WITHDRAWAL record
-        const { error: wErr } = await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).delete().eq(DB_COLUMNS.ID, withdrawalId);
-        if (wErr) throw wErr;
+        // Atomically delete the WITHDRAWAL tx and restore vault balance
+        const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+          p_tx_id:     withdrawalId,
+          p_branch_id: branch.id,
+        });
+        if (rpcErr) throw rpcErr;
 
-        // Also delete the paired OPERATIONAL expense (full reversal — restores ROI)
+        // Delete the paired OPERATIONAL expense (does not affect vault balance)
         const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
         if (pairedOp) {
           if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
         }
       } else {
-        // Cover-from-vault: delete the VAULT_WITHDRAWAL expense record
-        const { error: wErr } = await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, withdrawalId);
-        if (wErr) throw wErr;
+        // Cover-from-vault: vault_transaction shares the same ID as the VAULT_WITHDRAWAL expense
+        const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+          p_tx_id:     withdrawalId,
+          p_branch_id: branch.id,
+        });
+        if (rpcErr) throw rpcErr;
 
-        // Also delete the paired OPERATIONAL expense if it still exists
+        // Delete both expense records (does not affect vault balance)
+        await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, withdrawalId);
         const pairedOp = exps.find(e => e.category === 'OPERATIONAL' && (e.name || '').toUpperCase() === expenseName.toUpperCase());
         if (pairedOp) {
           if (pairedOp.receiptImage) await deleteFileByUrl(pairedOp.receiptImage, 'receipts');
           await supabase.from(DB_TABLES.EXPENSES).delete().eq(DB_COLUMNS.ID, pairedOp.id);
         }
       }
-
-      // Refund vault balance
-      const { data: liveVault } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVault?.[DB_COLUMNS.VAULT_BALANCE] ?? 0;
-      await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + refundAmount })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
 
       await logAudit({
         branchId: branch.id,
@@ -1060,6 +1059,15 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           </div>
         </div>
 
+        {viewingTx && (
+          <SessionDetailModal
+            transaction={viewingTx}
+            signatureUrl={viewSignatureUrl}
+            isLoadingSignature={isLoadingViewSignature}
+            onClose={() => { setViewingTx(null); setViewSignatureUrl(null); }}
+          />
+        )}
+
         <div className="space-y-6 print:hidden">
           {toast && (
               <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-xl animate-in slide-in-from-top-6 duration-300 font-black text-xs uppercase tracking-wide bg-slate-900 text-white border border-white/10 flex items-center gap-3">
@@ -1176,6 +1184,8 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               defaultIsLegacyDeposit={openExpenseModalOnLegacyDeposit}
               onDeposit={handleVaultDeposit}
               hideDepositTab={isAddExpenseModalOpen && !openExpenseModalOnDeposit && !openExpenseModalOnLegacyDeposit}
+              reportId={`${branch.id}_${todayStr.replace(/-/g, '')}`}
+              isSuperAdmin={user?.role === 'SUPERADMIN'}
             />
           )}
           {viewingExpense && (<ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />)}
@@ -1401,7 +1411,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               connStatus={connStatus}
               pendingSyncCount={pendingSyncCount}
           />
-          <SessionLogs transactions={txs} totalCount={txs.length} />
+          <SessionLogs transactions={txs} totalCount={txs.length} onViewDetails={handleViewSessionDetails} />
           <StaffPerformance
               branch={branch}
               staffSummary={metrics.staffSummary}

@@ -15,6 +15,8 @@ interface ExpenseEntryFormProps {
   isClosedMode: boolean;
   existingImage?: string;
   fixedCategory?: string;
+  requiresReceipt?: boolean;
+  receiptRuleMessage?: string;
 }
 
 const COMMON_EXPENSES = [
@@ -42,11 +44,15 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
                                                                     onCancel,
                                                                     isClosedMode,
                                                                     existingImage,
-                                                                    fixedCategory
+                                                                    fixedCategory,
+                                                                    requiresReceipt = false,
+                                                                    receiptRuleMessage,
                                                                   }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const isFormValid = formData.name.trim() !== '' && formData.amount > 0;
+  const hasProof = !!(file || existingImage);
+  const receiptBlocking = requiresReceipt && !hasProof;
+  const isFormValid = formData.name.trim() !== '' && formData.amount > 0 && !receiptBlocking;
 
   return (
       <div className={`space-y-4 sm:space-y-6 ${isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
@@ -117,21 +123,24 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {/* ===================== */}
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
-                <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em] ml-2">
-                  2. Expense Label / Purpose
-                </label>
+                <div className="flex items-baseline justify-between ml-2">
+                  <label className="block text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em]">
+                    2. Expense Label / Purpose
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">One expense per entry</span>
+                </div>
 
                 <div className="relative group">
                   <input
                       required
                       value={formData.name}
                       onChange={e =>
-                          setFormData({ ...formData, name: e.target.value.toUpperCase() })
+                          setFormData({ ...formData, name: e.target.value.replace(/[,/]/g, '').toUpperCase() })
                       }
                       onFocus={() => setShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                       className="w-full p-4 sm:p-5 bg-slate-50 border-2 border-transparent rounded-[18px] sm:rounded-[22px] font-black text-sm sm:text-base uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner placeholder:text-slate-300"
-                      placeholder="E.G. WATER BILL, LAUNDRY"
+                      placeholder="E.G. WATER BILL"
                       aria-label="Expense purpose"
                   />
                   
@@ -165,16 +174,32 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {fixedCategory !== 'PROVISION' && (
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex justify-between items-center ml-2">
-                  <label className="text-xs sm:text-xs font-black text-slate-400 uppercase tracking-[0.28em]">
-                    3. Receipt Evidence <span className="text-xs sm:text-xs opacity-50 font-bold">(Optional)</span>
+                  <label className={`text-xs sm:text-xs font-black uppercase tracking-[0.28em] ${receiptBlocking ? 'text-rose-500' : 'text-slate-400'}`}>
+                    3. Receipt Evidence{' '}
+                    {requiresReceipt
+                      ? <span className="text-rose-500 font-black">(REQUIRED)</span>
+                      : <span className="opacity-50 font-bold">(Optional)</span>}
                   </label>
 
-                  {(file || existingImage) && (
-                      <span className="text-xs sm:text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    Proof Attached
-                  </span>
+                  {hasProof && (
+                    <span className="text-xs sm:text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      Proof Attached
+                    </span>
                   )}
                 </div>
+
+                {receiptBlocking && (
+                  <div className="flex items-center gap-3 px-4 py-3.5 bg-rose-500 rounded-2xl animate-in fade-in duration-200 animate-beat">
+                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <p className="text-xs font-black text-white uppercase tracking-wide leading-relaxed">
+                      {receiptRuleMessage || 'Receipt is required for this expense type'}
+                    </p>
+                  </div>
+                )}
 
                 {file || existingImage ? (
                     <div className="w-full p-4 sm:p-6 rounded-2xl sm:rounded-[30px] border-2 border-emerald-500 bg-emerald-50 flex items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-300">
@@ -262,7 +287,7 @@ export const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
             {/* ===================== */}
             {/* ACTIONS */}
             {/* ===================== */}
-            <div className="pt-2 sm:pt-4 space-y-3 sm:space-y-4">
+            <div className="pt-4 sm:pt-6 pb-2 sm:pb-4 space-y-3 sm:space-y-4">
               <button
                   type="submit"
                   disabled={isUploading || !isFormValid}
