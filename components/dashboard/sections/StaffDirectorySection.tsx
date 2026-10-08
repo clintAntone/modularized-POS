@@ -988,6 +988,7 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
     setIsSyncing(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
     setUploadProgress(10);
+    let shouldRefresh = false;
 
     try {
       const firstName = editingEmployee.firstName?.trim().toUpperCase();
@@ -1090,16 +1091,32 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.PROFILE]: profileUrl || null,
       };
 
+      const auditPayload = {
+        [DB_COLUMNS.BRANCH_ID]: branch.id,
+        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
+        [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee.id ? 'UPDATE' : 'CREATE',
+        [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
+        [DB_COLUMNS.ENTITY_ID]: id,
+        [DB_COLUMNS.DESCRIPTION]: `${editingEmployee.id ? 'Updated' : 'Registered'} employee identity: ${cleanName}`,
+        [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR'
+      };
+
+      // Run employee save + audit log in parallel — they're independent
       if (editingEmployee.id) {
-        await updateEmployee.mutateAsync({ id: editingEmployee.id, ...payload });
+        await Promise.all([
+          updateEmployee.mutateAsync({ id: editingEmployee.id, ...payload }),
+          addAuditLog.mutateAsync(auditPayload)
+        ]);
       } else {
-        await addEmployee.mutateAsync({ [DB_COLUMNS.ID]: id, ...payload });
+        await Promise.all([
+          addEmployee.mutateAsync({ [DB_COLUMNS.ID]: id, ...payload }),
+          addAuditLog.mutateAsync(auditPayload)
+        ]);
       }
 
-      // NAME CHANGE CASCADE
+      // NAME CHANGE CASCADE — fire in background, don't block the overlay
       const nameChanged = originalName && originalName !== cleanName;
       if (nameChanged) {
-          // 1. Branch Sync (Manager/Temp Manager slots)
           const branchSyncPromises = branches
             .filter(b => b.manager?.toUpperCase() === originalName || b.tempManager?.toUpperCase() === originalName)
             .map(b => {
@@ -1108,40 +1125,29 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
               if (b.tempManager?.toUpperCase() === originalName) branchUpdates[DB_COLUMNS.TEMP_MANAGER] = cleanName;
               return supabase.from(DB_TABLES.BRANCHES).update(branchUpdates).eq(DB_COLUMNS.ID, b.id);
             });
-
-          // 2. Data Cascade (Historical records)
           const dataCascadePromises = [
               supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.THERAPIST_NAME]: cleanName }).eq(DB_COLUMNS.THERAPIST_NAME, originalName),
               supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.BONESETTER_NAME]: cleanName }).eq(DB_COLUMNS.BONESETTER_NAME, originalName),
               supabase.from(DB_TABLES.ATTENDANCE).update({ [DB_COLUMNS.STAFF_NAME]: cleanName }).eq(DB_COLUMNS.EMPLOYEE_ID, id),
               supabase.from(DB_TABLES.AUDIT_LOGS).update({ [DB_COLUMNS.PERFORMER_NAME]: cleanName }).eq(DB_COLUMNS.PERFORMER_NAME, originalName)
           ];
-          
-          // Run all updates concurrently
-          await Promise.all([...branchSyncPromises, ...dataCascadePromises]);
+          // Background — does not block the save overlay
+          Promise.all([...branchSyncPromises, ...dataCascadePromises]).catch(console.error);
       }
-
-      await addAuditLog.mutateAsync({
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TIMESTAMP]: getTrueManilaISOString(),
-        [DB_COLUMNS.ACTIVITY_TYPE]: editingEmployee.id ? 'UPDATE' : 'CREATE',
-        [DB_COLUMNS.ENTITY_TYPE]: 'EMPLOYEE',
-        [DB_COLUMNS.ENTITY_ID]: id,
-        [DB_COLUMNS.DESCRIPTION]: `${editingEmployee.id ? 'Updated' : 'Registered'} employee identity: ${cleanName}`,
-        [DB_COLUMNS.PERFORMER_NAME]: operatorName || 'NODE OPERATOR'
-      });
 
       setUploadProgress(100);
       playSound('success');
       showToast('Registry Synchronized');
       setIsModalOpen(false);
-      if (onRefresh) onRefresh();
+      shouldRefresh = true;
     } catch (err) {
       showToast('Registry Fault', 'error');
     } finally {
       setIsSyncing(false);
       setUploadProgress(0);
+      // Hide overlay first, then refresh — so the spinner doesn't stay up during data reload
       if (onSyncStatusChange) onSyncStatusChange(false);
+      if (shouldRefresh && onRefresh) onRefresh();
     }
   };
 

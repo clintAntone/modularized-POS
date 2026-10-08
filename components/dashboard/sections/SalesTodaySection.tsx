@@ -22,6 +22,7 @@ import { VaultExpenses } from './sales-today/VaultExpenses';
 import { SalesKPIStrip } from './sales-today/SalesKPIStrip';
 import { QuickExpenseModal } from './sales-today/QuickExpenseModal';
 import { ExpenseDetailModal } from './sales-today/ExpenseDetailModal';
+import { SessionDetailModal } from './pos/SessionDetailModal';
 
 interface SalesTodayProps {
   user?: any;
@@ -84,6 +85,9 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
   const [isSlowNetwork, setIsSlowNetwork] = useState(false);
+  const [viewingTx, setViewingTx] = useState<Transaction | null>(null);
+  const [viewSignatureUrl, setViewSignatureUrl] = useState<string | null>(null);
+  const [isLoadingViewSignature, setIsLoadingViewSignature] = useState(false);
 
   // Slow network detection — check effectiveType and probe with timing fallback
   useEffect(() => {
@@ -342,6 +346,34 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
       onForceSync();
     }
   }, [loading, metrics.vaultProvision]);
+
+  const handleViewSessionDetails = async (tx: Transaction) => {
+    setViewingTx(tx);
+    setViewSignatureUrl(null);
+    setIsLoadingViewSignature(true);
+    try {
+      const { data } = await supabase
+        .from(DB_TABLES.TRANSACTIONS)
+        .select(DB_COLUMNS.SIGNATURE_URL)
+        .eq(DB_COLUMNS.ID, tx.id)
+        .single();
+      const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+      if (!storedUrl) { setIsLoadingViewSignature(false); return; }
+      const publicMarker = '/object/public/signatures/';
+      const path = storedUrl.includes(publicMarker)
+        ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+        : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+      if (!path) { setViewSignatureUrl(storedUrl); setIsLoadingViewSignature(false); return; }
+      const { data: signed } = await supabase.storage
+        .from('signatures')
+        .createSignedUrl(path, 60 * 60);
+      setViewSignatureUrl(signed?.signedUrl || storedUrl);
+    } catch {
+      // signature not critical — show modal without it
+    } finally {
+      setIsLoadingViewSignature(false);
+    }
+  };
 
   const handleHideStaff = async (name: string) => {
     playSound('warning');
@@ -1027,6 +1059,15 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
           </div>
         </div>
 
+        {viewingTx && (
+          <SessionDetailModal
+            transaction={viewingTx}
+            signatureUrl={viewSignatureUrl}
+            isLoadingSignature={isLoadingViewSignature}
+            onClose={() => { setViewingTx(null); setViewSignatureUrl(null); }}
+          />
+        )}
+
         <div className="space-y-6 print:hidden">
           {toast && (
               <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-xl animate-in slide-in-from-top-6 duration-300 font-black text-xs uppercase tracking-wide bg-slate-900 text-white border border-white/10 flex items-center gap-3">
@@ -1370,7 +1411,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               connStatus={connStatus}
               pendingSyncCount={pendingSyncCount}
           />
-          <SessionLogs transactions={txs} totalCount={txs.length} />
+          <SessionLogs transactions={txs} totalCount={txs.length} onViewDetails={handleViewSessionDetails} />
           <StaffPerformance
               branch={branch}
               staffSummary={metrics.staffSummary}

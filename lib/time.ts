@@ -46,10 +46,12 @@ export const syncWithServerTime = async () => {
     };
     return true;
   } catch {
-    // Fall back to device clock if server unreachable
+    // Fall back to device clock — always reset the baseline, even on re-syncs.
+    // Without this, a failed wake-up sync leaves performance.now() frozen after sleep,
+    // causing the POS clock to read the time from before the device slept.
+    initialServerTime = Date.now();
+    initialPerformanceTime = performance.now();
     if (!isInitialized) {
-      initialServerTime = Date.now();
-      initialPerformanceTime = performance.now();
       isInitialized = true;
       syncMetadata = { source: 'device_clock', serverTime: initialServerTime, deviceTime: initialServerTime, driftSeconds: 0 };
     }
@@ -66,7 +68,16 @@ export const syncWithServerTime = async () => {
 export const getTrueDate = (): Date => {
   if (!isInitialized) return new Date();
   const elapsed = performance.now() - initialPerformanceTime;
-  return new Date(initialServerTime + elapsed);
+  const derived = initialServerTime + elapsed;
+  const real = Date.now();
+  // If derived time is >30s behind real time, performance.now() paused during device sleep.
+  // Reset baseline and return real clock time so the POS doesn't show a stale time.
+  if (real - derived > 30_000) {
+    initialServerTime = real;
+    initialPerformanceTime = performance.now();
+    return new Date(real);
+  }
+  return new Date(derived);
 };
 
 /**

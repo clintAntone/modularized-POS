@@ -12,6 +12,7 @@ import { POSRegistryForm } from './pos/POSRegistryForm';
 import { POSCorrections } from './pos/POSCorrections';
 import { StaffReviewModal } from './pos/StaffReviewModal';
 import { ClientApprovalModal } from './pos/ClientApprovalModal';
+import { SessionDetailModal } from './pos/SessionDetailModal';
 
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -76,6 +77,9 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
     const [showStaffReview, setShowStaffReview] = useState(false);
     const [showClientApproval, setShowClientApproval] = useState(false);
     const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+    const [viewingTx, setViewingTx] = useState<Transaction | null>(null);
+    const [viewSignatureUrl, setViewSignatureUrl] = useState<string | null>(null);
+    const [isLoadingViewSignature, setIsLoadingViewSignature] = useState(false);
 
     const addTransaction = useAddTransaction();
     const updateTransaction = useUpdateTransaction();
@@ -548,6 +552,34 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
         }
     };
 
+    const handleViewDetails = async (tx: Transaction) => {
+        setViewingTx(tx);
+        setViewSignatureUrl(null);
+        setIsLoadingViewSignature(true);
+        try {
+            const { data } = await supabase
+                .from(DB_TABLES.TRANSACTIONS)
+                .select(DB_COLUMNS.SIGNATURE_URL)
+                .eq(DB_COLUMNS.ID, tx.id)
+                .single();
+            const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+            if (!storedUrl) { setIsLoadingViewSignature(false); return; }
+            const publicMarker = '/object/public/signatures/';
+            const path = storedUrl.includes(publicMarker)
+                ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+                : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+            if (!path) { setViewSignatureUrl(storedUrl); setIsLoadingViewSignature(false); return; }
+            const { data: signed } = await supabase.storage
+                .from('signatures')
+                .createSignedUrl(path, 60 * 60);
+            setViewSignatureUrl(signed?.signedUrl || storedUrl);
+        } catch {
+            // signature not critical — show modal without it
+        } finally {
+            setIsLoadingViewSignature(false);
+        }
+    };
+
     const handleDeleteTrigger = (txId: string) => {
         const targetTx = transactions.find(t => t.id === txId);
         if (targetTx) {
@@ -814,6 +846,7 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                     transactions={todayTxs}
                     onEdit={handleStartEdit}
                     onDelete={handleDeleteTrigger}
+                    onViewDetails={handleViewDetails}
                     isProcessing={isProcessing}
                     isClosedMode={isClosedMode}
                 />
@@ -860,6 +893,15 @@ export const POSSection: React.FC<POSSectionProps> = ({ user, branch, isRelief =
                 />
                 );
             })()}
+
+            {viewingTx && (
+                <SessionDetailModal
+                    transaction={viewingTx}
+                    signatureUrl={viewSignatureUrl}
+                    isLoadingSignature={isLoadingViewSignature}
+                    onClose={() => { setViewingTx(null); setViewSignatureUrl(null); }}
+                />
+            )}
 
             {showClientApproval && (() => {
                 const stdServices = activeServices.filter(s => formData.selected_service_ids.includes(s.id));

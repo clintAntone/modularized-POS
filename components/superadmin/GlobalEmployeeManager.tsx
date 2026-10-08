@@ -32,9 +32,10 @@ interface GlobalEmployeeManagerProps {
   onRefresh?: () => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   isReadOnly?: boolean;
+  canEditAllowances?: boolean;
 }
 
-export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange, isReadOnly }) => {
+export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ branches, employees, onRefresh, onSyncStatusChange, isReadOnly, canEditAllowances = true }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
@@ -303,6 +304,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
     setIsSaving(true);
     if (onSyncStatusChange) onSyncStatusChange(true);
     setError('');
+    let shouldRefresh = false;
 
     try {
       const firstName = payload[DB_COLUMNS.FIRST_NAME]?.trim().toUpperCase();
@@ -447,22 +449,18 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
       
       await Promise.all(branchSyncPromises);
 
-      // 2. DATA CASCADE: Update all historical records if name changed
+      // 2. DATA CASCADE: fire in background — does not block the overlay
       if (nameChanged) {
           const cascadePromises = [
-              // Transactions: Update both therapist and bonesetter roles
               supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.THERAPIST_NAME]: cleanName }).eq(DB_COLUMNS.THERAPIST_NAME, oldName),
               supabase.from(DB_TABLES.TRANSACTIONS).update({ [DB_COLUMNS.BONESETTER_NAME]: cleanName }).eq(DB_COLUMNS.BONESETTER_NAME, oldName),
-              
               supabase.from(DB_TABLES.ATTENDANCE).update({ [DB_COLUMNS.STAFF_NAME]: cleanName }).eq(DB_COLUMNS.EMPLOYEE_ID, id),
               supabase.from(DB_TABLES.AUDIT_LOGS).update({ [DB_COLUMNS.PERFORMER_NAME]: cleanName }).eq(DB_COLUMNS.PERFORMER_NAME, oldName)
           ];
-          
-          // Execute all updates in parallel
-          await Promise.all(cascadePromises);
+          Promise.all(cascadePromises).catch(console.error);
       }
 
-      // Audit log is fire-and-forget — don't block UX on it
+      // Audit log is fire-and-forget
       addAuditLog.mutate({
         [DB_COLUMNS.BRANCH_ID]: null,
         [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
@@ -475,14 +473,16 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
 
       playSound('success');
       setEditingEmployee(null);
-      if (onRefresh) onRefresh();
+      shouldRefresh = true;
     } catch (err) {
       console.error(err);
       setError('SYSTEM SYNC FAULT. PLEASE RETRY.');
       playSound('warning');
     } finally {
       setIsSaving(false);
+      // Hide overlay first, then refresh — overlay should not stay up during data reload
       if (onSyncStatusChange) onSyncStatusChange(false);
+      if (shouldRefresh && onRefresh) onRefresh();
     }
   };
 
@@ -1024,6 +1024,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
             onReset={handleOpenResetModal}
             onDelete={(emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
             onViewID={(emp) => { setEditingEmployee(null); setIdCardEmployee(emp); playSound('click'); }}
+            canEditAllowances={canEditAllowances}
           />
         </div>
       )}

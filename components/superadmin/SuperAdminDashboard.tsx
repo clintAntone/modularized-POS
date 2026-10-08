@@ -234,7 +234,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           onTabChange={handleTabChange}
           employees={employees}
           isSticky={false}
-          pendingRequestsCount={(scopedRequests as any[]).filter((r: any) => r.status === 'PENDING').length}
+          pendingRequestsCount={(scopedRequests as any[]).filter((r: any) => r.status === 'PENDING' && (!isPortalUser || r.type === 'CREATE_EMPLOYEE')).length}
           pendingComplaintsCount={complaints.filter(c => c.status === 'PENDING').length}
           allowedTabs={isPortalUser ? Object.entries(permissions!.tabs).filter(([, v]) => v).map(([k]) => k) : undefined}
         />
@@ -349,11 +349,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('expenses')     && <div className={activeTab !== 'expenses'     ? 'hidden' : ''}><ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} openAllDates={auditOpenAllDates} /></div>}
           {mountedTabs.has('analytics')   && <div className={activeTab !== 'analytics'    ? 'hidden' : ''}><AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
-          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('employees')    && <div className={activeTab !== 'employees'    ? 'hidden' : ''}><GlobalEmployeeManager branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} onSyncStatusChange={onSyncStatusChange} isReadOnly={isReadOnly} canEditAllowances={!isPortalUser} /></div>}
           {mountedTabs.has('archive')      && <div className={activeTab !== 'archive'      ? 'hidden' : ''}><ArchiveHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
           {mountedTabs.has('vault')        && <div className={activeTab !== 'vault'        ? 'hidden' : ''}><VaultFundHub branches={scopedBranches} salesReports={scopedSalesReports} vaultTransactions={vaultTransactions} isReadOnly={isReadOnly} onRefresh={handleRefresh} /></div>}
           {mountedTabs.has('payroll')      && <div className={activeTab !== 'payroll'      ? 'hidden' : ''}><PayrollHub branches={scopedBranches} transactions={scopedTransactions} expenses={scopedExpenses} employees={scopedEmployees} attendance={scopedAttendance} salesReports={scopedSalesReports} onRefresh={handleRefresh} /></div>}
-          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
+          {mountedTabs.has('requests')     && <div className={activeTab !== 'requests'     ? 'hidden' : ''}><RequestsHub requests={scopedRequests as any} employees={scopedEmployees} branches={scopedBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} allowedRequestTypes={isPortalUser ? ['CREATE_EMPLOYEE'] : undefined} /></div>}
           {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={remittanceBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}

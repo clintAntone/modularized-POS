@@ -8,11 +8,12 @@ interface SessionLogsProps {
   services?: Service[];
   /** Optional override to display a total count beside the heading */
   totalCount?: number;
+  onViewDetails?: (tx: Transaction) => void;
 }
 
 const fmt = (n: number) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
-export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [], totalCount }) => {
+export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services = [], totalCount, onViewDetails }) => {
   // Build a price lookup map from branch services (in-memory, no DB round-trip)
   const serviceMap = useMemo(() => (
     Object.fromEntries(services.map(s => [s.id, s]))
@@ -100,7 +101,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
                 const isPaid = t.paymentStatus === 'PAID';
 
                 return (
-                    <tr key={t.id} className="hover:bg-slate-50/20 transition-colors group">
+                    <tr key={t.id} onClick={() => onViewDetails?.(t)} className={`transition-colors group ${onViewDetails ? 'cursor-pointer hover:bg-slate-50' : 'hover:bg-slate-50/20'}`}>
                       {/* TIME */}
                       <td className="px-4 py-4 font-medium text-slate-400 uppercase tracking-tighter tabular-nums text-xs whitespace-nowrap">
                         {new Intl.DateTimeFormat('en-US', {
@@ -214,7 +215,7 @@ export const SessionLogs: React.FC<SessionLogsProps> = ({ transactions, services
               }).format(new Date(t.timestamp));
 
               return (
-                <div key={t.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div key={t.id} onClick={() => onViewDetails?.(t)} className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden ${onViewDetails ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
                   {/* Accent bar */}
                   <div className={`h-0.5 ${isPaid ? 'bg-gradient-to-r from-slate-100 via-emerald-400 to-slate-100' : 'bg-gradient-to-r from-slate-100 via-amber-400 to-slate-100'}`} />
 

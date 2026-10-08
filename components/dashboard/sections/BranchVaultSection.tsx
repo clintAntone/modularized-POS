@@ -631,31 +631,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     if (!vaultBillToDelete || isDeletingVaultBill || !branchVault) return;
     setIsDeletingVaultBill(true);
     try {
-      // Re-fetch live balance to prevent stale state
-      const { data: liveVaultData } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
       const refundAmount = vaultBillToDelete.amount;
 
-      // Delete the vault_transaction record
-      const { error: txErr } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete()
-        .eq(DB_COLUMNS.ID, vaultBillToDelete.id);
-      if (txErr) throw txErr;
-
-      // Restore vault balance (capped at target to avoid exceeding it)
-      const target = branchVault.target ?? 0;
-      const newBalance = target > 0
-        ? Math.min(liveBalance + refundAmount, target)
-        : liveBalance + refundAmount;
-      await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      // Atomic reversal — locks vault row, deletes tx, restores balance in one transaction
+      const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+        p_tx_id:     vaultBillToDelete.id,
+        p_branch_id: branch.id,
+      });
+      if (rpcErr) throw rpcErr;
 
       logAudit({
         branchId: branch.id,

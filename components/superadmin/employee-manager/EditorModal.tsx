@@ -28,6 +28,7 @@ interface EditorModalProps {
   onReset?: (employee: Employee) => void;
   onDelete?: (employee: Employee) => void;
   onViewID?: (employee: Employee) => void;
+  canEditAllowances?: boolean;
 }
 
 const PillDropdown = ({ value, onChange, options, placeholder, className }: {
@@ -86,7 +87,7 @@ const PillDropdown = ({ value, onChange, options, placeholder, className }: {
 };
 
 export const EditorModal: React.FC<EditorModalProps> = ({
-  employee, branches, isSaving, error, customRoles = [], onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete, onViewID
+  employee, branches, isSaving, error, customRoles = [], onClose, onSave, onSavePersonalDetails, onWipe, onReset, onDelete, onViewID, canEditAllowances = true
 }) => {
   const isExisting = !!employee.id;
   const [activeTab, setActiveTab] = useState<'assignment' | 'personal'>('assignment');
@@ -451,12 +452,14 @@ export const EditorModal: React.FC<EditorModalProps> = ({
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₱</span>
                             <input type="text" inputMode="decimal" value={allowance}
                               onChange={e => {
+                                if (!canEditAllowances) return;
                                 const raw = e.target.value;
                                 if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                                 const val = raw === '' ? 0 : Number(raw);
                                 setLocalEmployee(prev => { const cur = prev.branchAllowances?.[id]; const curRole = typeof cur === 'object' ? cur.role : ''; return { ...prev, branchAllowances: { ...(prev.branchAllowances||{}), [id]: { allowance: val, role: curRole } } }; });
                               }}
-                              className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                              disabled={!canEditAllowances}
+                              className={`w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none transition-all ${canEditAllowances ? 'focus:border-emerald-500 focus:bg-white' : 'opacity-50 cursor-not-allowed'}`}
                               placeholder="0.00"
                             />
                           </div>

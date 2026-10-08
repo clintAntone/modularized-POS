@@ -8,6 +8,7 @@ import { PerformanceRow } from './PerformanceRow';
 import { SalesKPIStrip } from '../sales-today/SalesKPIStrip';
 import { SessionLogs } from '../sales-today/SessionLogs';
 import { ExpenseDetailModal } from '../sales-today/ExpenseDetailModal';
+import { SessionDetailModal } from '../pos/SessionDetailModal';
 import { ReportEditorModal } from '../../../superadmin/ReportEditorModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -39,6 +40,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const [isEditing, setIsEditing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showPDFConfirm, setShowPDFConfirm] = useState(false);
+  const [viewingTx, setViewingTx] = useState<any | null>(null);
+  const [viewSignatureUrl, setViewSignatureUrl] = useState<string | null>(null);
+  const [isLoadingViewSignature, setIsLoadingViewSignature] = useState(false);
   const [mounted, setMounted] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -310,6 +314,34 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     return recomputed < stored ? recomputed : stored;
   }, [report.staffBreakdown, report.totalStaffPay]);
 
+
+  const handleViewSessionDetails = async (tx: any) => {
+    setViewingTx(tx);
+    setViewSignatureUrl(null);
+    setIsLoadingViewSignature(true);
+    try {
+      const { data } = await supabase
+        .from(DB_TABLES.TRANSACTIONS)
+        .select(DB_COLUMNS.SIGNATURE_URL)
+        .eq(DB_COLUMNS.ID, tx.id)
+        .single();
+      const storedUrl: string | undefined = data?.[DB_COLUMNS.SIGNATURE_URL] || undefined;
+      if (!storedUrl) { setIsLoadingViewSignature(false); return; }
+      const publicMarker = '/object/public/signatures/';
+      const path = storedUrl.includes(publicMarker)
+        ? storedUrl.split(publicMarker)[1]?.split('?')[0]
+        : storedUrl.split('/object/sign/signatures/')[1]?.split('?')[0];
+      if (!path) { setViewSignatureUrl(storedUrl); setIsLoadingViewSignature(false); return; }
+      const { data: signed } = await supabase.storage
+        .from('signatures')
+        .createSignedUrl(path, 60 * 60);
+      setViewSignatureUrl(signed?.signedUrl || storedUrl);
+    } catch {
+      // signature not critical — show modal without it
+    } finally {
+      setIsLoadingViewSignature(false);
+    }
+  };
 
   const handleExportPDF = async (confirmed = false) => {
     if (!confirmed) {
@@ -712,6 +744,15 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               <ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />
           )}
 
+          {viewingTx && (
+            <SessionDetailModal
+              transaction={viewingTx}
+              signatureUrl={viewSignatureUrl}
+              isLoadingSignature={isLoadingViewSignature}
+              onClose={() => { setViewingTx(null); setViewSignatureUrl(null); }}
+            />
+          )}
+
           {showPDFConfirm && (
             <div className={UI_THEME.layout.modalWrapper}>
               <div className={`${UI_THEME.layout.modalStandard} ${UI_THEME.radius.modal} p-10 text-center border border-slate-100`}>
@@ -1084,7 +1125,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 </div>
             ) : (
                 <>
-                  <SessionLogs transactions={report.sessionData || []} totalCount={(report.sessionData || []).length} />
+                  <SessionLogs transactions={report.sessionData || []} totalCount={(report.sessionData || []).length} onViewDetails={handleViewSessionDetails} />
 
                   <div className="space-y-4">
                     <h4 className={`${UI_THEME.text.label} ml-4`}>Staff Performance Matrix</h4>

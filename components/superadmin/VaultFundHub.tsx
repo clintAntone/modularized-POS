@@ -915,11 +915,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                 <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
                   ₱{networkSummary.totalBalance.toLocaleString()}
                 </p>
-                {networkSummary.totalTarget > 0 && (
-                  <p className="text-xs font-medium text-slate-400 mt-1">
-                    of ₱{networkSummary.totalTarget.toLocaleString()} combined target
-                  </p>
-                )}
               </div>
 
               {/* KPI pills */}

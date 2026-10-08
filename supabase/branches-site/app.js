@@ -118,6 +118,11 @@
     });
   }
 
+  // Cleans service name for display: "W/" → "with"
+  function cleanSvcName(name) {
+    return titleCase((name || '').replace(/\bW\//gi, 'with'));
+  }
+
   function escHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -248,11 +253,40 @@
   // 8 soft palette backgrounds (cycled by catalog index, via data-color attr)
   var SVC_COLORS = ['sky','mint','amber','purple','rose','indigo','teal','peach'];
 
+  // Returns an SVG icon matched to the service name via keyword
+  function svcIconSvg(name) {
+    var n = (name || '').toLowerCase();
+    var p;
+    if (/ear|candle/.test(n)) {
+      // Flame — ear candle
+      p = '<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2z"/>';
+    } else if (/hot|stone|heat/.test(n)) {
+      // Flame — hot stone
+      p = '<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2z"/>';
+    } else if (/ventosa|cupp/.test(n)) {
+      // Droplets — cupping/ventosa
+      p = '<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0014 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 01-11.91 4.97"/>';
+    } else if (/bone|bonesetter|chiro|ortho/.test(n)) {
+      // Wrench — bone setting
+      p = '<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>';
+    } else if (/head|scalp|cranial|neck|nape|facial|face/.test(n)) {
+      // Person — head/scalp/neck
+      p = '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>';
+    } else if (/signature|premium|vip/.test(n)) {
+      // Star — signature treatments
+      p = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
+    } else {
+      // Leaf — default (massage, foot, reflexology, body, etc.)
+      p = '<path d="M11 20A7 7 0 019.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>';
+    }
+    return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+  }
+
   async function loadServices() {
     servicesLoaded = true;
     try {
       var res = await fetch(
-        SUPABASE_URL + '/rest/v1/service_templates?select=id,name,duration,catalog_name,image_url&order=catalog_name.asc,name.asc',
+        SUPABASE_URL + '/rest/v1/service_templates?select=id,name,duration,catalog_name&order=catalog_name.asc,name.asc',
         { headers: HEADERS }
       );
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -266,7 +300,23 @@
         groups[cat].push(s);
       });
 
-      var sorted = Object.entries(groups).sort(function (a, b) { return a[0].localeCompare(b[0]); });
+      // Priority order: 1. Hilot Services, 2. Bonesetting & Hilot, 3. Add-Ons, 4. rest alphabetically
+      var CAT_PRIORITY = [
+        function (n) { return /hilot/i.test(n) && !/bonesett?ing/i.test(n); },
+        function (n) { return /bonesett?ing/i.test(n); },
+        function (n) { return /add?\s*[- ]?on/i.test(n); },
+      ];
+      function catRank(name) {
+        for (var i = 0; i < CAT_PRIORITY.length; i++) {
+          if (CAT_PRIORITY[i](name)) return i;
+        }
+        return CAT_PRIORITY.length;
+      }
+      var sorted = Object.entries(groups).sort(function (a, b) {
+        var ra = catRank(a[0]), rb = catRank(b[0]);
+        if (ra !== rb) return ra - rb;
+        return a[0].localeCompare(b[0]);
+      });
       var el = document.getElementById('services-content');
 
       if (sorted.length === 0) {
@@ -285,21 +335,14 @@
           '</div>' +
           '<div class="svc-card-grid">' +
             items.map(function (s) {
-              var words = titleCase(s.name).replace(/[()]/g, '').trim().split(/\s+/).filter(function (w) { return w.length > 1; });
-              var initials = words.length >= 2
-                ? (words[0][0] + words[1][0]).toUpperCase()
-                : words.length === 1 ? words[0].substring(0, 2).toUpperCase() : '?';
               var meta = s.duration > 0 ? s.duration + ' min' : '';
-              var imgHtml = s.image_url
-                ? '<img src="' + escHtml(s.image_url) + '" alt="' + escHtml(titleCase(s.name)) + '" class="svc-card-actual-img" loading="lazy" />'
-                : '<span class="svc-card-initial">' + escHtml(initials) + '</span>';
               return '<div class="svc-card" data-action="book-now">' +
-                '<div class="svc-card-img svc-color-' + (s.image_url ? 'none' : color) + '">' + imgHtml + '</div>' +
+                '<div class="svc-icon svc-color-' + color + '">' + svcIconSvg(s.name) + '</div>' +
                 '<div class="svc-card-body">' +
-                  '<h3 class="svc-card-name">' + escHtml(titleCase(s.name)) + '</h3>' +
+                  '<h3 class="svc-card-name">' + escHtml(cleanSvcName(s.name)) + '</h3>' +
                   (meta ? '<p class="svc-card-meta">' + escHtml(meta) + '</p>' : '') +
-                  '<button class="svc-card-book" data-action="book-now"><span>Find a Branch</span><span>\u2192</span></button>' +
                 '</div>' +
+                '<svg class="svc-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>' +
               '</div>';
             }).join('') +
           '</div>' +

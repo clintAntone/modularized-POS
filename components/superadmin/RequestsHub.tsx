@@ -17,6 +17,7 @@ interface RequestsHubProps {
   onRefresh?: () => void;
   isReadOnly?: boolean;
   reviewerName?: string;
+  allowedRequestTypes?: string[];
 }
 
 const TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -102,7 +103,7 @@ const STATUS_STYLE = {
 
 const fmt = (n: number) => formatPeso(n || 0);
 
-export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN' }) => {
+export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN', allowedRequestTypes }) => {
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const isProcessingRef = useRef(false);
@@ -159,14 +160,20 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
       : requests.map(r => optimisticStatus[r.id] ? { ...r, status: optimisticStatus[r.id] } : r),
   [requests, optimisticStatus]);
 
-  const pendingCount = useMemo(() => effectiveRequests.filter(r => r.status === 'PENDING').length, [effectiveRequests]);
+  const typeFilteredRequests = useMemo(() =>
+    allowedRequestTypes?.length
+      ? effectiveRequests.filter(r => allowedRequestTypes.includes(r.type))
+      : effectiveRequests,
+  [effectiveRequests, allowedRequestTypes]);
+
+  const pendingCount = useMemo(() => typeFilteredRequests.filter(r => r.status === 'PENDING').length, [typeFilteredRequests]);
 
   const branchScopedRequests = useMemo(() =>
-    selectedBranchIds.length > 0 ? effectiveRequests.filter(r => selectedBranchIds.includes(r.branchId)) : effectiveRequests,
-  [effectiveRequests, selectedBranchIds]);
+    selectedBranchIds.length > 0 ? typeFilteredRequests.filter(r => selectedBranchIds.includes(r.branchId)) : typeFilteredRequests,
+  [typeFilteredRequests, selectedBranchIds]);
 
   const filteredRequests = useMemo(() => {
-    let list = filter === 'ALL' ? effectiveRequests : effectiveRequests.filter(r => r.status === filter);
+    let list = filter === 'ALL' ? typeFilteredRequests : typeFilteredRequests.filter(r => r.status === filter);
     if (selectedBranchIds.length > 0) list = list.filter(r => selectedBranchIds.includes(r.branchId));
     if (deferredSearch.trim()) {
       const q = deferredSearch.trim().toLowerCase();
