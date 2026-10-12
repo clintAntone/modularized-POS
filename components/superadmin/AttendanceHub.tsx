@@ -20,9 +20,10 @@ interface AttendanceHubProps {
   employees: Employee[];
   onRefresh?: () => void;
   isReadOnly?: boolean;
+  allowedBranchIds?: string[] | null;
 }
 
-export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employees, onRefresh, isReadOnly }) => {
+export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employees, onRefresh, isReadOnly, allowedBranchIds }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
@@ -66,7 +67,12 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
 
         if (dateFrom) query = query.gte(DB_COLUMNS.DATE, dateFrom);
         if (dateTo)   query = query.lte(DB_COLUMNS.DATE, dateTo);
-        if (selectedBranchIds.length > 0) query = query.in(DB_COLUMNS.BRANCH_ID, selectedBranchIds);
+        // If allowedBranchIds is set, always restrict to those branches regardless of the dropdown.
+        // The user can further narrow within their allowed set via selectedBranchIds.
+        const effectiveBranchFilter = allowedBranchIds
+          ? (selectedBranchIds.length > 0 ? selectedBranchIds.filter(id => allowedBranchIds.includes(id)) : allowedBranchIds)
+          : selectedBranchIds;
+        if (effectiveBranchFilter.length > 0) query = query.in(DB_COLUMNS.BRANCH_ID, effectiveBranchFilter);
         if (debouncedSearch.trim()) query = query.ilike(DB_COLUMNS.STAFF_NAME, `%${debouncedSearch.trim()}%`);
         query = query.limit(2000);
 
@@ -90,7 +96,7 @@ export const AttendanceHub: React.FC<AttendanceHubProps> = ({ branches, employee
         if (token === fetchRef.current) setIsFetching(false);
       }
     })();
-  }, [dateFrom, dateTo, selectedBranchIds, debouncedSearch, refreshTick]);
+  }, [dateFrom, dateTo, selectedBranchIds, debouncedSearch, refreshTick, allowedBranchIds]);
 
   const selectedBranchLabel =
     selectedBranchIds.length === 0 ? 'All Branches'

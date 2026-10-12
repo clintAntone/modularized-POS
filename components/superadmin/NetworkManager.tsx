@@ -21,7 +21,7 @@ interface NetworkManagerProps {
 export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd, onAddBulk, onEdit, onToggle, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('all');
   const [managerFilter, setManagerFilter] = useState<'all' | 'has_manager' | 'no_manager'>('all');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);

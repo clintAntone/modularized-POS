@@ -115,6 +115,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // ── Scoped data (portal user branch restrictions) ────────────────────────
   const {
+    allowedBranchIds,
     scopedBranches, scopedSalesReports, scopedTransactions, scopedExpenses,
     scopedEmployees, scopedAttendance, scopedAuditLogs, scopedRequests,
   } = useScopedData({ isPortalUser, permissions, branches, salesReports, transactions, expenses, employees, attendance, auditLogs, requests: requests as any[] });
@@ -345,7 +346,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <React.Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" /></div>}>
           {mountedTabs.has('sales_hub')    && <div className={activeTab !== 'sales_hub'    ? 'hidden' : ''}><SalesHub branches={scopedBranches} salesReports={scopedSalesReports} salesReportsLoading={salesReportsLoading} employees={scopedEmployees} onRefresh={onRefresh} /></div>}
           {mountedTabs.has('devices')      && <div className={activeTab !== 'devices'      ? 'hidden' : ''}><DevicesHub branches={branches} /></div>}
-          {mountedTabs.has('attendance')   && <div className={activeTab !== 'attendance'   ? 'hidden' : ''}><AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('attendance')   && <div className={activeTab !== 'attendance'   ? 'hidden' : ''}><AttendanceHub attendance={scopedAttendance} branches={scopedBranches} employees={scopedEmployees} onRefresh={handleRefresh} isReadOnly={isReadOnly} allowedBranchIds={allowedBranchIds} /></div>}
           {mountedTabs.has('expenses')     && <div className={activeTab !== 'expenses'     ? 'hidden' : ''}><ExpensesHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
           {mountedTabs.has('audit')        && <div className={activeTab !== 'audit'        ? 'hidden' : ''}><GlobalAuditHub branches={scopedBranches} auditLogs={scopedAuditLogs} openAllDates={auditOpenAllDates} /></div>}
           {mountedTabs.has('analytics')   && <div className={activeTab !== 'analytics'    ? 'hidden' : ''}><AnalyticsHub branches={scopedBranches} salesReports={scopedSalesReports} /></div>}
