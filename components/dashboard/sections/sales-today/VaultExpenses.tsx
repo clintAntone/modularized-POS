@@ -185,8 +185,8 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                 <div className="flex items-center gap-1.5">
                   <p className="text-xs text-slate-400 tabular-nums">
                     {(() => {
-                      const date = new Date(e.timestamp.replace(/(\+00:00|Z)$/, ""));
-                      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                      const date = new Date(e.timestamp);
+                      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' });
                     })()}
                   </p>
                   {!isVaultDeposit && !isVaultWithdrawal && !isProvision && !e.receiptImage && (
@@ -408,8 +408,8 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                           </span>
                           <p className="text-xs text-slate-400 tabular-nums">
                             {(() => {
-                              const date = new Date((e.timestamp || '').replace(/(\+00:00|Z)$/, ''));
-                              return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                              const date = new Date(e.timestamp || '');
+                              return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' });
                             })()}
                           </p>
                         </div>
