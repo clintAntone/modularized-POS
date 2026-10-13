@@ -26,7 +26,7 @@ import { BranchNavbar } from './navigation/BranchNavbar';
 import { resumeAudioContext, playSound } from '../lib/audio';
 import { getEmployeeRole } from '../lib/payroll';
 import { supabase } from '../lib/supabase';
-import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr } from '../lib/time';
+import { getTrueDate, formatManilaDate, formatManilaTime, toManilaDateStr, getManilaTodayStr, syncWithServerTime } from '../lib/time';
 import { DB_TABLES } from '../constants/db_schema';
 import { Clock, Store, ChevronRight } from 'lucide-react';
 
@@ -67,6 +67,7 @@ interface BranchManagerDashboardProps {
   onSwitchBranch?: (branchId: string) => void;
   onSyncStatusChange?: (isSyncing: boolean) => void;
   isPreview?: boolean;
+  excludedBranches?: string[];
 }
 
 export type TabID = 'pos' | 'sales' | 'staff' | 'clients' | 'expenses_hub' | 'monthly_bills' | 'expense_reports' | 'salaries' | 'sales_reports' | 'remittance' | 'settings' | 'how_to' | 'backfill' | 'insights' | 'complaints';
@@ -146,11 +147,39 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
     return () => clearInterval(timer);
   }, []);
 
+  // Force currentTime refresh when tab/app returns to foreground (device wake-up, background restore).
+  // Without this, performance.now() stalling during sleep keeps todayStr stuck on the previous day,
+  // causing yesterday's clients to appear in the live sales view until the 60s interval fires.
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      setCurrentTime(getTrueDate()); // immediate update with best available time
+      await syncWithServerTime();    // re-sync monotonic baseline with server
+      setCurrentTime(getTrueDate()); // update again with server-corrected time
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   // Refetch sales reports immediately on tab entry + every 60s while active
   useEffect(() => {
     if (activeTab !== 'sales_reports') return;
     queryClient.invalidateQueries({ queryKey: ['salesReports'] });
     const interval = setInterval(() => queryClient.invalidateQueries({ queryKey: ['salesReports'] }), 60000);
+    return () => clearInterval(interval);
+  }, [activeTab, queryClient]);
+
+  // Refetch remittance data immediately on tab entry + every 60s while active
+  useEffect(() => {
+    if (activeTab !== 'remittance') return;
+    queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+    queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+    queryClient.invalidateQueries({ queryKey: ['vaultTransactions'] });
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['salesReportsHot'] });
+      queryClient.invalidateQueries({ queryKey: ['salesReportsWarm'] });
+      queryClient.invalidateQueries({ queryKey: ['vaultTransactions'] });
+    }, 60000);
     return () => clearInterval(interval);
   }, [activeTab, queryClient]);
 
@@ -285,7 +314,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
       setMountedTabs(prev => { const next = new Set(prev); next.add(tabId); return next; });
       setActiveTab(tabId);
       localStorage.setItem(`branch_tab_${props.branch?.id ?? 'default'}`, tabId);
-      if (['salaries', 'reports_master', 'sales', 'sales_reports'].includes(tabId)) props.onRefresh?.(true);
+      if (['salaries', 'reports_master', 'sales', 'sales_reports', 'remittance'].includes(tabId)) props.onRefresh?.(true);
     }
   };
 
@@ -294,7 +323,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
   const handleNavigateToComplaints = useCallback(() => changeTab('complaints'), [changeTab]);
 
   return (
-    <div className="pb-24 bg-slate-50 dark:bg-slate-900">
+    <div className="bg-slate-50 dark:bg-slate-900">
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {showClosingWarning && (
@@ -421,7 +450,7 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
             {mountedTabs.has('monthly_bills')  && <div className={activeTab !== 'monthly_bills'  ? 'hidden' : ''}><BranchVaultSection branch={props.branch} branchVault={props.branchVault} salesReports={props.salesReports} isClosedMode={!props.branch.isOpen} todayNetRoi={totals.net} todayStr={todayStr} performedBy={props.user.username ?? null} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('expense_reports') && <div className={activeTab !== 'expense_reports' ? 'hidden' : ''}><ExpenseLedgerSection branch={props.branch} expenses={props.expenses} salesReports={props.salesReports} /></div>}
             {mountedTabs.has('salaries')       && <div className={activeTab !== 'salaries'       ? 'hidden' : ''}><PayrollSection {...props} attendance={props.attendance} onRefresh={handleRefreshForce} /></div>}
-            {mountedTabs.has('sales_reports')  && <div className={activeTab !== 'sales_reports'  ? 'hidden' : ''}><BranchReportsTab branch={props.branch} salesReports={props.salesReports} salesReportsLoading={props.salesReportsLoading} branches={props.branches} employees={props.employees} branchVault={props.branchVault} /></div>}
+            {mountedTabs.has('sales_reports')  && <div className={activeTab !== 'sales_reports'  ? 'hidden' : ''}><BranchReportsTab branch={props.branch} salesReports={branchSalesReports} salesReportsLoading={props.salesReportsLoading} branches={props.branches} employees={props.employees} branchVault={props.branchVault} /></div>}
             {mountedTabs.has('backfill')       && <div className={activeTab !== 'backfill'       ? 'hidden' : ''}><BackfillRequestSection branch={props.branch} branchVault={props.branchVault} employees={branchEmployees} transactions={props.transactions} expenses={props.expenses} attendance={props.attendance} salesReports={props.salesReports} vaultTransactions={props.vaultTransactions} requests={props.requests ?? []} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('settings')       && <div className={activeTab !== 'settings'       ? 'hidden' : ''}><SettingsSection user={props.user} branch={props.branch} branches={props.branches} todayTxs={todayTxs} todayAtt={todayAtt} todayReportExists={todayReportExists} employees={props.employees} branchVault={props.branchVault} isRelief={props.isRelief} onRefresh={props.onRefresh} /></div>}
             {mountedTabs.has('insights')        && <div className={activeTab !== 'insights'        ? 'hidden' : ''}><InsightsHub branches={[props.branch]} salesReports={branchSalesReports} isBranchView /></div>}
@@ -430,6 +459,15 @@ const BranchManagerDashboard: React.FC<BranchManagerDashboardProps> = (props) =>
           </React.Suspense>
         </div>
       </div>
+
+      {/* ── Tracking Excluded fixed footer ──────────────────────────────────── */}
+      {props.excludedBranches?.some(name =>
+        props.branch.name?.toUpperCase().includes(name.toUpperCase())
+      ) && (
+        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-amber-200 text-amber-700 text-center text-xs font-bold uppercase tracking-widest py-2 no-print">
+          Tracking Excluded
+        </div>
+      )}
     </div>
   );
 };

@@ -4,11 +4,12 @@ import { Branch } from '../../../types';
 interface OwnerSharesProps {
   owners: { name: string; percentage: number }[];
   groupLevy?: { name: string; percentage: number } | null;
+  rankingBoost?: number | null;
   isSaving: boolean;
   onUpdate: (updates: Partial<Branch>) => void;
 }
 
-export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isSaving, onUpdate }) => {
+export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, rankingBoost, isSaving, onUpdate }) => {
   const handleAddOwner = () => {
     onUpdate({ owners: [...owners, { name: '', percentage: 0 }] });
   };
@@ -93,6 +94,30 @@ export const OwnerShares: React.FC<OwnerSharesProps> = ({ owners, groupLevy, isS
           </div>
         </div>
       )}
+
+      {/* ── Ranking Boost ── */}
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-sm">📈</div>
+          <div>
+            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Ranking Boost</h4>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Multiplies analytics score by (1 + boost%)</p>
+          </div>
+        </div>
+        <div className="w-24 relative">
+          <input
+            type="number"
+            value={rankingBoost ?? ''}
+            min={0}
+            max={100}
+            placeholder="0"
+            onChange={e => onUpdate({ rankingBoost: e.target.value === '' ? null : Number(e.target.value) })}
+            disabled={isSaving}
+            className="w-full bg-white border border-slate-200 pl-4 pr-8 py-3 rounded-xl text-xs font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">%</span>
+        </div>
+      </div>
 
       {/* ── Owner Shares ── */}
       <div className="flex items-center justify-between mb-2 mt-6">

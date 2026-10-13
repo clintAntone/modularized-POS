@@ -301,48 +301,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       await supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).delete().eq(DB_COLUMNS.ID, id);
       setAdjustments(prev => prev.filter(a => a.id !== id));
 
-      // Cascade: if this was a vault remittance, remove the matching vault_data entry and reverse balance
+      // Cascade: if this was a vault deposit, remove the vault_transaction and reverse balance
       if (adj?.description === 'VAULT DEPOSIT' && adj.targetOwner) {
-        const vaultEntryId = adj.targetOwner;
-        const reportDate = adj.createdAt.slice(0, 10); // YYYY-MM-DD
-        const reportId = `${branch.id}_${reportDate.replace(/-/g, '')}`;
-
-        const { data: existingReport } = await supabase
-          .from(DB_TABLES.SALES_REPORTS)
-          .select(DB_COLUMNS.VAULT_DATA)
-          .eq(DB_COLUMNS.ID, reportId)
-          .maybeSingle();
-
-        if (existingReport) {
-          const existingVaultData: any[] = typeof existingReport[DB_COLUMNS.VAULT_DATA] === 'string'
-            ? JSON.parse(existingReport[DB_COLUMNS.VAULT_DATA])
-            : (existingReport[DB_COLUMNS.VAULT_DATA] || []);
-
-          const removedEntry = existingVaultData.find((e: any) => e.id === vaultEntryId);
-          const filteredVaultData = existingVaultData.filter((e: any) => e.id !== vaultEntryId);
-
-          await supabase.from(DB_TABLES.SALES_REPORTS)
-            .update({ [DB_COLUMNS.VAULT_DATA]: filteredVaultData })
-            .eq(DB_COLUMNS.ID, reportId);
-
-          if (removedEntry) {
-            const reverseAmt = Number(removedEntry.amount) || Math.abs(adj.amount);
-            const newBalance = (vaultBalance ?? 0) - reverseAmt;
-            await Promise.all([
-              // Remove the vault_transaction record so VaultFundHub stays in sync
-              supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
-                .delete()
-                .eq(DB_COLUMNS.ID, vaultEntryId),
-              // Reverse the vault balance
-              supabase.from(DB_TABLES.BRANCH_VAULTS)
-                .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-                .eq(DB_COLUMNS.BRANCH_ID, branch.id),
-            ]);
-            setVaultBalance(newBalance);
-            queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
-            onRefresh?.();
-          }
-        }
+        const reverseAmt = Math.abs(adj.amount);
+        const newBalance = (vaultBalance ?? 0) - reverseAmt;
+        await Promise.all([
+          supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
+            .delete()
+            .eq(DB_COLUMNS.ID, adj.targetOwner),
+          supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id),
+        ]);
+        setVaultBalance(newBalance);
+        queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+        onRefresh?.();
       }
 
       playSound('click');
@@ -407,7 +380,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         agg.totalStaffPay       += staffPay;
         agg.totalExpenses       += expenses;
         agg.totalVaultProvision += vaultDeposit;
-        agg.netRoi              += gross - staffPay - expenses - vaultDeposit;
+        agg.netRoi              += report.netRoi ?? 0;
         agg.reportCount         += 1;
         groups[key].reports.push(report);
       });
@@ -535,7 +508,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (!currentGroup) return;
     playSound('click');
     const XLSX = await import('xlsx');
-    const owners: any[] = branch.owners || [];
+    const history = branch.ownersHistory;
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history && history.length > 0
+      ? history.filter((e: any) => e.effectiveDate <= weekStartDate).sort((a: any, b: any) => b.effectiveDate.localeCompare(a.effectiveDate))
+      : [];
+    const owners: any[] = applicable[0]?.owners ?? branch.owners ?? [];
     const agg = currentGroup.aggregate;
     const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
     const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
@@ -568,7 +546,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   }
 
   const agg = currentGroup.aggregate;
-  const owners: any[] = branch.owners || [];
+
+  // Resolve which owner percentages were in effect for this period's week start.
+  // Falls back to current branch.owners if no history exists.
+  const owners: any[] = (() => {
+    const history = branch.ownersHistory;
+    if (!history || history.length === 0) return branch.owners || [];
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history
+      .filter(e => e.effectiveDate <= weekStartDate)
+      .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+    return applicable[0]?.owners ?? branch.owners ?? [];
+  })();
+
   const levy = branch.groupLevy || null;
   const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
   // VAULT DEPOSIT uses targetOwner to store the vault_data entry ID (not an owner name)
@@ -576,7 +566,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalGlobalAdj;
-  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+  const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
   const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
   const formKey = currentGroup.label;

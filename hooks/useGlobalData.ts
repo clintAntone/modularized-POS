@@ -22,7 +22,8 @@ const COLS = {
         DB_COLUMNS.OPENING_TIME, DB_COLUMNS.CLOSING_TIME,
         DB_COLUMNS.ADDRESS, DB_COLUMNS.PIN_LOCATION,
         DB_COLUMNS.SHIFT2_OPENING_TIME, DB_COLUMNS.SHIFT2_CLOSING_TIME,
-        DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.CUTOFF_HISTORY,
+        DB_COLUMNS.CONTACT_NUMBER,
+        DB_COLUMNS.OWNERS, DB_COLUMNS.GROUP_LEVY, DB_COLUMNS.RANKING_BOOST, DB_COLUMNS.REFRESH_SIGNAL, DB_COLUMNS.VAULT_ENABLED, DB_COLUMNS.COOP_OWNED, DB_COLUMNS.CUTOFF_HISTORY,
     ].join(','),
     employees: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.NAME, DB_COLUMNS.FIRST_NAME,
@@ -46,11 +47,22 @@ const COLS = {
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
         DB_COLUMNS.NAME, DB_COLUMNS.AMOUNT, DB_COLUMNS.CATEGORY, DB_COLUMNS.RECEIPT_IMAGE,
     ].join(','),
-    salesReports: [
+    // salesReports columns are role-dependent — built dynamically in the query below
+    salesReportsBranchManager: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
         DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
-        DB_COLUMNS.EXPENSE_DATA, DB_COLUMNS.STAFF_BREAKDOWN, DB_COLUMNS.BACKFILLED,
+        DB_COLUMNS.BACKFILLED,
+    ].join(','),
+    // staff_breakdown and vault_data are lazy-loaded per-tab via
+    // useReportStaffBreakdown / useReportVaultData to avoid fetching
+    // large JSON blobs for all 4,500+ reports on every login.
+    salesReportsSuperAdmin: [
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
+        DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
+        DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
+        DB_COLUMNS.BACKFILLED,
+        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.EXPENSE_DATA,
     ].join(','),
     vaultTransactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
@@ -65,7 +77,7 @@ const COLS = {
     attendance: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID,
         DB_COLUMNS.STAFF_NAME, DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT,
-        DB_COLUMNS.CLOCK_IN_METHOD, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
+        DB_COLUMNS.CLOCK_IN_METHOD, DB_COLUMNS.CLOCK_IN_PHOTO_URL, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION, DB_COLUMNS.OT_PAY,
         DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY, DB_COLUMNS.CREATED_AT, DB_COLUMNS.SHIFT,
     ].join(','),
     requests: [
@@ -103,6 +115,7 @@ export const useGlobalData = (auth: AuthState) => {
     const [forceLogoutRegistry, setForceLogoutRegistry] = useState<Record<string, number>>({});
     const [displayChanges, setDisplayChanges] = useState(false);
     const [faceIdDisabledBranches, setFaceIdDisabledBranches] = useState<string[]>([]);
+    const [excludedBranches, setExcludedBranches] = useState<string[]>([]);
     // Heavy queries (transactions, expenses, etc.) are deferred until branches+employees finish
     // loading to avoid a network congestion spike on login.
     const [deferredEnabled, setDeferredEnabled] = useState(false);
@@ -242,6 +255,7 @@ export const useGlobalData = (auth: AuthState) => {
             closingTime: db[DB_COLUMNS.CLOSING_TIME] ?? '22:00',
             shift2OpeningTime: db[DB_COLUMNS.SHIFT2_OPENING_TIME] || undefined,
             shift2ClosingTime: db[DB_COLUMNS.SHIFT2_CLOSING_TIME] || undefined,
+            contactNumber: db[DB_COLUMNS.CONTACT_NUMBER] || undefined,
             owners: typeof db[DB_COLUMNS.OWNERS] === 'string'
                 ? JSON.parse(db[DB_COLUMNS.OWNERS])
                 : (db[DB_COLUMNS.OWNERS] || []),
@@ -250,10 +264,17 @@ export const useGlobalData = (auth: AuthState) => {
                 if (!raw) return null;
                 try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
             })(),
+            rankingBoost: db[DB_COLUMNS.RANKING_BOOST] != null ? Number(db[DB_COLUMNS.RANKING_BOOST]) : null,
             refreshSignal: db[DB_COLUMNS.REFRESH_SIGNAL] ? Number(db[DB_COLUMNS.REFRESH_SIGNAL]) : null,
             vaultEnabled: Boolean(db[DB_COLUMNS.VAULT_ENABLED]),
+            coopOwned: Boolean(db[DB_COLUMNS.COOP_OWNED]),
             cutoffHistory: (() => {
                 const raw = db[DB_COLUMNS.CUTOFF_HISTORY];
+                if (!raw) return [];
+                try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); } catch { return []; }
+            })(),
+            ownersHistory: (() => {
+                const raw = db[DB_COLUMNS.OWNERS_HISTORY];
                 if (!raw) return [];
                 try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); } catch { return []; }
             })(),
@@ -317,9 +338,8 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbBranch);
         }),
-        enabled: !!supabase,
-        staleTime: 0,
-        gcTime: 0,
+        enabled: !!supabase && !!auth.user,
+        staleTime: 60 * 1000, // 1 min — branches change rarely; avoid refetch on every mount
     });
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
@@ -332,27 +352,30 @@ export const useGlobalData = (auth: AuthState) => {
             if (error) throw error;
             return data.map(mapDbEmployee);
         }),
-        enabled: !!supabase,
+        enabled: !!supabase && !!auth.user,
         staleTime: 5 * 60 * 1000
     });
 
     // Reset deferred flag on logout; enable it once the lightweight core queries settle.
+    // Guard: require branches.length > 0 to avoid a race where both loading flags are
+    // briefly false before React Query actually starts the fetch (enabled just became true).
     useEffect(() => {
         if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
-        if (!branchesLoading && !employeesLoading) {
+        if (!branchesLoading && !employeesLoading && branches.length > 0) {
             setDeferredEnabled(true);
             // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
             const t = setTimeout(() => setHistoryEnabled(true), 1500);
             return () => clearTimeout(t);
         }
-    }, [auth.user, branchesLoading, employeesLoading]);
+    }, [auth.user, branchesLoading, employeesLoading, branches.length]);
 
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
             if (!supabase) return [];
             const lookbackDate = getTrueDate();
-            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            const lookbackDays = auth.user?.role === UserRole.BRANCH_MANAGER ? 30 : 30;
+            lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
             const lookbackIso = lookbackDate.toISOString();
 
             let query = supabase.from(DB_TABLES.TRANSACTIONS).select(COLS.transactions).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(2000);
@@ -371,11 +394,13 @@ export const useGlobalData = (auth: AuthState) => {
                 paymentMethod: t[DB_COLUMNS.PAYMENT_METHOD],
                 paymentStatus: t[DB_COLUMNS.PAYMENT_STATUS],
                 paymongoLinkId: t[DB_COLUMNS.PAYMONGO_LINK_ID],
-                note: t[DB_COLUMNS.NOTE]
+                note: t[DB_COLUMNS.NOTE],
+                signatureUrl: undefined
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000, // polling fallback if realtime drops on mobile
     });
 
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
@@ -398,87 +423,113 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 30 * 1000,
+        refetchInterval: 60 * 1000, // realtime covers most updates; polling is a fallback
     });
 
-    const { data: salesReports = [], isLoading: salesReportsLoading, error: salesReportsError } = useQuery({
-        queryKey: ['salesReports', auth.user?.branchId],
+    // Shared mapper for sales_reports rows → SalesReport objects
+    const mapSalesReportRow = (r: any): SalesReport => ({
+        id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
+        grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
+        totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
+        netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
+        backfilled: r[DB_COLUMNS.BACKFILLED] === true,
+        sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
+        staffBreakdown: [], // lazy — use useReportStaffBreakdown() (ReportAuditHub)
+        expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
+        vaultData: [], // lazy — use useReportVaultData() (SalesReportHub, ExpensesHub)
+    });
+
+    const toYmd = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+
+    // HOT query — last 10 days (superadmin) or 90 days (branch manager).
+    // This unblocks the UI: salesReportsLoading becomes false as soon as this resolves.
+    // Today's data is always in this slice so SalesHub renders immediately after.
+    const { data: salesReportsHot = [], isLoading: salesReportsHotLoading, error: salesReportsError } = useQuery({
+        queryKey: ['salesReportsHot', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.SALES_REPORTS, async () => {
             if (!supabase) return [];
-            const lookbackDate = getTrueDate();
-            // Superadmin: initial load covers 2 months (~60 days). ArchiveHub's
-            // infinite scroll fetches older records on demand as the user scrolls.
-            // Branch managers keep 90 days since they have no infinite scroll.
-            const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
-            lookbackDate.setDate(lookbackDate.getDate() - (isBranchManager ? 90 : 60));
-            const lbd = lookbackDate;
-            const lookbackYmd = `${lbd.getFullYear()}-${String(lbd.getMonth() + 1).padStart(2, '0')}-${String(lbd.getDate()).padStart(2, '0')}`;
-
-            // Branch managers cap at 500 rows (90 days × 1 branch always fits in one page).
-            // Superadmin uses 1000-row pages and may span multiple pages.
-            const PAGE_SIZE = isBranchManager ? 500 : 1000;
-
-            const buildPage = (from: number) => {
-                let q = supabase
+            if (isBranchManager) {
+                const lookbackDate = getTrueDate();
+                lookbackDate.setDate(lookbackDate.getDate() - 90);
+                const { data, error } = await supabase
                     .from(DB_TABLES.SALES_REPORTS)
-                    .select(COLS.salesReports)
+                    .select(COLS.salesReportsBranchManager)
                     .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
                     .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-                    .gte(DB_COLUMNS.REPORT_DATE, lookbackYmd)
-                    .range(from, from + PAGE_SIZE - 1);
-                if (isBranchManager && auth.user?.branchId) {
-                    q = q.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-                }
-                return q;
-            };
-
-            let allRows: any[] = [];
-
-            if (isBranchManager) {
-                // Single-page fetch — one branch always fits within 500 rows
-                const { data, error } = await buildPage(0);
+                    .gte(DB_COLUMNS.REPORT_DATE, toYmd(lookbackDate))
+                    .eq(DB_COLUMNS.BRANCH_ID, auth.user!.branchId!)
+                    .limit(500);
                 if (error) throw error;
-                allRows = data || [];
-            } else {
-                // Superadmin: fetch the first 3 pages in parallel, then continue
-                // sequentially if the last parallel page came back full (rare).
-                const PARALLEL_BATCH = 3;
-                const results = await Promise.all(
-                    Array.from({ length: PARALLEL_BATCH }, (_, i) => buildPage(i * PAGE_SIZE))
-                );
-                for (const { data, error } of results) {
-                    if (error) throw error;
-                    if (data && data.length > 0) allRows.push(...data);
-                }
-                // If the last parallel page was full there may be a 4th+ page
-                const lastBatch = results[PARALLEL_BATCH - 1];
-                if ((lastBatch.data?.length ?? 0) === PAGE_SIZE) {
-                    let from = PARALLEL_BATCH * PAGE_SIZE;
-                    while (true) {
-                        const { data, error } = await buildPage(from);
-                        if (error) throw error;
-                        if (data && data.length > 0) allRows.push(...data);
-                        if (!data || data.length < PAGE_SIZE) break;
-                        from += PAGE_SIZE;
-                    }
-                }
+                return (data || []).map(mapSalesReportRow);
             }
-
-            return allRows.map(r => ({
-                id: r[DB_COLUMNS.ID], branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: normalizeDateStr(r[DB_COLUMNS.REPORT_DATE]), submittedAt: r[DB_COLUMNS.SUBMITTED_AT],
-                grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0), totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
-                totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
-                netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
-                backfilled: r[DB_COLUMNS.BACKFILLED] === true,
-                sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
-                staffBreakdown: typeof r[DB_COLUMNS.STAFF_BREAKDOWN] === 'string' ? JSON.parse(r[DB_COLUMNS.STAFF_BREAKDOWN]) : (r[DB_COLUMNS.STAFF_BREAKDOWN] || []),
-                expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
-                vaultData: typeof r[DB_COLUMNS.VAULT_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.VAULT_DATA]) : (r[DB_COLUMNS.VAULT_DATA] || []),
-            }));
+            // Superadmin: most recent 10 days
+            const sliceEnd = getTrueDate();
+            const sliceStart = getTrueDate();
+            sliceStart.setDate(sliceStart.getDate() - 10);
+            const { data, error } = await supabase
+                .from(DB_TABLES.SALES_REPORTS)
+                .select(COLS.salesReportsSuperAdmin)
+                .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+                .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+                .gte(DB_COLUMNS.REPORT_DATE, toYmd(sliceStart))
+                .lte(DB_COLUMNS.REPORT_DATE, toYmd(sliceEnd))
+                .limit(2000);
+            if (error) throw error;
+            return (data || []).map(mapSalesReportRow);
         }),
         enabled: !!supabase && historyEnabled,
-        staleTime: 2 * 60 * 1000
+        staleTime: 2 * 60 * 1000,
     });
+
+    // WARM query — superadmin only, 10-30 days ago, loads in background.
+    // Does not block the UI. Merged into salesReports once available.
+    const { data: salesReportsWarm = [] } = useQuery({
+        queryKey: ['salesReportsWarm', auth.user?.branchId],
+        queryFn: async () => {
+            if (!supabase) return [];
+            // Use lt (exclusive) for upper bound so slices don't overlap:
+            // hot:      [today-10, today]    (lte today)
+            // warm i=1: [today-20, today-10) (lt today-10, excludes the boundary date)
+            // warm i=2: [today-30, today-20) (lt today-20, excludes the boundary date)
+            const results = await Promise.all([1, 2].map(i => {
+                const sliceEnd = getTrueDate();
+                sliceEnd.setDate(sliceEnd.getDate() - i * 10);
+                const sliceStart = getTrueDate();
+                sliceStart.setDate(sliceStart.getDate() - (i + 1) * 10);
+                return supabase
+                    .from(DB_TABLES.SALES_REPORTS)
+                    .select(COLS.salesReportsSuperAdmin)
+                    .order(DB_COLUMNS.REPORT_DATE, { ascending: false })
+                    .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+                    .gte(DB_COLUMNS.REPORT_DATE, toYmd(sliceStart))
+                    .lt(DB_COLUMNS.REPORT_DATE, toYmd(sliceEnd))  // exclusive — no overlap with prior slice
+                    .limit(2000);
+            }));
+            const rows: any[] = [];
+            for (const { data, error } of results) {
+                if (error) throw error;
+                if (data) rows.push(...data);
+            }
+            return rows.map(mapSalesReportRow);
+        },
+        enabled: !!supabase && historyEnabled && !isBranchManager,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Merge hot + warm, deduplicating by id
+    const salesReports = useMemo(() => {
+        if (salesReportsWarm.length === 0) return salesReportsHot;
+        const hotIds = new Set(salesReportsHot.map((r: SalesReport) => r.id));
+        return [...salesReportsHot, ...salesReportsWarm.filter((r: SalesReport) => !hotIds.has(r.id))];
+    }, [salesReportsHot, salesReportsWarm]);
+
+    // Treat "not yet enabled" (historyEnabled=false) the same as actively loading.
+    // Only block on the hot query — warm loads silently in the background.
+    const salesReportsLoading = !historyEnabled || salesReportsHotLoading;
 
     const { data: vaultTransactions = [] } = useQuery({
         queryKey: ['vaultTransactions', auth.user?.branchId],
@@ -557,6 +608,7 @@ export const useGlobalData = (auth: AuthState) => {
                 id: att[DB_COLUMNS.ID], branchId: att[DB_COLUMNS.BRANCH_ID], employeeId: att[DB_COLUMNS.EMPLOYEE_ID],
                 staffName: att[DB_COLUMNS.STAFF_NAME], date: att[DB_COLUMNS.DATE], clockIn: att[DB_COLUMNS.CLOCK_IN],
                 clockOut: att[DB_COLUMNS.CLOCK_OUT], clockInMethod: att[DB_COLUMNS.CLOCK_IN_METHOD] ?? undefined,
+                clockInPhotoUrl: att[DB_COLUMNS.CLOCK_IN_PHOTO_URL] ?? undefined,
                 status: att[DB_COLUMNS.STATUS], lateDeduction: Number(att[DB_COLUMNS.LATE_DEDUCTION] || 0),
                 otPay: Number(att[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(att[DB_COLUMNS.CASH_ADVANCE] || 0),
                 isHalfDay: Boolean(att[DB_COLUMNS.IS_HALF_DAY]),
@@ -600,8 +652,7 @@ export const useGlobalData = (auth: AuthState) => {
             }));
         }),
         enabled: !!supabase && deferredEnabled,
-        staleTime: 30 * 1000,
-        refetchInterval: 30 * 1000,
+        staleTime: 60 * 1000, // realtime handles live updates; polling every 30s is excessive
     });
 
     const { data: employeeComplaints = [] } = useQuery<EmployeeComplaint[]>({
@@ -719,6 +770,8 @@ export const useGlobalData = (auth: AuthState) => {
                 const version = find('version');
                 setDisplayChanges(displayChangesVal === 'true');
                 try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+                const excludedVal = find('excluded_branches');
+                try { setExcludedBranches(excludedVal ? JSON.parse(excludedVal) : []); } catch { setExcludedBranches([]); }
                 if (nameVal) setDynamicAppName(nameVal);
                 if (version) setSystemVersion(version);
                 if (fontVal) setFontFamily(fontVal);
@@ -752,6 +805,8 @@ export const useGlobalData = (auth: AuthState) => {
             setDisplayChanges(displayChangesVal === 'true');
             const faceIdDisabledVal = configData.find(c => c[DB_COLUMNS.KEY] === 'face_id_disabled_branches')?.value;
             try { setFaceIdDisabledBranches(faceIdDisabledVal ? JSON.parse(faceIdDisabledVal) : []); } catch { setFaceIdDisabledBranches([]); }
+            const excludedBranchesVal = configData.find(c => c[DB_COLUMNS.KEY] === 'excluded_branches')?.value;
+            try { setExcludedBranches(excludedBranchesVal ? JSON.parse(excludedBranchesVal) : []); } catch { setExcludedBranches([]); }
             if (nameVal) { setDynamicAppName(nameVal); localStorage.setItem('hilot_cached_app_name', nameVal); }
             if (version) setSystemVersion(version);
             if (fontVal) setFontFamily(fontVal);
@@ -852,7 +907,7 @@ export const useGlobalData = (auth: AuthState) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EXPENSES }, () => refreshDatabase('expenses'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.EMPLOYEES }, () => refreshDatabase('employees'))
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.ATTENDANCE }, () => refreshDatabase('attendance'))
-            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => refreshDatabase('salesReports'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SALES_REPORTS }, () => { refreshDatabase('salesReportsHot'); refreshDatabase('salesReportsWarm'); })
             .on('postgres_changes', { event: '*', schema: 'public', table: DB_TABLES.SERVICE_CATALOGS }, () => refreshDatabase('service_catalogs'))
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DB_TABLES.REQUESTS }, (payload: any) => {
                 refreshDatabase('requests');
@@ -903,6 +958,6 @@ export const useGlobalData = (auth: AuthState) => {
         salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
         systemLogo, systemVersion, systemLatest, apkUrl,
         dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, connStatus,
-        pendingSyncCount, forceLogoutRegistry, refreshDatabase
+        pendingSyncCount, forceLogoutRegistry, refreshDatabase, excludedBranches
     };
 };
