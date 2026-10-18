@@ -373,6 +373,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const typeLabel =
           t.type === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
           t.type === 'DEPOSIT' ? 'Manager Deposit' :
+          t.type === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
           t.type === 'WITHDRAWAL' ? 'Withdrawal' :
           t.type === 'VAULT_WITHDRAWAL' ? 'Vault Withdrawal' : t.type;
         rows.push([
@@ -395,7 +396,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     const startDate = vaultRows[branchId]?.startDate ?? null;
     const txList = type === 'deposits'
       ? detailTxns
-          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
           .filter(t => !startDate || (t.timestamp ?? '').slice(0, 10) >= startDate)
           .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
       : detailTxns
@@ -414,6 +415,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       const typeLabel =
         t.type === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
         t.type === 'DEPOSIT' ? 'Manager Deposit' :
+        t.type === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
         t.type === 'WITHDRAWAL' ? 'Withdrawal' :
         t.type === 'VAULT_WITHDRAWAL' ? 'Vault Withdrawal' : t.type;
       const sign = (t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL') ? '-' : '+';
@@ -553,7 +555,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const historicalTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     vaultTransactions
-      .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+      .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
       .forEach(t => {
         const startDate = vaultRows[t.branchId]?.startDate;
         if (startDate && t.timestamp.slice(0, 10) < startDate) return;
@@ -594,7 +596,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   const branchDepositHistory = useMemo(() => {
     const map: Record<string, Array<{ id: string; date: string; timestamp: string; amount: number; category: string; name: string | null; performedBy?: string | null }>> = {};
     [...vaultTransactions]
-      .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+      .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
       .forEach(t => {
         const startDate = vaultRows[t.branchId]?.startDate;
@@ -1563,7 +1565,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         // Use per-branch direct fetch for the modal (avoids global 1000-row cap)
         const startDate = vaultRows[branch.id]?.startDate ?? null;
         const branchHistory = detailTxns
-          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
           .filter(t => !startDate || (t.timestamp ?? '').slice(0, 10) >= startDate)
           .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, category: t.type, name: t.name ?? null, performedBy: t.performedBy }));
         const branchWithdrawals = detailTxns
@@ -1954,6 +1956,13 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
                                   const isAdmin = entry.category === 'ADMIN_DEPOSIT';
+                                  const isRemittance = entry.category === 'REMITTANCE_DEPOSIT';
+                                  const depositLabel = isAdmin ? 'Admin' : isRemittance ? 'Remittance' : 'Manager';
+                                  const depositStyle = isAdmin
+                                    ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50'
+                                    : isRemittance
+                                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-transparent dark:border-amber-700/50'
+                                    : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50';
                                   const timePart = entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : null;
                                   return (
                                     <div key={i} className="px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
@@ -1964,8 +1973,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
                                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50'}`}>
-                                              {isAdmin ? 'Admin' : 'Manager'}
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>
+                                              {depositLabel}
                                             </span>
                                             {(entry.performedBy || entry.name) && (
                                               <span className="text-xs font-medium text-slate-400 truncate">{entry.performedBy || entry.name}</span>
@@ -1982,7 +1991,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           {timePart && <p className="text-xs font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
                                         <div>
-                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50'}`}>{isAdmin ? 'Admin' : 'Manager'}</span>
+                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>{depositLabel}</span>
                                           {(entry.performedBy || entry.name) && <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[130px]">{entry.performedBy || entry.name}</p>}
                                         </div>
                                         <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>

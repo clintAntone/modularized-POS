@@ -124,7 +124,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
         [DB_COLUMNS.ID]: entryId,
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TYPE]: 'DEPOSIT',
+        [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
         [DB_COLUMNS.AMOUNT]: amt,
         [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
         [DB_COLUMNS.TIMESTAMP]: timestamp,
@@ -263,7 +263,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         setAdjustments(prev => [...prev, { id: adjData.id, branchId: adjData.branch_id, periodLabel: adjData.period_label, description: adjData.description, amount: Number(adjData.amount), targetOwner: entryId, createdAt: adjData.created_at }]);
 
         await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-          [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'DEPOSIT',
+          [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
           [DB_COLUMNS.AMOUNT]: depositAmt, [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
           [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
         });
