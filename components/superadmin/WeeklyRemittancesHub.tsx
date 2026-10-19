@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileDown, CheckCircle, XCircle, Plus, Minus, Trash2, ArrowLeftRight } from 'lucide-react';
+import { FileDown, CheckCircle, XCircle, Plus, Minus, Trash2, ArrowLeftRight, Landmark } from 'lucide-react';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface WeeklyRemittancesHubProps {
@@ -2520,10 +2520,17 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </div>
                         {totalGlobalAdj !== 0 && (
                           <div className="flex justify-between py-1.5">
-                            <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                            <span className="text-slate-500 text-xs">Adjustments</span>
                             <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                               {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
                             </span>
+                          </div>
+                        )}
+
+                        {totalGlobalAdj !== 0 && (
+                          <div className="flex justify-between py-1.5">
+                            <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Adjusted ROI</span>
+                            <span className={`text-sm font-black tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{adjustedRoi < 0 ? '−' : ''}{fmt(Math.abs(adjustedRoi))}</span>
                           </div>
                         )}
 
@@ -2577,44 +2584,114 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         {owners.length === 0 && (
                           <p className="text-xs text-slate-400 italic py-2">No owners configured</p>
                         )}
+                      </div>{/* /receipt-body */}
 
-                        {/* Adjustments */}
-                        <div className="border-t-2 border-dashed border-slate-200 my-2" />
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
+                      {/* ── Adjustments panel — full card width for spacious columnar layout ── */}
+                      {(rowAdj.length > 0 || adjFormKey === rKey) && (
+                        <div className="border-t border-slate-100 dark:border-slate-700 px-6 py-4 space-y-3">
+                          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Adjustments</p>
 
-                          {rowAdj.map(adj => (
-                            <div
-                              key={adj.id}
-                              className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                                <div className="min-w-0">
-                                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-tight truncate block">{adj.description}</span>
-                                  {adj.targetOwner && (
-                                    <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">→ {adj.targetOwner}</span>
+                          {rowAdj.length > 0 && (() => {
+                            const canDelete = !isReadOnly && sub?.status !== 'approved';
+                            const ownerNames: string[] = owners.map((o: any) => o.name as string);
+                            const nonVaultAdj = rowAdj.filter(a => a.description !== 'VAULT DEPOSIT');
+                            const vaultAdj = rowAdj.filter(a => a.description === 'VAULT DEPOSIT');
+                            const hasOwnerCols = ownerNames.length >= 2 && nonVaultAdj.some(a => !!a.targetOwner);
+
+                            const renderRow = (adj: RemittanceAdjustment) => (
+                              <div key={adj.id} className="flex items-center justify-between gap-3 py-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-tight">{adj.description}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`text-xs font-black tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                  </span>
+                                  {canDelete && (
+                                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
-                                  {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                                </span>
-                                {!isReadOnly && sub?.status !== 'approved' && (
-                                  <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
 
-                          {rowAdj.length === 0 && adjFormKey !== rKey && (
-                            <p className="text-xs text-slate-400 italic">No adjustments</p>
-                          )}
-                        </div>{/* /space-y-1.5 */}
-                      </div>{/* /receipt-body */}
+                            return (
+                              <div className="space-y-2">
+                                {vaultAdj.map(a => (
+                                  <div key={a.id} className="flex items-center gap-2 py-1">
+                                    <Landmark className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                                    <span className="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest flex-1">Vault Deposit</span>
+                                    <span className="text-sm font-black text-teal-600 dark:text-teal-400 tabular-nums">{fmt(Math.abs(a.amount))}</span>
+                                  </div>
+                                ))}
+
+                                {!hasOwnerCols && <div className="space-y-0.5">{nonVaultAdj.map(renderRow)}</div>}
+
+                                {hasOwnerCols && (() => {
+                                  const globalRows = nonVaultAdj.filter(a => !a.targetOwner);
+                                  const ownerBuckets = ownerNames.map((name: string) => ({
+                                    name,
+                                    rows: nonVaultAdj.filter(a => a.targetOwner === name),
+                                    net: nonVaultAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0),
+                                  }));
+                                  return (
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-y-5">
+                                        {ownerBuckets.map((bucket, bIdx) => (
+                                          <div key={bucket.name} className={[
+                                            bIdx % 2 !== 0 ? 'border-l border-slate-200 dark:border-slate-700 pl-5' : 'pr-5',
+                                          ].join(' ')}>
+                                            {/* Owner header — primary level */}
+                                            <div className="flex items-center justify-between mb-3">
+                                              <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{bucket.name}</p>
+                                              {bucket.rows.length > 0 && (
+                                                <span className={`text-sm font-black tabular-nums shrink-0 ${bucket.net < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                  {bucket.net >= 0 ? '+' : ''}{fmt(bucket.net)}
+                                                </span>
+                                              )}
+                                            </div>
+                                            {/* Items — secondary level, indented */}
+                                            <div className="pl-2 space-y-1.5">
+                                              {bucket.rows.length === 0 ? (
+                                                <p className="text-[10px] text-slate-400 dark:text-slate-600 italic">None</p>
+                                              ) : bucket.rows.map(adj => (
+                                                <div key={adj.id} className="flex items-center justify-between gap-2">
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <div className={`w-1 h-1 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-tight break-words min-w-0">{adj.description}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className={`text-[11px] font-bold tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                                    </span>
+                                                    {canDelete && (
+                                                      <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
+                                                        <Trash2 className="w-2.5 h-2.5" />
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      {globalRows.length > 0 && (
+                                        <div className="pt-3">
+                                          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Shared / Global</p>
+                                          <div className="space-y-0.5">{globalRows.map(renderRow)}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
 
                       {/* Buttons / adj form — anchored to card bottom */}
                       {!isReadOnly && sub?.status !== 'approved' && (
