@@ -124,7 +124,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
         [DB_COLUMNS.ID]: entryId,
         [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TYPE]: 'DEPOSIT',
+        [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
         [DB_COLUMNS.AMOUNT]: amt,
         [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
         [DB_COLUMNS.TIMESTAMP]: timestamp,
@@ -263,7 +263,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         setAdjustments(prev => [...prev, { id: adjData.id, branchId: adjData.branch_id, periodLabel: adjData.period_label, description: adjData.description, amount: Number(adjData.amount), targetOwner: entryId, createdAt: adjData.created_at }]);
 
         await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-          [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'DEPOSIT',
+          [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
           [DB_COLUMNS.AMOUNT]: depositAmt, [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
           [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
         });
@@ -301,48 +301,21 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       await supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).delete().eq(DB_COLUMNS.ID, id);
       setAdjustments(prev => prev.filter(a => a.id !== id));
 
-      // Cascade: if this was a vault remittance, remove the matching vault_data entry and reverse balance
+      // Cascade: if this was a vault deposit, remove the vault_transaction and reverse balance
       if (adj?.description === 'VAULT DEPOSIT' && adj.targetOwner) {
-        const vaultEntryId = adj.targetOwner;
-        const reportDate = adj.createdAt.slice(0, 10); // YYYY-MM-DD
-        const reportId = `${branch.id}_${reportDate.replace(/-/g, '')}`;
-
-        const { data: existingReport } = await supabase
-          .from(DB_TABLES.SALES_REPORTS)
-          .select(DB_COLUMNS.VAULT_DATA)
-          .eq(DB_COLUMNS.ID, reportId)
-          .maybeSingle();
-
-        if (existingReport) {
-          const existingVaultData: any[] = typeof existingReport[DB_COLUMNS.VAULT_DATA] === 'string'
-            ? JSON.parse(existingReport[DB_COLUMNS.VAULT_DATA])
-            : (existingReport[DB_COLUMNS.VAULT_DATA] || []);
-
-          const removedEntry = existingVaultData.find((e: any) => e.id === vaultEntryId);
-          const filteredVaultData = existingVaultData.filter((e: any) => e.id !== vaultEntryId);
-
-          await supabase.from(DB_TABLES.SALES_REPORTS)
-            .update({ [DB_COLUMNS.VAULT_DATA]: filteredVaultData })
-            .eq(DB_COLUMNS.ID, reportId);
-
-          if (removedEntry) {
-            const reverseAmt = Number(removedEntry.amount) || Math.abs(adj.amount);
-            const newBalance = (vaultBalance ?? 0) - reverseAmt;
-            await Promise.all([
-              // Remove the vault_transaction record so VaultFundHub stays in sync
-              supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
-                .delete()
-                .eq(DB_COLUMNS.ID, vaultEntryId),
-              // Reverse the vault balance
-              supabase.from(DB_TABLES.BRANCH_VAULTS)
-                .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-                .eq(DB_COLUMNS.BRANCH_ID, branch.id),
-            ]);
-            setVaultBalance(newBalance);
-            queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
-            onRefresh?.();
-          }
-        }
+        const reverseAmt = Math.abs(adj.amount);
+        const newBalance = (vaultBalance ?? 0) - reverseAmt;
+        await Promise.all([
+          supabase.from(DB_TABLES.VAULT_TRANSACTIONS)
+            .delete()
+            .eq(DB_COLUMNS.ID, adj.targetOwner),
+          supabase.from(DB_TABLES.BRANCH_VAULTS)
+            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
+            .eq(DB_COLUMNS.BRANCH_ID, branch.id),
+        ]);
+        setVaultBalance(newBalance);
+        queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+        onRefresh?.();
       }
 
       playSound('click');
@@ -407,7 +380,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         agg.totalStaffPay       += staffPay;
         agg.totalExpenses       += expenses;
         agg.totalVaultProvision += vaultDeposit;
-        agg.netRoi              += gross - staffPay - expenses - vaultDeposit;
+        agg.netRoi              += report.netRoi ?? 0;
         agg.reportCount         += 1;
         groups[key].reports.push(report);
       });
@@ -535,7 +508,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     if (!currentGroup) return;
     playSound('click');
     const XLSX = await import('xlsx');
-    const owners: any[] = branch.owners || [];
+    const history = branch.ownersHistory;
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history && history.length > 0
+      ? history.filter((e: any) => e.effectiveDate <= weekStartDate).sort((a: any, b: any) => b.effectiveDate.localeCompare(a.effectiveDate))
+      : [];
+    const owners: any[] = applicable[0]?.owners ?? branch.owners ?? [];
     const agg = currentGroup.aggregate;
     const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
     const totalAdj = rowAdj.reduce((s, a) => s + a.amount, 0);
@@ -568,7 +546,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   }
 
   const agg = currentGroup.aggregate;
-  const owners: any[] = branch.owners || [];
+
+  // Resolve which owner percentages were in effect for this period's week start.
+  // Falls back to current branch.owners if no history exists.
+  const owners: any[] = (() => {
+    const history = branch.ownersHistory;
+    if (!history || history.length === 0) return branch.owners || [];
+    const weekStartDate = new Date(Number(currentGroup.key)).toISOString().slice(0, 10);
+    const applicable = history
+      .filter(e => e.effectiveDate <= weekStartDate)
+      .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+    return applicable[0]?.owners ?? branch.owners ?? [];
+  })();
+
   const levy = branch.groupLevy || null;
   const rowAdj = adjustments.filter(a => a.periodLabel === currentGroup.label);
   // VAULT DEPOSIT uses targetOwner to store the vault_data entry ID (not an owner name)
@@ -576,7 +566,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalGlobalAdj;
-  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+  const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
   const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
   const formKey = currentGroup.label;
@@ -799,7 +789,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         </div>
 
         {/* Two-col on desktop: receipt left, adjustments right */}
-        <div className="md:grid md:grid-cols-[1fr_400px] md:divide-x md:divide-slate-100">
+        <div className="md:grid md:grid-cols-[2fr_3fr] md:divide-x md:divide-slate-100">
 
           {/* LEFT — Receipt */}
           <div className="px-6 py-5 space-y-0 font-mono text-xs">
@@ -880,7 +870,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             {/* Vault deposit / global adjustments shown explicitly below NET ROI */}
             {!loadingAdj && totalGlobalAdj !== 0 && (
               <div className="flex justify-between py-1.5">
-                <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                <span className="text-slate-500 text-xs">Adjustments</span>
                 <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                   {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
                 </span>
@@ -903,16 +893,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                   Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                 </div>
-                {owners.map((owner: any, oIdx: number) => {
+                {(() => {
+                  const totalPct = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                  return owners.map((owner: any, oIdx: number) => {
                   const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-                  const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
+                  const share = distributableRoi * (owner.percentage / totalPct) + ownerTargeted;
                   return (
                     <div key={oIdx} className="flex justify-between py-1.5">
                       <span className="text-slate-600">{owner.name} <span className="text-slate-400">({owner.percentage}%)</span></span>
                       <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
                     </div>
                   );
-                })}
+                  });
+                })()}
                 <div className="flex justify-between py-1.5 border-t border-dotted border-slate-200 mt-1">
                   <span className="font-black text-slate-500 uppercase tracking-widest text-xs">Total</span>
                   <span className="font-black text-slate-900 tabular-nums">{fmt(distributableRoi)}</span>
@@ -927,85 +920,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           {/* RIGHT — Adjustments */}
           <div className="px-5 py-5 flex flex-col gap-4">
 
-            {/* Action buttons — always at top when no form open */}
-            {adjFormKey !== formKey && submission?.status !== 'approved' && (
-              <div className="flex flex-col gap-2">
-                {adjNotYet ? (
-                  <div className="flex items-center gap-1.5">
-                    <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Available after period ends</span>
-                  </div>
-                ) : adjLocked ? (
-                  <div className="flex items-center gap-1.5">
-                    <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-                    <span className="text-xs font-black text-amber-500 uppercase tracking-widest">Adjustment window closed</span>
-                  </div>
-                ) : (
-                  <div className={`grid gap-2 ${owners.length >= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                    {/* ADD */}
-                    <button
-                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
-                      className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-                        <Plus className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-wide leading-none">Add</p>
-                        <p className="text-xs font-medium text-white/50 mt-0.5 leading-none">to ROI</p>
-                      </div>
-                    </button>
-
-                    {/* DEDUCT */}
-                    <button
-                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
-                      className="flex flex-col items-start gap-2 p-3 bg-white border border-slate-200 text-slate-700 rounded-2xl active:scale-95 transition-all hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <Minus className="w-3.5 h-3.5 text-slate-500" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-wide leading-none text-slate-800">Deduct</p>
-                        <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
-                      </div>
-                    </button>
-
-                    {/* VAULT DEPOSIT — full width, only when vault eligible */}
-                    {canDepositToVault && branch.vaultEnabled && (
-                      <button
-                        onClick={() => { playSound('click'); setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjFormKey(formKey); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
-                        className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                          <Landmark className="w-3.5 h-3.5 text-emerald-600" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-xs font-black uppercase tracking-wide leading-none text-emerald-800">Deposit to Vault</p>
-                          <p className="text-xs font-medium text-emerald-400 mt-0.5 leading-none">Deduct from ROI → vault balance</p>
-                        </div>
-                      </button>
-                    )}
-
-                    {/* TRANSFER — full width when owners >= 2 */}
-                    {owners.length >= 2 && (
-                      <button
-                        onClick={() => { playSound('click'); setAdjFormMode('transfer'); setAdjFormKey(formKey); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
-                        className="col-span-2 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-xs font-black uppercase tracking-wide leading-none text-indigo-800">Owner Reimbursement</p>
-                          <p className="text-xs font-medium text-indigo-400 mt-0.5 leading-none">Debit one, credit another</p>
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
+            {/* FORM — order-2, shown below adjustments */}
+            <div className="order-2 empty:hidden">
             {adjFormKey === formKey && (() => {
               // ── TRANSFER FORM ──────────────────────────────────────────────
               if (adjFormMode === 'transfer') return (
@@ -1171,58 +1087,197 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               </div>
               );
             })()}
+            </div>{/* /form wrapper */}
 
-            {/* Adjustments list — below buttons/form */}
-            <div className="space-y-1.5">
+            {/* Adjustments list — order-1, always at top */}
+            <div className="order-1 space-y-2">
               <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
 
               {canDepositToVault && branch.vaultEnabled && rowAdj.filter(a => a.description === 'VAULT DEPOSIT').map(a => (
-                <div key={a.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
-                  <Landmark className="w-4 h-4 text-teal-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-teal-800 uppercase tracking-widest">Vault Deposit</p>
-                  </div>
-                  <span className="text-sm font-black text-teal-700 tabular-nums shrink-0">{fmt(Math.abs(a.amount))}</span>
+                <div key={a.id} className="flex items-center gap-2 py-1">
+                  <Landmark className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                  <span className="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest flex-1">Vault Deposit</span>
+                  <span className="text-sm font-black text-teal-600 dark:text-teal-400 tabular-nums">{fmt(Math.abs(a.amount))}</span>
                 </div>
               ))}
 
-              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').map(adj => {
-                const isTransfer = adj.description.includes(' → ') || adj.description.includes(' ← ');
-                return (
-                <div key={adj.id} className={`flex items-center justify-between rounded-xl px-4 py-3 gap-4 border ${isTransfer ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {isTransfer
-                      ? <ArrowLeftRight className={`w-3 h-3 shrink-0 ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-500'}`} />
-                      : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                    }
-                    <div className="min-w-0">
-                      <span className={`text-xs font-semibold uppercase tracking-tight truncate block ${isTransfer ? 'text-indigo-800' : 'text-slate-800'}`}>{adj.description}</span>
-                      {adj.targetOwner && !isTransfer && (
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">→ {adj.targetOwner}</span>
-                      )}
+              {(() => {
+                const nonVaultAdj = rowAdj.filter(a => a.description !== 'VAULT DEPOSIT');
+                if (nonVaultAdj.length === 0) return (
+                  <p className="text-xs text-slate-400 dark:text-slate-600 py-3 italic">No adjustments yet. Use the buttons below to add one.</p>
+                );
+
+                const canDelete = submission?.status !== 'validated' && submission?.status !== 'approved';
+                const ownerNames = owners.map((o: any) => o.name as string);
+                const hasOwnerCols = ownerNames.length >= 2 && nonVaultAdj.some(a => !!a.targetOwner);
+
+                const renderRow = (adj: RemittanceAdjustment) => {
+                  const isTransfer = adj.description.includes(' → ') || adj.description.includes(' ← ');
+                  return (
+                    <div key={adj.id} className="flex items-center justify-between gap-3 py-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isTransfer
+                          ? <ArrowLeftRight className={`w-3 h-3 shrink-0 ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-500'}`} />
+                          : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                        }
+                        <span className={`text-xs font-semibold uppercase tracking-tight ${isTransfer ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300'}`}>{adj.description}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : isTransfer ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-200'}`}>
+                          {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                        </span>
+                        {canDelete && (
+                          <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+                  );
+                };
+
+                if (!hasOwnerCols) return <div className="space-y-0.5 space-y-0.5">{nonVaultAdj.map(renderRow)}</div>;
+
+                const globalRows = nonVaultAdj.filter(a => !a.targetOwner);
+                const ownerBuckets = ownerNames.map((name: string) => ({
+                  name,
+                  rows: nonVaultAdj.filter(a => a.targetOwner === name),
+                  net: nonVaultAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0),
+                }));
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-5">
+                      {ownerBuckets.map((bucket, bIdx) => (
+                        <div key={bucket.name} className={[
+                          bIdx % 2 !== 0 ? 'sm:border-l sm:border-slate-200 dark:border-slate-700 sm:pl-5' : 'sm:pr-5',
+                        ].join(' ')}>
+                          {/* Owner header — primary level */}
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{bucket.name}</p>
+                            {bucket.rows.length > 0 && (
+                              <span className={`text-sm font-black tabular-nums shrink-0 ${bucket.net < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                {bucket.net >= 0 ? '+' : ''}{fmt(bucket.net)}
+                              </span>
+                            )}
+                          </div>
+                          {/* Items — secondary level, indented */}
+                          <div className="pl-2 space-y-1.5">
+                            {bucket.rows.length === 0 ? (
+                              <p className="text-[10px] text-slate-300 dark:text-slate-600 italic">None</p>
+                            ) : bucket.rows.map(adj => (
+                              <div key={adj.id} className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className={`w-1 h-1 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-tight break-words min-w-0">{adj.description}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className={`text-[11px] font-bold tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                  </span>
+                                  {canDelete && (
+                                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {globalRows.length > 0 && (
+                      <div className="pt-3">
+                        <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Shared / Global</p>
+                        <div className="space-y-0.5 space-y-0.5">{globalRows.map(renderRow)}</div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-sm font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : isTransfer ? 'text-emerald-600' : 'text-slate-800'}`}>
-                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                    </span>
-                    {submission?.status !== 'validated' && submission?.status !== 'approved' && (
-                      <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
-                        <Trash2 className="w-3.5 h-3.5" />
+                );
+              })()}
+            </div>
+
+            {/* Action buttons — order-3, always at bottom */}
+            <div className="order-3">
+            {adjFormKey !== formKey && submission?.status !== 'approved' && (
+              <div className="flex flex-col gap-2">
+                {adjNotYet ? (
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Available after period ends</span>
+                  </div>
+                ) : adjLocked ? (
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                    <span className="text-xs font-black text-amber-500 uppercase tracking-widest">Adjustment window closed</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* ADD */}
+                    <button
+                      onClick={() => { playSound('click'); setAdjFormMode('add'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-slate-900 text-white rounded-2xl active:scale-95 transition-all hover:bg-slate-700"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none">Add</p>
+                        <p className="text-xs font-medium text-white/50 mt-0.5 leading-none">to ROI</p>
+                      </div>
+                    </button>
+
+                    {/* DEDUCT */}
+                    <button
+                      onClick={() => { playSound('click'); setAdjFormMode('deduct'); setAdjFormKey(formKey); setAdjForm({ description: '', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                      className="flex flex-col items-start gap-2 p-3 bg-white border border-slate-200 text-slate-700 rounded-2xl active:scale-95 transition-all hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                        <Minus className="w-3.5 h-3.5 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide leading-none text-slate-800">Deduct</p>
+                        <p className="text-xs font-medium text-slate-400 mt-0.5 leading-none">from ROI</p>
+                      </div>
+                    </button>
+
+                    {/* VAULT DEPOSIT — full width, only when vault eligible */}
+                    {canDepositToVault && branch.vaultEnabled && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('deduct'); setIsVaultDeposit(true); setAdjFormKey(formKey); setAdjForm({ description: 'VAULT DEPOSIT', amount: '' }); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl active:scale-95 transition-all hover:bg-emerald-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                          <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-emerald-800">Deposit to Vault</p>
+                          <p className="text-xs font-medium text-emerald-400 mt-0.5 leading-none">Deduct from ROI → vault balance</p>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* TRANSFER — full width when owners >= 2 */}
+                    {owners.length >= 2 && (
+                      <button
+                        onClick={() => { playSound('click'); setAdjFormMode('transfer'); setAdjFormKey(formKey); setAdjForm({ description: 'REIMBURSEMENT', amount: '' }); setIsVaultDeposit(false); setAdjTargetOwner(''); setAdjTransferFrom(''); setAdjTransferTo(''); }}
+                        className="col-span-2 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black uppercase tracking-wide leading-none text-indigo-800">Owner Reimbursement</p>
+                          <p className="text-xs font-medium text-indigo-400 mt-0.5 leading-none">Debit one, credit another</p>
+                        </div>
                       </button>
                     )}
                   </div>
-                </div>
-                );
-              })}
-
-              {rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length === 0 && (
-                <div className="flex flex-col items-center justify-center py-6 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
-                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">No adjustments</p>
-                  <p className="text-xs text-slate-300 mt-0.5">Use the buttons above to add one</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
+            </div>{/* /buttons order-3 wrapper */}
           </div>
 
         </div>{/* close two-col grid */}

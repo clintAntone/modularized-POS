@@ -43,6 +43,10 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
     const isLeadSelected = props.primaryRole === 'THERAPIST' ? props.formData.therapist_name : props.formData.bonesetter_name;
     const isSupportSelected = props.primaryRole === 'THERAPIST' ? props.formData.bonesetter_name : props.formData.therapist_name;
 
+    const discountInputClass = isDiscountInvalid
+        ? ('bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500 text-rose-500 dark:text-rose-400' + (shaking ? ' animate-shake' : ''))
+        : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/8 text-slate-800 dark:text-white focus:border-emerald-400 dark:focus:border-emerald-500/60';
+
     const isReady = props.formData.client_name &&
         (props.formData.selected_service_ids.length > 0 || props.formData.loyalty_service_ids.length > 0) &&
         isLeadSelected &&
@@ -50,19 +54,19 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
         !isDiscountInvalid;
 
     return (
-        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden h-full flex flex-col justify-between">
-            {/* Subtle ambient glow */}
-            <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/8 blur-[60px] rounded-full pointer-events-none"></div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-transparent text-slate-800 dark:text-white p-6 rounded-2xl shadow-sm dark:shadow-lg relative overflow-hidden">
+            {/* Subtle ambient glow (dark only) */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/8 blur-[60px] rounded-full pointer-events-none dark:block hidden"></div>
 
             <div className="space-y-6 relative z-10">
                 {/* Price display */}
                 <div className="space-y-1 pt-1">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest">Total</p>
-                    <h4 className="text-4xl font-bold tracking-tight text-emerald-400 tabular-nums">₱{totalCalculated.toLocaleString()}</h4>
+                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total</p>
+                    <h4 className="text-4xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">₱{totalCalculated.toLocaleString()}</h4>
                     <div className="flex flex-col gap-0.5 mt-1">
-                        <p className="text-xs text-slate-500">Gross ₱{currentBasePrice.toLocaleString()}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">Gross ₱{currentBasePrice.toLocaleString()}</p>
                         {loyaltyServices.length > 0 && (
-                            <p className="text-xs font-medium text-emerald-500 flex items-center gap-1.5 animate-in fade-in duration-300">
+                            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-500 flex items-center gap-1.5 animate-in fade-in duration-300">
                                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
                                 {loyaltyServices.length} Loyalty Reward{loyaltyServices.length > 1 ? 's' : ''} (Free)
                             </p>
@@ -70,13 +74,13 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                     </div>
                 </div>
 
-                <div className="space-y-5 border-t border-white/5 pt-5">
+                <div className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-5">
                     {/* PWD / Senior toggle */}
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-medium text-slate-300">PWD / Senior</span>
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">PWD / Senior</span>
                             {props.formData.is_pwd_senior && currentBasePrice > 0 && (
-                                <span className="text-xs font-medium text-emerald-400 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 animate-in fade-in slide-in-from-left-2 duration-300">
                                     − ₱{pwdDiscount.toLocaleString()} off
                                 </span>
                             )}
@@ -91,7 +95,7 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                                 const cappedDiscount = Math.max(0, Math.min(currentBasePrice - newPwdDiscount, Number(props.formData.discount || 0)));
                                 props.setFormData({ ...props.formData, is_pwd_senior: toggling_on, discount: cappedDiscount });
                             }}
-                            className={`w-11 h-6 rounded-full transition-all duration-200 relative shrink-0 ${props.formData.is_pwd_senior ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                            className={`w-11 h-6 rounded-full transition-all duration-200 relative shrink-0 ${props.formData.is_pwd_senior ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
                         >
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200 shadow-sm ${props.formData.is_pwd_senior ? 'left-6' : 'left-1'}`}></div>
                         </button>
@@ -100,11 +104,11 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                     {/* Manual Discount */}
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                            <label className="text-xs font-medium text-slate-500 uppercase tracking-widest">Discount (₱)</label>
+                            <label className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">Discount (₱)</label>
                             {manualDiscount > 0 && (
                                 <button
                                     onClick={() => props.setFormData({...props.formData, discount: 0})}
-                                    className="text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+                                    className="text-xs font-semibold text-rose-500 hover:text-rose-400 transition-colors"
                                 >
                                     Clear
                                 </button>
@@ -119,15 +123,11 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                                 props.setFormData({...props.formData, discount: val});
                                 if (val > maxDiscount && currentBasePrice > 0) triggerShake();
                             }}
-                            className={`w-full px-4 py-3 rounded-xl font-semibold text-sm outline-none transition-all tabular-nums ${
-                                isDiscountInvalid
-                                    ? `bg-rose-500/10 border-2 border-rose-500 text-rose-400 ${shaking ? 'animate-shake' : ''}`
-                                    : 'bg-white/5 border border-white/8 text-white focus:border-emerald-500/60'
-                            }`}
+                            className={`w-full px-3 py-2 rounded-lg font-semibold text-sm outline-none transition-all tabular-nums ${discountInputClass}`}
                             placeholder="0"
                         />
                         {isDiscountInvalid && (
-                            <p className="text-xs font-medium text-rose-400 px-1 animate-in fade-in duration-200">
+                            <p className="text-xs font-medium text-rose-500 dark:text-rose-400 px-1 animate-in fade-in duration-200">
                                 Max discount is ₱{maxDiscount.toLocaleString()}
                             </p>
                         )}
@@ -135,14 +135,14 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
 
                     {/* Payment Method */}
                     <div className="space-y-2">
-                        <label className="text-xs font-medium text-slate-500 uppercase tracking-widest">Payment</label>
+                        <label className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">Payment</label>
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => { playSound('click'); props.setFormData({...props.formData, payment_method: 'CASH'}); }}
                                 className={`min-h-[64px] rounded-xl text-sm font-semibold transition-all duration-200 border flex flex-col items-center justify-center gap-1.5 relative active:scale-[0.97] ${
                                     props.formData.payment_method === 'CASH'
-                                        ? 'bg-slate-700 border-slate-600 text-white ring-2 ring-emerald-500/30'
-                                        : 'bg-white/5 border-white/8 text-slate-400 hover:bg-white/8'
+                                        ? 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white ring-2 ring-emerald-500/30'
+                                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/8 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/8'
                                 }`}
                             >
                                 {props.formData.payment_method === 'CASH' && (
@@ -158,7 +158,7 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                                 className={`min-h-[64px] rounded-xl text-sm font-semibold transition-all duration-200 border flex flex-col items-center justify-center gap-1.5 relative active:scale-[0.97] ${
                                     props.formData.payment_method === 'GCASH'
                                         ? 'bg-emerald-600 border-emerald-500 text-white ring-2 ring-emerald-400/30'
-                                        : 'bg-white/5 border-white/8 text-slate-400 hover:bg-white/8'
+                                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/8 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/8'
                                 }`}
                             >
                                 {props.formData.payment_method === 'GCASH' && (
@@ -171,26 +171,26 @@ export const POSSummary: React.FC<POSSummaryProps> = (props) => {
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Action buttons */}
-            <div className="space-y-2 mt-8 relative z-10">
-                <button
-                    disabled={!isReady || props.isProcessing}
-                    onClick={() => { playSound('click'); props.onFinalize(); }}
-                    className={`w-full min-h-[52px] text-white font-semibold py-3.5 rounded-xl shadow-lg text-sm active:scale-[0.98] disabled:opacity-30 transition-all duration-200 ${
-                        props.mode === 'EDITING' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
-                    }`}
-                >
-                    {props.isProcessing ? 'Saving...' : props.mode === 'EDITING' ? 'Apply Corrections' : 'Finalize Session'}
-                </button>
-                <button
-                    onClick={props.onAbort}
-                    className="w-full text-slate-500 text-xs font-medium py-2 hover:text-slate-400 transition-colors"
-                >
-                    {props.mode === 'EDITING' ? 'Discard Changes' : 'Reset Form'}
-                </button>
+                    {/* Action buttons */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/8">
+                        <button
+                            disabled={!isReady || props.isProcessing}
+                            onClick={() => { playSound('click'); props.onFinalize(); }}
+                            className={`w-full min-h-[52px] text-white font-semibold py-3.5 rounded-xl shadow-lg text-sm active:scale-[0.98] disabled:opacity-30 transition-all duration-200 ${
+                                props.mode === 'EDITING' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
+                            }`}
+                        >
+                            {props.isProcessing ? 'Saving...' : props.mode === 'EDITING' ? 'Apply Corrections' : 'Finalize Session'}
+                        </button>
+                        <button
+                            onClick={props.onAbort}
+                            className="w-full text-slate-400 dark:text-slate-500 text-xs font-medium py-2 hover:text-slate-600 dark:hover:text-slate-400 transition-colors"
+                        >
+                            {props.mode === 'EDITING' ? 'Discard Changes' : 'Reset Form'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

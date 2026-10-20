@@ -38,8 +38,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
 
   const handleCommitReset = async () => {
     if (localSaving || isSaving) return;
-    const cleanUser = resetUsername.trim().toLowerCase();
-    if (cleanUser.length < 2 || resetPin.length < 6) {
+    if (resetUsername.trim().length < 2 || resetPin.length < 6) {
         setError('VALID CREDENTIALS REQUIRED (User: 2+ chars, PIN: 6 digits)');
         return;
     }
@@ -49,48 +48,48 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
     setError('');
 
     try {
-        const { data: existing } = await supabase
-            .from(DB_TABLES.EMPLOYEES)
-            .select('id')
-            .eq(DB_COLUMNS.USERNAME, resetUsername.toLowerCase().trim());
-        
-        if (existing && existing.length > 0 && existing.some(e => e.id !== employee.id)) {
+        const cleanUser = resetUsername.toLowerCase().trim();
+
+        // Run username conflict check and PIN hashing in parallel
+        const salt = generateSalt();
+        const [{ data: existing }, hash] = await Promise.all([
+            supabase.from(DB_TABLES.EMPLOYEES).select('id').eq(DB_COLUMNS.USERNAME, cleanUser),
+            hashPin(resetPin, salt),
+        ]);
+
+        if (existing && existing.length > 0 && existing.some((e: any) => e.id !== employee.id)) {
             setError('USERNAME ALREADY TAKEN');
             setLocalSaving(false);
             if (onSyncStatusChange) onSyncStatusChange(false);
             return;
         }
 
-        const salt = generateSalt();
-        const hash = await hashPin(resetPin, salt);
-
-        await updateEmployee.mutateAsync({
-            id: employee.id,
-            [DB_COLUMNS.USERNAME]: resetUsername.toLowerCase().trim(), 
-            [DB_COLUMNS.LOGIN_PIN]: hash, 
-            [DB_COLUMNS.PIN_SALT]: salt,
-            [DB_COLUMNS.REQUEST_RESET]: false 
-        });
-
-        // If this employee is a manager, ensure their branch is marked as setup and manager name is synced
+        // Build branch update payload (if applicable) so both DB writes fire together
         const branchData = branches.find(b => b.id === employee.branchId);
-
-        if (branchData) {
+        const branchUpdate = (() => {
+            if (!branchData) return null;
             const isManagerRole = (employee.role || '').includes('MANAGER');
             const isCurrentlyAssigned = branchData.manager?.toUpperCase() === (employee.name || '').toUpperCase();
-            
-            if (isCurrentlyAssigned || isManagerRole) {
-                const updates: any = { id: branchData.id, [DB_COLUMNS.IS_PIN_CHANGED]: true };
-                // Auto-sync manager name if it's a manager role but name is empty or mismatched
-                if (isManagerRole && !isCurrentlyAssigned) {
-                    updates[DB_COLUMNS.MANAGER] = (employee.name || '').toUpperCase();
-                }
-                
-                await updateBranch.mutateAsync(updates);
-            }
-        }
+            if (!isCurrentlyAssigned && !isManagerRole) return null;
+            const updates: any = { id: branchData.id, [DB_COLUMNS.IS_PIN_CHANGED]: true };
+            if (isManagerRole && !isCurrentlyAssigned) updates[DB_COLUMNS.MANAGER] = (employee.name || '').toUpperCase();
+            return updates;
+        })();
 
-        await addAuditLog.mutateAsync({
+        // Update employee + branch in parallel
+        await Promise.all([
+            updateEmployee.mutateAsync({
+                id: employee.id,
+                [DB_COLUMNS.USERNAME]: cleanUser,
+                [DB_COLUMNS.LOGIN_PIN]: hash,
+                [DB_COLUMNS.PIN_SALT]: salt,
+                [DB_COLUMNS.REQUEST_RESET]: false,
+            }),
+            branchUpdate ? updateBranch.mutateAsync(branchUpdate) : Promise.resolve(),
+        ]);
+
+        // Audit log + session invalidation are fire-and-forget
+        addAuditLog.mutate({
             [DB_COLUMNS.BRANCH_ID]: null,
             [DB_COLUMNS.TIMESTAMP]: getTrueISOString(),
             [DB_COLUMNS.ACTIVITY_TYPE]: 'UPDATE',
@@ -99,15 +98,13 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ employee, branches
             [DB_COLUMNS.DESCRIPTION]: `Admin manually provisioned new credentials for: ${employee.name || 'UNNAMED'}.`,
             [DB_COLUMNS.PERFORMER_NAME]: 'SYSTEM ADMIN'
         });
-
-        // Kick any active sessions for all branches this employee manages
         const managedBranchIds = branches
-          .filter(b => b.manager?.toUpperCase() === (employee.name || '').toUpperCase())
-          .map(b => b.id);
-        if (managedBranchIds.length) await invalidateBranchSessions(managedBranchIds);
+            .filter(b => b.manager?.toUpperCase() === (employee.name || '').toUpperCase())
+            .map(b => b.id);
+        if (managedBranchIds.length) invalidateBranchSessions(managedBranchIds);
 
         playSound('success');
-        setSuccessData({ username: resetUsername.toLowerCase().trim(), pin: resetPin });
+        setSuccessData({ username: cleanUser, pin: resetPin });
         if (onRefresh) onRefresh();
     } catch (err) {
         setError('RESET SYNC FAULT');

@@ -4,7 +4,7 @@ import { Employee } from '../../types';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { UI_THEME } from '../../constants/ui_designs';
 
-type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints';
+type AdminTab = 'network' | 'catalogs' | 'sales_hub' | 'analytics' | 'employees' | 'archive' | 'settings' | 'audit' | 'how_to' | 'backfill' | 'expenses' | 'attendance' | 'payroll' | 'requests' | 'remittances' | 'vault' | 'portal_users' | 'devices' | 'insights' | 'report_audit' | 'complaints' | 'vault_audit' | 'transaction_audit';
 
 interface SuperAdminNavbarProps {
   activeTab: AdminTab;
@@ -42,7 +42,7 @@ const Icons = {
 };
 
 // Ordered category list for the More modal
-const CATEGORY_ORDER = ['Finance', 'Reports', 'People', 'Branches', 'System'] as const;
+const CATEGORY_ORDER = ['Operations', 'Finance', 'Reports', 'Audit', 'People', 'Branches', 'System'] as const;
 
 export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, onTabChange, employees = [], isSticky = true, pendingRequestsCount = 0, pendingComplaintsCount = 0, allowedTabs }) => {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -98,7 +98,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
 
     // ── Reports ──
     { id: 'analytics',    label: 'Analytics',   icon: Icons.analytics, desc: 'Performance Charts',   color: 'bg-indigo-50 text-indigo-600',  category: 'Reports',    adminOnly: false },
-    { id: 'audit',        label: 'Audit',       icon: Icons.audit,     desc: 'Security Registry',    color: 'bg-rose-50 text-rose-600',      category: 'Reports',    adminOnly: false },
+    { id: 'audit',        label: 'Audit',       icon: Icons.audit,     desc: 'Security Registry',    color: 'bg-rose-50 text-rose-600',      category: 'Audit',      adminOnly: false },
 
     // ── People ──
     { id: 'requests',     label: 'Approvals',   icon: Icons.requests,  desc: 'Pending Requests',     color: 'bg-amber-50 text-amber-600',    category: 'People',     adminOnly: false },
@@ -108,7 +108,9 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
     { id: 'devices',      label: 'Devices',     icon: Icons.devices,   desc: 'POS Device Registry',  color: 'bg-violet-50 text-violet-600',  category: 'System',     adminOnly: false },
     { id: 'settings',     label: 'Settings',    icon: Icons.settings,  desc: 'Core Configuration',   color: 'bg-slate-900 text-white',       category: 'System',     adminOnly: false },
     { id: 'portal_users', label: 'Portal Users',icon: Icons.portal,    desc: 'User Accounts',        color: 'bg-slate-100 text-slate-600',   category: 'System',     adminOnly: true  },
-    { id: 'report_audit', label: 'Report Audit',icon: Icons.audit,     desc: 'Report Math Diagnostic', color: 'bg-rose-50 text-rose-600',     category: 'Reports',    adminOnly: true  },
+    { id: 'report_audit', label: 'Report Audit',icon: Icons.audit,     desc: 'Report Math Diagnostic', color: 'bg-rose-50 text-rose-600',     category: 'Audit',      adminOnly: true  },
+    { id: 'vault_audit',       label: 'Vault Audit',   icon: Icons.vault,  desc: 'Balance Integrity Check',  color: 'bg-emerald-50 text-emerald-700', category: 'Audit', adminOnly: true },
+    { id: 'transaction_audit', label: 'Tx Audit',      icon: Icons.audit,  desc: 'Transaction Cross-check',  color: 'bg-violet-50 text-violet-600',  category: 'Audit', adminOnly: true },
     { id: 'how_to',       label: 'SOP',         icon: Icons.how_to,    desc: 'Admin Manual',         color: 'bg-slate-100 text-slate-500',   category: 'System',     adminOnly: false },
   ], []);
 
@@ -192,7 +194,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
       <button
         key={item.id}
         onClick={() => handleTabClick(item.id)}
-        className={`relative p-4 sm:p-5 rounded-2xl border text-left flex flex-col gap-3 transition-all group overflow-hidden min-h-[110px] sm:min-h-[130px] ${
+        className={`relative p-3.5 sm:p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all group overflow-hidden min-h-[99px] sm:min-h-[117px] ${
           isActive
             ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:border-emerald-700 shadow-sm'
             : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md bg-white dark:bg-slate-800'
@@ -219,7 +221,7 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
         </div>
 
         {/* Icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative ring-1 ring-black/5 dark:ring-white/10 ${item.color}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative ring-1 ring-black/5 dark:ring-white/10 ${item.color}`}>
           {item.icon}
           {item.id === 'employees' && resetRequestCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -438,11 +440,13 @@ export const SuperAdminNavbar: React.FC<SuperAdminNavbarProps> = ({ activeTab, o
                 if (catTabs.length === 0) return null;
 
                 const catColor: Record<string, string> = {
-                  Finance:  'text-emerald-600',
-                  Reports:  'text-indigo-500',
-                  People:   'text-violet-500',
-                  Branches: 'text-amber-600',
-                  System:   'text-slate-400',
+                  Operations: 'text-sky-500',
+                  Finance:    'text-emerald-600',
+                  Reports:    'text-indigo-500',
+                  Audit:      'text-rose-500',
+                  People:     'text-violet-500',
+                  Branches:   'text-amber-600',
+                  System:     'text-slate-400',
                 };
 
                 return (

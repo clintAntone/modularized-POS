@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Branch, SalesReport } from '../../types';
+import { useReportVaultData } from '../../hooks/useReportVaultData';
 import { UI_THEME } from '../../constants/ui_designs';
 import { playSound } from '../../lib/audio';
 import { jsPDF } from 'jspdf';
@@ -24,6 +25,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; dot: strin
 
 
 export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports, realTimeExpenses = [], hideHeader = false }) => {
+  const { vaultDataMap } = useReportVaultData();
   const [searchTerm, setSearchTerm]       = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
@@ -52,7 +54,8 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
     const expenses: any[] = [];
     salesReports.forEach(report => {
       const branch = branches.find(b => b.id === report.branchId);
-      [...(report.expenseData || []), ...(report.vaultData || [])].forEach(exp => {
+      const vaultData = report.vaultData?.length ? report.vaultData : (vaultDataMap[report.id] ?? []);
+      [...(report.expenseData || []), ...vaultData].forEach(exp => {
         expenses.push({ ...exp, branchId: report.branchId, branchName: branch?.name || 'UNKNOWN NODE', reportDate: report.reportDate });
       });
     });
@@ -63,7 +66,7 @@ export const ExpensesHub: React.FC<ExpensesHubProps> = ({ branches, salesReports
       }
     });
     return expenses.sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
-  }, [salesReports, branches, realTimeExpenses]);
+  }, [salesReports, branches, realTimeExpenses, vaultDataMap]);
 
   const filteredExpenses = useMemo(() => allExpenses.filter(exp => {
     const matchesBranch   = selectedBranchIds.length === 0 || selectedBranchIds.includes(exp.branchId);

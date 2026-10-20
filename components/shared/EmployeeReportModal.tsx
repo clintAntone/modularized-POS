@@ -193,7 +193,6 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
   const [awaitingPin, setAwaitingPin] = useState(false);
 
   const showWitnesses = WITNESS_TYPES.includes(reportType as ReportType);
-  const priorCount = priorComplaints.filter(c => c.status !== 'DISMISSED').length;
 
   const canSubmit = reportType !== '' && description.trim().length >= 10 && incidentDate;
 
@@ -313,16 +312,6 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
                 ))}
               </div>
             </div>
-
-            {/* Prior complaints banner */}
-            {priorCount > 0 && (
-              <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-2xl">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" strokeWidth={2.5} />
-                <p className="text-xs font-black text-amber-700 uppercase tracking-widest">
-                  {priorCount} prior active complaint{priorCount !== 1 ? 's' : ''} on record for this employee
-                </p>
-              </div>
-            )}
 
             {/* Date + Time row */}
             <div className="grid grid-cols-2 gap-3">

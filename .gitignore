@@ -39,3 +39,7 @@ yarn-error.log*
 # Capacitor
 android/
 ios/
+hilot.jks
+
+# Branch locator site — live keys, never commit
+supabase/branches-site/config.js
