@@ -1184,8 +1184,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             ...ownerNames.map(name => {
               const owner = report.owners?.find((o: any) => o.name === name);
               if (!owner) return '—';
+              const totalPct = (report.owners || []).reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
               const ot = ownerAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0);
-              return p(distributableRoi * (owner.percentage / 100) + ot);
+              return p(distributableRoi * (owner.percentage / totalPct) + ot);
             }),
             status
           ];
@@ -1380,9 +1381,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const adjustedRoi = report.netRoi + globalAdj;
         const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
+        const totalPctA = owners.reduce((s, o: any) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          const share = distributableRoi * ((owner as any).percentage / totalPctA) + ownerAdj;
           if (share <= 0) continue;
           result.push({ branchId: branch.id, branchName: branch.name.replace(/BRANCH\s*-\s*/i, '').trim(), periodLabel: group.label, ownerName: owner.name.trim(), amount: share });
         }
@@ -1420,9 +1422,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const distributableRoi = adjustedRoi - levyCut;
 
         const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        const totalPctB = owners.reduce((s, o) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          const share = distributableRoi * (owner.percentage / totalPctB) + ownerAdj;
           const key = owner.name.trim().toLowerCase();
           if (!ownerMap[key]) ownerMap[key] = { displayName: owner.name.trim(), totalShare: 0, entries: [] };
           ownerMap[key].totalShare += share;
@@ -2552,9 +2555,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                               Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                             </div>
-                            {owners.map((owner: any, oIdx: number) => {
+                            {(() => {
+                              const totalPct = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                              return owners.map((owner: any, oIdx: number) => {
                               const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-                              const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
+                              const share = distributableRoi * (owner.percentage / totalPct) + ownerTargeted;
                               return (
                                 <div key={oIdx} className="flex justify-between py-1.5">
                                   <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
@@ -2564,18 +2569,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
                                 </div>
                               );
-                            })}
+                              });
+                            })()}
                             {owners.length > 1 && (
                               <>
                                 <div className="border-t border-dotted border-slate-200 my-1" />
                                 <div className="flex justify-between py-1">
                                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</span>
-                                  <span className="font-black text-sm tabular-nums text-slate-800">
-                                    {fmt(owners.reduce((s: number, o: any) => {
-                                      const ot = ownerAdj.filter(a => a.targetOwner === o.name).reduce((sum, a) => sum + a.amount, 0);
-                                      return s + distributableRoi * (o.percentage / 100) + ot;
-                                    }, 0))}
-                                  </span>
+                                  <span className="font-black text-sm tabular-nums text-slate-800">{fmt(distributableRoi)}</span>
                                 </div>
                               </>
                             )}

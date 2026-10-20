@@ -893,16 +893,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                   Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                 </div>
-                {owners.map((owner: any, oIdx: number) => {
+                {(() => {
+                  const totalPct = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                  return owners.map((owner: any, oIdx: number) => {
                   const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-                  const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
+                  const share = distributableRoi * (owner.percentage / totalPct) + ownerTargeted;
                   return (
                     <div key={oIdx} className="flex justify-between py-1.5">
                       <span className="text-slate-600">{owner.name} <span className="text-slate-400">({owner.percentage}%)</span></span>
                       <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
                     </div>
                   );
-                })}
+                  });
+                })()}
                 <div className="flex justify-between py-1.5 border-t border-dotted border-slate-200 mt-1">
                   <span className="font-black text-slate-500 uppercase tracking-widest text-xs">Total</span>
                   <span className="font-black text-slate-900 tabular-nums">{fmt(distributableRoi)}</span>
