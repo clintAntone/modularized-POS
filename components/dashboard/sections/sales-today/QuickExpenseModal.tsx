@@ -107,7 +107,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const afterDepositBalance = vaultBal + (depositAmount || 0);
 
   const matchedReceiptRule = getReceiptRule(expenseName, receiptRules);
-  const requiresReceipt = !isSuperAdmin && !!matchedReceiptRule;
+  const requiresReceipt = !isSuperAdmin;
   const canSaveExpense = !!(expenseName.trim() && expenseAmount > 0 && (!withdrawFromVault || expenseFile) && (!requiresReceipt || expenseFile));
 
   // Cover from vault — vault covers the expense AND any existing ROI deficit (e.g. payroll shortfall).
@@ -522,7 +522,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                           </svg>
                         </div>
                         <p className="text-xs font-black text-white uppercase tracking-wide leading-relaxed">
-                          {matchedReceiptRule?.message || 'Receipt is required for this expense type'}
+                          {matchedReceiptRule?.message || 'A receipt photo is required for all expenses.'}
                         </p>
                       </div>
                     )}

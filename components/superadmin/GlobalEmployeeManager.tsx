@@ -25,6 +25,7 @@ import { EmployeeMobileList } from './employee-manager/EmployeeMobileList';
 import { RecoveryModal } from './employee-manager/RecoveryModal';
 import { EditorModal } from './employee-manager/EditorModal';
 import { EmployeeIDCardModal } from './employee-manager/EmployeeIDCardModal';
+import { StaffHistoryPDFModal } from './employee-manager/StaffHistoryPDFModal';
 
 interface GlobalEmployeeManagerProps {
   branches: Branch[];
@@ -45,6 +46,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
   
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [idCardEmployee, setIdCardEmployee] = useState<Employee | null>(null);
+  const [historyEmployee, setHistoryEmployee] = useState<Employee | null>(null);
   const [showAdminWipeConfirm, setShowAdminWipeConfirm] = useState<Employee | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
   const [showEndLeaveConfirm, setShowEndLeaveConfirm] = useState<Employee | null>(null);
@@ -974,6 +976,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
           onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
+          onHistory={(emp) => { setHistoryEmployee(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
         <EmployeeMobileList
@@ -983,6 +986,7 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           onReset={isReadOnly ? undefined : handleOpenResetModal}
           onDelete={isReadOnly ? undefined : (emp) => { setShowDeleteConfirm(emp); playSound('click'); }}
           onEndLeave={isReadOnly ? undefined : (emp) => { setShowEndLeaveConfirm(emp); playSound('click'); }}
+          onHistory={(emp) => { setHistoryEmployee(emp); playSound('click'); }}
           currentBranchId={selectedBranchIds.length === 1 ? selectedBranchIds[0] : undefined}
         />
       </div>
@@ -992,6 +996,14 @@ export const GlobalEmployeeManager: React.FC<GlobalEmployeeManagerProps> = ({ br
           employee={idCardEmployee}
           branches={branches}
           onClose={() => setIdCardEmployee(null)}
+        />
+      )}
+
+      {historyEmployee && (
+        <StaffHistoryPDFModal
+          employee={historyEmployee}
+          branches={branches}
+          onClose={() => setHistoryEmployee(null)}
         />
       )}
 

@@ -519,9 +519,10 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     setDetailTxnsLoading(true);
     supabase
       .from(DB_TABLES.VAULT_TRANSACTIONS)
-      .select('*')
+      .select('id,branch_id,report_id,type,amount,name,timestamp,performed_by')
       .eq(DB_COLUMNS.BRANCH_ID, detailBranchId)
       .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+      .limit(500)
       .then(({ data }) => {
         setDetailTxns((data || []).map((r: any) => ({
           id: r[DB_COLUMNS.ID],
@@ -1571,8 +1572,11 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         const branchWithdrawals = detailTxns
           .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
           .map(t => ({ id: t.id, date: (t.timestamp ?? '').slice(0, 10), timestamp: t.timestamp ?? '', amount: t.amount, name: t.name ?? '', performedBy: t.performedBy, receiptImage: t.receiptImage ?? null }));
-        const totalDeposited = branchHistory.reduce((s, e) => s + e.amount, 0);
-        const totalWithdrawals = branchWithdrawals.reduce((s, e) => s + e.amount, 0);
+        // Use RPC-aggregated totals (server-side SUM, no row cap) for accuracy.
+        // Fall back to client-side reduce only if RPC data hasn't loaded yet.
+        const rpcTotals = vaultTotals[branch.id];
+        const totalDeposited = rpcTotals?.deposited ?? branchHistory.reduce((s, e) => s + e.amount, 0);
+        const totalWithdrawals = rpcTotals?.withdrawn ?? branchWithdrawals.reduce((s, e) => s + e.amount, 0);
 
         const closeModal = () => {
           setDetailBranchId(null);
@@ -1916,16 +1920,6 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                           <span className={`px-1.5 py-0.5 rounded-md text-xs font-black ${txHistoryTab === 'withdrawals' ? 'bg-rose-200 dark:bg-rose-800 text-rose-700 dark:text-rose-200' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-200'}`}>{branchWithdrawals.length}</span>
                         </button>
                         <div className="ml-auto flex items-center gap-1.5">
-                          {!isReadOnly && enabled && !isDepositing && !isEditing && (
-                            <button
-                              onClick={() => { setDepositingId(branch.id); setDepositInput(''); setRoiSourceDate(''); }}
-                              title="Deposit to vault"
-                              className="h-7 w-7 sm:w-auto sm:px-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 text-xs font-semibold uppercase tracking-wide transition-all"
-                            >
-                              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-6-6m6 6l6-6" /></svg>
-                              <span className="hidden sm:inline">Deposit</span>
-                            </button>
-                          )}
                           <button
                             onClick={() => handleExportBranchCSV(branch.id, branch.name, txHistoryTab)}
                             title={`Export ${txHistoryTab} as CSV`}

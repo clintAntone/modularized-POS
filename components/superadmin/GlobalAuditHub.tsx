@@ -325,7 +325,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
     try {
       const { data, error } = await supabase
         .from(DB_TABLES.TRANSACTIONS)
-        .select('*')
+        .select('id,branch_id,timestamp,client_name,therapist_name,bonesetter_name,service_id,service_name,base_price,discount,voucher_value,primary_commission,secondary_commission,note,total')
         .eq(DB_COLUMNS.ID, log.entityId)
         .maybeSingle();
       if (error) throw error;

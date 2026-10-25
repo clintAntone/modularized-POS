@@ -106,7 +106,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
   const totalDailyBurn = useMemo(() => dailyExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0), [dailyExpenses]);
 
   const matchedReceiptRule = getReceiptRule(formData.name, receiptRules);
-  const requiresReceipt = !!matchedReceiptRule && !editingExpense && user?.role !== 'SUPERADMIN';
+  const requiresReceipt = !editingExpense && user?.role !== 'SUPERADMIN' && formData.category !== 'PROVISION';
 
   const handleSaveExpense = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -362,7 +362,7 @@ export const ExpensesSection: React.FC<ExpensesSectionProps> = ({ user, branch, 
                 existingImage={editingExpense?.receiptImage}
                 fixedCategory={fixedCategory}
                 requiresReceipt={requiresReceipt}
-                receiptRuleMessage={matchedReceiptRule?.message}
+                receiptRuleMessage={matchedReceiptRule?.message || 'A receipt photo is required for all expenses.'}
               />
             )}
 

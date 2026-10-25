@@ -226,7 +226,7 @@ export const ClientHistorySection: React.FC<ClientHistorySectionProps> = ({ bran
         const cutoffIso = new Date(getTrueDate().getTime() - 86400000).toISOString();
         const { data: recentTxs } = await supabase
           .from(DB_TABLES.TRANSACTIONS)
-          .select('*')
+          .select('id,branch_id,timestamp,client_name,therapist_name,therapist_id,bonesetter_name,bonesetter_id,service_id,service_name,base_price,discount,voucher_value,primary_commission,secondary_commission,total,payment_method,payment_status,paymongo_link_id,note')
           .eq(DB_COLUMNS.BRANCH_ID, branch.id)
           .gte(DB_COLUMNS.TIMESTAMP, cutoffIso)
           .order(DB_COLUMNS.TIMESTAMP, { ascending: false });
