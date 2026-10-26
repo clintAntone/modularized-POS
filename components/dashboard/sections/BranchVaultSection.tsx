@@ -1049,12 +1049,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                       {/* Source — deposits only */}
                       {filter === 'deposits' && (
                         <td className="px-4 sm:px-5 py-3 whitespace-nowrap">
-                          <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide ${sourceBadge.cls}`}>
-                            {sourceBadge.label}
-                          </span>
-                          {tx.performedBy && (
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{tx.performedBy}</p>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide ${sourceBadge.cls}`}>
+                              {sourceBadge.label}
+                            </span>
+                            {tx.performedBy && (
+                              <span className="text-[11px] text-slate-400 dark:text-slate-500">{tx.performedBy}</span>
+                            )}
+                          </div>
                         </td>
                       )}
                       {/* Description — withdrawals only */}

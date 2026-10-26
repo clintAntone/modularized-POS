@@ -312,6 +312,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [paymentTotalsCache, setPaymentTotalsCache] = useState<Record<string, { cash: number; gcash: number }>>({});
   const [loadingPaymentKeys, setLoadingPaymentKeys] = useState<Set<string>>(new Set());
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
+  const [adjExpandedKeys, setAdjExpandedKeys] = useState<Set<string>>(new Set());
   const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
   const [isSavingAdj, setIsSavingAdj] = useState(false);
@@ -1995,7 +1996,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     <span className="truncate">
                       {effectiveBranchIds.length === 0
                         ? 'All Branches'
-                        : branches.find(b => b.id === effectiveBranchIds[0])?.name.replace(/\s*BRANCH\s*/i, '').trim() ?? 'Branch'}
+                        : effectiveBranchIds.length === 1
+                          ? branches.find(b => b.id === effectiveBranchIds[0])?.name.replace(/\s*BRANCH\s*/i, '').trim() ?? 'Branch'
+                          : `${effectiveBranchIds.length} Branches`}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {effectiveBranchIds.length > 0 && (
@@ -2036,7 +2039,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           return (
                             <button
                               key={b.id}
-                              onClick={() => { setBranchDropdownOpen(false); setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds([b.id])); }}
+                              onClick={() => { setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds(prev => prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id])); }}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 ${selected ? 'bg-slate-50' : ''}`}
                             >
                               <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
@@ -2523,7 +2526,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </div>
                         {totalGlobalAdj !== 0 && (
                           <div className="flex justify-between py-1.5">
-                            <span className="text-slate-500 text-xs">Adjustments</span>
+                            <span className="text-slate-500 text-xs">Shared Costs</span>
                             <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                               {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
                             </span>
@@ -2558,28 +2561,61 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             {(() => {
                               const totalPct = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
                               return owners.map((owner: any, oIdx: number) => {
-                              const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-                              const share = distributableRoi * (owner.percentage / totalPct) + ownerTargeted;
-                              return (
-                                <div key={oIdx} className="flex justify-between py-1.5">
-                                  <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
-                                    {owner.name.trim().toUpperCase()} <span className="text-slate-400 font-medium normal-case tracking-normal">({owner.percentage}%)</span>
-                                    {ownerTargeted !== 0 && <span className="text-rose-400 text-xs ml-1 normal-case tracking-normal font-semibold">adj {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}</span>}
-                                  </span>
-                                  <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
-                                </div>
-                              );
+                                const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
+                                const baseShare = distributableRoi * (owner.percentage / totalPct);
+                                const takeHome = baseShare + ownerTargeted;
+                                return (
+                                  <div key={oIdx} className="py-1.5 space-y-0.5">
+                                    <div className="flex justify-between">
+                                      <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
+                                        {owner.name.trim().toUpperCase()} <span className="text-slate-400 font-medium normal-case tracking-normal">({owner.percentage}%)</span>
+                                      </span>
+                                      {ownerTargeted !== 0
+                                        ? <span className="text-xs text-slate-400 tabular-nums">{fmt(baseShare)}</span>
+                                        : <span className={`text-xs font-bold tabular-nums ${takeHome < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(takeHome)}</span>
+                                      }
+                                    </div>
+                                    {ownerTargeted !== 0 && (
+                                      <div className="flex justify-between pl-3">
+                                        <span className="text-[11px] text-slate-400">Personal adj</span>
+                                        <span className={`text-[11px] tabular-nums ${ownerTargeted < 0 ? 'text-rose-400' : 'text-emerald-500'}`}>
+                                          {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {ownerTargeted !== 0 && (
+                                      <div className="flex justify-between pl-3 border-t border-dotted border-slate-200 pt-0.5">
+                                        <span className="text-xs font-bold text-slate-600">Take-home</span>
+                                        <span className={`text-xs font-bold tabular-nums ${takeHome < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(takeHome)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
                               });
                             })()}
-                            {owners.length > 1 && (
-                              <>
-                                <div className="border-t border-dotted border-slate-200 my-1" />
-                                <div className="flex justify-between py-1">
-                                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</span>
-                                  <span className="font-black text-sm tabular-nums text-slate-800">{fmt(distributableRoi)}</span>
-                                </div>
-                              </>
-                            )}
+                            {owners.length > 1 && (() => {
+                              const totalPct2 = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                              const ownerTotal = owners.reduce((s: number, owner: any) => {
+                                const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s2: number, a: any) => s2 + a.amount, 0);
+                                return s + distributableRoi * (owner.percentage / totalPct2) + ownerTargeted;
+                              }, 0);
+                              const returnedToBusiness = Math.round((pureNetRoi - ownerTotal) * 100) / 100;
+                              return (
+                                <>
+                                  <div className="border-t border-dotted border-slate-200 my-1" />
+                                  <div className="flex justify-between py-1">
+                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Owner Payout</span>
+                                    <span className="font-black text-sm tabular-nums text-slate-800">{fmt(ownerTotal)}</span>
+                                  </div>
+                                  {returnedToBusiness > 0.01 && (
+                                    <div className="flex justify-between py-0.5">
+                                      <span className="text-[11px] text-slate-400 italic">Returned to business</span>
+                                      <span className="text-[11px] text-slate-400 tabular-nums">+{fmt(returnedToBusiness)}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </>
                         )}
                         {owners.length === 0 && (
@@ -2589,8 +2625,23 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
                       {/* ── Adjustments panel — full card width for spacious columnar layout ── */}
                       {(rowAdj.length > 0 || adjFormKey === rKey) && (
-                        <div className="border-t border-slate-100 dark:border-slate-700 px-6 py-4 space-y-3">
-                          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Adjustments</p>
+                        <div className="border-t border-slate-100 dark:border-slate-700">
+                          <button
+                            onClick={() => setAdjExpandedKeys(prev => {
+                              const next = new Set(prev);
+                              next.has(rKey) ? next.delete(rKey) : next.add(rKey);
+                              return next;
+                            })}
+                            className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                          >
+                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                              Adjustments {rowAdj.length > 0 && <span className="ml-1 text-slate-300">({rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length})</span>}
+                            </span>
+                            <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${adjExpandedKeys.has(rKey) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {adjExpandedKeys.has(rKey) && <div className="px-6 pb-4 space-y-3">
 
                           {rowAdj.length > 0 && (() => {
                             const canDelete = !isReadOnly && sub?.status !== 'approved';
@@ -2638,51 +2689,43 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                     net: nonVaultAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0),
                                   }));
                                   return (
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-y-5">
-                                        {ownerBuckets.map((bucket, bIdx) => (
-                                          <div key={bucket.name} className={[
-                                            bIdx % 2 !== 0 ? 'border-l border-slate-200 dark:border-slate-700 pl-5' : 'pr-5',
-                                          ].join(' ')}>
-                                            {/* Owner header — primary level */}
-                                            <div className="flex items-center justify-between mb-3">
-                                              <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{bucket.name}</p>
-                                              {bucket.rows.length > 0 && (
-                                                <span className={`text-sm font-black tabular-nums shrink-0 ${bucket.net < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                  {bucket.net >= 0 ? '+' : ''}{fmt(bucket.net)}
-                                                </span>
-                                              )}
-                                            </div>
-                                            {/* Items — secondary level, indented */}
-                                            <div className="pl-2 space-y-1.5">
-                                              {bucket.rows.length === 0 ? (
-                                                <p className="text-[10px] text-slate-400 dark:text-slate-600 italic">None</p>
-                                              ) : bucket.rows.map(adj => (
-                                                <div key={adj.id} className="flex items-center justify-between gap-2">
-                                                  <div className="flex items-center gap-1.5 min-w-0">
-                                                    <div className={`w-1 h-1 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                                                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-tight break-words min-w-0">{adj.description}</span>
-                                                  </div>
-                                                  <div className="flex items-center gap-1.5 shrink-0">
-                                                    <span className={`text-[11px] font-bold tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                      {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                                                    </span>
-                                                    {canDelete && (
-                                                      <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
-                                                        <Trash2 className="w-2.5 h-2.5" />
-                                                      </button>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
+                                    <div className="space-y-3">
+                                      {ownerBuckets.map(bucket => bucket.rows.length > 0 && (
+                                        <div key={bucket.name} className="space-y-1">
+                                          <div className="flex items-center justify-between">
+                                            <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{bucket.name}</p>
+                                            <span className={`text-xs font-black tabular-nums ${bucket.net < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                              {bucket.net >= 0 ? '+' : ''}{fmt(bucket.net)}
+                                            </span>
                                           </div>
-                                        ))}
-                                      </div>
+                                          <div className="pl-3 border-l-2 border-slate-100 dark:border-slate-700 space-y-1">
+                                            {bucket.rows.map(adj => (
+                                              <div key={adj.id} className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                  <div className={`w-1 h-1 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-tight">{adj.description}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                  <span className={`text-[11px] font-bold tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                                  </span>
+                                                  {canDelete && (
+                                                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
+                                                      <Trash2 className="w-2.5 h-2.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
                                       {globalRows.length > 0 && (
-                                        <div className="pt-3">
-                                          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Shared / Global</p>
-                                          <div className="space-y-0.5">{globalRows.map(renderRow)}</div>
+                                        <div className="space-y-1 pt-1">
+                                          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Shared / Global</p>
+                                          <div className="pl-3 border-l-2 border-slate-100 dark:border-slate-700 space-y-1">
+                                            {globalRows.map(renderRow)}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -2691,6 +2734,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                               </div>
                             );
                           })()}
+                          </div>}
                         </div>
                       )}
 

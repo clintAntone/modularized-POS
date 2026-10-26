@@ -519,7 +519,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
     setDetailTxnsLoading(true);
     supabase
       .from(DB_TABLES.VAULT_TRANSACTIONS)
-      .select('id,branch_id,report_id,type,amount,name,timestamp,performed_by')
+      .select('id,branch_id,report_id,type,amount,name,timestamp,performed_by,receipt_image')
       .eq(DB_COLUMNS.BRANCH_ID, detailBranchId)
       .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
       .limit(500)
@@ -1966,14 +1966,16 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
-                                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>
-                                              {depositLabel}
-                                            </span>
-                                            {(entry.performedBy || entry.name) && (
-                                              <span className="text-xs font-medium text-slate-400 truncate">{entry.performedBy || entry.name}</span>
-                                            )}
-                                            {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums">{timePart}</span>}
+                                          <div className="mt-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>
+                                                {depositLabel}
+                                              </span>
+                                              {(entry.performedBy || entry.name) && (
+                                                <span className="text-xs font-medium text-slate-400 truncate">{entry.performedBy || entry.name}</span>
+                                              )}
+                                            </div>
+                                            {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums mt-0.5 block">{timePart}</span>}
                                           </div>
                                         </div>
                                         <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0">+₱{entry.amount.toLocaleString()}</span>
@@ -1984,9 +1986,9 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                           {timePart && <p className="text-xs font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
-                                        <div>
+                                        <div className="flex items-center gap-2">
                                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>{depositLabel}</span>
-                                          {(entry.performedBy || entry.name) && <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[130px]">{entry.performedBy || entry.name}</p>}
+                                          {(entry.performedBy || entry.name) && <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[130px]">{entry.performedBy || entry.name}</span>}
                                         </div>
                                         <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
                                         <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+₱{entry.amount.toLocaleString()}</span>
@@ -2014,8 +2016,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                               {/* Desktop header — hidden on mobile */}
                               <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_auto] bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 py-2">
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Date & Time</span>
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Label</span>
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Transaction ID</span>
+                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide text-left">Label</span>
+                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide text-center">Transaction ID</span>
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Amount</span>
                               </div>
                               <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -2035,13 +2037,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
                                             {dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                           </p>
-                                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                          <div className="mt-1">
                                             {entry.name
-                                              ? <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">{entry.name}</span>
-                                              : <span className="text-xs font-medium text-slate-400 italic">No description</span>
+                                              ? <p className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide truncate">{entry.name}</p>
+                                              : <p className="text-xs font-medium text-slate-400 italic">No description</p>
                                             }
-                                            {entry.performedBy && entry.performedBy !== entry.name && <span className="text-xs font-medium text-slate-400 truncate">by {entry.performedBy}</span>}
-                                            {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums">{timePart}</span>}
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                              {entry.performedBy && entry.performedBy !== entry.name && <span className="text-xs font-medium text-slate-400">by {entry.performedBy}</span>}
+                                              {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums">{timePart}</span>}
+                                            </div>
                                           </div>
                                         </div>
                                         <span className="text-sm font-black text-rose-600 dark:text-rose-400 tabular-nums shrink-0">−₱{entry.amount.toLocaleString()}</span>
@@ -2052,7 +2056,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                           {timePart && <p className="text-xs font-medium text-slate-400 mt-0.5 tabular-nums">{timePart}</p>}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 text-left">
                                           <div className="flex items-center gap-2">
                                             {entry.name
                                               ? <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate uppercase tracking-wide">{entry.name}</p>
@@ -2061,8 +2065,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                           </div>
                                           {entry.performedBy && entry.performedBy !== entry.name && <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">by {entry.performedBy}</p>}
                                         </div>
-                                        <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
-                                        <span className="text-xs font-black text-rose-600 dark:text-rose-400 tabular-nums">−₱{entry.amount.toLocaleString()}</span>
+                                        <p className="text-xs font-mono text-slate-400 truncate text-center">{entry.id.slice(-14).toUpperCase()}</p>
+                                        <span className="text-xs font-black text-rose-600 dark:text-rose-400 tabular-nums text-right">−₱{entry.amount.toLocaleString()}</span>
                                       </div>
                                     </div>
                                   );
