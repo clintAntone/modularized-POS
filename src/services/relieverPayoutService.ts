@@ -19,7 +19,7 @@ export const syncRelieverPayouts = async (branch: Branch, todayStr: string, empl
         const [{ data: latestTxs, error: txError }, { data: latestAtt, error: attError }] = await Promise.all([
             supabase
                 .from(DB_TABLES.TRANSACTIONS)
-                .select('*')
+                .select('therapist_id,bonesetter_id,primary_commission,secondary_commission')
                 .eq(DB_COLUMNS.BRANCH_ID, branch.id)
                 .gte(DB_COLUMNS.TIMESTAMP, `${todayStr}T00:00:00+08:00`)
                 .lte(DB_COLUMNS.TIMESTAMP, `${todayStr}T23:59:59+08:00`),

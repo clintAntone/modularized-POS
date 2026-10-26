@@ -91,7 +91,7 @@ export const DeveloperSection: React.FC<DeveloperSectionProps> = ({ version }) =
               <span className="text-xl font-black text-white tracking-tighter">CA</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tighter leading-none">
+              <h1 className="text-xl font-bold text-white tracking-tighter leading-none">
                 Clint Antone Raro
               </h1>
               <p className="mt-1 text-xs font-bold uppercase tracking-[0.25em]"

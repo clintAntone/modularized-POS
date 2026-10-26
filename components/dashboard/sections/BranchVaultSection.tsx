@@ -6,7 +6,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { supabase } from '../../../lib/supabase';
 import { playSound } from '../../../lib/audio';
 import { UI_THEME } from '../../../constants/ui_designs';
-import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2, Banknote } from 'lucide-react';
+import { Landmark, X, ArrowDownCircle, ArrowUpCircle, Calendar, CheckCircle2, AlertTriangle, Clock, Plus, Pencil, Trash2 } from 'lucide-react';
 import { compressImage } from '../../../lib/image';
 import { getTrueISOString, getTrueManilaISOString, getTrueDate, getManilaTodayStr } from '../../../lib/time';
 import { logAudit } from '../../../lib/audit';
@@ -90,26 +90,17 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<Toast | null>(null);
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterType>('deposits');
   const [kpiExpanded, setKpiExpanded] = useState(false);
-  const [statsExpanded, setStatsExpanded] = useState(false);
-  const [historyExpanded, setHistoryExpanded] = useState(false);
+
   const [historySearch, setHistorySearch] = useState('');
-  const [billsSearch, setBillsSearch] = useState('');
   const [selectedTx, setSelectedTx] = useState<VaultTransaction | null>(null);
   const historyBottomRef = useRef<HTMLDivElement>(null);
-  const billsBottomRef = useRef<HTMLDivElement>(null);
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
-  const [revealedBillId, setRevealedBillId] = useState<string | null>(null);
-  const billPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // ── Deposit to Vault state ────────────────────────────────────────────────
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSelectedDate, setDepositSelectedDate] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false);
-  const billDidLongPress = useRef(false);
 
   // ── Withdraw from Vault state ─────────────────────────────────────────────
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -133,25 +124,16 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     }
   }, [toast]);
 
-  // Dismiss long-press revealed bill when tapping outside
-  useEffect(() => {
-    if (!revealedBillId) return;
-    const dismiss = () => setRevealedBillId(null);
-    document.addEventListener('pointerdown', dismiss, { capture: true });
-    return () => document.removeEventListener('pointerdown', dismiss, { capture: true });
-  }, [revealedBillId]);
-
   // Infinite scroll — shared sentinel observer for both history and bills panels
   useEffect(() => {
-    const targets = [historyBottomRef.current, billsBottomRef.current].filter(Boolean);
-    if (!targets.length) return;
+    if (!historyBottomRef.current) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) void fetchNextTxPage();
     }, { threshold: 0.1 });
-    targets.forEach(el => observer.observe(el!));
+    observer.observe(historyBottomRef.current);
     return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyBottomRef.current, billsBottomRef.current]);
+  }, [historyBottomRef.current]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') =>
     setToast({ message, type });
@@ -171,7 +153,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       const from = pageParam as number;
       const { data, error } = await supabase
         .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .select('*')
+        .select('id,timestamp,amount,name,type,receipt_image,performed_by')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
         .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
         .range(from, from + TX_PAGE_SIZE - 1);
@@ -301,74 +283,6 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     });
   }, [bills, billPayments]);
 
-  // ── Bill long-press helpers ───────────────────────────────────────────────
-  const startBillPress = (id: string) => {
-    billDidLongPress.current = false;
-    billPressTimer.current = setTimeout(() => {
-      billDidLongPress.current = true;
-      setRevealedBillId(id);
-      playSound('click');
-    }, 600);
-  };
-  const cancelBillPress = () => {
-    if (billPressTimer.current) { clearTimeout(billPressTimer.current); billPressTimer.current = null; }
-  };
-
-  // ── Mark paid / unpaid ───────────────────────────────────────────────────
-  const handleTogglePaid = async (bill: BillEntry) => {
-    if (markingPaidId) return;
-    setMarkingPaidId(bill.id);
-    const today = getManilaTodayStr();
-    const [y, m] = today.split('-');
-    const todayMonth = parseInt(m, 10);
-    const todayYear = parseInt(y, 10);
-    const nextM = todayMonth === 12 ? 1 : todayMonth + 1;
-    const nextY = todayMonth === 12 ? todayYear + 1 : todayYear;
-    const currentPeriod = `${y}-${m}`;
-    const nextPeriod = `${nextY}-${String(nextM).padStart(2, '0')}`;
-    const period = bill.dueNextMonth ? nextPeriod : currentPeriod;
-    const billAmount = bill.amount > 0 ? bill.amount : 0;
-    try {
-      if (bill.status === 'paid') {
-        await supabase.from(DB_TABLES.BILL_PAYMENTS)
-          .delete()
-          .eq(DB_COLUMNS.BILL_ID, bill.id)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .eq(DB_COLUMNS.PERIOD_COVERED, period);
-
-        // Restore vault balance when un-marking a paid bill
-        if (branchVault && billAmount > 0) {
-          await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: branchVault.balance + billAmount })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        }
-      } else {
-        await supabase.from(DB_TABLES.BILL_PAYMENTS).insert({
-          [DB_COLUMNS.BRANCH_ID]: branch.id,
-          [DB_COLUMNS.BILL_ID]: bill.id,
-          [DB_COLUMNS.PERIOD_COVERED]: period,
-          [DB_COLUMNS.AMOUNT_PAID]: billAmount,
-          [DB_COLUMNS.PAID_AT]: getTrueISOString(),
-        });
-
-        // Deduct from vault balance when marking a bill as paid
-        if (branchVault && billAmount > 0) {
-          const newBalance = Math.max(0, branchVault.balance - billAmount);
-          await supabase.from(DB_TABLES.BRANCH_VAULTS)
-            .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-            .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        }
-      }
-      playSound('success');
-      refetchBillPayments();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update', 'error');
-      playSound('warning');
-    } finally {
-      setMarkingPaidId(null);
-    }
-  };
-
   // ── Bill CRUD handlers ────────────────────────────────────────────────────
   const handleSaveBill = async () => {
     if (!billForm) return;
@@ -484,89 +398,30 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       const timestamp = `${depositSelectedDate}T${manilaTime}.000+08:00`;
       const reportId = `${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
 
-      // Always fetch the live deposit and vault balance from DB — never trust local state
-      // for write decisions. This prevents 409 conflicts and double-increments caused by
-      // stale React state (old deposits may have random IDs that differ from local cache).
-      const [{ data: liveDepositRows }, { data: liveVaultRow }] = await Promise.all([
-        supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .select('id, amount')
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-          .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
-          .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
-          .limit(1),
-        supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .select(DB_COLUMNS.VAULT_BALANCE)
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-          .single(),
-      ]);
+      // Fetch the live deposit ID so the RPC knows whether to INSERT or UPDATE.
+      // We still need this one pre-flight read — the RPC handles the balance lock internally.
+      const { data: liveDepositRows } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select('id, amount')
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+        .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+        .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
+        .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
+        .limit(1);
 
       const liveDeposit = liveDepositRows?.[0] ?? null;
-      const liveBalance: number = liveVaultRow?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
+      const newTxId = `vault_deposit_${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
 
-      if (liveDeposit) {
-        // UPDATE existing deposit row (whatever ID it has — old random or new deterministic)
-        const delta = amount - liveDeposit.amount;
-
-        const { error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .update({ [DB_COLUMNS.AMOUNT]: amount, [DB_COLUMNS.TIMESTAMP]: timestamp })
-          .eq(DB_COLUMNS.ID, liveDeposit.id);
-        if (txErr) throw txErr;
-
-        const { error: vaultErr } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + delta })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        if (vaultErr) throw vaultErr;
-
-        if (report) {
-          const { error: reportErr } = await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + delta,
-              [DB_COLUMNS.NET_ROI]: report.netRoi - delta,
-            })
-            .eq(DB_COLUMNS.ID, reportId);
-          if (reportErr) throw reportErr;
-        }
-      } else {
-        // INSERT new deposit with deterministic ID
-        const txId = `vault_deposit_${branch.id}_${depositSelectedDate.replace(/-/g, '')}`;
-
-        const { error: txErr } = await supabase
-          .from(DB_TABLES.VAULT_TRANSACTIONS)
-          .insert({
-            [DB_COLUMNS.ID]: txId,
-            [DB_COLUMNS.BRANCH_ID]: branch.id,
-            [DB_COLUMNS.REPORT_ID]: reportId,
-            [DB_COLUMNS.TYPE]: 'DEPOSIT',
-            [DB_COLUMNS.AMOUNT]: amount,
-            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT',
-            [DB_COLUMNS.TIMESTAMP]: timestamp,
-            [DB_COLUMNS.PERFORMED_BY]: null,
-          });
-        if (txErr) throw txErr;
-
-        const { error: vaultErr } = await supabase
-          .from(DB_TABLES.BRANCH_VAULTS)
-          .update({ [DB_COLUMNS.VAULT_BALANCE]: liveBalance + amount })
-          .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        if (vaultErr) throw vaultErr;
-
-        if (report) {
-          const { error: reportErr } = await supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .update({
-              [DB_COLUMNS.TOTAL_VAULT_PROVISION]: (report.totalVaultProvision || 0) + amount,
-              [DB_COLUMNS.NET_ROI]: report.netRoi - amount,
-            })
-            .eq(DB_COLUMNS.ID, reportId);
-          if (reportErr) throw reportErr;
-        }
-      }
+      const { error: rpcErr } = await supabase.rpc('record_vault_deposit', {
+        p_branch_id:      branch.id,
+        p_amount:         amount,
+        p_timestamp:      timestamp,
+        p_new_tx_id:      newTxId,
+        p_existing_tx_id: liveDeposit?.id ?? null,
+        p_report_id:      report ? reportId : null,
+        p_performed_by:   performedBy ?? null,
+      });
+      if (rpcErr) throw rpcErr;
 
       logAudit({
         branchId: branch.id,
@@ -585,6 +440,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setDepositSelectedDate(null);
       await queryClient.invalidateQueries({ queryKey: ['salesReports'] });
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -598,9 +454,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
   // ── Withdraw from Vault handler ───────────────────────────────────────────
   const handleVaultWithdraw = async () => {
     const label = withdrawLabel.trim().toUpperCase();
-    const amount = Number(withdrawAmount);
+    const amount = Math.round((Number(withdrawAmount) || 0) * 100) / 100;
+    const vaultBalance = Math.round((branchVault?.balance ?? 0) * 100) / 100;
     if (!label || !amount || amount <= 0 || !branchVault) return;
-    if (amount > branchVault.balance) return;
+    if (amount > vaultBalance) return;
 
     setIsSubmittingWithdraw(true);
     setWithdrawUploadProgress(10);
@@ -699,6 +556,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setWithdrawAmount('');
       setWithdrawFile(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -769,31 +627,14 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     if (!vaultBillToDelete || isDeletingVaultBill || !branchVault) return;
     setIsDeletingVaultBill(true);
     try {
-      // Re-fetch live balance to prevent stale state
-      const { data: liveVaultData } = await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .select(DB_COLUMNS.VAULT_BALANCE)
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .single();
-      const liveBalance: number = liveVaultData?.[DB_COLUMNS.VAULT_BALANCE] ?? branchVault.balance;
       const refundAmount = vaultBillToDelete.amount;
 
-      // Delete the vault_transaction record
-      const { error: txErr } = await supabase
-        .from(DB_TABLES.VAULT_TRANSACTIONS)
-        .delete()
-        .eq(DB_COLUMNS.ID, vaultBillToDelete.id);
-      if (txErr) throw txErr;
-
-      // Restore vault balance (capped at target to avoid exceeding it)
-      const target = branchVault.target ?? 0;
-      const newBalance = target > 0
-        ? Math.min(liveBalance + refundAmount, target)
-        : liveBalance + refundAmount;
-      await supabase
-        .from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      // Atomic reversal — locks vault row, deletes tx, restores balance in one transaction
+      const { error: rpcErr } = await supabase.rpc('reverse_vault_withdrawal', {
+        p_tx_id:     vaultBillToDelete.id,
+        p_branch_id: branch.id,
+      });
+      if (rpcErr) throw rpcErr;
 
       logAudit({
         branchId: branch.id,
@@ -809,6 +650,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       showToast('Bill payment reversed');
       setVaultBillToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
       refetch();
       onRefresh?.();
     } catch (err: any) {
@@ -819,27 +661,11 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     }
   };
 
-  // ── Available months derived from transactions ────────────────────────────
-  const availableMonths = useMemo(() => {
-    const months = new Map<string, string>(); // key: "2026-04", label: "Apr 2026"
-    for (const tx of transactions) {
-      const date = toManilaDate(tx.timestamp);
-      const key = date.slice(0, 7); // "2026-04"
-      if (!months.has(key)) {
-        months.set(key, new Date(date + 'T00:00:00+08:00').toLocaleDateString('en-PH', {
-          timeZone: 'Asia/Manila', month: 'short', year: 'numeric',
-        }).toUpperCase());
-      }
-    }
-    return Array.from(months.entries()); // already newest-first from query order
-  }, [transactions]);
-
   // ── Filtered + grouped by Manila date ─────────────────────────────────────
   const filtered = useMemo(() => {
-    let list = transactions;
-    if (selectedMonth) list = list.filter(t => toManilaDate(t.timestamp).slice(0, 7) === selectedMonth);
-    if (filter === 'deposits') list = list.filter(t => t.type === 'deposit');
-    else if (filter === 'withdrawals') list = list.filter(t => t.type === 'withdrawal');
+    let list = filter === 'deposits'
+      ? transactions.filter(t => t.type === 'deposit')
+      : transactions.filter(t => t.type === 'withdrawal');
     const q = historySearch.trim().toLowerCase();
     if (q) list = list.filter(t =>
       (t.name || '').toLowerCase().includes(q) ||
@@ -848,20 +674,42 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       String(t.amount).includes(q)
     );
     return list;
-  }, [transactions, filter, selectedMonth, historySearch]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, VaultTransaction[]>();
-    for (const tx of filtered) {
-      const d = toManilaDate(tx.timestamp);
-      if (!map.has(d)) map.set(d, []);
-      map.get(d)!.push(tx);
-    }
-    return Array.from(map.entries()); // already newest-first from query
-  }, [filtered]);
+  }, [transactions, filter, historySearch]);
 
   const depositCount = transactions.filter(t => t.type === 'deposit').length;
   const withdrawalCount = transactions.filter(t => t.type === 'withdrawal').length;
+
+  const downloadCSV = (rows: string[][], filename: string) => {
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    if (filtered.length === 0) return;
+    const safeName = branch.name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').toLowerCase();
+    const rows: string[][] = [['Date', 'Time', 'Type', 'Description', 'Amount', 'Performed By', 'Transaction ID']];
+    filtered.forEach(tx => {
+      const typeLabel =
+        tx.category === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
+        tx.category === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
+        tx.type === 'deposit' ? 'Manager Deposit' : 'Withdrawal';
+      rows.push([
+        toManilaDate(tx.timestamp),
+        formatTime(tx.timestamp),
+        typeLabel,
+        tx.name.startsWith('VAULT: ') ? tx.name.slice(7) : tx.name,
+        (tx.type === 'withdrawal' ? '-' : '+') + tx.amount.toString(),
+        tx.performedBy ?? '',
+        tx.id,
+      ]);
+    });
+    downloadCSV(rows, `vault-${filter}-${safeName}-${getManilaTodayStr()}.csv`);
+    playSound('success');
+  };
 
   return (
     <div className="w-full mx-auto pb-4 space-y-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl">
@@ -935,40 +783,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
           <p className={`text-4xl sm:text-5xl font-black tabular-nums tracking-tighter leading-none ${!branchVault || branchVault.balance <= 0 ? 'text-slate-300 dark:text-slate-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
             ₱{(branchVault?.balance ?? 0).toLocaleString()}
           </p>
-          {/* Label row — tap to toggle stats */}
-          <button
-            type="button"
-            onClick={() => setStatsExpanded(v => !v)}
-            className="flex items-center gap-1.5 mt-1.5 active:opacity-70 transition-opacity"
-          >
-            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Running Balance</p>
-            <svg className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${statsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </button>
+          {/* Label */}
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">Running Balance</p>
         </div>
-
-        {/* Collapsible stat pills */}
-        {statsExpanded && (
-          <div className="flex items-center gap-3 pb-0.5 animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="text-right">
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Deposited</p>
-              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+₱{totalDeposits.toLocaleString()}</p>
-            </div>
-            <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
-            <div className="text-right">
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Withdrawn</p>
-              <p className="text-sm font-black text-rose-500 dark:text-rose-400 tabular-nums">−₱{totalWithdrawals.toLocaleString()}</p>
-            </div>
-            {(branchVault?.initialBalance ?? 0) > 0 && (
-              <>
-                <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Starting</p>
-                  <p className="text-sm font-black text-slate-600 dark:text-slate-300 tabular-nums">₱{(branchVault!.initialBalance).toLocaleString()}</p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
 
         {/* Progress bar */}
         {branchVault && (() => {
@@ -1049,366 +866,250 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
       </div>{/* end hero card */}
 
-      {/* ── 2-column: Bills | Vault History ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-
-      {/* ── Vault-Paid Expenses ── */}
-      {(() => {
-        const bq = billsSearch.trim().toLowerCase();
-        const allVaultWithdrawals = transactions.filter(t => t.type === 'withdrawal').filter(t =>
-          !bq ||
-          (t.name || '').toLowerCase().includes(bq) ||
-          (t.performedBy || '').toLowerCase().includes(bq) ||
-          t.amount.toLocaleString().includes(bq) ||
-          String(t.amount).includes(bq)
-        );
-        const totalVaultUsed = allVaultWithdrawals.reduce((s, t) => s + t.amount, 0);
-
-        // Group all loaded withdrawals by Manila date
-        const byDate = new Map<string, VaultTransaction[]>();
-        for (const tx of allVaultWithdrawals) {
-          const d = toManilaDate(tx.timestamp);
-          if (!byDate.has(d)) byDate.set(d, []);
-          byDate.get(d)!.push(tx);
-        }
-        const groupedWithdrawals = Array.from(byDate.entries());
-
-        const stripVaultPrefix = (name: string) =>
-          name.startsWith('VAULT: ') ? name.slice(7) : name;
-
-        return (
-          <div className={`bg-white dark:bg-slate-800 ${UI_THEME.radius.card} border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden`}>
-            {/* Header */}
-            <div className="px-5 sm:px-6 pt-5 pb-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 flex items-center justify-center shrink-0">
-                    <Banknote className="w-5 h-5 text-rose-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-black text-slate-800 dark:text-slate-200 leading-none tracking-tight">Bills Paid</h3>
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-1">Vault outflows</p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  {totalVaultUsed > 0 && (
-                    <p className="text-sm font-black tabular-nums text-rose-500 dark:text-rose-400">−₱{totalVaultUsed.toLocaleString()}</p>
-                  )}
-                  {!txLoading && allVaultWithdrawals.length > 0 && (
-                    <span className="text-[11px] font-bold tabular-nums text-slate-400 dark:text-slate-500">{allVaultWithdrawals.length}{hasNextPage ? '+' : ''} entries</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Search bar */}
-            <div className="px-4 sm:px-6 pb-3 pt-1 border-b border-slate-100 dark:border-slate-700">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                <input
-                  type="text"
-                  value={billsSearch}
-                  onChange={e => setBillsSearch(e.target.value)}
-                  placeholder="SEARCH NAME OR AMOUNT..."
-                  className="w-full pl-8 pr-8 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-slate-400 focus:bg-white dark:focus:bg-slate-700 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:font-normal"
-                />
-                {billsSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setBillsSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 text-white hover:bg-slate-400 transition-colors"
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {txLoading ? (
-              <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-2 space-y-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 animate-pulse">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0" />
-                    <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />
-                    <div className="h-3 bg-slate-50 dark:bg-slate-700/50 rounded w-10 ml-auto" />
-                    <div className="h-3 w-12 bg-rose-50 dark:bg-rose-500/10 rounded shrink-0" />
-                  </div>
-                ))}
-              </div>
-            ) : allVaultWithdrawals.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 gap-3 border-t border-slate-50 dark:border-slate-700 px-6">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
-                  <Banknote className="w-5 h-5 text-slate-300" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-bold text-slate-400 dark:text-slate-500">{billsSearch ? 'No results found' : 'No vault payments yet'}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-[200px] mx-auto">{billsSearch ? `No matches for "${billsSearch}"` : 'Bills and expenses paid from the vault will appear here'}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="overflow-y-auto max-h-[480px]">
-                {groupedWithdrawals.map(([date, txs], groupIdx) => (
-                  <div key={date} className={groupIdx > 0 ? 'border-t border-slate-200 dark:border-slate-600 mt-1' : ''}>
-                    {/* Date header */}
-                    <div className="px-4 sm:px-5 pt-3 pb-1 flex items-center gap-2">
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
-                    </div>
-                    {/* Transaction rows */}
-                    <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                      {txs.map(tx => {
-                        const isToday = toManilaDate(tx.timestamp) === manilaToday;
-                        const isVaultFee = tx.name.startsWith('VAULT: ');
-                        return (
-                          <div key={tx.id} className="flex items-center gap-1 px-3 sm:px-4">
-                            <button
-                              onClick={() => { setSelectedTx(tx); playSound('click'); }}
-                              className="flex-1 flex items-center gap-2.5 px-2 py-2 hover:bg-rose-50/40 dark:hover:bg-rose-500/5 active:scale-[0.98] transition-colors text-left min-w-0"
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-rose-400 dark:bg-rose-500 shrink-0 mt-px" />
-                              <div className="flex-1 flex items-center gap-1.5 min-w-0">
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight truncate">{stripVaultPrefix(tx.name)}</p>
-                                {tx.receiptUrl && (
-                                  <span title="Has receipt" className="shrink-0 text-slate-300 dark:text-slate-600">
-                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
-                                  </span>
-                                )}
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums shrink-0 ml-auto">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
-                              </div>
-                              <p className="text-xs font-black tabular-nums text-rose-600 dark:text-rose-400 shrink-0">−₱{tx.amount.toLocaleString()}</p>
-                              <svg className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                            {isToday && !isClosedMode && !isVaultFee && (
-                              <button
-                                onClick={() => { setVaultBillToDelete({ id: tx.id, name: stripVaultPrefix(tx.name), amount: tx.amount }); playSound('warning'); }}
-                                className="w-6 h-6 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-300 hover:text-rose-500 flex items-center justify-center shrink-0 transition-all active:scale-95"
-                                title="Reverse payment"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {/* Infinite scroll sentinel — triggers server fetch of next page */}
-                {hasNextPage && (
-                  <div ref={billsBottomRef} className="px-4 py-4 space-y-2">
-                    {isFetchingNextPage && [1,2,3].map(i => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 animate-pulse">
-                        <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-600 shrink-0" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-lg w-2/5" />
-                          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-lg w-1/4" />
-                        </div>
-                        <div className="h-4 w-14 bg-rose-100 rounded-lg shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!hasNextPage && allVaultWithdrawals.length > 0 && (
-                  <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
-                    {allVaultWithdrawals.length} record{allVaultWithdrawals.length !== 1 ? 's' : ''} total
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ── Vault History ── */}
+      {/* ── Vault Activity ── */}
       <div className={`bg-white dark:bg-slate-800 ${UI_THEME.radius.card} border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden`}>
 
-        {/* Collapsible header */}
-        <button
-          type="button"
-          onClick={() => setHistoryExpanded(v => !v)}
-          className="w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 active:bg-slate-100 dark:active:bg-slate-700 transition-colors"
-        >
-          <div className="flex items-center gap-3">
+        {/* Header */}
+        <div className="px-5 sm:px-6 pt-4 pb-0">
+          {/* Title row */}
+          <div className="flex items-center gap-2.5 mb-2">
             <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
               <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             </div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">Vault History</h3>
+            <div>
+              <h3 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">Vault Activity</h3>
               {txLoading
-                ? <span className="h-3 w-12 rounded bg-slate-100 dark:bg-slate-700 animate-pulse inline-block" />
+                ? <span className="h-2.5 w-16 rounded bg-slate-100 dark:bg-slate-700 animate-pulse inline-block mt-0.5" />
                 : <span className="text-xs text-slate-400 dark:text-slate-500">{transactions.length}{hasNextPage ? '+' : ''} records</span>
               }
             </div>
           </div>
-          <div className={`w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 transition-transform duration-200 ${historyExpanded ? 'rotate-180' : ''}`}>
-            <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </div>
-        </button>
 
-        {/* Expanded content */}
-        {historyExpanded && (
-          <>
-            {/* Search + filters */}
-            <div className="border-b border-slate-100 dark:border-slate-700 space-y-2 pb-3">
-              {/* Search bar */}
-              <div className="relative px-4 sm:px-6 pt-3">
-                <svg className="absolute left-7 sm:left-9 top-1/2 mt-1.5 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                <input
-                  type="text"
-                  value={historySearch}
-                  onChange={e => setHistorySearch(e.target.value)}
-                  placeholder="SEARCH NAME OR AMOUNT..."
-                  className="w-full pl-8 pr-8 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-slate-400 focus:bg-white dark:focus:bg-slate-700 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:font-normal"
-                />
-                {historySearch && (
-                  <button
-                    type="button"
-                    onClick={() => setHistorySearch('')}
-                    className="absolute right-7 sm:right-9 top-1/2 mt-1.5 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 text-white hover:bg-slate-400 transition-colors"
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                )}
+          {/* Tab bar — totals embedded in each tab */}
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-0">
+            {/* Deposits tab */}
+            <button
+              onClick={() => setFilter('deposits')}
+              className={`flex-1 flex flex-col items-center sm:items-start px-3 sm:px-4 py-2 border-b-2 transition-all -mb-px ${
+                filter === 'deposits'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold tabular-nums text-slate-400 dark:text-slate-500">
+                  {depositCount}{hasNextPage ? '+' : ''}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Deposits</span>
               </div>
+              <span className={`text-sm font-black tabular-nums leading-tight ${filter === 'deposits' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                +₱{totalDeposits.toLocaleString()}
+              </span>
+            </button>
 
-              {/* Type + month filters */}
-              <div className="flex items-center gap-2 px-4 sm:px-6 pb-0.5">
-                {/* Segmented type tabs */}
-                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-600/50 rounded-xl flex-1 border border-transparent dark:border-slate-600">
-                  {([
-                    { key: 'all', label: 'All', count: transactions.length },
-                    { key: 'deposits', label: 'In', count: depositCount },
-                    { key: 'withdrawals', label: 'Out', count: withdrawalCount },
-                  ] as { key: FilterType; label: string; count: number }[]).map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setFilter(f.key)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
-                        filter === f.key
-                          ? f.key === 'withdrawals'
-                            ? 'bg-rose-500 text-white shadow-sm'
-                            : f.key === 'deposits'
-                              ? 'bg-emerald-500 text-white shadow-sm'
-                              : 'bg-white dark:bg-slate-400 text-slate-700 dark:text-slate-900 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white'
+            {/* Withdrawals tab */}
+            <button
+              onClick={() => setFilter('withdrawals')}
+              className={`flex-1 flex flex-col items-center sm:items-start px-3 sm:px-4 py-2 border-b-2 transition-all -mb-px ${
+                filter === 'withdrawals'
+                  ? 'border-rose-500 text-rose-600 dark:text-rose-400'
+                  : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold tabular-nums text-slate-400 dark:text-slate-500">
+                  {withdrawalCount}{hasNextPage ? '+' : ''}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Withdrawals</span>
+              </div>
+              <span className={`text-sm font-black tabular-nums leading-tight ${filter === 'withdrawals' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                −₱{totalWithdrawals.toLocaleString()}
+              </span>
+            </button>
+
+            {/* Export button */}
+            <button
+              onClick={handleExportCSV}
+              disabled={filtered.length === 0}
+              title={`Export ${filter} as CSV`}
+              className="mb-1 self-center h-8 w-8 sm:w-auto sm:px-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              <span className="hidden sm:inline">Export</span>
+            </button>
+          </div>
+
+          {/* Search bar — full width, below tabs */}
+          <div className="relative px-0 py-2">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input
+              type="text"
+              value={historySearch}
+              onChange={e => setHistorySearch(e.target.value)}
+              placeholder="Search name or amount..."
+              className="w-full pl-8 pr-8 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-slate-400 focus:bg-white dark:focus:bg-slate-700 transition-all placeholder:text-slate-400 placeholder:font-normal"
+            />
+            {historySearch && (
+              <button type="button" onClick={() => setHistorySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 text-white hover:bg-slate-400 transition-colors">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Transaction table */}
+        {txLoading ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-700">
+                  {['DATE & TIME', 'SOURCE', 'DESCRIPTION', 'AMOUNT'].map(h => (
+                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap last:text-right">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-24 mb-1" /><div className="h-2 bg-slate-50 dark:bg-slate-700/50 rounded w-10" /></td>
+                    <td className="px-4 py-3"><div className="h-5 bg-slate-100 dark:bg-slate-700 rounded w-16" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-32" /></td>
+                    <td className="px-4 py-3 text-right"><div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-16 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-6 py-16 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 flex items-center justify-center mx-auto">
+              <Calendar className="w-5 h-5 text-slate-300" />
+            </div>
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500">No transactions found</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-[220px] mx-auto">
+              {historySearch
+                ? `No results for "${historySearch}".`
+                : filter === 'deposits' ? 'No deposits yet.'
+                : 'No vault payments yet.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+            <table className="w-full">
+              <thead className="sticky top-0 z-10 bg-white dark:bg-slate-800">
+                <tr className="border-b border-slate-100 dark:border-slate-700">
+                  <th className="px-4 sm:px-5 py-2.5 text-left text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">Date & Time</th>
+                  {filter === 'deposits' && <th className="px-4 sm:px-5 py-2.5 text-left text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">Source</th>}
+                  {filter === 'withdrawals' && <th className="px-4 sm:px-5 py-2.5 text-left text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Description</th>}
+                  <th className="px-4 sm:px-5 py-2.5 text-right text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">Amount</th>
+                  {filter === 'withdrawals' && <th className="w-8" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {filtered.map(tx => {
+                  const isWithdrawal = tx.type === 'withdrawal';
+                  const isAdmin = (tx.category ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
+                  const isToday = toManilaDate(tx.timestamp) === manilaToday;
+                  const isVaultFee = tx.name.startsWith('VAULT: ');
+                  const displayName = tx.name.startsWith('VAULT: ') ? tx.name.slice(7) : tx.name;
+                  const txDate = toManilaDate(tx.timestamp);
+                  const dateLabel = new Date(txDate + 'T00:00:00+08:00').toLocaleDateString('en-PH', {
+                    timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                  });
+                  const dateLabelShort = new Date(txDate + 'T00:00:00+08:00').toLocaleDateString('en-US', {
+                    timeZone: 'Asia/Manila', month: '2-digit', day: '2-digit', year: '2-digit',
+                  });
+                  const sourceBadge = isWithdrawal
+                    ? { label: 'BILL PAY', cls: 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' }
+                    : isAdmin
+                      ? { label: 'ADMIN', cls: 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400' }
+                      : { label: 'MANAGER', cls: 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' };
+                  return (
+                    <tr
+                      key={tx.id}
+                      onClick={() => { setSelectedTx(tx); playSound('click'); }}
+                      className={`cursor-pointer transition-colors ${
+                        isWithdrawal
+                          ? 'hover:bg-rose-50 dark:hover:bg-rose-500/10'
+                          : isAdmin
+                            ? 'hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                            : 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
                       }`}
                     >
-                      {f.label}
-                      <span className={`text-[10px] font-black tabular-nums ${filter === f.key ? 'opacity-70' : 'opacity-60'}`}>{f.count}{hasNextPage && f.key === 'all' ? '+' : ''}</span>
-                    </button>
-                  ))}
-                </div>
-                {/* Month picker — compact select */}
-                {availableMonths.length > 1 && (
-                  <select
-                    value={selectedMonth ?? ''}
-                    onChange={e => setSelectedMonth(e.target.value || null)}
-                    className="h-9 px-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 bg-slate-100 dark:bg-slate-600/50 border border-transparent dark:border-slate-600 outline-none cursor-pointer appearance-none pr-7 shrink-0"
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center', backgroundSize: '12px' }}
-                  >
-                    <option value="">All months</option>
-                    {availableMonths.map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-
-            {txLoading ? (
-              /* Skeleton rows while fetching */
-              <div className="px-4 py-2 space-y-1">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 animate-pulse">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0" />
-                    <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />
-                    <div className="h-3 bg-slate-50 dark:bg-slate-700/50 rounded w-10 ml-auto" />
-                    <div className="h-3 w-14 bg-slate-100 dark:bg-slate-700 rounded shrink-0" />
+                      {/* Date & Time */}
+                      <td className="px-4 sm:px-5 py-3 whitespace-nowrap">
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                          <span className="sm:hidden">{dateLabelShort}</span>
+                          <span className="hidden sm:inline">{dateLabel}</span>
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums mt-0.5">{formatTime(tx.timestamp)}</p>
+                      </td>
+                      {/* Source — deposits only */}
+                      {filter === 'deposits' && (
+                        <td className="px-4 sm:px-5 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide ${sourceBadge.cls}`}>
+                              {sourceBadge.label}
+                            </span>
+                            {tx.performedBy && (
+                              <span className="text-[11px] text-slate-400 dark:text-slate-500">{tx.performedBy}</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {/* Description — withdrawals only */}
+                      {filter === 'withdrawals' && (
+                        <td className="px-4 sm:px-5 py-3 max-w-[120px] sm:max-w-[200px]">
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-tight truncate" title={displayName}>{displayName}</p>
+                        </td>
+                      )}
+                      {/* Amount */}
+                      <td className={`px-4 sm:px-5 py-3 text-right text-sm font-black tabular-nums whitespace-nowrap ${isWithdrawal ? 'text-rose-600 dark:text-rose-400' : isAdmin ? 'text-violet-600 dark:text-violet-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        {isWithdrawal ? '−' : '+'}₱{tx.amount.toLocaleString()}
+                      </td>
+                      {/* Delete (today's withdrawals only) */}
+                      {filter === 'withdrawals' && (
+                        <td className="pr-3 py-3">
+                          {isToday && isWithdrawal && !isClosedMode && !isVaultFee ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); setVaultBillToDelete({ id: tx.id, name: displayName, amount: tx.amount }); playSound('warning'); }}
+                              className="w-6 h-6 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-300 hover:text-rose-500 flex items-center justify-center transition-all active:scale-95"
+                              title="Reverse payment"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          ) : (
+                            <div className="w-6" />
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {/* Infinite scroll sentinel */}
+            {hasNextPage && (
+              <div ref={historyBottomRef} className="px-4 py-4">
+                {isFetchingNextPage && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500 animate-pulse">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="px-6 py-16 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 flex items-center justify-center mx-auto">
-                  <Calendar className="w-5 h-5 text-slate-300" />
-                </div>
-                <p className="text-sm font-bold text-slate-400 dark:text-slate-500">No transactions found</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-[220px] mx-auto">
-                  {historySearch ? `No results for "${historySearch}". Try searching by name or amount.` : filter !== 'all' ? `No ${filter} match your current filters.` : 'Deposits and withdrawals will appear here.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-y-auto max-h-[480px]">
-                {grouped.map(([date, txs], groupIdx) => (
-                  <div key={date} className={groupIdx > 0 ? 'border-t border-slate-200 dark:border-slate-600 mt-1' : ''}>
-                    {/* Date group header */}
-                    <div className="px-4 sm:px-5 pt-3 pb-1 flex items-center gap-2">
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0">{formatDate(date)}</p>
-                    </div>
-
-                    {/* Transactions in this date group */}
-                    <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                      {txs.map(tx => {
-                        const isAdmin = (tx.category ?? '').toUpperCase() === 'ADMIN_DEPOSIT';
-                        const isWithdrawal = tx.type === 'withdrawal';
-                        return (
-                          <button
-                            key={tx.id}
-                            onClick={() => { setSelectedTx(tx); playSound('click'); }}
-                            className={`w-full flex items-center gap-2.5 px-5 sm:px-6 py-2 transition-colors active:scale-[0.98] text-left ${
-                              isWithdrawal
-                                ? 'hover:bg-rose-50/50 dark:hover:bg-rose-500/5'
-                                : isAdmin
-                                  ? 'hover:bg-violet-50/50 dark:hover:bg-violet-500/5'
-                                  : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-500/5'
-                            }`}
-                          >
-                            {/* Compact dot */}
-                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-px ${isWithdrawal ? 'bg-rose-400' : isAdmin ? 'bg-violet-500' : 'bg-emerald-500'}`} />
-
-                            {/* Name + meta one line */}
-                            <div className="flex-1 flex items-center gap-1.5 min-w-0">
-                              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight truncate">{tx.name}</p>
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums shrink-0 ml-auto">{formatTime(tx.timestamp)}{tx.performedBy ? ` · ${tx.performedBy}` : ''}</p>
-                            </div>
-
-                            {/* Amount + chevron */}
-                            <p className={`text-xs font-black tabular-nums shrink-0 ${isWithdrawal ? 'text-rose-600 dark:text-rose-400' : isAdmin ? 'text-violet-600 dark:text-violet-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                              {isWithdrawal ? '−' : '+'}₱{tx.amount.toLocaleString()}
-                            </p>
-                            <svg className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {/* Infinite scroll sentinel — triggers server fetch of next page */}
-                {hasNextPage && (
-                  <div ref={historyBottomRef} className="px-4 py-4 space-y-2">
-                    {isFetchingNextPage && [1,2,3].map(i => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 animate-pulse">
-                        <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-600 shrink-0" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-lg w-2/5" />
-                          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-lg w-1/4" />
-                        </div>
-                        <div className="h-4 w-16 bg-slate-200 dark:bg-slate-600 rounded-lg shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!hasNextPage && filtered.length > 0 && (
-                  <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
-                    {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-                  </p>
                 )}
               </div>
             )}
-          </>
+            {!hasNextPage && filtered.length > 0 && (
+              <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-4 border-t border-slate-100 dark:border-slate-700/60">
+                {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
         )}
       </div>
-
-      </div>{/* end 2-col grid */}
 
       {/* ── Transaction Detail Sheet ── */}
       {selectedTx && ReactDOM.createPortal(
@@ -1933,8 +1634,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
                   Amount <span className="text-rose-500">*</span>
                 </label>
                 {(() => {
-                  const maxBal = branchVault?.balance ?? 0;
-                  const amt = Number(withdrawAmount) || 0;
+                  const maxBal = Math.round((branchVault?.balance ?? 0) * 100) / 100;
+                  const amt = Math.round((Number(withdrawAmount) || 0) * 100) / 100;
                   const isOverMax = amt > maxBal;
                   const afterBalance = Math.max(0, maxBal - amt);
                   return (

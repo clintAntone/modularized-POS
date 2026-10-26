@@ -1,17 +1,18 @@
 
 import React from 'react';
 import { Transaction } from '../../../../types';
-import { Trash2, FolderOpen, TrendingUp, Tag, Banknote, Clock, Edit3 } from 'lucide-react';
+import { Trash2, FolderOpen, TrendingUp, Tag, Banknote, Clock, Edit3, Eye } from 'lucide-react';
 
 interface POSCorrectionsProps {
     transactions: Transaction[];
     onEdit: (tx: Transaction) => void;
     onDelete: (id: string) => void;
+    onViewDetails: (tx: Transaction) => void;
     isProcessing: boolean;
     isClosedMode: boolean;
 }
 
-export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, onEdit, onDelete, isProcessing, isClosedMode }) => {
+export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, onEdit, onDelete, onViewDetails, isProcessing, isClosedMode }) => {
     return (
         <div className="space-y-5 flex flex-col">
 
@@ -43,7 +44,7 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                             }).format(new Date(t.timestamp));
 
                             return (
-                                <div key={t.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+                                <div key={t.id} onClick={() => onViewDetails(t)} className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden cursor-pointer">
 
                                     {/* Top accent */}
                                     <div className="h-0.5 bg-gradient-to-r from-slate-200 via-emerald-400 to-slate-200" />
@@ -135,14 +136,21 @@ export const POSCorrections: React.FC<POSCorrectionsProps> = ({ transactions, on
                                         )}
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => onEdit(t)}
+                                                onClick={(e) => { e.stopPropagation(); onViewDetails(t); }}
+                                                className="p-3 bg-slate-50 text-slate-500 rounded-2xl hover:bg-slate-100 transition-all active:scale-95 border border-slate-100"
+                                                title="View details & signature"
+                                            >
+                                                <Eye className="w-4 h-4" strokeWidth={2} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onEdit(t); }}
                                                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-emerald-600 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-widest transition-all active:scale-95"
                                             >
                                                 <Edit3 className="w-3.5 h-3.5" />
                                                 Edit Record
                                             </button>
                                             <button
-                                                onClick={() => onDelete(t.id)}
+                                                onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}
                                                 disabled={isProcessing || isClosedMode}
                                                 className="p-3 bg-rose-50 text-rose-400 rounded-2xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 disabled:opacity-30 border border-rose-100 hover:border-rose-500"
                                             >

@@ -12,10 +12,11 @@ interface EmployeeMobileListProps {
   onReset?: (emp: Employee) => void;
   onDelete?: (emp: Employee) => void;
   onEndLeave?: (emp: Employee) => void;
+  onHistory?: (emp: Employee) => void;
   currentBranchId?: string;
 }
 
-export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onEndLeave, currentBranchId }) => {
+export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employees, branches, onEdit, onReset, onDelete, onEndLeave, onHistory, currentBranchId }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
       {employees.map(emp => {
@@ -76,8 +77,19 @@ export const EmployeeMobileList: React.FC<EmployeeMobileListProps> = ({ employee
                     </div>
                   </div>
                   {/* Action buttons */}
-                  {(onReset || onDelete || onEndLeave) && (
+                  {(onReset || onDelete || onEndLeave || onHistory) && (
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {onHistory && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onHistory(emp); }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center border bg-white border-slate-100 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-700 transition-all"
+                          title="Staff History PDF"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+                      )}
                       {onReset && emp.isActive !== false && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onReset(emp); }}

@@ -325,7 +325,7 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
     try {
       const { data, error } = await supabase
         .from(DB_TABLES.TRANSACTIONS)
-        .select('*')
+        .select('id,branch_id,timestamp,client_name,therapist_name,bonesetter_name,service_id,service_name,base_price,discount,voucher_value,primary_commission,secondary_commission,note,total')
         .eq(DB_COLUMNS.ID, log.entityId)
         .maybeSingle();
       if (error) throw error;
@@ -410,8 +410,8 @@ export const GlobalAuditHub: React.FC<GlobalAuditHubProps> = ({ branches, auditL
                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{selectedTxDetail.clientName}</h3>
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide pt-2">
                   {(() => {
-                    const localDate = new Date(selectedTxDetail.timestamp.replace(/(\+00:00|Z)$/, ""));
-                    return localDate.toLocaleString("en-PH", { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+                    const localDate = new Date(selectedTxDetail.timestamp);
+                    return localDate.toLocaleString("en-PH", { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' });
                   })()}
                 </p>
               </div>

@@ -29,6 +29,33 @@ export const ReportEditorModal: React.FC<ReportEditorModalProps> = ({ report, br
         };
     }, []);
 
+    // Fetch the heavy blob columns (staff_breakdown, vault_data) for this specific report.
+    // They are stripped from the global salesReports payload to reduce startup transfer.
+    useEffect(() => {
+        if (!report.id) return;
+        // If the global cache already has them (e.g. branch manager path), skip the fetch.
+        if (report.staffBreakdown?.length || report.vaultData?.length) return;
+        supabase
+            .from(DB_TABLES.SALES_REPORTS)
+            .select(`${DB_COLUMNS.STAFF_BREAKDOWN},${DB_COLUMNS.VAULT_DATA}`)
+            .eq(DB_COLUMNS.ID, report.id)
+            .single()
+            .then(({ data }) => {
+                if (!data) return;
+                const staffBreakdown = Array.isArray(data[DB_COLUMNS.STAFF_BREAKDOWN])
+                    ? data[DB_COLUMNS.STAFF_BREAKDOWN]
+                    : typeof data[DB_COLUMNS.STAFF_BREAKDOWN] === 'string'
+                    ? JSON.parse(data[DB_COLUMNS.STAFF_BREAKDOWN])
+                    : [];
+                const vaultData = Array.isArray(data[DB_COLUMNS.VAULT_DATA])
+                    ? data[DB_COLUMNS.VAULT_DATA]
+                    : typeof data[DB_COLUMNS.VAULT_DATA] === 'string'
+                    ? JSON.parse(data[DB_COLUMNS.VAULT_DATA])
+                    : [];
+                setEditedReport(prev => ({ ...prev, staffBreakdown, vaultData }));
+            });
+    }, [report.id]);
+
     useEffect(() => {
         const fetchAttendance = async () => {
             try {

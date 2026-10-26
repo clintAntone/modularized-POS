@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileDown, CheckCircle, XCircle, Plus, Minus, Trash2, ArrowLeftRight } from 'lucide-react';
+import { FileDown, CheckCircle, XCircle, Plus, Minus, Trash2, ArrowLeftRight, Landmark } from 'lucide-react';
 import { BranchCheckboxDropdown } from '../shared/BranchCheckboxDropdown';
 
 interface WeeklyRemittancesHubProps {
@@ -312,13 +312,18 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [paymentTotalsCache, setPaymentTotalsCache] = useState<Record<string, { cash: number; gcash: number }>>({});
   const [loadingPaymentKeys, setLoadingPaymentKeys] = useState<Set<string>>(new Set());
   const [adjFormKey, setAdjFormKey] = useState<string | null>(null);
+  const [adjExpandedKeys, setAdjExpandedKeys] = useState<Set<string>>(new Set());
   const [adjFormMode, setAdjFormMode] = useState<'add' | 'deduct' | 'transfer'>('add');
   const [adjForm, setAdjForm] = useState({ description: '', amount: '' });
   const [isSavingAdj, setIsSavingAdj] = useState(false);
   const [adjTargetOwner, setAdjTargetOwner] = useState<string>('');
   const [adjTransferFrom, setAdjTransferFrom] = useState('');
   const [adjTransferTo, setAdjTransferTo] = useState('');
-  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(() => {
+    // Portal users with exactly one branch go straight to detail view
+    if (branches.length === 1 && branches[0]?.id) return branches[0].id;
+    return null;
+  });
   const [tableSortKey, setTableSortKey] = useState<'branch' | 'gross' | 'salary' | 'expenses' | 'roi' | 'pending'>('branch');
   const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -398,17 +403,32 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
+    const fetchAllAdjustments = async (): Promise<any[]> => {
+      const PAGE = 1000;
+      const all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+          .select('*')
+          .order(DB_COLUMNS.CREATED_AT, { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
+    };
+
     Promise.all([
-      supabase
-        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
-        .select('*')
-        .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
+      fetchAllAdjustments(),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
         .select('*')
         .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-    ]).then(([adjResult, subResult]) => {
-      if (adjResult.data) setAdjustments(adjResult.data.map(r => ({
+    ]).then(([adjData, subResult]) => {
+      setAdjustments(adjData.map((r: any) => ({
         id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
         description: r.description, amount: Number(r.amount),
         targetOwner: r.target_owner || null,
@@ -481,7 +501,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       } else {
         const { data, error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .insert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now })
+          .upsert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now }, { onConflict: 'branch_id,period_label' })
           .select().single();
         if (error) throw error;
         setSubmissions(prev => [mapSubmission(data), ...prev]);
@@ -836,7 +856,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           const globalAdjSum = globalAdjs.reduce((s, a) => s + a.amount, 0);
           const adjustedRoi = (r.netRoi || 0) + globalAdjSum;
           const levy = branchObj?.groupLevy as { name?: string; percentage?: number } | null;
-          const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+          const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
           const distributableRoi = adjustedRoi - levyCut;
           map[r.branchId].latestOwnerShares = (Array.isArray(branchObj?.owners) ? branchObj!.owners : []).map((o: { name: string; percentage: number }) => {
             const ownerAdj = ownerAdjs.filter(a => a.targetOwner === o.name).reduce((s, a) => s + a.amount, 0);
@@ -1145,7 +1165,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
           const adjustedRoi = report.netRoi + globalAdj;
           const levy = report.groupLevy as { name: string; percentage: number } | null;
-          const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+          const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
           const distributableRoi = adjustedRoi - levyCut;
           const sub = subLookup[`${report.branchId}::${group.label}`];
           const status = sub?.status === 'approved' ? 'REMITTED' : sub?.status === 'rejected' ? 'REJECTED' : sub?.status === 'submitted' ? 'SUBMITTED' : 'PENDING';
@@ -1165,8 +1185,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             ...ownerNames.map(name => {
               const owner = report.owners?.find((o: any) => o.name === name);
               if (!owner) return '—';
+              const totalPct = (report.owners || []).reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
               const ot = ownerAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0);
-              return p(distributableRoi * (owner.percentage / 100) + ot);
+              return p(distributableRoi * (owner.percentage / totalPct) + ot);
             }),
             status
           ];
@@ -1253,7 +1274,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       ownerShares: { name: string; amount: number }[];
     }> = [];
 
+    const selectedCutoffs = selectedPeriods.map(Number);
     for (const branch of activeBranches) {
+      if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(Number(branch.weeklyCutoff ?? 0))) continue;
       for (const group of allGroupedReports) {
         const report = group.reports.find((r: any) => r.branchId === branch.id);
         if (!report) continue;
@@ -1267,7 +1290,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
         const adjustedRoi = pureNetRoi + globalAdj;
         const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
-        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
 
         const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
@@ -1310,7 +1333,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     const ownerEntries   = Object.values(ownerMap).sort((a, b) => b.amount - a.amount);
 
     return { remitted, pending, nothingToRemit, totalRoi, ownerEntries };
-  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+  }, [activeBranches, allGroupedReports, subLookup, adjustments, selectedPeriods]);
 
   // All approved submissions with computed distributable ROI — the primary data source for Deposits tab
   const remittedDeposits = useMemo(() => {
@@ -1327,7 +1350,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       const globalAdj = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
       const adjustedRoi = report.netRoi + globalAdj;
       const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
-      const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+      const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
       const distributableRoi = adjustedRoi - levyCut;
       result.push({ branchId: sub.branchId, branchName: (branch.name || '').replace(/BRANCH\s*-\s*/i, '').trim(), periodLabel: sub.periodLabel, amount: distributableRoi, submittedAt: sub.submittedAt });
     }
@@ -1357,11 +1380,12 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const globalAdj = branchAdjs.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
         const ownerAdjs  = branchAdjs.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
         const adjustedRoi = report.netRoi + globalAdj;
-        const levyCut = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
+        const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
+        const totalPctA = owners.reduce((s, o: any) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          const share = distributableRoi * ((owner as any).percentage / totalPctA) + ownerAdj;
           if (share <= 0) continue;
           result.push({ branchId: branch.id, branchName: branch.name.replace(/BRANCH\s*-\s*/i, '').trim(), periodLabel: group.label, ownerName: owner.name.trim(), amount: share });
         }
@@ -1377,7 +1401,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
     // Branch-first iteration — identical pattern to emailPreview so numbers always match.
     // Group-first iteration caused divergence when a branch appeared in multiple groups.
+    const selectedCutoffs = selectedPeriods.map(Number);
     for (const branch of activeBranches) {
+      // Respect the cutoff filter: skip branches not in the selected cutoff days.
+      if (selectedCutoffs.length > 0 && !selectedCutoffs.includes(Number(branch.weeklyCutoff ?? 0))) continue;
       for (const group of allGroupedReports) {
         const report = (group.reports as any[]).find((r: any) => r.branchId === branch.id);
         if (!report) continue;
@@ -1396,9 +1423,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const distributableRoi = adjustedRoi - levyCut;
 
         const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        const totalPctB = owners.reduce((s, o) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-          const share = distributableRoi * (owner.percentage / 100) + ownerAdj;
+          const share = distributableRoi * (owner.percentage / totalPctB) + ownerAdj;
           const key = owner.name.trim().toLowerCase();
           if (!ownerMap[key]) ownerMap[key] = { displayName: owner.name.trim(), totalShare: 0, entries: [] };
           ownerMap[key].totalShare += share;
@@ -1417,7 +1445,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         }),
       }))
       .sort((a, b) => b.totalShare - a.totalShare);
-  }, [activeBranches, allGroupedReports, subLookup, adjustments]);
+  }, [activeBranches, allGroupedReports, subLookup, adjustments, selectedPeriods]);
 
   // Lifted out of the render IIFE so the array reference is stable between
   // renders that only change dropdown-open state (no data change).
@@ -1450,8 +1478,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     try {
       const ownerSummary = ownerRoiData.map(o => ({ name: o.displayName, amount: o.totalShare }));
       const networkRoi = ownerRoiData.reduce((s, o) => s + o.totalShare, 0);
+      const selectedCutoffs = selectedPeriods.map(Number);
       const { data, error } = await supabase.functions.invoke('send-remittance-report', {
-        body: { email: emailReportAddr, ownerSummary, networkRoi },
+        body: { email: emailReportAddr, ownerSummary, networkRoi, selectedCutoffs },
       });
       if (error) throw error;
       if (data?.ok) {
@@ -1633,14 +1662,14 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           )}
         </div>
 
-        {/* View toggle */}
-        {!activeBranchId && (
-          <div className="flex w-full lg:w-fit bg-white/5 p-1 rounded-2xl border border-white/10 mt-3">
+        {/* View toggle — hidden for portal users */}
+        {!activeBranchId && !isReadOnly && (
+          <div className="flex w-full lg:w-fit bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 mt-3">
             {(['remittances', 'deductions'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => { setMainView(v); playSound('click'); }}
-                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white/15 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                className={`flex-1 lg:flex-none lg:px-6 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${mainView === v ? 'bg-white dark:bg-white/15 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/70'}`}
               >
                 {v === 'remittances' ? 'Remittances' : 'Deposits'}
               </button>
@@ -1897,7 +1926,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
               {/* Cutoff */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Cutoff</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Cutoff</p>
                 <div ref={periodDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setPeriodDropdownOpen(o => !o); playSound('click'); }}
@@ -1954,7 +1983,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               </div>
               {/* Branch */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Branch</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Branch</p>
                 <div ref={branchDropdownRef} className="relative w-full">
                   <button
                     onClick={() => { setBranchDropdownOpen(o => !o); playSound('click'); }}
@@ -1967,7 +1996,9 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                     <span className="truncate">
                       {effectiveBranchIds.length === 0
                         ? 'All Branches'
-                        : branches.find(b => b.id === effectiveBranchIds[0])?.name.replace(/\s*BRANCH\s*/i, '').trim() ?? 'Branch'}
+                        : effectiveBranchIds.length === 1
+                          ? branches.find(b => b.id === effectiveBranchIds[0])?.name.replace(/\s*BRANCH\s*/i, '').trim() ?? 'Branch'
+                          : `${effectiveBranchIds.length} Branches`}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {effectiveBranchIds.length > 0 && (
@@ -2008,7 +2039,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           return (
                             <button
                               key={b.id}
-                              onClick={() => { setBranchDropdownOpen(false); setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds([b.id])); }}
+                              onClick={() => { setBranchSearch(''); playSound('click'); startTransition(() => setSelectedBranchIds(prev => prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id])); }}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 ${selected ? 'bg-slate-50' : ''}`}
                             >
                               <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
@@ -2027,7 +2058,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
               </div>
               {/* Pending Remittance */}
               <div className="space-y-1">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest ml-1">Status</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Status</p>
                 <div className="flex gap-1.5">
                   <button onClick={() => { setLastWeekOnly(v => !v); setLastWeekSubmittedOnly(false); playSound('click'); }} className={`h-10 flex items-center justify-center gap-1.5 px-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap ${lastWeekOnly ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lastWeekOnly ? 'bg-white' : 'bg-rose-400'}`} />
@@ -2052,8 +2083,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             onBranchClick={handleBranchCardClick}
           />
 
-          {/* ── Early Remitter Rankings ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          {/* ── Early Remitter Rankings — hidden for portal/read-only users ── */}
+          {!isReadOnly && <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Early Remitter Rankings</p>
@@ -2114,7 +2145,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </div>
         );
       })()}
@@ -2138,14 +2169,16 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             </p>
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Weekly Remittances</p>
           </div>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center justify-center gap-2 h-9 px-3 sm:px-4 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
-            title="Export PDF"
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            <span className="hidden sm:inline">Export PDF</span>
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center justify-center gap-2 h-9 px-3 sm:px-4 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
+              title="Export PDF"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              <span className="hidden sm:inline">Export PDF</span>
+            </button>
+          )}
         </div>
 
       {/* ── Quick Process Strip — only on branch list view ── */}
@@ -2209,23 +2242,94 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         /* ── Branch detail: flat 2-column grid, period label inside each card ── */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {displayGroups.flatMap((group) => group.reports.map((report: any) => ({ report, group }))).map(({ report, group }) => {
-                  const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === group.label);
+                  // Use the per-branch label (branchLabel) as the canonical period key for this card.
+                  // group.label is set by whichever branch's report happens to be processed first,
+                  // which is non-deterministic when multiple branches share the same weekStart timestamp
+                  // (possible when cycleStart clipping produces matching weekStart but different weekEnd values).
+                  // report.branchLabel is always computed from getWeekRange for THIS specific branch → stable.
+                  const effLabel = report.branchLabel || group.label;
+                  const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === effLabel);
                   const globalAdj = rowAdj.filter(a => !a.targetOwner || a.description === 'VAULT DEPOSIT');
                   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
-                  const pureNetRoi = report.grossSales - report.totalStaffPay - report.totalExpenses - report.totalVaultProvision;
+                  const pureNetRoi = report.netRoi;
                   const adjustedRoi = pureNetRoi + totalGlobalAdj;
                   const levy = report.groupLevy as { name: string; percentage: number } | null;
-                  const levyCut = levy ? adjustedRoi * (levy.percentage / 100) : 0;
+                  const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
                   const distributableRoi = adjustedRoi - levyCut;
                   const hasAdj = rowAdj.length > 0;
                   const owners: any[] = Array.isArray(report.owners) ? report.owners : [];
-                  const sub = subLookup[`${report.branchId}::${group.label}`];
-                  const rKey = `${report.branchId}::${group.label}`;
-                  const cardId = `branch-card-${report.branchId}-${group.label.replace(/[\s,/]/g, '-')}`;
+                  const sub = subLookup[`${report.branchId}::${effLabel}`];
+                  const rKey = `${report.branchId}::${effLabel}`;
+                  const cardId = `branch-card-${report.branchId}-${effLabel.replace(/[\s,/]/g, '-')}`;
+
+                  /* ── Simplified card for portal/read-only users ── */
+                  if (isReadOnly) {
+                    const statusLabel = sub?.status === 'approved' ? 'Remitted' : sub?.status === 'rejected' ? 'Rejected' : sub?.status === 'for_verification' ? 'For Review' : adjustedRoi <= 0 ? 'Nothing to Remit' : 'Pending';
+                    const statusColor = sub?.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : sub?.status === 'rejected' ? 'bg-rose-100 text-rose-700 border-rose-200' : sub?.status === 'for_verification' ? 'bg-amber-100 text-amber-700 border-amber-200' : adjustedRoi <= 0 ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200';
+                    const cardBorder = sub?.status === 'approved' ? 'border-emerald-200' : sub?.status === 'rejected' ? 'border-rose-200' : 'border-slate-100';
+                    const totalDeductions = report.totalStaffPay + report.totalExpenses + report.totalVaultProvision;
+                    const noteKey = `${report.branchId}::${effLabel}`;
+                    const noteText = branchNotes[noteKey] || '';
+                    const periodLabel = effLabel;
+
+                    return (
+                      <div key={`${report.branchId}-${effLabel}`} className={`bg-white rounded-2xl border ${cardBorder} shadow-sm overflow-hidden flex flex-col`}>
+                        {/* Header */}
+                        <div className={`flex items-center justify-between px-5 py-4 ${sub?.status === 'approved' ? 'bg-emerald-50' : sub?.status === 'rejected' ? 'bg-rose-50' : 'bg-slate-50'}`}>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none truncate">{periodLabel}</p>
+                            <p className="text-xs font-medium text-slate-400 mt-0.5">{report.reportIds.length} day{report.reportIds.length !== 1 ? 's' : ''}</p>
+                          </div>
+                          <span className={`shrink-0 ml-3 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wide border ${statusColor}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+
+                        {/* Key numbers */}
+                        <div className="px-5 py-4 space-y-3 flex-1">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 rounded-xl px-4 py-3">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Gross Sales</p>
+                              <p className="text-base font-black text-slate-800 tabular-nums">{fmt(report.grossSales)}</p>
+                            </div>
+                            <div className="bg-rose-50 rounded-xl px-4 py-3">
+                              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Deductions</p>
+                              <p className="text-base font-black text-rose-600 tabular-nums">-{fmt(totalDeductions)}</p>
+                            </div>
+                            <div className={`rounded-xl px-4 py-3 ${adjustedRoi < 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Net ROI</p>
+                              <p className={`text-base font-black tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{fmt(adjustedRoi)}</p>
+                            </div>
+                            {owners.length > 0 && (() => {
+                              const myBranch = branchById.get(report.branchId);
+                              const myOwner = Array.isArray(myBranch?.owners) ? (myBranch!.owners as any[])[0] : null;
+                              if (!myOwner) return null;
+                              const ownerTargeted = ownerAdj.filter(a => a.targetOwner === myOwner.name).reduce((s, a) => s + a.amount, 0);
+                              const share = distributableRoi * (myOwner.percentage / 100) + ownerTargeted;
+                              return (
+                                <div className="bg-indigo-50 rounded-xl px-4 py-3">
+                                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1 truncate">Your Share</p>
+                                  <p className={`text-base font-black tabular-nums ${share < 0 ? 'text-rose-600' : 'text-indigo-700'}`}>{fmt(share)}</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Note (read-only) */}
+                          {noteText && (
+                            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                              <svg className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              <p className="text-xs text-amber-700 leading-relaxed">{noteText}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
-                    <div key={`${report.branchId}-${group.label}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border flex flex-col ${
+                    <div key={`${report.branchId}-${effLabel}`} id={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border flex flex-col ${
                       sub?.status === 'approved'  ? 'border-emerald-300' :
                       sub?.status === 'rejected'  ? 'border-rose-300' :
                       'border-slate-100'
@@ -2241,7 +2345,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         <div>
                           <p className="font-black text-slate-900 uppercase tracking-tight text-sm leading-none">
                             {activeBranchId
-                              ? (report.branchLabel || group.label)
+                              ? effLabel
                               : report.branchName.replace('BRANCH - ', '')}
                           </p>
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-0.5">
@@ -2284,7 +2388,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 disabled={isReviewing}
                                 onChange={() => {
                                   const hasVaultAdj = rowAdj.some(a => a.description === 'VAULT DEPOSIT');
-                                  setUnmarkConfirm({ submissionId: sub.id, branchName: report.branchName, periodLabel: group.label, hasVaultAdj });
+                                  setUnmarkConfirm({ submissionId: sub.id, branchName: report.branchName, periodLabel: effLabel, hasVaultAdj });
                                 }}
                                 className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
                                 title="Click to unmark remitted"
@@ -2301,7 +2405,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 checked={false}
                                 disabled={isReviewing}
                                 onChange={() => {
-                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName });
+                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName });
                                 }}
                                 className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
                                 title="Mark Remitted"
@@ -2317,8 +2421,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {/* ── For Verification ribbon (legacy status) ── */}
                       {sub?.status === 'for_verification' && !isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5 px-6 py-2 bg-amber-50 border-b border-amber-200">
-                          <button onClick={() => handleReview(sub.id, report.branchId, group.label, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
-                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => handleReview(sub.id, report.branchId, effLabel, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
+                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
                         </div>
                       )}
 
@@ -2327,7 +2431,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
                         {/* Line items */}
                         {(() => {
-                          const breakdownKey = `${group.label}-${report.branchId}`;
+                          const breakdownKey = `${effLabel}-${report.branchId}`;
                           const isOpen = openGrossBreakdown === breakdownKey;
                           const sorted = [...(report.dailyReports || [])].sort((a, b) => a.reportDate < b.reportDate ? -1 : 1);
                           return (
@@ -2422,10 +2526,17 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </div>
                         {totalGlobalAdj !== 0 && (
                           <div className="flex justify-between py-1.5">
-                            <span className="text-slate-500 text-xs">Vault / Adjustments</span>
+                            <span className="text-slate-500 text-xs">Shared Costs</span>
                             <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                               {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
                             </span>
+                          </div>
+                        )}
+
+                        {totalGlobalAdj !== 0 && (
+                          <div className="flex justify-between py-1.5">
+                            <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Adjusted ROI</span>
+                            <span className={`text-sm font-black tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{adjustedRoi < 0 ? '−' : ''}{fmt(Math.abs(adjustedRoi))}</span>
                           </div>
                         )}
 
@@ -2447,76 +2558,185 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             <div className="text-xs font-medium text-slate-400 uppercase tracking-wider py-1">
                               Owner Distribution{levy ? ` (of ${fmt(distributableRoi)})` : ''}
                             </div>
-                            {owners.map((owner: any, oIdx: number) => {
-                              const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
-                              const share = distributableRoi * (owner.percentage / 100) + ownerTargeted;
+                            {(() => {
+                              const totalPct = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                              return owners.map((owner: any, oIdx: number) => {
+                                const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
+                                const baseShare = distributableRoi * (owner.percentage / totalPct);
+                                const takeHome = baseShare + ownerTargeted;
+                                return (
+                                  <div key={oIdx} className="py-1.5 space-y-0.5">
+                                    <div className="flex justify-between">
+                                      <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
+                                        {owner.name.trim().toUpperCase()} <span className="text-slate-400 font-medium normal-case tracking-normal">({owner.percentage}%)</span>
+                                      </span>
+                                      {ownerTargeted !== 0
+                                        ? <span className="text-xs text-slate-400 tabular-nums">{fmt(baseShare)}</span>
+                                        : <span className={`text-xs font-bold tabular-nums ${takeHome < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(takeHome)}</span>
+                                      }
+                                    </div>
+                                    {ownerTargeted !== 0 && (
+                                      <div className="flex justify-between pl-3">
+                                        <span className="text-[11px] text-slate-400">Personal adj</span>
+                                        <span className={`text-[11px] tabular-nums ${ownerTargeted < 0 ? 'text-rose-400' : 'text-emerald-500'}`}>
+                                          {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {ownerTargeted !== 0 && (
+                                      <div className="flex justify-between pl-3 border-t border-dotted border-slate-200 pt-0.5">
+                                        <span className="text-xs font-bold text-slate-600">Take-home</span>
+                                        <span className={`text-xs font-bold tabular-nums ${takeHome < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(takeHome)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              });
+                            })()}
+                            {owners.length > 1 && (() => {
+                              const totalPct2 = owners.reduce((s: number, o: any) => s + (o.percentage || 0), 0) || 100;
+                              const ownerTotal = owners.reduce((s: number, owner: any) => {
+                                const ownerTargeted = ownerAdj.filter(a => a.targetOwner === owner.name).reduce((s2: number, a: any) => s2 + a.amount, 0);
+                                return s + distributableRoi * (owner.percentage / totalPct2) + ownerTargeted;
+                              }, 0);
+                              const returnedToBusiness = Math.round((pureNetRoi - ownerTotal) * 100) / 100;
                               return (
-                                <div key={oIdx} className="flex justify-between py-1.5">
-                                  <span className="text-slate-600 uppercase tracking-wide font-black text-xs">
-                                    {owner.name.trim().toUpperCase()} <span className="text-slate-400 font-medium normal-case tracking-normal">({owner.percentage}%)</span>
-                                    {ownerTargeted !== 0 && <span className="text-rose-400 text-xs ml-1 normal-case tracking-normal font-semibold">adj {ownerTargeted >= 0 ? '+' : ''}{fmt(ownerTargeted)}</span>}
-                                  </span>
-                                  <span className={`font-bold tabular-nums ${share < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{fmt(share)}</span>
-                                </div>
+                                <>
+                                  <div className="border-t border-dotted border-slate-200 my-1" />
+                                  <div className="flex justify-between py-1">
+                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Owner Payout</span>
+                                    <span className="font-black text-sm tabular-nums text-slate-800">{fmt(ownerTotal)}</span>
+                                  </div>
+                                  {returnedToBusiness > 0.01 && (
+                                    <div className="flex justify-between py-0.5">
+                                      <span className="text-[11px] text-slate-400 italic">Returned to business</span>
+                                      <span className="text-[11px] text-slate-400 tabular-nums">+{fmt(returnedToBusiness)}</span>
+                                    </div>
+                                  )}
+                                </>
                               );
-                            })}
-                            {owners.length > 1 && (
-                              <>
-                                <div className="border-t border-dotted border-slate-200 my-1" />
-                                <div className="flex justify-between py-1">
-                                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</span>
-                                  <span className="font-black text-sm tabular-nums text-slate-800">
-                                    {fmt(owners.reduce((s: number, o: any) => {
-                                      const ot = ownerAdj.filter(a => a.targetOwner === o.name).reduce((sum, a) => sum + a.amount, 0);
-                                      return s + distributableRoi * (o.percentage / 100) + ot;
-                                    }, 0))}
-                                  </span>
-                                </div>
-                              </>
-                            )}
+                            })()}
                           </>
                         )}
                         {owners.length === 0 && (
                           <p className="text-xs text-slate-400 italic py-2">No owners configured</p>
                         )}
+                      </div>{/* /receipt-body */}
 
-                        {/* Adjustments */}
-                        <div className="border-t-2 border-dashed border-slate-200 my-2" />
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Adjustments</p>
+                      {/* ── Adjustments panel — full card width for spacious columnar layout ── */}
+                      {(rowAdj.length > 0 || adjFormKey === rKey) && (
+                        <div className="border-t border-slate-100 dark:border-slate-700">
+                          <button
+                            onClick={() => setAdjExpandedKeys(prev => {
+                              const next = new Set(prev);
+                              next.has(rKey) ? next.delete(rKey) : next.add(rKey);
+                              return next;
+                            })}
+                            className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                          >
+                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                              Adjustments {rowAdj.length > 0 && <span className="ml-1 text-slate-300">({rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length})</span>}
+                            </span>
+                            <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${adjExpandedKeys.has(rKey) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {adjExpandedKeys.has(rKey) && <div className="px-6 pb-4 space-y-3">
 
-                          {rowAdj.map(adj => (
-                            <div
-                              key={adj.id}
-                              className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 gap-4"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                                <div className="min-w-0">
-                                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-tight truncate block">{adj.description}</span>
-                                  {adj.targetOwner && (
-                                    <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">→ {adj.targetOwner}</span>
+                          {rowAdj.length > 0 && (() => {
+                            const canDelete = !isReadOnly && sub?.status !== 'approved';
+                            const ownerNames: string[] = owners.map((o: any) => o.name as string);
+                            const nonVaultAdj = rowAdj.filter(a => a.description !== 'VAULT DEPOSIT');
+                            const vaultAdj = rowAdj.filter(a => a.description === 'VAULT DEPOSIT');
+                            const hasOwnerCols = ownerNames.length >= 2 && nonVaultAdj.some(a => !!a.targetOwner);
+
+                            const renderRow = (adj: RemittanceAdjustment) => (
+                              <div key={adj.id} className="flex items-center justify-between gap-3 py-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-tight">{adj.description}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`text-xs font-black tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                  </span>
+                                  {canDelete && (
+                                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs font-black tabular-nums ${adj.amount < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
-                                  {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
-                                </span>
-                                {!isReadOnly && sub?.status !== 'approved' && (
-                                  <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-0.5">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
 
-                          {rowAdj.length === 0 && adjFormKey !== rKey && (
-                            <p className="text-xs text-slate-400 italic">No adjustments</p>
-                          )}
-                        </div>{/* /space-y-1.5 */}
-                      </div>{/* /receipt-body */}
+                            return (
+                              <div className="space-y-2">
+                                {vaultAdj.map(a => (
+                                  <div key={a.id} className="flex items-center gap-2 py-1">
+                                    <Landmark className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                                    <span className="text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest flex-1">Vault Deposit</span>
+                                    <span className="text-sm font-black text-teal-600 dark:text-teal-400 tabular-nums">{fmt(Math.abs(a.amount))}</span>
+                                  </div>
+                                ))}
+
+                                {!hasOwnerCols && <div className="space-y-0.5">{nonVaultAdj.map(renderRow)}</div>}
+
+                                {hasOwnerCols && (() => {
+                                  const globalRows = nonVaultAdj.filter(a => !a.targetOwner);
+                                  const ownerBuckets = ownerNames.map((name: string) => ({
+                                    name,
+                                    rows: nonVaultAdj.filter(a => a.targetOwner === name),
+                                    net: nonVaultAdj.filter(a => a.targetOwner === name).reduce((s, a) => s + a.amount, 0),
+                                  }));
+                                  return (
+                                    <div className="space-y-3">
+                                      {ownerBuckets.map(bucket => bucket.rows.length > 0 && (
+                                        <div key={bucket.name} className="space-y-1">
+                                          <div className="flex items-center justify-between">
+                                            <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{bucket.name}</p>
+                                            <span className={`text-xs font-black tabular-nums ${bucket.net < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                              {bucket.net >= 0 ? '+' : ''}{fmt(bucket.net)}
+                                            </span>
+                                          </div>
+                                          <div className="pl-3 border-l-2 border-slate-100 dark:border-slate-700 space-y-1">
+                                            {bucket.rows.map(adj => (
+                                              <div key={adj.id} className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                  <div className={`w-1 h-1 rounded-full shrink-0 ${adj.amount >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-tight">{adj.description}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                  <span className={`text-[11px] font-bold tabular-nums ${adj.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                    {adj.amount >= 0 ? '+' : ''}{fmt(adj.amount)}
+                                                  </span>
+                                                  {canDelete && (
+                                                    <button onClick={() => handleDeleteAdjustment(adj.id)} className="text-slate-400 hover:text-rose-400 transition-colors p-0.5">
+                                                      <Trash2 className="w-2.5 h-2.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {globalRows.length > 0 && (
+                                        <div className="space-y-1 pt-1">
+                                          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Shared / Global</p>
+                                          <div className="pl-3 border-l-2 border-slate-100 dark:border-slate-700 space-y-1">
+                                            {globalRows.map(renderRow)}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
+                          </div>}
+                        </div>
+                      )}
 
                       {/* Buttons / adj form — anchored to card bottom */}
                       {!isReadOnly && sub?.status !== 'approved' && (
@@ -2630,7 +2850,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 )}
                                 <div className="grid grid-cols-2 gap-2">
                                   <button onClick={() => { setAdjFormKey(null); setAdjForm({ description: '', amount: '' }); setAdjTransferFrom(''); setAdjTransferTo(''); }} className="h-10 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold uppercase tracking-wide">Cancel</button>
-                                  <button onClick={() => handleTransferAdjustment(report.branchId, group.label)} disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40">{isSavingAdj ? '…' : 'Transfer'}</button>
+                                  <button onClick={() => handleTransferAdjustment(report.branchId, effLabel)} disabled={isSavingAdj || !adjTransferFrom || !adjTransferTo || !adjForm.description.trim() || !adjForm.amount} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40">{isSavingAdj ? '…' : 'Transfer'}</button>
                                 </div>
                               </div>
                             );
@@ -2707,7 +2927,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                   Cancel
                                 </button>
                                 <button
-                                  onClick={() => handleAddAdjustment(report.branchId, group.label, adjustedRoi)}
+                                  onClick={() => handleAddAdjustment(report.branchId, effLabel, adjustedRoi)}
                                   disabled={isSavingAdj || !adjForm.description.trim() || !adjForm.amount}
                                   className={`h-10 text-white rounded-xl text-xs font-semibold uppercase tracking-wide disabled:opacity-40 ${isVaultDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900'}`}
                                 >
@@ -2727,15 +2947,15 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                           <textarea
                             rows={1}
                             placeholder="Add a note (visible in email report)..."
-                            defaultValue={branchNotes[`${report.branchId}::${group.label}`] || ''}
+                            defaultValue={branchNotes[`${report.branchId}::${effLabel}`] || ''}
                             onBlur={e => {
                               const val = e.target.value;
-                              const existing = branchNotes[`${report.branchId}::${group.label}`] || '';
-                              if (val !== existing) handleSaveNote(report.branchId, group.label, val);
+                              const existing = branchNotes[`${report.branchId}::${effLabel}`] || '';
+                              if (val !== existing) handleSaveNote(report.branchId, effLabel, val);
                             }}
                             className="flex-1 text-xs text-slate-600 placeholder:text-slate-300 bg-transparent border-none outline-none resize-none leading-relaxed"
                           />
-                          {savingNoteKey === `${report.branchId}::${group.label}` && (
+                          {savingNoteKey === `${report.branchId}::${effLabel}` && (
                             <span className="text-xs text-slate-300 shrink-0 mt-2">saving…</span>
                           )}
                         </div>

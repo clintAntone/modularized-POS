@@ -12,7 +12,8 @@ import { ReportTable } from './reports-master/ReportTable';
 import { ReportDashboardModal } from './reports-master/ReportDashboardModal';
 import { ExportPDFDialog } from './reports-master/ExportPDFDialog';
 import { toDateStr, getWeekRange, getReportMonth, parseDate, normalizeDateStr } from '@/src/utils/reportUtils';
-import { getManilaTodayStr } from '../../../lib/time';
+import { getManilaTodayStr, getTrueISOString } from '../../../lib/time';
+import { logAudit } from '../../../lib/audit';
 
 const manilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 
@@ -66,6 +67,44 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
   const [showMissingPanel, setShowMissingPanel] = useState(false);
   const [showMissingSidebar, setShowMissingSidebar] = useState(false);
   const [fetchingRowId, setFetchingRowId] = useState<string | null>(null);
+  const [ignorePendingKey, setIgnorePendingKey] = useState<string | null>(null); // "branchId|date"
+  const [ignoringKey, setIgnoringKey] = useState<string | null>(null); // submitting
+
+  const handleIgnoreMissing = async (branchId: string, branchName: string, date: string) => {
+    const key = `${branchId}|${date}`;
+    setIgnoringKey(key);
+    try {
+      const id = `report_${branchId}_${date}_IGNORED_${Date.now()}`;
+      const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).insert({
+        [DB_COLUMNS.ID]:                   id,
+        [DB_COLUMNS.BRANCH_ID]:            branchId,
+        [DB_COLUMNS.REPORT_DATE]:          date,
+        [DB_COLUMNS.SUBMITTED_AT]:         getTrueISOString(),
+        [DB_COLUMNS.GROSS_SALES]:          0,
+        [DB_COLUMNS.TOTAL_STAFF_PAY]:      0,
+        [DB_COLUMNS.TOTAL_EXPENSES]:       0,
+        [DB_COLUMNS.TOTAL_VAULT_PROVISION]:0,
+        [DB_COLUMNS.NET_ROI]:              0,
+        [DB_COLUMNS.SESSION_DATA]:         [],
+        [DB_COLUMNS.BACKFILLED]:           true,
+        notes:                             'IGNORED',
+      });
+      if (error) throw error;
+      await logAudit({
+        activityType: 'REPORT_IGNORED',
+        entityType:   'SALES_REPORT',
+        description:  `Missing report for ${branchName} on ${date} marked as ignored (zero-value entry created)`,
+        branchId,
+      });
+      playSound('success');
+      setIgnorePendingKey(null);
+      onDeleted?.();
+    } catch {
+      playSound('warning');
+    } finally {
+      setIgnoringKey(null);
+    }
+  };
 
   // Close the floating missing-reports dropdown on scroll so it doesn't trail behind
   useEffect(() => {
@@ -452,13 +491,44 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                   {missingBranches.map(({ branch: b, missingDates }) => (
                     <div key={b.id} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-3 py-2.5">
                       <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide truncate">{b.name}</p>
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {missingDates.map(d => (
-                          <span key={d} className="flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 shrink-0" />
-                            {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        ))}
+                      <div className="flex flex-col gap-1 mt-1.5">
+                        {missingDates.map(d => {
+                          const key = `${b.id}|${d}`;
+                          const isPending = ignorePendingKey === key;
+                          const isSubmitting = ignoringKey === key;
+                          return (
+                            <div key={d} className="flex items-center gap-2">
+                              <span className="flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 shrink-0" />
+                                {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                              {!isPending ? (
+                                <button
+                                  onClick={() => setIgnorePendingKey(key)}
+                                  className="text-[10px] font-black text-amber-400 hover:text-amber-600 dark:text-amber-500 dark:hover:text-amber-300 uppercase tracking-wide transition-colors"
+                                >
+                                  Ignore
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleIgnoreMissing(b.id, b.name, d)}
+                                    disabled={!!isSubmitting}
+                                    className="text-[10px] font-black text-white bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                                  >
+                                    {isSubmitting ? '…' : 'Confirm'}
+                                  </button>
+                                  <button
+                                    onClick={() => setIgnorePendingKey(null)}
+                                    className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-wide transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -632,12 +702,43 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                           <p className="text-xs font-black text-slate-800 uppercase truncate leading-none flex-1">{b.name}</p>
                           <span className="text-xs font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full shrink-0">{missingDates.length}d</span>
                         </div>
-                        <div className="flex flex-wrap gap-1 pl-8">
-                          {missingDates.map(d => (
-                            <span key={d} className="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
-                              {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          ))}
+                        <div className="flex flex-col gap-1 pl-8">
+                          {missingDates.map(d => {
+                            const key = `${b.id}|${d}`;
+                            const isPending = ignorePendingKey === key;
+                            const isSubmitting = ignoringKey === key;
+                            return (
+                              <div key={d} className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md shrink-0">
+                                  {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                                {!isPending ? (
+                                  <button
+                                    onClick={() => setIgnorePendingKey(key)}
+                                    className="text-[10px] font-black text-slate-300 hover:text-amber-500 uppercase tracking-wide transition-colors"
+                                  >
+                                    Ignore
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleIgnoreMissing(b.id, b.name, d)}
+                                      disabled={!!isSubmitting}
+                                      className="text-[10px] font-black text-white bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                                    >
+                                      {isSubmitting ? '…' : 'Confirm'}
+                                    </button>
+                                    <button
+                                      onClick={() => setIgnorePendingKey(null)}
+                                      className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-wide transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

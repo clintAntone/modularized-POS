@@ -159,21 +159,31 @@ jobs:
 
       # ── Upload to Supabase Storage ─────────────────────────────────────────
       - name: Upload APK to Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           APK_FILE="android/app/build/outputs/apk/release/${{ env.apk_name }}"
-          curl -sf -X POST \
+          RESPONSE=$(curl -s -o /tmp/upload_response.json -w "%{http_code}" -X POST \
             "${SUPABASE_URL}/storage/v1/object/apk/${{ env.apk_name }}" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary "@${APK_FILE}"
+            --data-binary "@${APK_FILE}")
+          echo "HTTP status: $RESPONSE"
+          cat /tmp/upload_response.json
+          if [ "$RESPONSE" -lt 200 ] || [ "$RESPONSE" -ge 300 ]; then
+            echo "Upload failed with status $RESPONSE"
+            exit 1
+          fi
 
       - name: Update apk_filename in system_config
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           curl -sf -X POST \
             "${SUPABASE_URL}/rest/v1/system_config" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
             -H "Prefer: resolution=merge-duplicates" \
             -d "{\"key\": \"apk_filename\", \"value\": \"${{ env.apk_name }}\"}"

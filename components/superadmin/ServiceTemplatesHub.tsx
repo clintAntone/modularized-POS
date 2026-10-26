@@ -41,6 +41,7 @@ interface ServiceTemplate {
   secondary_commission_type: string | null;
   secondary_commission_value: number | null;
   can_be_loyalty: boolean;
+  image_url: string | null;
 }
 
 interface BranchService {
@@ -68,6 +69,31 @@ const BLANK: Omit<ServiceTemplate, 'id'> = {
   secondary_commission_type: 'fixed',
   secondary_commission_value: null,
   can_be_loyalty: false,
+};
+
+// Isolated input — local state while typing, only writes to DB on blur
+const BranchPriceInput: React.FC<{
+  initialValue: number | null;
+  placeholder: string;
+  disabled: boolean;
+  onCommit: (raw: string) => void;
+}> = ({ initialValue, placeholder, disabled, onCommit }) => {
+  const [local, setLocal] = React.useState(initialValue == null ? '' : String(initialValue));
+  React.useEffect(() => {
+    setLocal(initialValue == null ? '' : String(initialValue));
+  }, [initialValue]);
+  return (
+    <input
+      type="number"
+      min="0"
+      disabled={disabled}
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={() => onCommit(local)}
+      placeholder={placeholder}
+      className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+    />
+  );
 };
 
 export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branches, isReadOnly = false, onRefresh }) => {
@@ -119,6 +145,10 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const [longPressingId, setLongPressingId] = useState<string | null>(null);
+  // Service image upload
+  const imgFileRef = useRef<HTMLInputElement>(null);
+  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imgUploading, setImgUploading] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -200,15 +230,32 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     if (!editingTemplate || !editingTemplate.name.trim()) return;
     setIsSaving(true);
     try {
+      let imageUrl = editingTemplate.image_url;
+      if (imgFile) {
+        setImgUploading(true);
+        const ext = imgFile.name.split('.').pop() || 'jpg';
+        const templateId = isNew ? Math.random().toString(36).substr(2, 9) : editingTemplate.id;
+        const path = `${templateId}-${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('service-images')
+          .upload(path, imgFile, { contentType: imgFile.type, upsert: true });
+        if (!uploadErr) {
+          imageUrl = supabase.storage.from('service-images').getPublicUrl(path).data.publicUrl;
+        }
+        setImgUploading(false);
+      }
+
+      const templateData = { ...editingTemplate, image_url: imageUrl };
       if (isNew) {
         const id = Math.random().toString(36).substr(2, 9);
-        await supabase.from(DB_TABLES.SERVICE_TEMPLATES).insert({ ...editingTemplate, id });
+        await supabase.from(DB_TABLES.SERVICE_TEMPLATES).insert({ ...templateData, id });
       } else {
-        const { id, ...rest } = editingTemplate;
+        const { id, ...rest } = templateData;
         await supabase.from(DB_TABLES.SERVICE_TEMPLATES).update(rest).eq('id', id);
       }
       playSound('success');
       setEditingTemplate(null);
+      setImgFile(null);
       await load();
       queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
       onRefresh?.();
@@ -216,6 +263,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       console.error(err);
     } finally {
       setIsSaving(false);
+      setImgUploading(false);
     }
   };
 
@@ -780,12 +828,52 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 <h3 className="text-sm font-bold text-slate-900">{isNew ? 'New Service' : 'Edit Service'}</h3>
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Template Definition</p>
               </div>
-              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
+              <button onClick={() => { setEditingTemplate(null); setSaveConfirm(false); setImgFile(null); }} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+              {/* ── Service Image ── */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Image</label>
+                {(imgFile || editingTemplate.image_url) ? (
+                  <div className="relative h-36 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                    <img
+                      src={imgFile ? URL.createObjectURL(imgFile) : editingTemplate.image_url!}
+                      className="w-full h-full object-cover"
+                      alt="Service"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setImgFile(null); setEditingTemplate(t => t && ({ ...t, image_url: null })); if (imgFileRef.current) imgFileRef.current.value = ''; }}
+                      className="absolute top-2 right-2 w-7 h-7 bg-slate-900/60 hover:bg-rose-600 text-white rounded-lg flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => imgFileRef.current?.click()}
+                      className="absolute bottom-2 right-2 text-xs font-semibold bg-white/90 hover:bg-white text-slate-700 px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      Replace
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => imgFileRef.current?.click()}
+                    className="w-full h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50/30 hover:text-emerald-500 transition-all"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span className="text-xs font-semibold">Upload Photo</span>
+                  </button>
+                )}
+                <input ref={imgFileRef} type="file" accept="image/*" className="hidden" onChange={e => setImgFile(e.target.files?.[0] || null)} />
+                {imgUploading && <p className="text-xs text-slate-400 font-medium">Uploading image…</p>}
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Service Name</label>
                 <input
@@ -940,7 +1028,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <button onClick={() => { setSaveConfirm(false); setEditingTemplate(null); }}
+                  <button onClick={() => { setSaveConfirm(false); setEditingTemplate(null); setImgFile(null); }}
                     className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all">
                     Cancel
                   </button>
@@ -1040,7 +1128,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         {branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).length === 0 ? (
                           <div className="px-4 py-4 text-xs text-slate-400 italic text-center">No branches match</div>
                         ) : (
-                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => {
+                          branches.filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)).map(b => {
                             const inDraft = draftBranchIds.includes(b.id);
                             return (
                               <button
@@ -1088,7 +1176,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                   <p className="text-xs text-slate-300 mt-0.5">Use the picker above to add branches</p>
                 </div>
               ) : (
-                branches.filter(b => draftBranchIds.includes(b.id)).map(b => {
+                branches.filter(b => draftBranchIds.includes(b.id)).sort((a, b) => a.name.localeCompare(b.name)).map(b => {
                   const assignment = branchServices.find(bs => bs.branch_id === b.id && bs.template_id === managingTemplate.id);
                   return (
                     <div key={b.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -1110,14 +1198,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                         <span className="text-xs text-slate-400 shrink-0">Custom price</span>
                         <div className="flex items-center gap-1 ml-auto">
                           <span className="text-xs text-slate-400">₱</span>
-                          <input
-                            type="number"
-                            min="0"
-                            disabled={isReadOnly || !assignment}
-                            value={assignment?.price ?? ''}
-                            onChange={e => assignment && handleUpdatePrice(b.id, managingTemplate.id, e.target.value)}
+                          <BranchPriceInput
+                            initialValue={assignment?.price ?? null}
                             placeholder={String(managingTemplate.default_price)}
-                            className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-emerald-400 tabular-nums transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            disabled={isReadOnly || !assignment}
+                            onCommit={raw => assignment && handleUpdatePrice(b.id, managingTemplate.id, raw)}
                           />
                         </div>
                         {!assignment && <span className="text-xs text-slate-300 italic">Save first</span>}
