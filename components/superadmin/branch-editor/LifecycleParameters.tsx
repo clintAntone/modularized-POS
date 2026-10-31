@@ -21,7 +21,7 @@ export const LifecycleParameters: React.FC<LifecycleParametersProps> = ({
   const cutoffChanged = weeklyCutoff !== originalCutoff;
 
   // Compute the current week's end date (under the original cutoff) for the date picker max
-  const { currentWeekEnd, tomorrow } = useMemo(() => {
+  const { currentWeekEnd, today, tomorrow } = useMemo(() => {
     const now = getTrueDate();
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tom = new Date(todayDate);
@@ -29,7 +29,7 @@ export const LifecycleParameters: React.FC<LifecycleParametersProps> = ({
     const { weekEnd } = getWeekRange(todayDate, branch);
     // weekEnd has time 23:59:59, normalize to date only
     const endDate = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
-    return { currentWeekEnd: toDateStr(endDate), tomorrow: toDateStr(tom) };
+    return { currentWeekEnd: toDateStr(endDate), today: toDateStr(todayDate), tomorrow: toDateStr(tom) };
   }, [branch]);
 
   return (
@@ -46,7 +46,7 @@ export const LifecycleParameters: React.FC<LifecycleParametersProps> = ({
                 onClick={() => {
                   playSound('click');
                   if (idx !== originalCutoff) {
-                    onUpdate({ weeklyCutoff: idx, cutoffEffectiveDate: tomorrow });
+                    onUpdate({ weeklyCutoff: idx, cutoffEffectiveDate: today });
                   } else {
                     onUpdate({ weeklyCutoff: idx, cutoffEffectiveDate: undefined });
                   }
@@ -67,7 +67,7 @@ export const LifecycleParameters: React.FC<LifecycleParametersProps> = ({
             <input
               type="date"
               disabled={isSaving}
-              value={branch.cutoffEffectiveDate || tomorrow}
+              value={branch.cutoffEffectiveDate || today}
               onChange={(e) => onUpdate({ cutoffEffectiveDate: e.target.value })}
               className="w-full p-4 bg-amber-50 border border-amber-200 rounded-2xl font-bold text-xs uppercase tracking-wider text-amber-700 outline-none focus:border-amber-500 transition-all shadow-sm"
             />

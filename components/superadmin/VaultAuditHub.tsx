@@ -132,10 +132,10 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches }) => {
 
         const branchTxns = vaultTxSums.filter(t => t.branchId === b.id);
         const sumDeposits = branchTxns
-          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT')
+          .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
           .reduce((s, t) => s + t.amount, 0);
         const sumWithdrawals = branchTxns
-          .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
+          .filter(t => t.type === 'WITHDRAWAL')
           .reduce((s, t) => s + t.amount, 0);
 
         const expectedBalance = initialBalance + sumDeposits - sumWithdrawals;

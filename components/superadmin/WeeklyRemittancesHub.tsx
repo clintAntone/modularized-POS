@@ -2254,6 +2254,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
                   const pureNetRoi = report.netRoi;
                   const adjustedRoi = pureNetRoi + totalGlobalAdj;
+                  // Vault deposits via remittance — rolled into Vault/Bills display line
+                  const remittanceVaultDepositTotal = rowAdj
+                    .filter(a => a.description === 'VAULT DEPOSIT')
+                    .reduce((s, a) => s + Math.abs(a.amount), 0);
+                  const displayedVaultBills = report.totalVaultProvision + remittanceVaultDepositTotal;
+                  const displayedNetRoi = pureNetRoi - remittanceVaultDepositTotal;
+                  const nonVaultGlobalAdj = globalAdj.filter(a => a.description !== 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
                   const levy = report.groupLevy as { name: string; percentage: number } | null;
                   const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
                   const distributableRoi = adjustedRoi - levyCut;
@@ -2513,7 +2520,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         </div>
                         <div className="flex justify-between py-1.5">
                           <span className="text-slate-500">Vault / Bills</span>
-                          <span className="font-bold text-rose-600 tabular-nums">-{fmt(report.totalVaultProvision)}</span>
+                          <span className="font-bold text-rose-600 tabular-nums">-{fmt(displayedVaultBills)}</span>
                         </div>
 
                         {/* Dotted separator */}
@@ -2522,18 +2529,18 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                         {/* Net ROI — always pure arithmetic */}
                         <div className="flex justify-between py-2">
                           <span className="font-black text-slate-900 text-sm uppercase tracking-wide">Net ROI</span>
-                          <span className={`font-black text-lg tabular-nums ${pureNetRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{pureNetRoi < 0 ? '−' : ''}{fmt(Math.abs(pureNetRoi))}</span>
+                          <span className={`font-black text-lg tabular-nums ${displayedNetRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{displayedNetRoi < 0 ? '−' : ''}{fmt(Math.abs(displayedNetRoi))}</span>
                         </div>
-                        {totalGlobalAdj !== 0 && (
+                        {nonVaultGlobalAdj !== 0 && (
                           <div className="flex justify-between py-1.5">
                             <span className="text-slate-500 text-xs">Shared Costs</span>
-                            <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-                              {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
+                            <span className={`font-semibold text-xs tabular-nums ${nonVaultGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                              {nonVaultGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(nonVaultGlobalAdj))}
                             </span>
                           </div>
                         )}
 
-                        {totalGlobalAdj !== 0 && (
+                        {(nonVaultGlobalAdj !== 0 || remittanceVaultDepositTotal > 0) && adjustedRoi !== displayedNetRoi && (
                           <div className="flex justify-between py-1.5">
                             <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Adjusted ROI</span>
                             <span className={`text-sm font-black tabular-nums ${adjustedRoi < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{adjustedRoi < 0 ? '−' : ''}{fmt(Math.abs(adjustedRoi))}</span>
@@ -2635,7 +2642,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                             className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
                           >
                             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                              Adjustments {rowAdj.length > 0 && <span className="ml-1 text-slate-300">({rowAdj.filter(a => a.description !== 'VAULT DEPOSIT').length})</span>}
+                              Adjustments {rowAdj.length > 0 && <span className="ml-1 text-slate-300">({rowAdj.length})</span>}
                             </span>
                             <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${adjExpandedKeys.has(rKey) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

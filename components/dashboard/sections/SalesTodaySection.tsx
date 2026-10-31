@@ -1006,16 +1006,23 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
         <div className="flex flex-row justify-between items-center no-print px-2 mb-2">
           {/* SYNC STATUS LEGEND */}
           <div className="flex-1">
-            {(connStatus === 'offline' || autoSyncStatus === 'saving' || isSlowNetwork) && (
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-500 shadow-sm border ${
-                connStatus === 'offline'
-                  ? 'bg-rose-50 border-rose-100 shadow-rose-50'
-                  : isSlowNetwork
-                    ? 'bg-amber-50 border-amber-100 shadow-amber-50'
-                    : 'bg-emerald-50 border-emerald-100 shadow-emerald-50'
-              }`}>
+            {(connStatus === 'offline' || autoSyncStatus === 'saving' || autoSyncStatus === 'error' || isSlowNetwork) && (
+              <button
+                type="button"
+                disabled={autoSyncStatus !== 'error'}
+                onClick={autoSyncStatus === 'error' ? onForceSync : undefined}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-500 shadow-sm border ${
+                  connStatus === 'offline'
+                    ? 'bg-rose-50 border-rose-100 shadow-rose-50'
+                    : autoSyncStatus === 'error'
+                      ? 'bg-rose-50 border-rose-100 shadow-rose-50 cursor-pointer active:scale-95'
+                      : isSlowNetwork
+                        ? 'bg-amber-50 border-amber-100 shadow-amber-50'
+                        : 'bg-emerald-50 border-emerald-100 shadow-emerald-50'
+                }`}
+              >
                 <div className="relative">
-                  {connStatus === 'offline' ? (
+                  {connStatus === 'offline' || autoSyncStatus === 'error' ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
                   ) : isSlowNetwork ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#fbbf24]"></div>
@@ -1025,7 +1032,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 </div>
                 <div className="w-px h-2.5 bg-slate-200"></div>
                 <span className={`text-xs font-semibold uppercase tracking-wide tabular-nums ${
-                  connStatus === 'offline'
+                  connStatus === 'offline' || autoSyncStatus === 'error'
                     ? 'text-rose-700'
                     : isSlowNetwork
                       ? 'text-amber-700'
@@ -1033,13 +1040,13 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
                 }`}>
                   {connStatus === 'offline'
                     ? `OFFLINE${pendingSyncCount > 0 ? `: ${pendingSyncCount} PENDING RELAY` : ''}`
-                    : isSlowNetwork
-                      ? `SLOW NETWORK${pendingSyncCount > 0 ? ` · ${pendingSyncCount} QUEUED` : ''}`
-                      : autoSyncStatus === 'saving'
-                        ? 'SAVING...'
-                        : 'SYNCED'}
+                    : autoSyncStatus === 'error'
+                      ? 'SAVE FAILED · TAP TO RETRY'
+                      : isSlowNetwork
+                        ? `SLOW NETWORK${pendingSyncCount > 0 ? ` · ${pendingSyncCount} QUEUED` : ''}`
+                        : 'SAVING...'}
                 </span>
-              </div>
+              </button>
             )}
           </div>
 

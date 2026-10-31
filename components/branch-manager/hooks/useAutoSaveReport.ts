@@ -50,11 +50,22 @@ export function useAutoSaveReport({
   const [forceSyncTick, setForceSyncTick] = useState(0);
   const prevTotalsRef = useRef<string>('');
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHeartbeatRef = useRef(false);
 
   const forceSync = useCallback(() => {
     prevTotalsRef.current = '';
     setForceSyncTick(t => t + 1);
   }, []);
+
+  // 5-minute heartbeat — runs silently (no status indicator shown).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isPreview || loading || document.hidden) return;
+      isHeartbeatRef.current = true;
+      forceSync();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [forceSync, isPreview, loading]);
 
   // Reset prevTotalsRef when tab becomes visible so auto-save re-evaluates with current data
   useEffect(() => {
@@ -88,7 +99,10 @@ export function useAutoSaveReport({
       return;
     }
 
-    setAutoSyncStatus('saving');
+    const silent = isHeartbeatRef.current;
+    isHeartbeatRef.current = false;
+    if (!silent) setAutoSyncStatus('saving');
+
     syncTimeoutRef.current = setTimeout(async () => {
       try {
         syncRelieverPayouts(branch, todayStr, employees, hiddenStaffNames)
@@ -166,8 +180,31 @@ export function useAutoSaveReport({
               [DB_COLUMNS.VAULT_DATA]: todayExps.filter(e => !['OPERATIONAL', 'VAULT_FUND_DEPOSIT', 'VAULT_WITHDRAWAL'].includes(e.category)),
             };
 
-        const { error } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert(payload);
+        const { data: saved, error } = await supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .upsert(payload)
+          .select()
+          .single();
         if (error) throw error;
+
+        // Read-back verification — if stored values differ from what we sent, local wins
+        if (saved) {
+          const verifyFields = [
+            DB_COLUMNS.GROSS_SALES,
+            DB_COLUMNS.TOTAL_STAFF_PAY,
+            DB_COLUMNS.TOTAL_EXPENSES,
+            DB_COLUMNS.NET_ROI,
+            DB_COLUMNS.TOTAL_VAULT_PROVISION,
+          ] as const;
+          const hasConflict = verifyFields.some(
+            f => Math.round(Number(saved[f]) * 100) !== Math.round(Number(payload[f]) * 100)
+          );
+          if (hasConflict) {
+            // Silently re-upsert with local payload — local is always authoritative
+            const { error: retryErr } = await supabase.from(DB_TABLES.SALES_REPORTS).upsert(payload);
+            if (retryErr) throw retryErr;
+          }
+        }
 
         prevTotalsRef.current = currentTotalsStr;
         setAutoSyncStatus('synced');

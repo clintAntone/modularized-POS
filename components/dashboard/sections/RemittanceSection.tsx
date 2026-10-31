@@ -120,24 +120,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         targetOwner: entryId, createdAt: adjData.created_at,
       }]);
 
-      // 2. Insert into vault_transactions for history in VaultFundHub
-      await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-        [DB_COLUMNS.ID]: entryId,
-        [DB_COLUMNS.BRANCH_ID]: branch.id,
-        [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
-        [DB_COLUMNS.AMOUNT]: amt,
-        [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
-        [DB_COLUMNS.TIMESTAMP]: timestamp,
-        [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+      // 2 + 3. Atomically insert vault_transaction and increment balance via RPC.
+      // Replaces the previous non-atomic read-local-write pattern that caused balance
+      // drift when any other write landed between component mount and this submit.
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('record_vault_remittance_deposit', {
+        p_id:           entryId,
+        p_branch_id:    branch.id,
+        p_amount:       amt,
+        p_timestamp:    timestamp,
+        p_performed_by: performedBy ?? null,
       });
+      if (rpcErr) throw rpcErr;
 
-      // 3. Update vault balance
-      const newBalance = (vaultBalance ?? 0) + amt;
-      await supabase.from(DB_TABLES.BRANCH_VAULTS)
-        .update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance })
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
-
-      setVaultBalance(newBalance);
+      setVaultBalance(Number((rpcData as any)?.new_balance ?? (vaultBalance ?? 0) + amt));
       setIsRemittingToVault(false);
       setVaultRemitInput('');
       playSound('success');
@@ -262,15 +257,17 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
         if (adjErr) throw adjErr;
         setAdjustments(prev => [...prev, { id: adjData.id, branchId: adjData.branch_id, periodLabel: adjData.period_label, description: adjData.description, amount: Number(adjData.amount), targetOwner: entryId, createdAt: adjData.created_at }]);
 
-        await supabase.from(DB_TABLES.VAULT_TRANSACTIONS).insert({
-          [DB_COLUMNS.ID]: entryId, [DB_COLUMNS.BRANCH_ID]: branch.id, [DB_COLUMNS.TYPE]: 'REMITTANCE_DEPOSIT',
-          [DB_COLUMNS.AMOUNT]: depositAmt, [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
-          [DB_COLUMNS.TIMESTAMP]: timestamp, [DB_COLUMNS.PERFORMED_BY]: performedBy ?? null,
+        // Atomically insert vault_transaction and increment balance via RPC.
+        const { data: rpcData2, error: rpcErr2 } = await supabase.rpc('record_vault_remittance_deposit', {
+          p_id:           entryId,
+          p_branch_id:    branch.id,
+          p_amount:       depositAmt,
+          p_timestamp:    timestamp,
+          p_performed_by: performedBy ?? null,
         });
+        if (rpcErr2) throw rpcErr2;
 
-        const newBalance = (vaultBalance ?? 0) + depositAmt;
-        await supabase.from(DB_TABLES.BRANCH_VAULTS).update({ [DB_COLUMNS.VAULT_BALANCE]: newBalance }).eq(DB_COLUMNS.BRANCH_ID, branch.id);
-        setVaultBalance(newBalance);
+        setVaultBalance(Number((rpcData2 as any)?.new_balance ?? (vaultBalance ?? 0) + depositAmt));
         queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
         onRefresh?.();
       } else {
@@ -566,6 +563,14 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalGlobalAdj;
+  // Vault deposits made via remittance — rolled up into Vault/Bills display line
+  const remittanceVaultDepositTotal = rowAdj
+    .filter(a => a.description === 'VAULT DEPOSIT')
+    .reduce((s, a) => s + Math.abs(a.amount), 0);
+  // Displayed Vault/Bills = daily provision + remittance-level vault deposits
+  const displayedVaultBills = agg.totalVaultProvision + remittanceVaultDepositTotal;
+  // Displayed NET ROI shifts vault deposit up into Vault/Bills (final Adjusted ROI unchanged)
+  const displayedNetRoi = agg.netRoi - remittanceVaultDepositTotal;
   const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
   const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
@@ -722,8 +727,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
           { label: 'Gross Sales', value: fmt(agg.grossSales), color: 'text-slate-900', sub: `${agg.reportCount} day${agg.reportCount !== 1 ? 's' : ''}` },
           { label: 'Staff Payroll', value: fmt(agg.totalStaffPay), color: 'text-rose-600', sub: 'commissions + allowance' },
           { label: 'Expenses', value: fmt(agg.totalExpenses), color: 'text-rose-600', sub: 'operational only' },
-          { label: 'Vault Deposit', value: fmt(agg.totalVaultProvision), color: 'text-indigo-600', sub: 'saved to vault' },
-          { label: hasAdj ? 'Adjusted ROI' : 'Net ROI', value: fmt(adjustedRoi), color: adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-600', sub: hasAdj ? `base ${fmt(agg.netRoi)}` : 'for this period' },
+          { label: 'Vault Deposit', value: fmt(displayedVaultBills), color: 'text-indigo-600', sub: 'saved to vault' },
+          { label: hasAdj ? 'Adjusted ROI' : 'Net ROI', value: fmt(adjustedRoi), color: adjustedRoi < 0 ? 'text-rose-600' : 'text-emerald-600', sub: hasAdj ? `base ${fmt(displayedNetRoi)}` : 'for this period' },
         ].map(k => (
           <div key={k.label} className="bg-white border border-slate-100 rounded-2xl px-4 py-4 shadow-sm">
             <p className="text-xs font-medium text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
@@ -787,6 +792,19 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             )}
           </div>
         </div>
+
+        {/* Review note — shown when superadmin has left feedback on this submission */}
+        {submission?.reviewNote && (
+          <div className="mx-6 mb-0 mt-3 flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <svg className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Note from Admin</p>
+              <p className="text-xs font-medium text-amber-800 leading-relaxed break-words">{submission.reviewNote}</p>
+            </div>
+          </div>
+        )}
 
         {/* Two-col on desktop: receipt left, adjustments right */}
         <div className="md:grid md:grid-cols-[2fr_3fr] md:divide-x md:divide-slate-100">
@@ -857,25 +875,29 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-slate-500">Vault / Bills</span>
-              <span className="font-bold text-rose-600 tabular-nums">-{fmt(agg.totalVaultProvision)}</span>
+              <span className="font-bold text-rose-600 tabular-nums">-{fmt(displayedVaultBills)}</span>
             </div>
             <div className="border-t-2 border-dashed border-slate-200 my-2" />
 
             {/* NET ROI = pure arithmetic always */}
             <div className="flex justify-between py-2">
               <span className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide">Net ROI</span>
-              <span className={`font-black text-lg tabular-nums ${agg.netRoi < 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{agg.netRoi < 0 ? '−' : ''}{fmt(Math.abs(agg.netRoi))}</span>
+              <span className={`font-black text-lg tabular-nums ${displayedNetRoi < 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{displayedNetRoi < 0 ? '−' : ''}{fmt(Math.abs(displayedNetRoi))}</span>
             </div>
 
-            {/* Vault deposit / global adjustments shown explicitly below NET ROI */}
-            {!loadingAdj && totalGlobalAdj !== 0 && (
-              <div className="flex justify-between py-1.5">
-                <span className="text-slate-500 text-xs">Adjustments</span>
-                <span className={`font-semibold text-xs tabular-nums ${totalGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-                  {totalGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(totalGlobalAdj))}
-                </span>
-              </div>
-            )}
+            {/* Non-vault global adjustments shown explicitly below NET ROI */}
+            {!loadingAdj && (() => {
+              const nonVaultGlobalAdj = globalAdj.filter(a => a.description !== 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+              if (nonVaultGlobalAdj === 0) return null;
+              return (
+                <div className="flex justify-between py-1.5">
+                  <span className="text-slate-500 text-xs">Adjustments</span>
+                  <span className={`font-semibold text-xs tabular-nums ${nonVaultGlobalAdj < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                    {nonVaultGlobalAdj >= 0 ? '+' : '−'}{fmt(Math.abs(nonVaultGlobalAdj))}
+                  </span>
+                </div>
+              );
+            })()}
 
             {levy && (
               <>

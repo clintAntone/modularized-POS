@@ -50,12 +50,16 @@ export function getWeekRange(date: Date, branch: Branch) {
     const history = branch.cutoffHistory || [];
     let activeCutoff = Number(branch.weeklyCutoff ?? 0);
     let activeEffectiveFrom: string | null = branch.cycleStartDate || null;
+    let nextEraStart: Date | null = null;
 
     for (const entry of history) {
         const eff = parseDate(entry.effectiveFrom);
         if (eff <= dateNorm) {
             activeCutoff = entry.cutoff;
             activeEffectiveFrom = entry.effectiveFrom;
+        } else if (nextEraStart === null || eff < nextEraStart) {
+            // Track the nearest future era so we can cap this period's end date.
+            nextEraStart = new Date(eff.getFullYear(), eff.getMonth(), eff.getDate());
         }
     }
 
@@ -82,9 +86,18 @@ export function getWeekRange(date: Date, branch: Branch) {
     if (cycleStart > naturalStart && cycleStart <= naturalEnd && dateNorm >= cycleStart) {
         weekStart = new Date(cycleStart);
     }
-    const weekEnd = naturalEnd;
 
-    // 3. Calculate weekIndex (Nth occurrence of startDay in the month)
+    // 3. Cap weekEnd to the day before the next era starts when it lands within this period.
+    //    Prevents the last period of an era from sharing its end date with the first day of
+    //    the new era (e.g. "Oct 25 — Oct 31" and "Oct 31 — Nov 6" both showing Oct 31).
+    let weekEnd = new Date(naturalEnd);
+    if (nextEraStart !== null && nextEraStart > weekStart && nextEraStart <= naturalEnd) {
+        weekEnd = new Date(nextEraStart);
+        weekEnd.setDate(weekEnd.getDate() - 1);
+        weekEnd.setHours(23, 59, 59, 999);
+    }
+
+    // 4. Calculate weekIndex (Nth occurrence of startDay in the month)
     let weekIndex = 0;
     let temp = new Date(naturalStart.getFullYear(), naturalStart.getMonth(), 1);
     while (temp <= naturalStart) {
