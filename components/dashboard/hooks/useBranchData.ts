@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { getManilaYear } from '../../../lib/time';
 import { Branch, Transaction, Expense } from '../../../types';
+import { getWeekRange } from '../../../src/utils/reportUtils';
 
 export const useBranchData = (branch: Branch, transactions: Transaction[], expenses: Expense[]) => {
   const yearlyCycles = useMemo(() => {
@@ -43,13 +44,10 @@ export const useBranchData = (branch: Branch, transactions: Transaction[], expen
     });
 
     while (iter.getFullYear() <= targetYear && cycles.length < 100) {
-      const cycleStart = new Date(iter);
-      const cycleEnd = new Date(iter);
-      
-      const currentDay = cycleStart.getDay();
-      const cutoff = Number(branch.weeklyCutoff);
-      const daysToCutoff = (cutoff - currentDay + 7) % 7;
-      cycleEnd.setDate(cycleStart.getDate() + daysToCutoff);
+      // Use getWeekRange so payroll cycles match sales reports exactly.
+      const { weekStart, weekEnd } = getWeekRange(iter, branch);
+      const cycleStart = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate());
+      const cycleEnd   = new Date(weekEnd.getFullYear(),   weekEnd.getMonth(),   weekEnd.getDate());
       
       const cycleDays = [];
       const diff = Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -97,7 +95,7 @@ export const useBranchData = (branch: Branch, transactions: Transaction[], expen
       if (cycleStart > now && cycles.length > 5) break; 
     }
     return cycles;
-  }, [branch.cycleStartDate, branch.weeklyCutoff, transactions, expenses, branch.id]);
+  }, [branch.cycleStartDate, branch.weeklyCutoff, branch.cutoffHistory, branch.id, transactions, expenses]);
 
   return { yearlyCycles };
 };
