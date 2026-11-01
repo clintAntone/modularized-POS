@@ -64,8 +64,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
         <TrendingUp className="w-5 h-5 text-emerald-500 shrink-0 opacity-70" strokeWidth={2} />
       </div>
 
-      {/* ── Row 2: Expenses + Staff (2-col) — legacy adds Rent & Bills as third col ── */}
-      <div className={`grid gap-2.5 ${isLegacy ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      {/* ── Row 2: Expenses + Staff (2-col) — legacy with provision adds Rent & Bills as third col ── */}
+      <div className={`grid gap-2.5 ${isLegacy && rentAndBillsTotal > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {/* Expenses */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
           <div className="flex items-center justify-between mb-1">
@@ -78,8 +78,8 @@ export const SalesKPIStrip: React.FC<SalesKPIStripProps> = React.memo(({
           )}
         </div>
 
-        {/* Rent & Bills (legacy only) */}
-        {isLegacy && (
+        {/* Rent & Bills (legacy only, hide when zero) */}
+        {isLegacy && rentAndBillsTotal > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 print:shadow-none">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-semibold text-slate-400">Rent & Bills</p>

@@ -257,14 +257,16 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
             )}
           </div>
 
-          <button
-            onClick={onOpenLegacyDeposit}
-            disabled={isClosedMode || !onOpenLegacyDeposit}
-            className={`no-print w-full py-4 rounded-xl border transition-all active:scale-[0.98] flex items-center justify-center gap-2 font-bold text-sm ${isClosedMode || !onOpenLegacyDeposit ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-            Daily Deposit
-          </button>
+          {onOpenLegacyDeposit && (
+            <button
+              onClick={onOpenLegacyDeposit}
+              disabled={isClosedMode}
+              className={`no-print w-full py-4 rounded-xl border transition-all active:scale-[0.98] flex items-center justify-center gap-2 font-bold text-sm ${isClosedMode ? 'border-slate-100 opacity-50 cursor-not-allowed bg-white text-slate-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 text-emerald-700'}`}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              Daily Deposit
+            </button>
+          )}
         </div>
 
         {/* RIGHT: EXPENSE */}

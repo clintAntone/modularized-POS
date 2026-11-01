@@ -54,15 +54,16 @@ const COLS = {
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
         DB_COLUMNS.BACKFILLED,
     ].join(','),
-    // staff_breakdown and vault_data are lazy-loaded per-tab via
+    // session_data, staff_breakdown and vault_data are lazy-loaded per-tab via
     // useReportStaffBreakdown / useReportVaultData to avoid fetching
     // large JSON blobs for all 4,500+ reports on every login.
+    // session_count is a DB generated column (jsonb_array_length of session_data).
     salesReportsSuperAdmin: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE, DB_COLUMNS.SUBMITTED_AT,
         DB_COLUMNS.GROSS_SALES, DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
         DB_COLUMNS.TOTAL_VAULT_PROVISION, DB_COLUMNS.NET_ROI,
         DB_COLUMNS.BACKFILLED,
-        DB_COLUMNS.SESSION_DATA, DB_COLUMNS.EXPENSE_DATA,
+        DB_COLUMNS.SESSION_COUNT, DB_COLUMNS.EXPENSE_DATA,
     ].join(','),
     vaultTransactions: [
         DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_ID, DB_COLUMNS.TYPE,
@@ -434,7 +435,8 @@ export const useGlobalData = (auth: AuthState) => {
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
         netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
         backfilled: r[DB_COLUMNS.BACKFILLED] === true,
-        sessionData: typeof r[DB_COLUMNS.SESSION_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.SESSION_DATA]) : (r[DB_COLUMNS.SESSION_DATA] || []),
+        sessionData: [], // not fetched in global load — use drill-down fetch when needed
+        sessionCount: Number(r[DB_COLUMNS.SESSION_COUNT] ?? 0),
         staffBreakdown: [], // lazy — use useReportStaffBreakdown() (ReportAuditHub)
         expenseData: typeof r[DB_COLUMNS.EXPENSE_DATA] === 'string' ? JSON.parse(r[DB_COLUMNS.EXPENSE_DATA]) : (r[DB_COLUMNS.EXPENSE_DATA] || []),
         vaultData: [], // lazy — use useReportVaultData() (SalesReportHub, ExpensesHub)

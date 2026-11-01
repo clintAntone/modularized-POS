@@ -227,7 +227,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
         totalVaultProvision: 0, netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
-        sessionData: [], staffBreakdown: [], expenseData: [], vaultData: [],
+        sessionData: [], sessionCount: 0, staffBreakdown: [], expenseData: [], vaultData: [],
       }));
     },
     staleTime: 2 * 60 * 1000,
@@ -292,7 +292,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
         totalVaultProvision: 0, netRoi: 0,
-        sessionData: [], staffBreakdown: [], expenseData: [], vaultData: [],
+        sessionData: [], sessionCount: 0, staffBreakdown: [], expenseData: [], vaultData: [],
       }));
     },
     staleTime: 5 * 60 * 1000,

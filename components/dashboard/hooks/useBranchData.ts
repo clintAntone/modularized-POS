@@ -95,7 +95,7 @@ export const useBranchData = (branch: Branch, transactions: Transaction[], expen
       if (cycleStart > now && cycles.length > 5) break; 
     }
     return cycles;
-  }, [branch.cycleStartDate, branch.weeklyCutoff, branch.cutoffHistory, branch.id, transactions, expenses]);
+  }, [branch.cycleStartDate, branch.weeklyCutoff, branch.id, transactions, expenses]);
 
   return { yearlyCycles };
 };

@@ -255,7 +255,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
         totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
         netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
-        sessionData: [], staffBreakdown: [], expenseData: [], vaultData: [],
+        sessionData: [], sessionCount: 0, staffBreakdown: [], expenseData: [], vaultData: [],
       }));
     },
     staleTime: 5 * 60 * 1000,

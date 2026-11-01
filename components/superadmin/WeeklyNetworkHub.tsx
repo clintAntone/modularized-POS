@@ -62,7 +62,7 @@ export const WeeklyNetworkHub: React.FC<WeeklyNetworkHubProps> = ({ branches, sa
         operational: acc.operational + curr.totalExpenses,
         vault: acc.vault + curr.totalVaultProvision,
         net: acc.net + curr.netRoi,
-        sessions: acc.sessions + (curr.sessionData?.length || 0),
+        sessions: acc.sessions + (curr.sessionCount ?? curr.sessionData?.length ?? 0),
         reportCount: acc.reportCount + 1
       }), { gross: 0, staffPay: 0, operational: 0, vault: 0, net: 0, sessions: 0, reportCount: 0 });
 

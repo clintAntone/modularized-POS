@@ -151,20 +151,34 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
   const branchStats = useMemo(() => {
     // Ensure we process ALL branches in the registry
+    const manilaToday = getManilaTodayStr();
     let stats = branches.map(branch => {
       const report = reportIndex.get(`${branch.id}|${selectedDate}`);
+      const todayReport = selectedDate === manilaToday ? report : reportIndex.get(`${branch.id}|${manilaToday}`);
+      const todayGross = todayReport?.grossSales || 0;
+      const todaySessions = todayReport ? (todayReport.sessionCount ?? todayReport.sessionData?.length ?? 0) : 0;
+      // A branch is "live today" if:
+      //  - isOpen=true AND opened today (normal case), OR
+      //  - isOpen=true AND has real activity today (gross > 0 or sessions > 0).
+      // Stale nodes (isOpen=true from a prior day) with zero gross and zero sessions → offline.
+      const isLiveToday = branch.isOpen && (branch.isOpenDate === manilaToday || todayGross > 0 || todaySessions > 0);
+
+      const gross = report?.grossSales || 0;
+      const sessions = report ? (report.sessionCount ?? report.sessionData?.length ?? 0) : 0;
+      const staffPay = report?.totalStaffPay || 0;
 
       return {
         id: branch.id,
         name: branch.name,
         isEnabled: branch.isEnabled,
         isOpen: branch.isOpen,
+        isLiveToday,
         manager: branch.manager,
         tempManager: branch.tempManager,
         dailyProvisionAmount: branch.dailyProvisionAmount,
-        sessions: report ? (report.sessionData?.length || 0) : 0,
-        gross: report?.grossSales || 0,
-        staffPay: report?.totalStaffPay || 0,
+        sessions,
+        gross,
+        staffPay,
         isLegacy: !branch.vaultEnabled,
         operational: (() => {
           const base = (report?.totalExpenses || 0) + (branch.vaultEnabled ? 0 : (report?.totalVaultProvision || 0));
@@ -191,9 +205,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       stats = stats.filter(b => b.missedDays >= missedDaysThreshold);
     }
 
-    // Apply Live Filter — inactive branches are excluded from both ONLINE and OFFLINE views
+    // Apply Live Filter — uses isLiveToday so stale nodes (isOpen=true from prev day) show as Offline
     if (liveFilter !== 'all') {
-      stats = stats.filter(b => b.isEnabled && (liveFilter === 'live' ? b.isOpen : !b.isOpen));
+      stats = stats.filter(b => b.isEnabled && (liveFilter === 'live' ? b.isLiveToday : !b.isLiveToday));
     }
 
     // Apply Manager Filter
@@ -660,7 +674,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                       {(['all', 'live', 'closed'] as const).map((val) => (
                         <button key={val} onClick={() => { setLiveFilter(val); playSound('click'); }}
                           className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                          {val === 'all' ? 'All' : val === 'live' ? 'Online' : 'Offline'}
+                          {val === 'all' ? 'All' : val === 'live' ? 'Live' : 'Offline'}
                         </button>
                       ))}
                     </div>
@@ -705,7 +719,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 <div className="flex flex-wrap gap-2 pt-1">
                   {liveFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-black text-emerald-700 uppercase tracking-widest">
-                      {liveFilter === 'live' ? 'Online' : 'Offline'}
+                      {liveFilter === 'live' ? 'Live' : 'Offline'}
                       <button onClick={() => setLiveFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
                     </span>
                   )}
@@ -916,8 +930,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                       <td className="px-4 py-6 text-center">
                         {isToday ? (
                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-100 bg-white">
-                            <div className={`w-1.5 h-1.5 rounded-full ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                            <span className={`text-xs font-bold uppercase tracking-wider ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Off'}</span>
+                            <div className={`w-1.5 h-1.5 rounded-full ${b.isLiveToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                            <span className={`text-xs font-bold uppercase tracking-wider ${b.isLiveToday ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isLiveToday ? 'Live' : 'Off'}</span>
                           </div>
                         ) : (
                           <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">—</span>
@@ -983,8 +997,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                   <h3 className="font-black text-slate-900 uppercase text-sm tracking-tight leading-tight truncate">{b.name}</h3>
                   {isToday && (
                     <div className="flex items-center gap-1.5 mt-1">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className={`text-xs font-medium uppercase tracking-wide ${b.isOpen ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isOpen ? 'Live' : 'Offline'}</span>
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.isLiveToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                      <span className={`text-xs font-medium uppercase tracking-wide ${b.isLiveToday ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isLiveToday ? 'Live' : 'Offline'}</span>
                     </div>
                   )}
                 </div>

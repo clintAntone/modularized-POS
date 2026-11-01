@@ -213,7 +213,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
           sortDate = toDateStr(new Date(year, month - 1, 1)); periodEnd = toDateStr(new Date(year, month, 0));
         }
         if (!aggregated[key]) {
-          aggregated[key] = { ...r, id: key, branchId: branch.id === 'all' && !showWeeklyBreakdown ? 'all' : r.branchId, reportDate: label, reportType: reportType as any, sortDate, periodEnd, grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0, sessionData: [], staffBreakdown: [], expenseData: [], vaultData: [] };
+          aggregated[key] = { ...r, id: key, branchId: branch.id === 'all' && !showWeeklyBreakdown ? 'all' : r.branchId, reportDate: label, reportType: reportType as any, sortDate, periodEnd, grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0, sessionData: [], sessionCount: 0, staffBreakdown: [], expenseData: [], vaultData: [], backfilled: false };
           subGroups[key] = [];
         }
         const t = aggregated[key];

@@ -853,7 +853,12 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             )}
 
             {(() => {
-              const rentAndBillsTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+              const entriesTotal = rentAndBillsEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+              // Older legacy reports stored provision in totalVaultProvision without individual expenseData entries.
+              // Fall back to totalVaultProvision when no PROVISION entries exist in expenseData/vaultData.
+              const rentAndBillsTotal = entriesTotal > 0
+                ? entriesTotal
+                : (isLegacy && !isAggregate ? Number(report.totalVaultProvision || 0) : 0);
               // For aggregate reports, show Rent & Bills tile if any constituent day has provision entries
               const kpiIsLegacy = isLegacy || (isAggregate && rentAndBillsTotal > 0);
               // For aggregate reports, sum vault deposits from non-legacy constituents separately

@@ -18,6 +18,8 @@ interface PerformanceRowProps {
     isBackfill?: boolean;
 }
 
+const fmt = (n: number) => n.toLocaleString();
+
 export const PerformanceRow: React.FC<PerformanceRowProps> = ({
     label, sublabel, branchName, gross, pay, exp, vault,
     vaultDeposit = 0, vaultCoveredExp = 0, net, onClick, isMissing = false, isLegacy = false, isBackfill = false,
@@ -66,34 +68,29 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                     </div>
                 </div>
                 <div className="px-6 py-5 w-[17%]">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 text-lg shadow-inner shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                            🏢
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-slate-900 dark:text-slate-100 uppercase text-xs tracking-wider leading-tight">{branchName}</span>
-                            <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Finalized Archive</span>
-                        </div>
+                    <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 uppercase text-xs tracking-wider leading-tight">{branchName}</span>
+                        <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Finalized Archive</span>
                     </div>
                 </div>
-                <div className="px-6 py-5 w-[13%] text-right font-bold text-slate-900 dark:text-slate-100 text-[15px] tabular-nums whitespace-nowrap">₱{gross.toLocaleString()}</div>
-                <div className="px-6 py-5 w-[13%] text-right font-semibold text-amber-600 dark:text-amber-400 text-[15px] tabular-nums whitespace-nowrap">₱{pay.toLocaleString()}</div>
+                <div className="px-6 py-5 w-[13%] text-right font-bold text-slate-900 dark:text-slate-100 text-[15px] tabular-nums whitespace-nowrap">₱{fmt(gross)}</div>
+                <div className="px-6 py-5 w-[13%] text-right font-semibold text-amber-600 dark:text-amber-400 text-[15px] tabular-nums whitespace-nowrap">₱{fmt(pay)}</div>
                 <div className="px-6 py-5 w-[13%] text-right">
                     <div className="flex flex-col items-end gap-0.5">
                         {vaultCoveredExp > 0 ? (
                             <>
-                                <span className="font-semibold text-rose-500 dark:text-rose-400 text-[13px] tabular-nums whitespace-nowrap">₱{(exp - vaultCoveredExp).toLocaleString()} from ROI</span>
-                                <span className="font-semibold text-indigo-400 text-[13px] tabular-nums whitespace-nowrap">₱{vaultCoveredExp.toLocaleString()} via vault</span>
+                                <span className="font-semibold text-rose-500 dark:text-rose-400 text-[13px] tabular-nums whitespace-nowrap">₱{fmt(exp - vaultCoveredExp)} from ROI</span>
+                                <span className="font-semibold text-indigo-400 text-[13px] tabular-nums whitespace-nowrap">₱{fmt(vaultCoveredExp)} via vault</span>
                             </>
                         ) : (
-                            <span className="font-semibold text-rose-500 dark:text-rose-400 text-[15px] tabular-nums whitespace-nowrap">₱{exp.toLocaleString()}</span>
+                            <span className="font-semibold text-rose-500 dark:text-rose-400 text-[15px] tabular-nums whitespace-nowrap">₱{fmt(exp)}</span>
                         )}
                     </div>
                 </div>
                 <div className="px-6 py-5 w-[13%] text-right">
                     <div className="flex flex-col items-end gap-0.5">
                         <span className="font-semibold text-indigo-600 dark:text-indigo-400 text-[15px] tabular-nums whitespace-nowrap">
-                            ₱{vaultColValue.toLocaleString()}
+                            ₱{fmt(vaultColValue)}
                         </span>
                         {vaultColValue > 0 && (
                             <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest whitespace-nowrap">
@@ -105,10 +102,10 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 <div className="px-8 py-5 w-[16%] text-right">
                     <div className="flex flex-col items-end">
                         <span className={`font-bold tabular-nums leading-none whitespace-nowrap ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} ${
-                            net.toLocaleString().length > 9 ? 'text-sm lg:text-base' :
-                            net.toLocaleString().length > 7 ? 'text-base lg:text-lg' :
+                            fmt(net).length > 9 ? 'text-sm lg:text-base' :
+                            fmt(net).length > 7 ? 'text-base lg:text-lg' :
                             'text-xl lg:text-2xl'
-                        }`}>{net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}</span>
+                        }`}>{net < 0 ? '−' : ''}₱{fmt(Math.abs(net))}</span>
                         <span className="text-xs font-medium uppercase tracking-wide mt-1.5 text-slate-300 dark:text-slate-600 whitespace-nowrap">Finalized ROI</span>
                     </div>
                 </div>
@@ -142,21 +139,21 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                 <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-3 py-2.5">
                         <p className="text-xs font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide mb-1">Gross</p>
-                        <p className="text-xs font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none">₱{gross.toLocaleString()}</p>
+                        <p className="text-xs font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none">₱{fmt(gross)}</p>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-3 py-2.5">
                         <p className="text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1">Salary</p>
-                        <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{pay.toLocaleString()}</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{fmt(pay)}</p>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-3 py-2.5">
                         <p className="text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1">Expenses</p>
                         {vaultCoveredExp > 0 ? (
                             <>
-                                <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{(exp - vaultCoveredExp).toLocaleString()} ROI</p>
-                                <p className="text-[10px] font-black text-indigo-400 tabular-nums leading-none mt-0.5">₱{vaultCoveredExp.toLocaleString()} vault</p>
+                                <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{fmt(exp - vaultCoveredExp)} ROI</p>
+                                <p className="text-[10px] font-black text-indigo-400 tabular-nums leading-none mt-0.5">₱{fmt(vaultCoveredExp)} vault</p>
                             </>
                         ) : (
-                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{exp.toLocaleString()}</p>
+                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums leading-none">₱{fmt(exp)}</p>
                         )}
                     </div>
                 </div>
@@ -167,12 +164,12 @@ export const PerformanceRow: React.FC<PerformanceRowProps> = ({
                         <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide mb-0.5">
                             {isLegacy ? 'Rent & Bills' : 'Vault Deposit'}
                         </p>
-                        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-300 tabular-nums">₱{vaultColValue.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-300 tabular-nums">₱{fmt(vaultColValue)}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide mb-0.5">Net ROI</p>
                         <p className={`font-black tabular-nums leading-none text-xl ${isPositive ? 'text-emerald-600' : 'text-rose-400/70 dark:text-rose-400/60'}`}>
-                            {net < 0 ? '−' : ''}₱{Math.abs(net).toLocaleString()}
+                            {net < 0 ? '−' : ''}₱{fmt(Math.abs(net))}
                         </p>
                     </div>
                 </div>

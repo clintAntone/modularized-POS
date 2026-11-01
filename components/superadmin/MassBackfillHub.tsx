@@ -410,7 +410,7 @@ export const MassBackfillHub: React.FC<MassBackfillHubProps> = ({ branches, empl
             const standardReport  = salesReports.find(r => r.id === standardId);
             const existingBackfill = salesReports.find(r => r.id === backfillId);
 
-            const hasExistingSessions = !!(standardReport?.sessionData?.length);
+            const hasExistingSessions = !!(standardReport && (standardReport.sessionCount ?? standardReport.sessionData?.length ?? 0) > 0);
 
             // Priority: if a backfill record already exists → always update it (not standard)
             //           if the standard record has live sessions → create/update backfill

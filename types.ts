@@ -223,6 +223,7 @@ export interface SalesReport {
   backfilled?: boolean;
   periodEnd?: string;
   sessionData: any[];
+  sessionCount?: number;
   staffBreakdown: any[];
   expenseData: any[];
   vaultData: any[];
