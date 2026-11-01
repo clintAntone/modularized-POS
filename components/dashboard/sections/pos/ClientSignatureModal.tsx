@@ -48,7 +48,6 @@ export const ClientSignatureModal: React.FC<ClientSignatureModalProps> = ({ clie
         const canvas = canvasRef.current;
         if (!canvas) return;
         setIsDrawing(true);
-        setHasSigned(true);
         lastPos.current = getPos(e, canvas);
     };
 
@@ -65,6 +64,8 @@ export const ClientSignatureModal: React.FC<ClientSignatureModalProps> = ({ clie
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
         lastPos.current = pos;
+        // Only mark as signed after an actual stroke has been drawn
+        setHasSigned(true);
     };
 
     const stopDraw = () => {
