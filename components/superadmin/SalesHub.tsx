@@ -157,11 +157,12 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       const todayReport = selectedDate === manilaToday ? report : reportIndex.get(`${branch.id}|${manilaToday}`);
       const todayGross = todayReport?.grossSales || 0;
       const todaySessions = todayReport ? (todayReport.sessionCount ?? todayReport.sessionData?.length ?? 0) : 0;
+      const todayStaffPay = todayReport?.totalStaffPay || 0;
       // A branch is "live today" if:
       //  - isOpen=true AND opened today (normal case), OR
-      //  - isOpen=true AND has real activity today (gross > 0 or sessions > 0).
-      // Stale nodes (isOpen=true from a prior day) with zero gross and zero sessions → offline.
-      const isLiveToday = branch.isOpen && (branch.isOpenDate === manilaToday || todayGross > 0 || todaySessions > 0);
+      //  - isOpen=true AND has any real activity today (gross, sessions, or attendance/payroll).
+      // Stale nodes (isOpen=true from a prior day) with zero activity → offline.
+      const isLiveToday = branch.isOpen && (branch.isOpenDate === manilaToday || todayGross > 0 || todaySessions > 0 || todayStaffPay > 0);
 
       const gross = report?.grossSales || 0;
       const sessions = report ? (report.sessionCount ?? report.sessionData?.length ?? 0) : 0;

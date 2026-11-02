@@ -133,7 +133,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                 }
                             }}
                             placeholder="Client name"
-                            className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
                         />
                         {showSuggestions && suggestions.length > 0 && (
                             <div
