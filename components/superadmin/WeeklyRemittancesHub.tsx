@@ -703,6 +703,22 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   // Shared O(1) branch lookup — used by useMemos and render to avoid O(n) find inside loops
   const branchById = useMemo(() => new Map(branches.map(b => [b.id, b])), [branches]);
 
+  // Returns the ownership snapshot that was in effect on the given period end date.
+  // ownersHistory entries: { effectiveDate: string, owners: [...] }[]
+  // Each entry records what the owners became starting from effectiveDate.
+  // We pick the latest entry whose effectiveDate ≤ periodDate, falling back to branch.owners.
+  const getEffectiveOwners = useCallback((branch: Branch, periodDate: Date): { name: string; percentage: number }[] => {
+    const history = branch.ownersHistory || [];
+    if (history.length === 0) return branch.owners || [];
+    const sorted = [...history].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    let result: { name: string; percentage: number }[] = branch.owners || [];
+    for (const entry of sorted) {
+      const entryDate = new Date(entry.effectiveDate + 'T00:00:00');
+      if (entryDate <= periodDate) result = entry.owners;
+    }
+    return result;
+  }, []);
+
   const allGroupedReports = useMemo(() => {
     const groups: Record<string, { label: string; weekEnd: Date; cutoffDay: number; branchAggregates: Record<string, any> }> = {};
     const now = getTrueDate();
@@ -710,7 +726,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
     salesReports.forEach(report => {
       const branch = branchById.get(report.branchId);
-      if (!branch) return;
+      if (!branch || !branch.isEnabled) return;
       const date = parseDate(report.reportDate);
       const { label, weekStart, weekEnd } = getWeekRange(date, branch);
       const weekStartDate = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate());
@@ -723,7 +739,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
       if (!groups[key].branchAggregates[report.branchId]) {
         groups[key].branchAggregates[report.branchId] = {
-          branchId: report.branchId, branchName: branch.name, owners: branch.owners || [],
+          branchId: report.branchId, branchName: branch.name, owners: getEffectiveOwners(branch, weekEnd),
           groupLevy: branch.groupLevy || null,
           grossSales: 0, totalStaffPay: 0, totalExpenses: 0, totalVaultProvision: 0, netRoi: 0,
           reportIds: [],
@@ -1293,7 +1309,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
 
-        const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        const owners: { name: string; percentage: number }[] = getEffectiveOwners(branch, group.weekEnd);
         const ownerShares = owners.map(o => {
           const base = distributableRoi * (o.percentage / 100);
           const ot = ownerAdjs.filter(a => a.targetOwner === o.name).reduce((s, a) => s + a.amount, 0);
@@ -1367,8 +1383,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     const result: { branchId: string; branchName: string; periodLabel: string; ownerName: string; amount: number }[] = [];
     const now = getTrueDate();
     for (const branch of activeBranches) {
-      const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
-      if (owners.length === 0) continue;
+      if ((branch.owners || []).length === 0 && (branch.ownersHistory || []).length === 0) continue;
       const levy = branch.groupLevy as { name?: string; percentage?: number } | null;
       for (const group of allGroupedReports) {
         if (group.weekEnd >= now) continue;
@@ -1382,6 +1397,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const adjustedRoi = report.netRoi + globalAdj;
         const levyCut = levy ? Math.max(0, adjustedRoi) * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
+        const owners = getEffectiveOwners(branch, group.weekEnd);
         const totalPctA = owners.reduce((s, o: any) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
@@ -1422,7 +1438,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         const levyCut          = levy ? adjustedRoi * ((Number(levy.percentage) || 0) / 100) : 0;
         const distributableRoi = adjustedRoi - levyCut;
 
-        const owners: { name: string; percentage: number }[] = Array.isArray(branch.owners) ? branch.owners : [];
+        const owners: { name: string; percentage: number }[] = getEffectiveOwners(branch, group.weekEnd);
         const totalPctB = owners.reduce((s, o) => s + (o.percentage || 0), 0) || 100;
         for (const owner of owners) {
           const ownerAdj = ownerAdjs.filter(a => a.targetOwner === owner.name).reduce((s, a) => s + a.amount, 0);
