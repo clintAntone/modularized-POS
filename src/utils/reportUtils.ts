@@ -81,17 +81,35 @@ export function getWeekRange(date: Date, branch: Branch) {
     naturalEnd.setDate(naturalStart.getDate() + 6);
     naturalEnd.setHours(23, 59, 59, 999);
 
-    // 2. Clip weekStart if cycleStart falls within this natural week
+    // 2. If cycleStart falls mid-week, compute the "extended first era period":
+    //    merge the partial tail + next full week into one period.
+    //    e.g. cycleStart = Oct 31 (Sat), Sunday cutoff → first period = Oct 31–Nov 8
+    //    instead of Oct 31–Nov 1 (stub) + Nov 2–Nov 8 (separate).
+    const cycleStartDiff = (cycleStart.getDay() - startDay + 7) % 7;
+    let extendedFirstPeriodEnd: Date | null = null;
+    if (cycleStartDiff > 0) {
+        // End of the natural week that contains cycleStart
+        const cycleNaturalEnd = new Date(cycleStart);
+        cycleNaturalEnd.setDate(cycleStart.getDate() - cycleStartDiff + 6);
+        // Extended end = that Sunday + 7 more days
+        extendedFirstPeriodEnd = new Date(cycleNaturalEnd);
+        extendedFirstPeriodEnd.setDate(cycleNaturalEnd.getDate() + 7);
+        extendedFirstPeriodEnd.setHours(23, 59, 59, 999);
+    }
+
     let weekStart = naturalStart;
-    if (cycleStart > naturalStart && cycleStart <= naturalEnd && dateNorm >= cycleStart) {
+    let weekEnd = new Date(naturalEnd);
+
+    if (extendedFirstPeriodEnd && dateNorm >= cycleStart && dateNorm <= extendedFirstPeriodEnd) {
+        // Date falls within the extended first era period — snap both ends.
         weekStart = new Date(cycleStart);
+        weekEnd = new Date(extendedFirstPeriodEnd);
     }
 
     // 3. Cap weekEnd to the day before the next era starts when it lands within this period.
     //    Prevents the last period of an era from sharing its end date with the first day of
     //    the new era (e.g. "Oct 25 — Oct 31" and "Oct 31 — Nov 6" both showing Oct 31).
-    let weekEnd = new Date(naturalEnd);
-    if (nextEraStart !== null && nextEraStart > weekStart && nextEraStart <= naturalEnd) {
+    if (nextEraStart !== null && nextEraStart > weekStart && nextEraStart <= weekEnd) {
         weekEnd = new Date(nextEraStart);
         weekEnd.setDate(weekEnd.getDate() - 1);
         weekEnd.setHours(23, 59, 59, 999);

@@ -139,7 +139,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const [top10Month, setTop10Month] = useState(getManilaMonth());
   const [top10Year,  setTop10Year]  = useState(getManilaYear());
   const [top10PickerOpen, setTop10PickerOpen] = useState(false);
-  const [rankingTab, setRankingTab] = useState<'standard' | 'early_remit'>('standard');
+  const [rankingTab, setRankingTab] = useState<'standard' | 'early_remit' | 'efficiency'>('standard');
   const top10PickerRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!top10PickerOpen) return;
@@ -432,6 +432,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
   }, [top10Data, earlyRemitRateMap]);
 
+  // Efficiency tab: weights ROI performance over volume — Score = Gross×0.3 + PerfROI×0.7
+  // Rewards branches that keep expenses lean and generate strong ROI relative to gross.
+  const top10DataEfficiency = useMemo(() => {
+    return top10Data
+      .map(d => ({ ...d, efficiencyScore: d.gross * 0.3 + d.roi * 0.7 }))
+      .sort((a, b) => b.efficiencyScore - a.efficiencyScore);
+  }, [top10Data]);
+
   const availableYears = useMemo(() => {
     const s = new Set<number>([getManilaYear()]);
     salesReports.forEach(r => s.add(new Date(r.reportDate).getFullYear()));
@@ -576,8 +584,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 <div className="mt-1.5 ml-7 space-y-0.5">
                   {rankingTab === 'standard' ? (
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score = (Gross + Perf. ROI) ÷ 2</span>
-                  ) : (
+                  ) : rankingTab === 'early_remit' ? (
                     <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Score = ((Gross + Perf. ROI) ÷ 2) × (1 + EarlyRate × 10%)</span>
+                  ) : (
+                    <span className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Score = Gross × 30% + Perf. ROI × 70%</span>
                   )}
                   <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">excludes vault & bills</p>
                 </div>
@@ -651,12 +661,18 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 onClick={() => { setRankingTab('early_remit'); playSound('click'); }}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'early_remit' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <span>⚡</span> With Early Remit
+                <span>⚡</span> Early Remit
+              </button>
+              <button
+                onClick={() => { setRankingTab('efficiency'); playSound('click'); }}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'efficiency' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <span>📊</span> Efficiency
               </button>
             </div>
 
             {(() => {
-              const listData = rankingTab === 'standard' ? top10Data : top10DataEarlyRemit;
+              const listData = rankingTab === 'efficiency' ? top10DataEfficiency : rankingTab === 'standard' ? top10Data : top10DataEarlyRemit;
               const displayList = listData.slice(0, 50);
               if (displayList.length === 0) return (
                 <div className="py-14 text-center">
@@ -664,9 +680,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No data for this month</p>
                 </div>
               );
-              const topScore = rankingTab === 'standard'
-                ? (displayList[0]?.score ?? 1)
-                : (displayList[0] as any)?.adjustedScore ?? 1;
+              const topScore = rankingTab === 'efficiency'
+                ? ((displayList[0] as any)?.efficiencyScore ?? 1)
+                : rankingTab === 'standard'
+                  ? (displayList[0]?.score ?? 1)
+                  : (displayList[0] as any)?.adjustedScore ?? 1;
               return (
                 <div className="space-y-1.5">
                   {displayList.map((d, i) => {
@@ -675,7 +693,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                     const isTop10 = rank <= 10;
                     const isTop3  = rank <= 3;
                     const medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                    const displayScore = rankingTab === 'standard' ? d.score : (d as any).adjustedScore ?? d.score;
+                    const displayScore = rankingTab === 'efficiency' ? (d as any).efficiencyScore : rankingTab === 'standard' ? d.score : (d as any).adjustedScore ?? d.score;
                     const pct = topScore > 0 ? (displayScore / topScore) * 100 : 0;
                     const rowBg = !isTop10 ? 'bg-white border-slate-100'
                                 : rank === 1 ? 'bg-amber-50 border-amber-200'
@@ -755,7 +773,15 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-1">
                               <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
                             </div>
-                            {rankingTab === 'standard' ? (
+                            {rankingTab === 'efficiency' ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-300">×30%</span>
+                                <span className="text-[10px] text-slate-300">+</span>
+                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-violet-600' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-300">×70%</span>
+                              </div>
+                            ) : rankingTab === 'standard' ? (
                               <div className="flex items-center gap-1.5">
                                 <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-300">+</span>

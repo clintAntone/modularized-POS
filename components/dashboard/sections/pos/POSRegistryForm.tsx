@@ -83,6 +83,14 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
         }
     }, [hasSelectedLoyalty, hasSelectedStandard]);
 
+    // Clear bonesetter when service changes to non-dual so a stale bonesetter
+    // isn't recorded with ₱0 commission.
+    useEffect(() => {
+        if (!isDualProviderRequired && (props.formData.bonesetter_id || props.formData.bonesetter_name)) {
+            props.setFormData((prev: any) => ({ ...prev, bonesetter_name: '', bonesetter_id: '' }));
+        }
+    }, [isDualProviderRequired]);
+
     return (
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 ${props.isClosedMode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
             {/* Left panel — customer info, services, staff */}
