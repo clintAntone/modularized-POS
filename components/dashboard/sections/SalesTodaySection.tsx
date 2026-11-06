@@ -21,6 +21,7 @@ import { StaffPerformance } from './sales-today/StaffPerformance';
 import { VaultExpenses } from './sales-today/VaultExpenses';
 import { SalesKPIStrip } from './sales-today/SalesKPIStrip';
 import { QuickExpenseModal } from './sales-today/QuickExpenseModal';
+import { XmasBonusModal } from './sales-today/XmasBonusModal';
 import { ExpenseDetailModal } from './sales-today/ExpenseDetailModal';
 import { SessionDetailModal } from './pos/SessionDetailModal';
 
@@ -70,6 +71,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [openExpenseModalOnDeposit, setOpenExpenseModalOnDeposit] = useState(false);
   const [openExpenseModalOnLegacyDeposit, setOpenExpenseModalOnLegacyDeposit] = useState(false);
+  const [isXmasBonusModalOpen, setIsXmasBonusModalOpen] = useState(false);
   const [showVaultDepositPrompt, setShowVaultDepositPrompt] = useState(false);
   const [vaultDepositInput, setVaultDepositInput] = useState('');
   const [vaultDepositRemitAll, setVaultDepositRemitAll] = useState(true);
@@ -1177,6 +1179,17 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
             document.body
           )}
 
+          {isXmasBonusModalOpen && (
+            <XmasBonusModal
+              branch={branch}
+              todayStr={todayStr}
+              currentNetRoi={metrics.net}
+              onClose={() => setIsXmasBonusModalOpen(false)}
+              onRefresh={onRefresh}
+              performerName={user?.username}
+            />
+          )}
+
           {(isAddExpenseModalOpen || openExpenseModalOnDeposit || openExpenseModalOnLegacyDeposit) && (
             <QuickExpenseModal
               branch={branch}
@@ -1446,6 +1459,7 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
               onOpenVaultDeposit={() => { setVaultDepositTargetDate(todayStr); setShowVaultDepositPrompt(true); }}
               onOpenLegacyDeposit={branch.vaultEnabled ? () => setOpenExpenseModalOnLegacyDeposit(true) : undefined}
               onOpenRecordExpense={() => setIsAddExpenseModalOpen(true)}
+              onOpenXmasBonus={() => setIsXmasBonusModalOpen(true)}
               vaultBalance={branchVault?.balance ?? 0}
               vaultInitialBalance={(branchVault as any)?.initialBalance ?? 0}
           />

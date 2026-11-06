@@ -138,7 +138,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     showBulkAddModal, setShowBulkAddModal,
     bulkInput, setBulkInput,
     handleSaveBranch, handleToggleBranch, handleToggleFaceId, handleResetPin,
-    handleDeleteBranch, handleForceLogout, handleAddBranch, handleBulkRegister,
+    handleDeleteBranch, handleForceLogout, handleAddBranch, handleBulkRegister, handleBulkCutoffChange,
   } = useAdminBranchHandlers({ branches, employees, onRefresh, onSyncStatusChange, setConfirmState, fetchSystemConfig });
 
   // ── My Account (portal users) ────────────────────────────────────────────
@@ -358,7 +358,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {mountedTabs.has('complaints')   && <div className={activeTab !== 'complaints'   ? 'hidden' : ''}><ComplaintsHub complaints={complaints} employees={scopedEmployees} branches={scopedBranches} onRefresh={handleRefresh} isReadOnly={isReadOnly} reviewerName={user.username || user.name || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('remittances')  && <div className={activeTab !== 'remittances'  ? 'hidden' : ''}><WeeklyRemittancesHub branches={remittanceBranches} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} addedBy={user.username || 'SUPERADMIN'} /></div>}
           {mountedTabs.has('backfill')     && <div className={activeTab !== 'backfill'     ? 'hidden' : ''}><MassBackfillHub branches={scopedBranches} employees={scopedEmployees} salesReports={scopedSalesReports} onRefresh={handleRefresh} isReadOnly={isReadOnly} /></div>}
-          {mountedTabs.has('network')      && <div className={activeTab !== 'network'      ? 'hidden' : ''}><NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} /></div>}
+          {mountedTabs.has('network')      && <div className={activeTab !== 'network'      ? 'hidden' : ''}><NetworkManager branches={branches} onAdd={() => setShowAddModal(true)} onAddBulk={() => setShowBulkAddModal(true)} onEdit={setEditingBranchId} onToggle={handleToggleBranch} isReadOnly={isReadOnly} onBulkCutoffChange={isReadOnly ? undefined : handleBulkCutoffChange} /></div>}
           {mountedTabs.has('catalogs')     && <div className={activeTab !== 'catalogs'     ? 'hidden' : ''}><ServiceCatalog branches={branches} catalogs={masterCatalogs} setConfirmState={setConfirmState} onSave={async () => { await refetchCatalogs(); playSound('success'); if (onRefresh) await onRefresh(true); }} /></div>}
           {mountedTabs.has('settings')     && <div className={activeTab !== 'settings'     ? 'hidden' : ''}><SettingsHub onRefresh={onRefresh} /></div>}
           {mountedTabs.has('portal_users') && <div className={activeTab !== 'portal_users' ? 'hidden' : ''}><PortalUsersSection currentUserId={user.employeeId} branches={branches} /></div>}

@@ -20,6 +20,7 @@ interface VaultExpensesProps {
   onOpenVaultDeposit?: () => void;
   onOpenLegacyDeposit?: () => void;
   onOpenRecordExpense?: () => void; // explicit handler so parent fully controls what opens
+  onOpenXmasBonus?: () => void;
   vaultBalance?: number;       // current live vault balance
   vaultInitialBalance?: number; // initial balance set by admin
 }
@@ -39,6 +40,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
                                                               onOpenVaultDeposit,
                                                               onOpenLegacyDeposit,
                                                               onOpenRecordExpense,
+                                                              onOpenXmasBonus,
                                                               vaultBalance,
                                                               vaultInitialBalance = 0,
                                                             }) => {
@@ -113,14 +115,16 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
     const isVaultDeposit = e.category === 'VAULT_DEPOSIT';
     const isVaultWithdrawal = e.category === 'VAULT_WITHDRAWAL';
     const isRelieverPayout = e.name.startsWith('RELIEVER PAYOUT:');
+    const isXmasBonus = e.name === 'XMAS BONUS PROVISION';
+    const xmasPulse = isXmasBonus && currentNetRoi < 0;
 
     const isTooltipShowing = relieverTooltipId === e.id;
 
     return (
         <div
             key={e.id}
-            className="relative select-none"
-            onTouchStart={evt => { evt.preventDefault(); startLongPress(e.id, isRelieverPayout); }}
+            className="relative select-none touch-none"
+            onTouchStart={() => startLongPress(e.id, isRelieverPayout)}
             onTouchEnd={cancelLongPress}
             onMouseDown={() => startLongPress(e.id, isRelieverPayout)}
             onMouseUp={cancelLongPress}
@@ -140,15 +144,19 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
               className={`px-3 py-3 rounded-xl border transition-all duration-200 cursor-pointer group active:scale-[0.98] flex items-center justify-between ${
                 isRevealed
                   ? 'bg-rose-50 border-rose-300 translate-x-[-4px]'
-                  : isVaultWithdrawal
-                    ? 'bg-white border-slate-100 hover:border-amber-200 hover:bg-amber-50/30'
-                    : 'bg-white border-slate-100 hover:border-slate-200'
+                  : xmasPulse
+                    ? 'bg-white border-amber-300 animate-pulse'
+                    : isVaultWithdrawal
+                      ? 'bg-white border-slate-100 hover:border-amber-200 hover:bg-amber-50/30'
+                      : 'bg-white border-slate-100 hover:border-slate-200'
               }`}
           >
             <div className="flex items-center gap-3 overflow-hidden">
               {/* Directional arrow icon */}
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
-                isVaultWithdrawal
+                xmasPulse
+                    ? 'bg-amber-50 text-amber-500'
+                    : isVaultWithdrawal
                     ? 'bg-amber-50 text-amber-500'
                     : isProvision
                       ? 'bg-emerald-50 text-emerald-500'
@@ -452,11 +460,11 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
             )}
           </div>
 
-          {/* Mobile-only: Vault Deposit button below vault list */}
+          {/* Vault Deposit button — mobile and desktop, stays in left column */}
           <button
             onClick={onOpenVaultDeposit}
             disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+            className={`no-print w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border border-slate-700 text-slate-600 cursor-not-allowed' : 'border border-white/30 text-white hover:bg-white/10'}`}
           >
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
             Vault Deposit
@@ -489,38 +497,29 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
             )}
           </div>
 
-          {/* Mobile-only: Record Expense button below expense list */}
-          <button
-            onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
-            disabled={isClosedMode}
-            className={`no-print md:hidden w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-            Record Expense
-          </button>
+          {/* Xmas Bonus + Record Expense side by side — both mobile and desktop (inside right/expenses column) */}
+          <div className={`no-print grid gap-3 ${onOpenXmasBonus ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {onOpenXmasBonus && (
+              <button
+                onClick={onOpenXmasBonus}
+                disabled={isClosedMode}
+                className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'border border-slate-700 text-slate-600 cursor-not-allowed' : 'border border-white/30 text-white hover:bg-white/10'}`}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" /></svg>
+                Xmas Bonus
+              </button>
+            )}
+            <button
+              onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
+              disabled={isClosedMode}
+              className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-700 border border-slate-700'}`}
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              Record Expense
+            </button>
+          </div>
         </div>
 
-      </div>
-
-      {/* Desktop-only: shared button row so both buttons stay aligned regardless of column height */}
-      <div className="no-print hidden md:grid grid-cols-2 gap-4 w-full">
-        <button
-          onClick={onOpenVaultDeposit}
-          disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
-          className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-        >
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
-          Vault Deposit
-        </button>
-
-        <button
-          onClick={onOpenRecordExpense ?? (() => setIsAddExpenseModalOpen(true))}
-          disabled={isClosedMode}
-          className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
-        >
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-          Record Expense
-        </button>
       </div>
 
       {/* LEGACY RENT & BILLS — only shown when historical provision deposits exist */}

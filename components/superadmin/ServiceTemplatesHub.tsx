@@ -124,6 +124,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [bulkMode, setBulkMode] = useState<'assign' | 'unassign'>('assign');
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
+  const [bulkErrorMsg, setBulkErrorMsg] = useState<string | null>(null);
   // Import Services state
   const [importTo, setImportTo] = useState<string | null>(null);
   const [importSelected, setImportSelected] = useState<string[]>([]);
@@ -152,11 +153,13 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
 
   const load = useCallback(async () => {
     setIsLoading(true);
-    const [{ data: tData }, { data: bsData }, { data: cfgData }] = await Promise.all([
+    const [{ data: tData, error: tErr }, { data: bsData, error: bsErr }, { data: cfgData }] = await Promise.all([
       supabase.from(DB_TABLES.SERVICE_TEMPLATES).select('*').order('catalog_name').order('name'),
       supabase.from(DB_TABLES.BRANCH_SERVICES).select('*'),
       supabase.from(DB_TABLES.SYSTEM_CONFIG).select('value').eq('key', 'prio_service_catalogs').maybeSingle(),
     ]);
+    if (tErr) console.error('ServiceTemplatesHub load — templates error:', tErr);
+    if (bsErr) console.error('ServiceTemplatesHub load — branch_services error:', bsErr);
     setTemplates(tData || []);
     setBranchServices(bsData || []);
     try { setPrioCatalogs(cfgData?.value ? JSON.parse(cfgData.value) : []); } catch { setPrioCatalogs([]); }
@@ -164,6 +167,34 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Opens the per-template branch assignment modal with a fresh DB fetch
+  // to avoid stale branchServices state (e.g. rows added externally via SQL).
+  const openAssignModal = useCallback(async (t: ServiceTemplate) => {
+    playSound('click');
+    setBranchSearch('');
+    setBranchDropdownOpen(false);
+    setManagingTemplate(t);
+    // Fetch fresh assignments from DB for this specific template
+    const { data: fresh } = await supabase
+      .from(DB_TABLES.BRANCH_SERVICES)
+      .select('branch_id,template_id,price')
+      .eq('template_id', t.id);
+    if (fresh) {
+      // Merge fresh rows into branchServices, replacing any stale ones for this template
+      setBranchServices(prev => [
+        ...prev.filter(bs => bs.template_id !== t.id),
+        ...fresh,
+      ]);
+      setDraftBranchIds(fresh.map((bs: BranchService) => bs.branch_id));
+    } else {
+      // Fallback to whatever we have in memory
+      setDraftBranchIds(
+        branches.filter(b => branchServices.some(bs => bs.template_id === t.id && bs.branch_id === b.id)).map(b => b.id)
+      );
+    }
+  }, [branches, branchServices]);
+
   useEffect(() => {
     if (!exportOpen) return;
     const handler = (e: MouseEvent) => { if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false); };
@@ -290,7 +321,10 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       await supabase.from(DB_TABLES.BRANCH_SERVICES).delete()
         .eq('branch_id', branchId).eq('template_id', templateId);
     } else {
-      await supabase.from(DB_TABLES.BRANCH_SERVICES).insert({ branch_id: branchId, template_id: templateId, price: null });
+      const { error } = await supabase.from(DB_TABLES.BRANCH_SERVICES)
+        .insert({ branch_id: branchId, template_id: templateId, price: null });
+      // 23505 = duplicate key — row already exists, desired state achieved
+      if (error && error.code !== '23505') console.error('Toggle assign error:', error);
     }
     await load();
     queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
@@ -325,24 +359,36 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
     if (!bulkAssign || bulkSelectedBranches.length === 0) return;
     setIsBulkSaving(true);
     try {
+      setBulkErrorMsg(null);
       if (bulkMode === 'assign') {
-        // Always additive — PRIO only affects POS display filtering, not assignment storage
-        const rows: { branch_id: string; template_id: string; price: number | null }[] = [];
+        const allRows: { branch_id: string; template_id: string; price: number | null }[] = [];
         for (const branchId of bulkSelectedBranches) {
           for (const templateId of bulkAssign.templateIds) {
-            rows.push({ branch_id: branchId, template_id: templateId, price: null });
+            allRows.push({ branch_id: branchId, template_id: templateId, price: null });
           }
         }
-        if (rows.length > 0) {
-          await supabase.from(DB_TABLES.BRANCH_SERVICES)
-            .upsert(rows, { onConflict: 'branch_id,template_id', ignoreDuplicates: true });
+        // Fetch actual DB state to avoid duplicate key errors (PK: branch_id, template_id)
+        const { data: existing, error: fetchErr } = await supabase
+          .from(DB_TABLES.BRANCH_SERVICES)
+          .select('branch_id,template_id')
+          .in('branch_id', bulkSelectedBranches)
+          .in('template_id', bulkAssign.templateIds);
+        if (fetchErr) console.error('Bulk assign — fetch existing error:', fetchErr);
+        const existingSet = new Set((existing || []).map((r: any) => `${r.branch_id}:${r.template_id}`));
+        const newRows = allRows.filter(r => !existingSet.has(`${r.branch_id}:${r.template_id}`));
+        console.log(`[BulkAssign] branches=${bulkSelectedBranches}, total=${allRows.length}, existing=${existingSet.size}, toInsert=${newRows.length}`);
+        if (newRows.length > 0) {
+          const { error, data: inserted } = await supabase.from(DB_TABLES.BRANCH_SERVICES).insert(newRows).select();
+          console.log(`[BulkAssign] insert result — inserted=${inserted?.length ?? 0}, error=`, error);
+          if (error) throw error;
         }
       } else if (bulkMode === 'unassign') {
         for (const branchId of bulkSelectedBranches) {
-          await supabase.from(DB_TABLES.BRANCH_SERVICES)
+          const { error } = await supabase.from(DB_TABLES.BRANCH_SERVICES)
             .delete()
             .eq('branch_id', branchId)
             .in('template_id', bulkAssign.templateIds);
+          if (error) throw error;
         }
       }
       playSound('success');
@@ -354,9 +400,10 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
       setTimeout(() => setBulkSuccessMsg(null), 4000);
       await load();
       queryClient.invalidateQueries({ queryKey: ['branch_service_templates'] });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Bulk assign error:', err);
       playSound('warning');
+      setBulkErrorMsg(err?.message || 'Save failed — check console for details.');
     } finally {
       setIsBulkSaving(false);
     }
@@ -796,7 +843,7 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       {/* Assign button */}
                       {!isReadOnly && (
                         <button
-                          onClick={e => { e.stopPropagation(); setManagingTemplate(t); setDraftBranchIds(assignedBranches.map(b => b.id)); setBranchSearch(''); setBranchDropdownOpen(false); playSound('click'); }}
+                          onClick={e => { e.stopPropagation(); openAssignModal(t); }}
                           onMouseDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all shrink-0 ${
@@ -1234,11 +1281,20 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
                       const toAdd = draftBranchIds.filter(id => !originalIds.includes(id));
                       const toRemove = originalIds.filter(id => !draftBranchIds.includes(id));
                       if (toAdd.length > 0) {
-                        await supabase.from(DB_TABLES.BRANCH_SERVICES)
-                          .upsert(
-                            toAdd.map(branch_id => ({ branch_id, template_id: managingTemplate.id, price: null })),
-                            { onConflict: 'branch_id,template_id', ignoreDuplicates: true }
-                          );
+                        // Fetch actual DB state to avoid duplicate key on PK (branch_id, template_id)
+                        const { data: existing } = await supabase
+                          .from(DB_TABLES.BRANCH_SERVICES)
+                          .select('branch_id')
+                          .in('branch_id', toAdd)
+                          .eq('template_id', managingTemplate.id);
+                        const existingIds = new Set((existing || []).map((r: any) => r.branch_id));
+                        const newRows = toAdd
+                          .filter(id => !existingIds.has(id))
+                          .map(branch_id => ({ branch_id, template_id: managingTemplate.id, price: null }));
+                        if (newRows.length > 0) {
+                          const { error } = await supabase.from(DB_TABLES.BRANCH_SERVICES).insert(newRows);
+                          if (error) throw error;
+                        }
                       }
                       for (const branchId of toRemove) {
                         await supabase.from(DB_TABLES.BRANCH_SERVICES).delete()
@@ -1627,6 +1683,11 @@ export const ServiceTemplatesHub: React.FC<ServiceTemplatesHubProps> = ({ branch
             </div>
 
             {/* Footer */}
+            {bulkErrorMsg && (
+              <div className="px-6 py-2.5 bg-rose-50 border-t border-rose-100 shrink-0">
+                <p className="text-xs font-semibold text-rose-600">{bulkErrorMsg}</p>
+              </div>
+            )}
             <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex gap-2">
               <button
                 onClick={handleBulkAssign}

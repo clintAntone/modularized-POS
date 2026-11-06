@@ -372,6 +372,40 @@ export function useAdminBranchHandlers({
     }
   };
 
+  const handleBulkCutoffChange = async (
+    fromCutoff: number,
+    toCutoff: number,
+    effectiveDate: string
+  ): Promise<{ updated: number; failed: number }> => {
+    const targets = branches.filter(b =>
+      b.weeklyCutoff === fromCutoff &&
+      b.cutoffHistory &&
+      b.cutoffHistory.length > 0
+    );
+
+    let updated = 0;
+    let failed = 0;
+
+    for (const branch of targets) {
+      try {
+        const history = [...branch.cutoffHistory!];
+        history.push({ cutoff: toCutoff, effectiveFrom: effectiveDate });
+        await updateBranch.mutateAsync({
+          id: branch.id,
+          [DB_COLUMNS.WEEKLY_CUTOFF]: toCutoff.toString(),
+          [DB_COLUMNS.CUTOFF_HISTORY]: history,
+        });
+        updated++;
+      } catch (e) {
+        console.error(`Failed to update branch ${branch.name}:`, e);
+        failed++;
+      }
+    }
+
+    onRefresh?.(true);
+    return { updated, failed };
+  };
+
   const handleToggleFaceId = async (branchId: string, currentlyEnabled: boolean) => {
     if (!supabase) return;
     try {
@@ -412,5 +446,6 @@ export function useAdminBranchHandlers({
     handleForceLogout,
     handleAddBranch,
     handleBulkRegister,
+    handleBulkCutoffChange,
   };
 }
