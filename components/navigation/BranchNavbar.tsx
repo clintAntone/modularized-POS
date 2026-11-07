@@ -247,9 +247,9 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                   <button
                     key={tab.id}
                     onClick={() => !isSoon && handleTabClick(tab.id)}
-                    className={`relative flex items-center gap-1.5 px-4 py-2.5 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isSoon ? 'text-slate-300 cursor-not-allowed' : isActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    className={`relative flex items-center gap-1.5 px-4 py-2.5 font-medium text-xs transition-[transform,opacity] duration-150 shrink-0 rounded-lg ${isSoon ? 'text-slate-300 cursor-not-allowed' : isActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                   >
-                    <div className={`transition-all duration-150 ${isActive ? 'text-emerald-600' : ''}`}>{tab.icon}</div>
+                    <div className={`transition-[transform] duration-150 ${isActive ? 'text-emerald-600' : ''}`}>{tab.icon}</div>
                     <span className="whitespace-nowrap uppercase">{tab.label}</span>
                     {isSoon && (
                       <span className="text-xs font-bold bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full leading-none">New</span>
@@ -265,7 +265,7 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
               {overflowTabs.length > 0 && (
                 <button
                   onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-all duration-150 shrink-0 rounded-lg ${isMoreActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                  className={`relative flex items-center gap-1.5 px-3 py-2 font-medium text-xs transition-[transform,opacity] duration-150 shrink-0 rounded-lg ${isMoreActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-slate-500 dark:text-white hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                 >
                   <div>{Icons.more}</div>
                   <span className="whitespace-nowrap uppercase">More</span>
@@ -292,15 +292,15 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
                 <button
                   key={tab.id}
                   onClick={() => !isSoon && handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : ''}`}
+                  className={`flex flex-col items-center gap-0.5 transition-[transform,opacity] duration-300 relative flex-1 min-w-0 py-1 ${isSoon ? 'opacity-30 cursor-not-allowed' : ''}`}
                 >
                   {/* Icon with active pill background */}
-                  <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isActive ? 'bg-emerald-50' : ''}`}>
-                    <div className={`transition-all duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-400 dark:text-slate-400'}`}>
+                  <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-[transform,background-color] duration-300 ${isActive ? 'bg-emerald-50' : ''}`}>
+                    <div className={`transition-[transform] duration-300 ${isActive ? 'text-emerald-600 scale-110' : 'text-slate-400 dark:text-slate-400'}`}>
                       {tab.icon}
                     </div>
                   </div>
-                  <span className={`text-[10px] uppercase tracking-tight transition-all leading-none ${isActive ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-semibold text-slate-400 dark:text-slate-400'}`}>
+                  <span className={`text-[10px] uppercase tracking-tight leading-none ${isActive ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-semibold text-slate-400 dark:text-slate-400'}`}>
                     {tab.label}
                   </span>
                   {isSoon && <span className="text-[6px] font-bold uppercase bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">New</span>}
@@ -312,17 +312,17 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
             {overflowTabs.length > 0 && (
               <button
                 onClick={() => { resumeAudioContext(); playSound('click'); setShowMoreModal(true); }}
-                className={`flex flex-col items-center gap-0.5 transition-all duration-300 relative flex-1 min-w-0 py-1 ${!isMoreActive ? 'opacity-40 active:opacity-70' : ''}`}
+                className={`flex flex-col items-center gap-0.5 transition-[transform,opacity] duration-300 relative flex-1 min-w-0 py-1 ${!isMoreActive ? 'opacity-40 active:opacity-70' : ''}`}
               >
-                <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-all duration-300 ${isMoreActive ? 'bg-emerald-50' : ''}`}>
+                <div className={`flex items-center justify-center w-11 h-7 rounded-xl transition-[transform,background-color] duration-300 ${isMoreActive ? 'bg-emerald-50' : ''}`}>
                   <div className="relative">
-                    <div className={`transition-all duration-300 ${isMoreActive ? 'text-emerald-600 scale-110' : 'text-slate-900 dark:text-white'}`}>{Icons.more}</div>
+                    <div className={`transition-[transform] duration-300 ${isMoreActive ? 'text-emerald-600 scale-110' : 'text-slate-900 dark:text-white'}`}>{Icons.more}</div>
                     {showBillsAlert && overflowTabs.some(t => t.id === 'monthly_bills') && (
                       <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                     )}
                   </div>
                 </div>
-                <span className={`text-xs uppercase tracking-tight transition-all ${isMoreActive ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-900 dark:text-white'}`}>More</span>
+                <span className={`text-xs uppercase tracking-tight ${isMoreActive ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-900 dark:text-white'}`}>More</span>
                 {isMoreActive && <div className="w-4 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
               </button>
             )}

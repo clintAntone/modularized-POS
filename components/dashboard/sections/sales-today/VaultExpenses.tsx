@@ -464,7 +464,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
           <button
             onClick={onOpenVaultDeposit}
             disabled={isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0}
-            className={`no-print w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border border-slate-700 text-slate-600 cursor-not-allowed' : 'border border-white/30 text-white hover:bg-white/10'}`}
+            className={`no-print w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-[transform,background-color] active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode || !onOpenVaultDeposit || currentNetRoi <= 0 ? 'border border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:text-slate-600' : 'border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/30 dark:text-white dark:hover:bg-white/10'}`}
           >
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0-16l-6 6m6-6l6 6" /></svg>
             Vault Deposit
@@ -503,7 +503,7 @@ export const VaultExpenses: React.FC<VaultExpensesProps> = ({
               <button
                 onClick={onOpenXmasBonus}
                 disabled={isClosedMode}
-                className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'border border-slate-700 text-slate-600 cursor-not-allowed' : 'border border-white/30 text-white hover:bg-white/10'}`}
+                className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl transition-[transform,background-color] active:scale-[0.98] font-black text-xs uppercase tracking-widest ${isClosedMode ? 'border border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:text-slate-600' : 'border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/30 dark:text-white dark:hover:bg-white/10'}`}
               >
                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" /></svg>
                 Xmas Bonus
