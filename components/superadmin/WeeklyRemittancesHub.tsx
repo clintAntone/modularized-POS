@@ -709,12 +709,13 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   // We pick the latest entry whose effectiveDate ≤ periodDate, falling back to branch.owners.
   const getEffectiveOwners = useCallback((branch: Branch, periodDate: Date): { name: string; percentage: number }[] => {
     const history = branch.ownersHistory || [];
-    if (history.length === 0) return branch.owners || [];
+    const fallback = Array.isArray(branch.owners) ? branch.owners : [];
+    if (history.length === 0) return fallback;
     const sorted = [...history].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-    let result: { name: string; percentage: number }[] = branch.owners || [];
+    let result: { name: string; percentage: number }[] = fallback;
     for (const entry of sorted) {
       const entryDate = new Date(entry.effectiveDate + 'T00:00:00');
-      if (entryDate <= periodDate) result = entry.owners;
+      if (entryDate <= periodDate) result = Array.isArray(entry.owners) ? entry.owners : result;
     }
     return result;
   }, []);

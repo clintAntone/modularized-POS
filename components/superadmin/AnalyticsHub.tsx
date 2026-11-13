@@ -41,6 +41,18 @@ function parsePeriodEnd(label: string, refYear: number): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Returns the period start date, handling cross-year periods (e.g. Dec 28 — Jan 3)
+function parsePeriodStart(label: string, periodEnd: Date): Date | null {
+  const parts = label.split(/\s*[—–-]\s*/);
+  if (parts.length < 2) return null;
+  const startStr = parts[0].trim();
+  for (const year of [periodEnd.getFullYear(), periodEnd.getFullYear() - 1]) {
+    const d = new Date(`${startStr} ${year}`);
+    if (!isNaN(d.getTime()) && d <= periodEnd) return d;
+  }
+  return null;
+}
+
 // ─── Week helpers ─────────────────────────────────────────
 function getWeekBounds(anchor: Date) {
   const d = new Date(anchor);
@@ -139,7 +151,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const [top10Month, setTop10Month] = useState(getManilaMonth());
   const [top10Year,  setTop10Year]  = useState(getManilaYear());
   const [top10PickerOpen, setTop10PickerOpen] = useState(false);
-  const [rankingTab, setRankingTab] = useState<'standard' | 'early_remit' | 'efficiency'>('standard');
+  const [rankingTab, setRankingTab] = useState<'standard' | 'adjusted'>('adjusted');
+  const [selectedRankBranch, setSelectedRankBranch] = useState<string | null>(null); // shortName or group label
   const top10PickerRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!top10PickerOpen) return;
@@ -261,14 +274,20 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
   // ── Top 10 — self-fetch per selected month to avoid global 2000-row limit ──
   const top10MonthStr = `${top10Year}-${String(top10Month + 1).padStart(2, '0')}`;
-  const { data: top10Reports = [] } = useQuery<SalesReport[]>({
+  const { data: top10Reports = [], isFetching: fetchingReports } = useQuery<SalesReport[]>({
     queryKey: ['analytics_top10_reports', top10MonthStr],
     queryFn: async () => {
       if (!supabase) return [];
-      const startDate = `${top10MonthStr}-01`;
-      const endDate   = `${top10MonthStr}-31`; // upper bound; DB clips naturally
+      // Extend start 10 days back so early-month period starts are captured.
+      // Extend end 8 days into next month so cross-month periods (e.g. "Oct 31 — Nov 8")
+      // have their tail-end reports available for the Adjusted tab.
+      const extStart = new Date(top10Year, top10Month, -9);
+      const extEnd   = new Date(top10Year, top10Month + 1, 8);
+      const startDate = extStart.toISOString().slice(0, 10);
+      const endDate   = extEnd.toISOString().slice(0, 10);
       const cols = [
-        DB_COLUMNS.BRANCH_ID, DB_COLUMNS.GROSS_SALES,
+        DB_COLUMNS.BRANCH_ID, DB_COLUMNS.REPORT_DATE,
+        DB_COLUMNS.GROSS_SALES, DB_COLUMNS.NET_ROI,
         DB_COLUMNS.TOTAL_STAFF_PAY, DB_COLUMNS.TOTAL_EXPENSES,
       ].join(',');
       const PAGE = 1000;
@@ -287,11 +306,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         from += PAGE;
       }
       return allRows.map(r => ({
-        id: '', branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: '',
+        id: '', branchId: r[DB_COLUMNS.BRANCH_ID], reportDate: r[DB_COLUMNS.REPORT_DATE] ?? '',
         submittedAt: '', grossSales: Number(r[DB_COLUMNS.GROSS_SALES] ?? 0),
         totalStaffPay: Number(r[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
-        totalVaultProvision: 0, netRoi: 0,
+        totalVaultProvision: 0, netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
         sessionData: [], sessionCount: 0, staffBreakdown: [], expenseData: [], vaultData: [],
       }));
     },
@@ -299,24 +318,35 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     gcTime: 10 * 60 * 1000,
   });
 
-  // Approved remittance submissions for the year — used as the denominator (total periods per branch)
-  const { data: remittanceSubmissions = [] } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string }[]>({
-    queryKey: ['analytics_remittances', top10Year],
+  // All approved remittance submissions — no date filter to avoid NULL pitfalls
+  // (submitted_at can be null on older records; reviewed_at column may not exist on all
+  // deployments). The dataset is bounded (small rows, one per branch-period) and cached
+  // for the session. Month/year scoping is done in top10DataRemittance via parsePeriodStart.
+  const { data: remittanceSubmissions = [], isFetching: fetchingSubmissions } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string }[]>({
+    queryKey: ['analytics_remittances_all'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-        .select('branch_id, period_label, submitted_at')
-        .eq('status', 'approved')
-        .gte('submitted_at', `${top10Year}-01-01`)
-        .lte('submitted_at', `${top10Year + 1}-01-15`); // buffer for late approvals of Dec periods
-      return (data || []).map((r: any) => ({
+      const PAGE = 1000;
+      const allRows: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+          .select('branch_id, period_label, submitted_at')
+          .eq('status', 'approved')
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        if (data && data.length > 0) allRows.push(...data);
+        if (!data || data.length < PAGE) break;
+        from += PAGE;
+      }
+      return allRows.map((r: any) => ({
         branchId: r.branch_id,
         periodLabel: r.period_label,
-        submittedAt: r.submitted_at,
+        submittedAt: r.submitted_at ?? '',
       }));
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   // "EARLY REMIT" adjustments — presence of this adjustment on a period = branch remitted early
@@ -333,6 +363,29 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         branchId: r.branch_id,
         periodLabel: r.period_label,
       }));
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  // All remittance adjustments for the year — used to compute actual adjusted ROI per period
+  const { data: top10Adjustments = [], isFetching: fetchingAdjustments } = useQuery<{ branchId: string; periodLabel: string; amount: number }[]>({
+    queryKey: ['analytics_remit_adjustments_v2', top10Year],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+        .select('branch_id, period_label, amount, target_owner, description')
+        .gte(DB_COLUMNS.CREATED_AT, `${top10Year}-01-01`)
+        .lte(DB_COLUMNS.CREATED_AT, `${top10Year + 1}-01-15`);
+      // Only include global (non-owner) adjustments that aren't vault deposits.
+      // Owner transfer pairs cancel each other out and shouldn't affect branch score.
+      return (data || [])
+        .filter((r: any) => !r.target_owner && r.description !== 'VAULT DEPOSIT')
+        .map((r: any) => ({
+          branchId: r.branch_id,
+          periodLabel: r.period_label,
+          amount: Number(r.amount ?? 0),
+        }));
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -373,6 +426,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     // and bill schedules are compared on a level playing field.
     const map: Record<string, { gross: number; perfRoi: number }> = {};
     top10Reports.forEach(r => {
+      // Standard tab only counts reports from the selected month.
+      // The query fetches 10 extra days prior to capture Remittance tab period starts,
+      // so we must exclude those pre-month rows here.
+      if (!r.reportDate.startsWith(top10MonthStr)) return;
       if (!map[r.branchId]) map[r.branchId] = { gross: 0, perfRoi: 0 };
       map[r.branchId].gross   += r.grossSales;
       map[r.branchId].perfRoi += r.grossSales - r.totalStaffPay - r.totalExpenses;
@@ -408,9 +465,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       merged.push({ shortName: g.label, gross: g.gross, roi: g.roi, score: (g.gross + g.roi) / 2, isMerged: true, isEarlyRemit, branchIds: g.branchIds });
     });
 
-    // Primary sort: score descending. Tiebreaker: early remittance ranks higher.
     return merged.sort((a, b) => b.score - a.score || (b.isEarlyRemit ? 1 : 0) - (a.isEarlyRemit ? 1 : 0));
-  }, [activeBranches, top10Reports, earlyRemitSet]);
+  }, [activeBranches, top10Reports, earlyRemitSet, top10MonthStr]);
 
   // Option A: score × (1 + earlyRate × 0.10) — max 10% bonus for perfect remittance
   const EARLY_REMIT_BONUS_CAP = 0.10;
@@ -432,13 +488,141 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       .sort((a, b) => b.adjustedScore - a.adjustedScore);
   }, [top10Data, earlyRemitRateMap]);
 
-  // Efficiency tab: weights ROI performance over volume — Score = Gross×0.3 + PerfROI×0.7
-  // Rewards branches that keep expenses lean and generate strong ROI relative to gross.
-  const top10DataEfficiency = useMemo(() => {
-    return top10Data
-      .map(d => ({ ...d, efficiencyScore: d.gross * 0.3 + d.roi * 0.7 }))
-      .sort((a, b) => b.efficiencyScore - a.efficiencyScore);
-  }, [top10Data]);
+  // Remittance tab: Score = sum of approved adjusted ROI (netRoi + adjustments) for periods ending in the month.
+  // Only branches that actually remitted appear — this is what truly went to owners.
+  const top10DataRemittance = useMemo(() => {
+    const adjMap = new Map<string, number>();
+    top10Adjustments.forEach(adj => {
+      const key = `${adj.branchId}::${adj.periodLabel}`;
+      adjMap.set(key, (adjMap.get(key) ?? 0) + adj.amount);
+    });
+
+    const branchData = new Map<string, { adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number }>();
+    remittanceSubmissions.forEach(sub => {
+      // submittedAt may be empty/null — always fall back to top10Year for period parsing
+      const submittedYear = sub.submittedAt ? new Date(sub.submittedAt).getFullYear() : top10Year;
+      const periodEnd = parsePeriodEnd(sub.periodLabel, submittedYear) ?? parsePeriodEnd(sub.periodLabel, top10Year);
+      if (!periodEnd) return;
+      const periodStart = parsePeriodStart(sub.periodLabel, periodEnd);
+      if (!periodStart) return;
+      // Assign the period to the month in which it STARTS (not ends).
+      // This captures cross-month periods like "Oct 31 — Nov 8" under October.
+      if (periodStart.getFullYear() !== top10Year || periodStart.getMonth() !== top10Month) return;
+
+      const startYMD = periodStart.toISOString().slice(0, 10);
+      const endYMD   = periodEnd.toISOString().slice(0, 10);
+
+      const periodReports = top10Reports.filter(r => r.branchId === sub.branchId && r.reportDate >= startYMD && r.reportDate <= endYMD);
+      // Compute the same way as Standard tab: gross - staff - expenses (excludes vault provisions).
+      const periodNetRoi = periodReports.reduce((s, r) => s + r.grossSales - r.totalStaffPay - r.totalExpenses, 0);
+      const periodGross  = periodReports.reduce((s, r) => s + r.grossSales, 0);
+      const periodAdj = adjMap.get(`${sub.branchId}::${sub.periodLabel}`) ?? 0;
+
+      const cur = branchData.get(sub.branchId) ?? { adjustedRoi: 0, netRoi: 0, adjTotal: 0, gross: 0, periods: 0 };
+      branchData.set(sub.branchId, {
+        adjustedRoi: cur.adjustedRoi + periodNetRoi + periodAdj,
+        netRoi:      cur.netRoi + periodNetRoi,
+        adjTotal:    cur.adjTotal + periodAdj,
+        gross:       cur.gross + periodGross,
+        periods:     cur.periods + 1,
+      });
+    });
+
+    const MERGE_GROUPS: { keyword: RegExp; label: string }[] = [
+      { keyword: /TANDANG\s*SORA/i, label: 'TANDANG SORA' },
+    ];
+    const merged: { shortName: string; adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number; score: number; rankingBoost?: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
+    const mergeAccum: Record<string, { adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number; label: string; branchIds: string[] }> = {};
+
+    activeBranches
+      .filter(b => branchData.has(b.id))
+      .forEach(b => {
+        const d = branchData.get(b.id)!;
+        const group = MERGE_GROUPS.find(g => g.keyword.test(b.name));
+        if (group) {
+          if (!mergeAccum[group.label]) mergeAccum[group.label] = { adjustedRoi: 0, netRoi: 0, adjTotal: 0, gross: 0, periods: 0, label: group.label, branchIds: [] };
+          mergeAccum[group.label].adjustedRoi += d.adjustedRoi;
+          mergeAccum[group.label].netRoi      += d.netRoi;
+          mergeAccum[group.label].adjTotal    += d.adjTotal;
+          mergeAccum[group.label].gross       += d.gross;
+          mergeAccum[group.label].periods     += d.periods;
+          mergeAccum[group.label].branchIds.push(b.id);
+        } else {
+          const shortName = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
+          const boost = b.rankingBoost ? (1 + b.rankingBoost / 100) : 1;
+          merged.push({ shortName, ...d, score: ((d.gross + d.adjustedRoi) / 2) * boost, rankingBoost: b.rankingBoost ?? undefined, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
+        }
+      });
+    Object.values(mergeAccum).forEach(g => {
+      const isEarlyRemit = g.branchIds.some(id => earlyRemitSet.has(id));
+      merged.push({ shortName: g.label, ...g, score: (g.gross + g.adjustedRoi) / 2, isMerged: true, isEarlyRemit, branchIds: g.branchIds });
+    });
+    return merged.sort((a, b) => b.score - a.score);
+  }, [activeBranches, top10Reports, top10Adjustments, remittanceSubmissions, top10Year, top10Month, earlyRemitSet]);
+
+  // Per-period detail for the clicked branch in the ranking list
+  const selectedRankDetail = useMemo(() => {
+    if (!selectedRankBranch) return null;
+    const listData = rankingTab === 'adjusted' ? top10DataRemittance : top10Data;
+    const entry = listData.find(d => d.shortName === selectedRankBranch);
+    if (!entry) return null;
+
+    if (rankingTab === 'standard') {
+      // Group all reports by period (week) for the branch(es)
+      const branchIds = entry.branchIds;
+      const monthReports = top10Reports.filter(r =>
+        branchIds.includes(r.branchId) && r.reportDate.startsWith(top10MonthStr)
+      );
+      const totalGross = monthReports.reduce((s, r) => s + r.grossSales, 0);
+      const totalStaff = monthReports.reduce((s, r) => s + r.totalStaffPay, 0);
+      const totalExp   = monthReports.reduce((s, r) => s + r.totalExpenses, 0);
+      const totalNet   = monthReports.reduce((s, r) => s + r.grossSales - r.totalStaffPay - r.totalExpenses, 0);
+      return { totalGross, totalStaff, totalExp, totalNet, adjTotal: 0, periods: [] as { label: string; gross: number; staff: number; exp: number; net: number; adj: number }[] };
+    }
+
+    // Adjusted tab — reconstruct per-period breakdown
+    const adjMap = new Map<string, number>();
+    top10Adjustments.forEach(adj => {
+      const key = `${adj.branchId}::${adj.periodLabel}`;
+      adjMap.set(key, (adjMap.get(key) ?? 0) + adj.amount);
+    });
+
+    const periods: { label: string; gross: number; staff: number; exp: number; net: number; adj: number }[] = [];
+    remittanceSubmissions.forEach(sub => {
+      if (!entry.branchIds.includes(sub.branchId)) return;
+      const submittedYear = sub.submittedAt ? new Date(sub.submittedAt).getFullYear() : top10Year;
+      const periodEnd = parsePeriodEnd(sub.periodLabel, submittedYear) ?? parsePeriodEnd(sub.periodLabel, top10Year);
+      if (!periodEnd) return;
+      const periodStart = parsePeriodStart(sub.periodLabel, periodEnd);
+      if (!periodStart) return;
+      if (periodStart.getFullYear() !== top10Year || periodStart.getMonth() !== top10Month) return;
+      const startYMD = periodStart.toISOString().slice(0, 10);
+      const endYMD   = periodEnd.toISOString().slice(0, 10);
+      const reps = top10Reports.filter(r => entry.branchIds.includes(r.branchId) && r.reportDate >= startYMD && r.reportDate <= endYMD);
+      const gross = reps.reduce((s, r) => s + r.grossSales, 0);
+      const staff = reps.reduce((s, r) => s + r.totalStaffPay, 0);
+      const exp   = reps.reduce((s, r) => s + r.totalExpenses, 0);
+      const net   = gross - staff - exp;
+      const adj   = entry.branchIds.reduce((s, id) => s + (adjMap.get(`${id}::${sub.periodLabel}`) ?? 0), 0);
+      periods.push({ label: sub.periodLabel, gross, staff, exp, net, adj });
+    });
+    periods.sort((a, b) => {
+      const getStart = (label: string) => {
+        const end = parsePeriodEnd(label, top10Year) ?? parsePeriodEnd(label, top10Year - 1);
+        if (!end) return 0;
+        const start = parsePeriodStart(label, end);
+        return start ? start.getTime() : 0;
+      };
+      return getStart(a.label) - getStart(b.label);
+    });
+
+    const totalGross = periods.reduce((s, p) => s + p.gross, 0);
+    const totalStaff = periods.reduce((s, p) => s + p.staff, 0);
+    const totalExp   = periods.reduce((s, p) => s + p.exp, 0);
+    const totalNet   = periods.reduce((s, p) => s + p.net, 0);
+    const adjTotal   = periods.reduce((s, p) => s + p.adj, 0);
+    return { totalGross, totalStaff, totalExp, totalNet, adjTotal, periods };
+  }, [selectedRankBranch, rankingTab, top10Data, top10DataRemittance, top10Reports, top10Adjustments, remittanceSubmissions, top10Year, top10Month, top10MonthStr]);
 
   const availableYears = useMemo(() => {
     const s = new Set<number>([getManilaYear()]);
@@ -538,29 +722,22 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   return (
     <div className="space-y-4 md:space-y-5 pb-32">
 
-      {/* ── Header + Mode Tabs (folder style) ──────────────── */}
+      {/* ── Mode Tabs ──────────────────────────────────────── */}
       <div>
-        <div className="flex flex-col sm:flex-row justify-between items-end gap-3 bg-white pl-4 md:pl-6 pr-4 md:pr-6 pt-4 md:pt-6 pb-0 rounded-t-2xl border border-b-0 border-slate-100 shadow-sm">
-          <div className="pb-3 md:pb-4">
-            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 50 Performers</h2>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
-          </div>
-          {/* Folder tabs */}
-          <div className="flex items-end gap-1 -mb-px">
-            {([['chart','Ranking'],['heatmap','Heatmap'],['vs','VS Mode']] as [HubMode, string][]).map(([m, lbl]) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); playSound('click'); }}
-                className={`px-4 md:px-6 py-2.5 rounded-t-xl text-xs font-black uppercase tracking-wide transition-all border border-b-0 ${
-                  mode === m
-                    ? 'bg-slate-50 border-slate-200 text-slate-900 shadow-sm relative z-10'
-                    : 'bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-200'
-                }`}
-              >
-                {lbl}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-end gap-1 bg-white pl-4 md:pl-6 pr-4 md:pr-6 pt-4 md:pt-6 pb-0 rounded-t-2xl border border-b-0 border-slate-100 shadow-sm">
+          {([['chart','Ranking'],['heatmap','Heatmap'],['vs','VS Mode']] as [HubMode, string][]).map(([m, lbl]) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); playSound('click'); }}
+              className={`px-4 md:px-6 py-2.5 rounded-t-xl text-xs font-black uppercase tracking-wide transition-all border border-b-0 ${
+                mode === m
+                  ? 'bg-slate-50 border-slate-200 text-slate-900 shadow-sm relative z-10'
+                  : 'bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-200'
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
         </div>
         {/* Divider connecting tabs to content area */}
         <div className="h-px bg-slate-100" />
@@ -572,26 +749,21 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       {mode === 'chart' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
 
+          {/* ── Title ──────────────────────────────────────── */}
+          <div className="px-1 pt-1">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Top 50 Performers</h2>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Network Analytical Ledger</p>
+          </div>
+
           {/* ── Monthly Top 20 ─────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🏆</span>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Monthly Top 20</h3>
                 </div>
-                <div className="mt-1.5 ml-7 space-y-0.5">
-                  {rankingTab === 'standard' ? (
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score = (Gross + Perf. ROI) ÷ 2</span>
-                  ) : rankingTab === 'early_remit' ? (
-                    <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Score = ((Gross + Perf. ROI) ÷ 2) × (1 + EarlyRate × 10%)</span>
-                  ) : (
-                    <span className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Score = Gross × 30% + Perf. ROI × 70%</span>
-                  )}
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">excludes vault & bills</p>
-                </div>
-              </div>
               {/* Custom month/year picker */}
               <div className="relative shrink-0" ref={top10PickerRef}>
                 <button
@@ -647,7 +819,15 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   </div>
                 )}
               </div>
+              </div>{/* end flex justify-between row */}
             </div>
+            {/* Formula — full width row, never squeezed by picker */}
+            <p className="ml-7 mt-1 mb-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {rankingTab === 'standard'
+                ? <>(Gross + Perf. ROI) ÷ 2 · <span className="text-amber-500">excl. vault &amp; bills</span></>
+                : <span className="text-emerald-600">(Gross + Remittance Net ROI) ÷ 2</span>
+              }
+            </p>
 
             {/* Ranking tabs */}
             <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 w-fit">
@@ -658,42 +838,54 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 Standard
               </button>
               <button
-                onClick={() => { setRankingTab('early_remit'); playSound('click'); }}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'early_remit' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                onClick={() => { setRankingTab('adjusted'); playSound('click'); }}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'adjusted' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <span>⚡</span> Early Remit
-              </button>
-              <button
-                onClick={() => { setRankingTab('efficiency'); playSound('click'); }}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'efficiency' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <span>📊</span> Efficiency
+                Adjusted
               </button>
             </div>
 
             {(() => {
-              const listData = rankingTab === 'efficiency' ? top10DataEfficiency : rankingTab === 'standard' ? top10Data : top10DataEarlyRemit;
+              const listData = rankingTab === 'adjusted' ? top10DataRemittance : top10Data;
               const displayList = listData.slice(0, 50);
+              const isFetching = fetchingReports || (rankingTab === 'adjusted' && (fetchingSubmissions || fetchingAdjustments));
               if (displayList.length === 0) return (
                 <div className="py-14 text-center">
-                  <div className="text-4xl mb-3">🏅</div>
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No data for this month</p>
+                  {isFetching ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Fetching data…</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-4xl mb-3">🏅</div>
+                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest">{rankingTab === 'adjusted' ? 'No approved remittances for this month' : 'No data for this month'}</p>
+                    </>
+                  )}
                 </div>
               );
-              const topScore = rankingTab === 'efficiency'
-                ? ((displayList[0] as any)?.efficiencyScore ?? 1)
-                : rankingTab === 'standard'
-                  ? (displayList[0]?.score ?? 1)
-                  : (displayList[0] as any)?.adjustedScore ?? 1;
+              const topScore = displayList[0]?.score ?? 1;
               return (
                 <div className="space-y-1.5">
+                  {isFetching && (
+                    <div className="flex items-center gap-2 pb-1">
+                      <svg className="w-3 h-3 animate-spin text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updating…</p>
+                    </div>
+                  )}
                   {displayList.map((d, i) => {
                     const rank    = i + 1;
                     const isTop20 = rank <= 20;
                     const isTop10 = rank <= 10;
                     const isTop3  = rank <= 3;
                     const medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                    const displayScore = rankingTab === 'efficiency' ? (d as any).efficiencyScore : rankingTab === 'standard' ? d.score : (d as any).adjustedScore ?? d.score;
+                    const displayScore = d.score;
                     const pct = topScore > 0 ? (displayScore / topScore) * 100 : 0;
                     const rowBg = !isTop10 ? 'bg-white border-slate-100'
                                 : rank === 1 ? 'bg-amber-50 border-amber-200'
@@ -713,7 +905,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                    : rank === 6 ? 'bg-violet-400'
                                    : rank === 7 ? 'bg-rose-400'
                                    :              'bg-teal-400';
-                    const earlyRate = rankingTab === 'early_remit' ? ((d as any).earlyRate ?? 0) : null;
                     return (
                       <React.Fragment key={d.shortName}>
                         {rank === 11 && (
@@ -730,7 +921,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             <div className="flex-1 h-px bg-slate-100" />
                           </div>
                         )}
-                        <div className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all ${rowBg} ${!isTop20 ? 'opacity-30' : !isTop10 ? 'opacity-60' : ''}`}>
+                        <div
+                          className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${rowBg} ${!isTop20 ? 'opacity-30' : !isTop10 ? 'opacity-60' : ''}`}
+                          onClick={() => { setSelectedRankBranch(prev => prev === d.shortName ? null : d.shortName); playSound('click'); }}
+                        >
                           {/* Rank */}
                           <div className="w-8 shrink-0 flex items-center justify-center">
                             {medal
@@ -740,31 +934,18 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
                           {/* Branch + breakdown */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <p className={`font-black uppercase truncate ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <p className={`font-black uppercase leading-tight ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
                                   {d.shortName}
                                 </p>
-                                {d.isMerged && (
-                                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 leading-none">
-                                    Combined
-                                  </span>
-                                )}
-                                {rankingTab === 'standard' && d.isEarlyRemit && isTop20 && (
-                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
-                                    ⚡ Early
-                                  </span>
-                                )}
-                                {d.rankingBoost && (
-                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 leading-none">
-                                    +{d.rankingBoost}% boost
-                                  </span>
-                                )}
-                                {rankingTab === 'early_remit' && earlyRate !== null && earlyRate > 0 && isTop20 && (
-                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-700 leading-none">
-                                    ⚡ {Math.round(earlyRate * 100)}%
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {d.rankingBoost && (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 leading-none">
+                                      +{d.rankingBoost}% boost
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <p className={`font-black tabular-nums shrink-0 ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
                                 ₱{Math.round(displayScore).toLocaleString()}
@@ -773,15 +954,34 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                             <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-1">
                               <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
                             </div>
-                            {rankingTab === 'efficiency' ? (
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
-                                <span className="text-[10px] text-slate-300">×30%</span>
-                                <span className="text-[10px] text-slate-300">+</span>
-                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-violet-600' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
-                                <span className="text-[10px] text-slate-300">×70%</span>
-                              </div>
-                            ) : rankingTab === 'standard' ? (
+                            {rankingTab === 'adjusted' ? (() => {
+                              const rd = d as any;
+                              const gross      = Math.round(rd.gross ?? 0);
+                              const adjRoi     = Math.round(rd.adjustedRoi ?? 0);
+                              const adjTotal   = Math.round(rd.adjTotal ?? 0);
+                              const netRoi     = Math.round(rd.netRoi ?? 0);
+                              const adjSign    = adjTotal >= 0 ? '+' : '−';
+                              const periods    = rd.periods ?? 1;
+                              return (
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{gross.toLocaleString()}</span>
+                                    <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>+</span>
+                                    <span className={`text-[10px] font-bold ${isTop20 ? 'text-indigo-500' : 'text-slate-300'}`}>
+                                      Net ROI ₱{netRoi.toLocaleString()}
+                                      {adjTotal !== 0 && (
+                                        <span className={`font-bold ${adjTotal >= 0 ? (isTop20 ? 'text-emerald-600' : 'text-slate-300') : (isTop20 ? 'text-rose-500' : 'text-slate-300')}`}> {adjSign} adj ₱{Math.abs(adjTotal).toLocaleString()} = ₱{adjRoi.toLocaleString()}</span>
+                                      )}
+                                    </span>
+                                    <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>÷ 2</span>
+                                    {d.rankingBoost ? (
+                                      <span className="text-[10px] font-bold text-rose-500">× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
+                                    ) : null}
+                                  </div>
+                                  <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>{periods} period{periods !== 1 ? 's' : ''}</span>
+                                </div>
+                              );
+                            })() : (
                               <div className="flex items-center gap-1.5">
                                 <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-300">+</span>
@@ -791,44 +991,62 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                   <span className="text-[10px] font-bold text-rose-500">× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
                                 ) : null}
                               </div>
-                            ) : (() => {
-                              const rate = earlyRate ?? 0;
-                              const multiplier = 1 + rate * EARLY_REMIT_BONUS_CAP;
-                              const bonusPct = Math.round(rate * EARLY_REMIT_BONUS_CAP * 100 * 10) / 10;
-                              return (
-                                <div className="space-y-0.5">
-                                  {/* Step 1: base score */}
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>
-                                      (₱{d.gross.toLocaleString()} + ₱{d.roi.toLocaleString()}) ÷ 2
-                                    </span>
-                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>=</span>
-                                    <span className={`text-[10px] font-black tabular-nums ${isTop10 ? 'text-slate-500' : 'text-slate-200'}`}>
-                                      ₱{Math.round(d.score).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  {/* Step 2: × multiplier */}
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>
-                                      ₱{Math.round(d.score).toLocaleString()} × {multiplier.toFixed(3)}
-                                    </span>
-                                    <span className={`text-[10px] font-semibold ${isTop10 ? 'text-slate-400' : 'text-slate-200'}`}>=</span>
-                                    <span className={`text-[10px] font-black tabular-nums ${isTop10 ? 'text-teal-600' : 'text-slate-200'}`}>
-                                      ₱{Math.round(displayScore).toLocaleString()}
-                                    </span>
-                                    {rate > 0 ? (
-                                      <span className={`text-[10px] font-bold ${isTop10 ? 'text-teal-500' : 'text-slate-200'}`}>
-                                        (+{bonusPct}% · {Math.round(rate * 100)}% early)
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] font-semibold text-slate-300">(no early remittance)</span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()}
+                            )}
                           </div>
                         </div>
+                        {/* Detail panel — shown when this row is selected */}
+                        {selectedRankBranch === d.shortName && selectedRankDetail && (() => {
+                          const det = selectedRankDetail;
+                          const fmt = (n: number) => `₱${Math.round(n).toLocaleString()}`;
+                          return (
+                            <div className="mx-1 mb-1 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden text-xs">
+                              {/* Summary totals */}
+                              <div className="grid grid-cols-4 divide-x divide-slate-200 border-b border-slate-200">
+                                {[
+                                  { label: 'Gross Sales', value: det.totalGross, color: 'text-emerald-700' },
+                                  { label: 'Staff Payroll', value: -det.totalStaff, color: 'text-rose-500' },
+                                  { label: 'Expenses', value: -det.totalExp, color: 'text-rose-500' },
+                                  { label: 'Net ROI', value: det.totalNet, color: det.totalNet >= 0 ? 'text-indigo-600' : 'text-rose-600' },
+                                ].map(col => (
+                                  <div key={col.label} className="flex flex-col items-center py-2.5 px-2 gap-0.5">
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{col.label}</span>
+                                    <span className={`font-black tabular-nums ${col.color}`}>{col.value < 0 ? '−' : ''}{fmt(Math.abs(col.value))}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {rankingTab === 'adjusted' && det.adjTotal !== 0 && (
+                                <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-200 bg-white">
+                                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Shared Cost Adj.</span>
+                                  <span className={`text-xs font-black tabular-nums ${det.adjTotal < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                    {det.adjTotal >= 0 ? '+' : '−'}{fmt(Math.abs(det.adjTotal))}
+                                  </span>
+                                </div>
+                              )}
+                              {/* Per-period rows — adjusted tab only */}
+                              {rankingTab === 'adjusted' && det.periods.length > 0 && (
+                                <div className="divide-y divide-slate-100">
+                                  {det.periods.map(p => (
+                                    <div key={p.label} className="px-4 py-2 flex items-start justify-between gap-4">
+                                      <span className="font-semibold text-slate-500 shrink-0">{p.label}</span>
+                                      <div className="flex items-center gap-3 flex-wrap justify-end">
+                                        <span className="text-emerald-600 font-semibold tabular-nums">{fmt(p.gross)}</span>
+                                        <span className="text-slate-300">−</span>
+                                        <span className="text-slate-500 tabular-nums">{fmt(p.staff + p.exp)}</span>
+                                        <span className="text-slate-300">=</span>
+                                        <span className={`font-black tabular-nums ${p.net >= 0 ? 'text-indigo-600' : 'text-rose-500'}`}>{fmt(p.net)}</span>
+                                        {p.adj !== 0 && (
+                                          <span className={`font-bold tabular-nums ${p.adj < 0 ? 'text-rose-400' : 'text-emerald-500'}`}>
+                                            {p.adj >= 0 ? '+' : '−'}{fmt(Math.abs(p.adj))} adj
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </React.Fragment>
                     );
                   })}
@@ -850,6 +1068,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       ══════════════════════════════════════════════════════ */}
       {mode === 'heatmap' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="px-1 pt-1">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">Heatmap</h2>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Daily Performance Calendar</p>
+          </div>
           <div className="bg-white p-4 md:p-8 rounded-2xl border border-slate-100 shadow-sm">
 
             {/* Controls */}
@@ -1374,6 +1596,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       ══════════════════════════════════════════════════════ */}
       {mode === 'vs' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="px-1 pt-1">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter">VS Mode</h2>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Branch Head-to-Head Comparison</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <BranchDropdown label="Branch Alpha" value={branchA} options={activeBranches} onSelect={setBranchA} excludeId={branchB} colorTheme="indigo" />
             <BranchDropdown label="Branch Beta"  value={branchB} options={activeBranches} onSelect={setBranchB} excludeId={branchA} colorTheme="emerald" />

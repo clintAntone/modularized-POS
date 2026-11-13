@@ -18,6 +18,7 @@ interface RequestsHubProps {
   isReadOnly?: boolean;
   reviewerName?: string;
   allowedRequestTypes?: string[];
+  isActive?: boolean;
 }
 
 const TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -103,7 +104,7 @@ const STATUS_STYLE = {
 
 const fmt = (n: number) => formatPeso(n || 0);
 
-export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN', allowedRequestTypes }) => {
+export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, branches, salesReports = [], onRefresh, isReadOnly, reviewerName = 'SUPERADMIN', allowedRequestTypes, isActive }) => {
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const isProcessingRef = useRef(false);
@@ -136,6 +137,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     const t = setTimeout(() => setDeleteRevealId(null), 4000);
     return () => clearTimeout(t);
   }, [deleteRevealId]);
+
+  // Refetch when tab becomes active
+  useEffect(() => {
+    if (!isActive) return;
+    queryClient.invalidateQueries({ queryKey: ['requests'] });
+  }, [isActive, queryClient]);
 
   // Realtime for requests is already handled by useGlobalData's global channel —
   // no local listener needed here to avoid double full-refresh on every change.
