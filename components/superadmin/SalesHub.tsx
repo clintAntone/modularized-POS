@@ -782,7 +782,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         {/* DESKTOP TABLE VIEW - ENHANCED READABILITY */}
         <div className={`hidden md:block bg-white ${UI_THEME.radius.card} border border-slate-200 shadow-sm overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse table-fixed">
+            <table className="w-full min-w-[820px] text-left border-collapse">
               <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {([

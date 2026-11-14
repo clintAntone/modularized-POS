@@ -420,28 +420,33 @@ export const useGlobalData = (auth: AuthState) => {
         refetchInterval: 30 * 1000, // polling fallback if realtime drops on mobile
     });
 
+    // Expenses are only fetched for branch managers — superadmin hubs (ExpensesHub,
+    // PayrollHub) self-fetch per-branch on demand. Fetching all branches × 90 days
+    // on login contributes to the HTTP/2 connection burst.
     const { data: expenses = [], isLoading: expensesLoading, error: expensesError } = useQuery({
         queryKey: ['expenses', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.EXPENSES, async () => {
-            if (!supabase) return [];
+            if (!supabase || !auth.user?.branchId) return [];
             const lookbackDate = getTrueDate();
             lookbackDate.setDate(lookbackDate.getDate() - 90);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.EXPENSES).select(COLS.expenses).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(1000);
-            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
-                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-            }
-            const { data, error } = await query;
+            const { data, error } = await supabase
+                .from(DB_TABLES.EXPENSES)
+                .select(COLS.expenses)
+                .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+                .gte(DB_COLUMNS.TIMESTAMP, lookbackIso)
+                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
+                .limit(1000);
             if (error) throw error;
             return data.map(e => ({
                 id: e[DB_COLUMNS.ID], branchId: e[DB_COLUMNS.BRANCH_ID], timestamp: e[DB_COLUMNS.TIMESTAMP],
                 name: e[DB_COLUMNS.NAME], amount: Number(e[DB_COLUMNS.AMOUNT] || 0), category: e[DB_COLUMNS.CATEGORY], receiptImage: e[DB_COLUMNS.RECEIPT_IMAGE]
             }));
         }),
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && deferredEnabled && isBranchManager,
         staleTime: 30 * 1000,
-        refetchInterval: 60 * 1000, // realtime covers most updates; polling is a fallback
+        refetchInterval: 60 * 1000,
     });
 
     // Shared mapper for sales_reports rows → SalesReport objects
@@ -552,7 +557,9 @@ export const useGlobalData = (auth: AuthState) => {
         queryFn: () => withOfflineCache(STORES.VAULT_TRANSACTIONS, async () => {
             if (!supabase) return [];
             const vtLookback = getTrueDate();
-            vtLookback.setDate(vtLookback.getDate() - 90);
+            // Branch managers get 90 days (needed for RemittanceSection orphan detection).
+            // Superadmin gets 30 days — VaultFundHub drills down per-branch on demand.
+            vtLookback.setDate(vtLookback.getDate() - (isBranchManager ? 90 : 30));
             const vtLookbackIso = vtLookback.toISOString();
             let query = supabase
                 .from(DB_TABLES.VAULT_TRANSACTIONS)
@@ -606,19 +613,27 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 2 * 60 * 1000
     });
 
+    // Attendance is only fetched for branch managers — AttendanceHub and PayrollHub
+    // self-fetch per-branch on demand. Cross-branch attendance (all branches × 90 days)
+    // on login is the largest single query burst for superadmin.
+    // 30 days is sufficient for managers: PayrollSection computes per-employee payroll
+    // from salesReports.staffBreakdown (not from this table). Attendance is only used
+    // as a name-lookup fallback for deleted employees — an edge case.
     const { data: attendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
         queryKey: ['attendance', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.ATTENDANCE, async () => {
-            if (!supabase) return [];
+            if (!supabase || !auth.user?.branchId) return [];
             const lookbackDate = getTrueDate();
-            lookbackDate.setDate(lookbackDate.getDate() - 90);
+            lookbackDate.setDate(lookbackDate.getDate() - 30);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.ATTENDANCE).select(COLS.attendance).order(DB_COLUMNS.CLOCK_IN, { ascending: false }).gte(DB_COLUMNS.CLOCK_IN, lookbackIso).limit(1000);
-            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
-                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-            }
-            const { data, error } = await query;
+            const { data, error } = await supabase
+                .from(DB_TABLES.ATTENDANCE)
+                .select(COLS.attendance)
+                .order(DB_COLUMNS.CLOCK_IN, { ascending: false })
+                .gte(DB_COLUMNS.CLOCK_IN, lookbackIso)
+                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
+                .limit(1000);
             if (error) throw error;
             return data.map(att => ({
                 id: att[DB_COLUMNS.ID], branchId: att[DB_COLUMNS.BRANCH_ID], employeeId: att[DB_COLUMNS.EMPLOYEE_ID],
@@ -632,7 +647,7 @@ export const useGlobalData = (auth: AuthState) => {
                 shift: att[DB_COLUMNS.SHIFT] ? Number(att[DB_COLUMNS.SHIFT]) as 1 | 2 : undefined
             }));
         }),
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && deferredEnabled && isBranchManager,
         // Attendance is clock-in/out sensitive — poll every 30s as a safety net behind
         // the realtime subscription (missed WebSocket events won't leave the UI stale).
         staleTime: 30 * 1000,

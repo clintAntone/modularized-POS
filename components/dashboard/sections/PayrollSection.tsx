@@ -50,6 +50,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
   const [selectedStaffPayslip, setSelectedStaffPayslip] = useState<any | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(getManilaYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
+  const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [settlementStatuses, setSettlementStatuses] = useState<Record<string, string>>({});
@@ -480,60 +481,113 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     }).reverse();
   }, [yearlyCycles, selectedYear, selectedMonth]);
 
-  const handleExportCyclePDF = async () => {
-    if (!selectedCycle) return;
+  // Standalone PDF export — works for any cycle without requiring it to be selected
+  const exportCycleCardPDF = async (cycle: typeof yearlyCycles[0]) => {
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
 
-      const doc = new jsPDF();
+      const cycleStartStr = getLocalDateStr(new Date(cycle.startDate));
+      const cycleEndStr = getLocalDateStr(new Date(cycle.endDate));
+      const cycleReportsForExport = reportsWithBreakdown.filter(r =>
+        r.branchId === branch.id &&
+        r.reportDate >= cycleStartStr &&
+        r.reportDate <= cycleEndStr &&
+        Array.isArray(r.staffBreakdown) &&
+        r.staffBreakdown.length > 0
+      );
 
+      const groupedForExport = cycleReportsForExport.map(report => {
+        const staffMap: Record<string, any> = {};
+        report.staffBreakdown.forEach((s: any) => {
+          const empId = s.employeeId;
+          if (!empId || isRelieverExcluded(s)) return;
+          const att = s.attendance;
+          const comm = Number(s.commission) || 0;
+          const allw = Number(s.allowance) || 0;
+          const ot = Number(att?.otPay || att?.ot_pay || 0);
+          const late = Number(att?.lateDeduction || att?.late_deduction || 0);
+          const adv = Number(att?.cashAdvance || att?.cash_advance || 0);
+          const breakdownName = (s.staffName || s.name || '').trim();
+          const resolvedName = (breakdownName && breakdownName.toUpperCase() !== 'UNKNOWN STAFF')
+            ? breakdownName.toUpperCase()
+            : resolveEmployeeName(empId, employees, attendance, transactions, reportsWithBreakdown, breakdownName).toUpperCase();
+          staffMap[empId] = {
+            employeeId: empId, name: resolvedName,
+            count: Number(s.count) || 0, totalCommission: comm, allowance: allw, ot, late, advance: adv,
+          };
+        });
+        const staffList = Object.values(staffMap);
+        return {
+          date: report.reportDate, staff: staffList,
+          dailyTotal: staffList.reduce((sum, s) => sum + (s.totalCommission + s.allowance + s.ot - s.late) - s.advance, 0),
+        };
+      }).filter(g => g.staff.length > 0);
+
+      const employeeMap: Record<string, { name: string; employeeId: string }> = {};
+      groupedForExport.forEach(({ staff }) => {
+        staff.forEach((s: any) => {
+          if (s.employeeId && !employeeMap[s.employeeId]) {
+            employeeMap[s.employeeId] = { name: s.name, employeeId: s.employeeId };
+          }
+        });
+      });
+
+      const staffSummary = Object.values(employeeMap).map(({ name, employeeId: empId }) => {
+        let sessions = 0, commission = 0, allowance = 0, ot = 0, late = 0, advance = 0;
+        groupedForExport.forEach(({ staff }) => {
+          const dayRecord = staff.find((s: any) => s.employeeId === empId);
+          if (!dayRecord) return;
+          sessions += dayRecord.count;
+          commission += dayRecord.totalCommission;
+          allowance += dayRecord.allowance;
+          ot += dayRecord.ot;
+          late += dayRecord.late;
+          advance += dayRecord.advance;
+        });
+        return { name, sessions, commission, allowance, ot, late, advance, netPay: (commission + allowance + ot - late) - advance };
+      }).sort((a, b) => b.netPay - a.netPay);
+
+      const doc = new jsPDF();
       doc.setFontSize(18);
       doc.setTextColor(15, 23, 42);
-      doc.text(`WEEK ${selectedCycle.id} PAYROLL AUDIT`, 14, 22);
-
+      doc.text(`WEEK ${cycle.id} PAYROLL AUDIT`, 14, 22);
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Period: ${selectedCycle.start} - ${selectedCycle.end}`, 14, 28);
+      doc.text(`Period: ${cycle.start} - ${cycle.end}`, 14, 28);
       doc.text(`Branch: ${branch.name}`, 14, 34);
       doc.text(`Generated: ${getTrueDate().toLocaleString()}`, 14, 40);
-
-      const totalPayout = groupedCycleData.reduce((sum, g) => sum + g.dailyTotal, 0);
+      const totalPayout = groupedForExport.reduce((sum, g) => sum + g.dailyTotal, 0);
       doc.setFontSize(14);
       doc.setTextColor(16, 185, 129);
       doc.text(`TOTAL AGGREGATED PAYOUT: P${totalPayout.toLocaleString()}`, 14, 52);
 
-      // Staff Summary Table
-      const staffData = staffCycleSummary.map((s: any) => [
-        s.name.toUpperCase(),
-        s.sessions,
-        `P${s.commission.toLocaleString()}`,
-        `P${s.allowance.toLocaleString()}`,
-        `P${s.ot.toLocaleString()}`,
-        `P${s.late.toLocaleString()}`,
-        `P${s.advance.toLocaleString()}`,
-        `P${s.netPay.toLocaleString()}`
-      ]);
-
       autoTable(doc, {
         startY: 60,
         head: [['Staff Name', 'Sess.', 'Comm.', 'Allw.', 'OT', 'Late', 'Cash Adv.', 'Net Pay']],
-        body: staffData,
+        body: staffSummary.map(s => [
+          s.name.toUpperCase(), s.sessions,
+          `P${s.commission.toLocaleString()}`, `P${s.allowance.toLocaleString()}`,
+          `P${s.ot.toLocaleString()}`, `P${s.late.toLocaleString()}`,
+          `P${s.advance.toLocaleString()}`, `P${s.netPay.toLocaleString()}`
+        ]),
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], fontSize: 9 },
         styles: { fontSize: 8 },
-        columnStyles: {
-          0: { cellWidth: 45 },
-          7: { fontStyle: 'bold', halign: 'right' }
-        }
+        columnStyles: { 0: { cellWidth: 45 }, 7: { fontStyle: 'bold', halign: 'right' } }
       });
 
-      doc.save(`Payroll_Audit_Week_${selectedCycle.id}_${branch.name.replace(/\s+/g, '_')}.pdf`);
+      doc.save(`Payroll_Audit_Week_${cycle.id}_${branch.name.replace(/\s+/g, '_')}.pdf`);
       playSound('success');
     } catch (err) {
       console.error('Cycle PDF Export Failed:', err);
       playSound('warning');
     }
+  };
+
+  const handleExportCyclePDF = async () => {
+    if (!selectedCycle) return;
+    await exportCycleCardPDF(selectedCycle);
   };
 
   // ─── Cycle detail view ────────────────────────────────────────────────────
@@ -704,10 +758,10 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
       {/* Header + filters */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm no-print">
-        {/* Row 1: icon + title + view toggle */}
+        {/* Row 1: icon + title */}
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-            <svg className="w-4.5 h-4.5 w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
@@ -717,32 +771,48 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               {payrollView === 'weekly' ? 'By weekly cycle' : 'Monthly per employee'}
             </p>
           </div>
-          <div className="flex-1" />
-          {/* Weekly / Monthly toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-700/60 rounded-lg p-0.5">
-            {(['weekly', 'monthly'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setPayrollView(tab); setSelectedStaffPayslip(null); setSelectedCycleId(null); playSound('click'); }}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  payrollView === tab
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Row 2: filter strip */}
-        <div className="border-t border-slate-100 dark:border-slate-700/60 px-4 py-2 flex items-center gap-2">
+        <div className="border-t border-slate-100 dark:border-slate-700/60 px-4 py-2 flex items-center gap-3">
+
+          {/* View dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => { setShowViewDropdown(v => !v); setShowYearDropdown(false); setShowMonthDropdown(false); playSound('click'); }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              {payrollView === 'weekly' ? 'Weekly' : 'Monthly'}
+              <svg className={`w-3 h-3 opacity-40 transition-transform ${showViewDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showViewDropdown && (
+              <>
+                <div className="fixed inset-0 z-[100]" onClick={() => setShowViewDropdown(false)} />
+                <div className="absolute top-full left-0 mt-2 w-32 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-[110] p-1.5">
+                  {(['weekly', 'monthly'] as const).map(v => (
+                    <button
+                      key={v}
+                      onClick={() => { setPayrollView(v); setSelectedStaffPayslip(null); setSelectedCycleId(null); setShowViewDropdown(false); playSound('click'); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        payrollView === v ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-600 shrink-0" />
 
           {/* Year dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
-              onClick={() => { setShowYearDropdown(!showYearDropdown); setShowMonthDropdown(false); playSound('click'); }}
+              onClick={() => { setShowYearDropdown(!showYearDropdown); setShowMonthDropdown(false); setShowViewDropdown(false); playSound('click'); }}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
             >
               <svg className="w-3.5 h-3.5 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -784,11 +854,11 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           {/* Month dropdown — weekly only */}
           {payrollView === 'weekly' && (
             <>
-              <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-600" />
-              <div className="relative">
+              <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-600 shrink-0" />
+              <div className="relative shrink-0">
                 <button
-                  onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); playSound('click'); }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                  onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); setShowViewDropdown(false); playSound('click'); }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
                     selectedMonth !== 'all'
                       ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/20'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -829,6 +899,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
               </div>
             </>
           )}
+
+
         </div>
       </div>
 
@@ -919,7 +991,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
       {/* Cycle grid — weekly only */}
       {payrollView === 'weekly' && ((salesReportsLoading || (filteredCycles.length > 0 && salesReports.length === 0)) ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 min-h-[120px] flex flex-col justify-between gap-4 animate-pulse">
               <div className="flex items-start justify-between gap-2">
@@ -943,7 +1015,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
           ))}
         </div>
       ) : filteredCycles.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           {filteredCycles.map(cycle => {
             const today = getTrueDate();
             today.setHours(0, 0, 0, 0);
@@ -965,24 +1037,8 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                     </div>
                     <p className="text-xs text-slate-400 font-medium">{cycle.start} — {cycle.end}</p>
                   </div>
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
-                    isProcessed
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {isProcessed ? 'Processed' : 'In Progress'}
-                  </span>
-                </div>
-
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium mb-0.5">{isProcessed ? 'Paid out' : 'Running total'}</p>
-                    <p className="text-xl font-bold text-slate-900 tabular-nums group-hover:text-emerald-600 transition-colors">
-                      ₱{calculateCycleTotalPay(cycle).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isProcessed ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-500'
+                  <div className={`flex items-center justify-center shrink-0 ${
+                    isProcessed ? 'text-emerald-500' : 'text-amber-400'
                   }`}>
                     {isProcessed ? (
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -994,6 +1050,24 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
                       </svg>
                     )}
                   </div>
+                </div>
+
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium mb-0.5">{isProcessed ? 'Paid out' : 'Running total'}</p>
+                    <p className="text-xl font-bold text-slate-900 tabular-nums group-hover:text-emerald-600 transition-colors">
+                      ₱{calculateCycleTotalPay(cycle).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); exportCycleCardPDF(cycle); }}
+                    title="Export PDF"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-slate-100 shadow-sm text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
                 </div>
               </button>
             );

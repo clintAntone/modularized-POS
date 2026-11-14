@@ -280,10 +280,10 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
         </nav>
       ) : (
         /* MOBILE NAV */
-        <div className={`fixed ${navFooterText ? 'bottom-7' : 'bottom-5'} left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4`} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
+        <div className={`fixed ${navFooterText ? 'bottom-[35px]' : 'bottom-5'} left-1/2 -translate-x-1/2 z-[100] no-print w-full px-4`} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
           {/* Glow */}
           <div className="absolute inset-x-4 bottom-0 h-12 bg-indigo-400/20 dark:bg-indigo-500/25 blur-2xl rounded-full pointer-events-none" />
-          <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-white/60 dark:border-slate-700
+          <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center border border-black/20 dark:border-white/20
             shadow-[0_8px_32px_-4px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.06)]">
             {visibleTabs.map(tab => {
               const isActive = activeTab === tab.id;
@@ -329,6 +329,17 @@ export const BranchNavbar: React.FC<BranchNavbarProps> = ({ activeTab, onTabChan
           </div>
         </div>
       )}
+
+      {/* Invisible glass — blurs content visible in the gap around/below the floating navbar pill */}
+      <div
+        className="fixed left-0 right-0 z-[98] pointer-events-none no-print backdrop-blur-md"
+        style={{
+          bottom: '0px',
+          height: '80px',
+          maskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+        }}
+      />
 
       {navFooterText && (
         <div className="fixed bottom-0 left-0 right-0 z-[99] no-print bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-1.5 overflow-hidden">

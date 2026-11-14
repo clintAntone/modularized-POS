@@ -9,7 +9,42 @@ const MONTHS = [
   'July','August','September','October','November','December',
 ];
 
-function buildWeekGroups(days: DayRecord[], year: number, month: number) {
+function buildWeekGroups(days: DayRecord[], year: number, month: number, cycleStartDate?: string) {
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  if (cycleStartDate) {
+    // Group days by the branch's actual payroll cycle, so week numbers match the weekly archive
+    const [cy, cm, cd] = cycleStartDate.split('-').map(Number);
+    const anchor = new Date(cy, cm - 1, cd);
+    anchor.setHours(0, 0, 0, 0);
+
+    const cycleMap: Record<number, { days: DayRecord[]; cycleStart: Date; cycleEnd: Date }> = {};
+    for (const day of days) {
+      const [dy, dm, dd] = day.date.split('-').map(Number);
+      const dayDate = new Date(dy, dm - 1, dd);
+      dayDate.setHours(0, 0, 0, 0);
+      const msPerWeek = 7 * 24 * 3600 * 1000;
+      const cycleIdx = Math.floor((dayDate.getTime() - anchor.getTime()) / msPerWeek);
+      if (cycleIdx < 0) continue;
+      if (!cycleMap[cycleIdx]) {
+        const cs = new Date(anchor.getTime() + cycleIdx * msPerWeek);
+        const ce = new Date(cs.getTime() + 6 * 24 * 3600 * 1000);
+        cycleMap[cycleIdx] = { days: [], cycleStart: cs, cycleEnd: ce };
+      }
+      cycleMap[cycleIdx].days.push(day);
+    }
+
+    return Object.entries(cycleMap)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([idxStr, { days: cycleDays, cycleStart, cycleEnd }]) => ({
+        label: `Week ${Number(idxStr) + 1}`,
+        dateRange: `${fmt(cycleStart)} – ${fmt(cycleEnd)}`,
+        gross: cycleDays.reduce((s, d) => s + d.commission + d.allowance + d.ot, 0),
+        net:   cycleDays.reduce((s, d) => s + d.net, 0),
+      }));
+  }
+
+  // Fallback: fixed calendar-week ranges when no cycleStartDate
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const ranges = [
     { start: 1,  end: 7  },
@@ -18,7 +53,6 @@ function buildWeekGroups(days: DayRecord[], year: number, month: number) {
     { start: 22, end: 28 },
     { start: 29, end: 31 },
   ];
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return ranges
     .filter(r => r.start <= daysInMonth)
     .map((r, i) => {
@@ -129,7 +163,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
     return {
       days, sessions, commission, allowance, ot, late, advance,
       grossPay, netPay, hasData: days.length > 0,
-      weekGroups: buildWeekGroups(days, year, month),
+      weekGroups: buildWeekGroups(days, year, month, branch?.cycleStartDate),
     };
   }, [employee, salesReports, branch, month, year]);
 
