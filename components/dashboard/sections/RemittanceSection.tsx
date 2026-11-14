@@ -458,6 +458,13 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     });
   }, [allGroups, allSubmissions, now]);
 
+  // Popup only nags about the past 2 weeks — older periods are excluded to avoid
+  // surfacing months-old history that the manager can't action right now.
+  const recentOverdueGroups = useMemo(() => {
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    return overdueGroups.filter(g => g.weekEnd >= twoWeeksAgo);
+  }, [overdueGroups, now]);
+
   // If the active week (weekEnd still in the future) isn't in allGroups yet,
   // allGroups[0] is actually "1 week ago", not "current". Offset labels accordingly.
   // Also build a synthetic "current period" entry for the ongoing week so it shows in the list.
@@ -696,7 +703,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     <div className="space-y-4 pb-20">
 
       {/* ── Overdue remittance reminder popup ── */}
-      {!isPreview && !loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
+      {!isPreview && !loadingSubmissions && recentOverdueGroups.length > 0 && !reminderDismissed && (
         <div className="fixed bottom-6 right-4 z-[999] w-[calc(100vw-2rem)] max-w-xs animate-in slide-in-from-right-4 fade-in duration-300">
           <div className="bg-white border border-amber-200 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
@@ -710,7 +717,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 <div>
                   <p className="text-xs font-black text-amber-700 uppercase tracking-widest leading-none">Remittance Reminder</p>
                   <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mt-0.5">
-                    {overdueGroups.length} period{overdueGroups.length !== 1 ? 's' : ''} not yet remitted
+                    {recentOverdueGroups.length} period{recentOverdueGroups.length !== 1 ? 's' : ''} not yet remitted
                   </p>
                 </div>
               </div>
@@ -726,7 +733,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
             {/* Period list */}
             <div className="px-4 py-3 space-y-1.5 max-h-40 overflow-y-auto">
-              {overdueGroups.slice(0, 5).map(g => {
+              {recentOverdueGroups.slice(0, 5).map(g => {
                 const sub = allSubmissions.find(s => s.periodLabel === g.label);
                 return (
                   <div key={g.key} className="flex items-center justify-between gap-2">
@@ -741,8 +748,8 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   </div>
                 );
               })}
-              {overdueGroups.length > 5 && (
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">+{overdueGroups.length - 5} more</p>
+              {recentOverdueGroups.length > 5 && (
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">+{recentOverdueGroups.length - 5} more</p>
               )}
             </div>
 
