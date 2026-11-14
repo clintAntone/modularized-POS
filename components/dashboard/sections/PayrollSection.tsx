@@ -603,7 +603,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
     const isCycleComplete = cycleEndDay < todayMidnight;
 
     return (
-      <div className="w-full space-y-4 pb-32 px-3 sm:px-4 animate-in fade-in slide-in-from-bottom-4 duration-400">
+      <div className="w-full space-y-4 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-400">
         {selectedStaffPayslip && (
           <PayslipModal
             data={selectedStaffPayslip}
@@ -745,7 +745,7 @@ export const PayrollSection: React.FC<PayrollSectionProps> = ({ branch, transact
 
   // ─── Cycle list view ──────────────────────────────────────────────────────
   return (
-    <div className="w-full space-y-5 no-print pb-10 px-3 sm:px-4">
+    <div className="w-full space-y-5 no-print pb-10">
       {selectedStaffPayslip && (
         <PayslipModal
           data={selectedStaffPayslip}
