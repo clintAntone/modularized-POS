@@ -35,12 +35,13 @@ interface RemittanceSectionProps {
   performedBy?: string | null;
   canDepositToVault?: boolean;
   isDelegate?: boolean;
+  isPreview?: boolean;
   onRefresh?: () => void;
 }
 
 const fmt = formatPeso;
 
-export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, salesReports, vaultTransactions = [], performedBy, canDepositToVault = false, isDelegate = false, onRefresh }) => {
+export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, salesReports, vaultTransactions = [], performedBy, canDepositToVault = false, isDelegate = false, isPreview = false, onRefresh }) => {
   const queryClient = useQueryClient();
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [loadingAdj, setLoadingAdj] = useState(true);
@@ -695,7 +696,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
     <div className="space-y-4 pb-20">
 
       {/* ── Overdue remittance reminder popup ── */}
-      {!loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
+      {!isPreview && !loadingSubmissions && overdueGroups.length > 0 && !reminderDismissed && (
         <div className="fixed bottom-6 right-4 z-[999] w-[calc(100vw-2rem)] max-w-xs animate-in slide-in-from-right-4 fade-in duration-300">
           <div className="bg-white border border-amber-200 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}

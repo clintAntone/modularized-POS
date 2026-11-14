@@ -610,7 +610,7 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
                 loadingRowId={fetchingRowId}
                 onSelect={async (r) => {
                   playSound('click');
-                  if (view === 'daily' && supabase && !r.id.includes('-')) {
+                  if (view === 'daily' && supabase) {
                     // Fetch full report data (including session_data) on demand
                     setFetchingRowId(r.id);
                     const { data } = await supabase

@@ -45,8 +45,6 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   const [selectedReport, setSelectedReport] = useState<{ report: SalesReport; branch: Branch } | null>(null);
   const [liveFilter, setLiveFilter] = useState<'all' | 'live' | 'closed'>('live');
   const [managerFilter, setManagerFilter] = useState<'all' | 'has_manager' | 'no_manager'>('all');
-  const [complianceFilter, setComplianceFilter] = useState<'all' | 'compliant' | 'uncompliant'>('all');
-  const [missedDaysThreshold, setMissedDaysThreshold] = useState<number | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -59,7 +57,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page on search/sort change
-  }, [searchTerm, mobileSortBy, selectedDate, managerFilter, liveFilter, missedDaysThreshold]);
+  }, [searchTerm, mobileSortBy, selectedDate, managerFilter, liveFilter]);
 
   useEffect(() => {
     localStorage.setItem('live_filter_search', searchTerm);
@@ -201,11 +199,6 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       };
     });
 
-    // Apply Missed Days Filter
-    if (missedDaysThreshold !== null) {
-      stats = stats.filter(b => b.missedDays >= missedDaysThreshold);
-    }
-
     // Apply Live Filter — uses isLiveToday so stale nodes (isOpen=true from prev day) show as Offline
     if (liveFilter !== 'all') {
       stats = stats.filter(b => b.isEnabled && (liveFilter === 'live' ? b.isLiveToday : !b.isLiveToday));
@@ -218,11 +211,6 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       } else if (managerFilter === 'has_manager') {
         stats = stats.filter(b => b.manager || b.tempManager);
       }
-    }
-
-    // Apply Compliance Filter
-    if (complianceFilter !== 'all') {
-      stats = stats.filter(b => complianceFilter === 'compliant' ? !!b.rawReport : !b.rawReport);
     }
 
     // Apply Search Filter
@@ -238,7 +226,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
       if (mobileSortBy === 'name') return dir * (a.name || '').localeCompare(b.name || '');
       return dir * ((a[mobileSortBy] || 0) - (b[mobileSortBy] || 0));
     });
-  }, [branches, reportIndex, selectedDate, mobileSortBy, sortDir, debouncedSearch, managerFilter, liveFilter, complianceFilter, missedDaysThreshold, missedDaysMap]);
+  }, [branches, reportIndex, selectedDate, mobileSortBy, sortDir, debouncedSearch, managerFilter, liveFilter, missedDaysMap]);
 
   const paginatedStats = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -471,7 +459,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   };
 
   return (
-    <div className={`flex flex-col lg:flex-row gap-6 lg:gap-8 lg:items-start pb-32`}>
+    <div className="relative pb-32">
         {/* Missing report modal */}
         {showMissingModal && ReactDOM.createPortal(
           <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowMissingModal(false)}>
@@ -518,16 +506,10 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 )}
               </div>
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                <button
-                  onClick={() => { setComplianceFilter('uncompliant'); setShowMissingModal(false); playSound('click'); }}
-                  className="flex-1 h-10 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-amber-600 active:scale-95 transition-all"
-                >
-                  Filter to These Branches
-                </button>
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end">
                 <button
                   onClick={() => setShowMissingModal(false)}
-                  className="h-10 px-5 rounded-2xl border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 transition-all"
+                  className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-700 active:scale-95 transition-all"
                 >
                   Close
                 </button>
@@ -581,7 +563,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         )}
         
         {/* ── Main content ─────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="space-y-6">
 
         {/* UNIFIED COMMAND BAR */}
         <div className={`bg-white p-4 md:px-8 md:py-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm no-print space-y-6`}>
@@ -626,124 +608,58 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
             >
               <svg className={`w-4 h-4 transition-transform duration-300 ${isFiltersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M19 9l-7 7-7-7" /></svg>
               <span className="hidden sm:inline">{isFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
-              {(liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
+              {liveFilter !== 'all' && !isFiltersOpen && <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>}
             </button>
           </div>
 
           {isFiltersOpen && (
-            <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-4 border-t border-slate-100 space-y-5">
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-4 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
 
-              {/* — Primary: Date navigator (full-width accent) — */}
-              <div>
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 ml-1">Target Date</p>
-                <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner h-12 max-w-sm">
-                  <button
-                    onClick={() => handleDateShift(-1)}
-                    className="w-10 h-full flex items-center justify-center hover:bg-white hover:shadow-md rounded-xl transition-all text-slate-400 hover:text-emerald-600 active:scale-90"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                  <div className="relative flex-1 text-center flex items-center justify-center h-full px-2 group cursor-pointer">
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => { setSelectedDate(e.target.value); playSound('click'); }}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                    />
-                    <span className="font-black text-xs text-slate-900 uppercase tracking-tight whitespace-nowrap leading-none pointer-events-none">
-                      {formattedDisplayDate}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleDateShift(1)}
-                    className="w-10 h-full flex items-center justify-center hover:bg-white hover:shadow-md rounded-xl transition-all text-slate-400 hover:text-emerald-600 active:scale-90"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* — Secondary: filter groups — */}
-              <div className="space-y-3">
-
-                {/* Row 1: 2 equal-width toggles */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Live Status */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Live Status</p>
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                      {(['all', 'live', 'closed'] as const).map((val) => (
-                        <button key={val} onClick={() => { setLiveFilter(val); playSound('click'); }}
-                          className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                          {val === 'all' ? 'All' : val === 'live' ? 'Live' : 'Offline'}
-                        </button>
-                      ))}
+                {/* Date navigator */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Target Date</p>
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
+                    <button
+                      onClick={() => handleDateShift(-1)}
+                      className="w-9 h-full flex items-center justify-center hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-400 hover:text-emerald-600 active:scale-90 shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <div className="relative flex-1 text-center flex items-center justify-center h-full px-2 cursor-pointer">
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => { setSelectedDate(e.target.value); playSound('click'); }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                      />
+                      <span className="font-black text-xs text-slate-900 uppercase tracking-tight whitespace-nowrap leading-none pointer-events-none">
+                        {formattedDisplayDate}
+                      </span>
                     </div>
+                    <button
+                      onClick={() => handleDateShift(1)}
+                      className="w-9 h-full flex items-center justify-center hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-400 hover:text-emerald-600 active:scale-90 shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg>
+                    </button>
                   </div>
-
-                  {/* Compliance Status */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Report Status</p>
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10">
-                      {(['all', 'compliant', 'uncompliant'] as const).map((val) => (
-                        <button key={val} onClick={() => { setComplianceFilter(val); playSound('click'); }}
-                          className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${complianceFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                          {val === 'all' ? 'All' : val === 'compliant' ? 'Filed' : 'Missing'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                 </div>
 
-                {/* Row 2: No Report For — compact, left-aligned */}
-                <div className="space-y-1.5">
-                  <p className="text-xs font-black text-rose-400 uppercase tracking-widest ml-1">No Report For</p>
-                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10 w-full gap-0.5">
-                    {([null, 3, 5, 7, 14, 30] as (number | null)[]).map((val) => (
-                      <button key={val ?? 'all'} onClick={() => { setMissedDaysThreshold(val); playSound('click'); }}
-                        className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
-                          missedDaysThreshold === val
-                            ? val === null ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'bg-rose-600 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}>
-                        {val === null ? 'Off' : `${val}d+`}
+                {/* Live Status */}
+                <div className="space-y-1.5 shrink-0">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide ml-1">Live Status</p>
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner h-10 w-48">
+                    {(['all', 'live', 'closed'] as const).map((val) => (
+                      <button key={val} onClick={() => { setLiveFilter(val); playSound('click'); }}
+                        className={`flex-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${liveFilter === val ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                        {val === 'all' ? 'All' : val === 'live' ? 'Live' : 'Off'}
                       </button>
                     ))}
                   </div>
                 </div>
 
               </div>
-
-              {/* Active filters summary chips */}
-              {(liveFilter !== 'all' || complianceFilter !== 'all' || missedDaysThreshold !== null) && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {liveFilter !== 'all' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-black text-emerald-700 uppercase tracking-widest">
-                      {liveFilter === 'live' ? 'Live' : 'Offline'}
-                      <button onClick={() => setLiveFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
-                    </span>
-                  )}
-                  {complianceFilter !== 'all' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-full text-xs font-black text-indigo-700 uppercase tracking-widest">
-                      {complianceFilter === 'compliant' ? 'Filed' : 'Missing Report'}
-                      <button onClick={() => setComplianceFilter('all')} className="hover:text-rose-500 transition-colors">✕</button>
-                    </span>
-                  )}
-                  {missedDaysThreshold !== null && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 rounded-full text-xs font-black text-rose-700 uppercase tracking-widest">
-                      No report {missedDaysThreshold}d+
-                      <button onClick={() => setMissedDaysThreshold(null)} className="hover:text-rose-500 transition-colors">✕</button>
-                    </span>
-                  )}
-                  <button
-                    onClick={() => { setLiveFilter('all'); setComplianceFilter('all'); setMissedDaysThreshold(null); playSound('click'); }}
-                    className="text-xs font-medium text-slate-400 uppercase tracking-wide hover:text-rose-500 transition-colors px-2"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -816,34 +732,46 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {salesReportsLoading ? (
             <>
-              {/* Skeleton KPI cards */}
+              {/* ROI skeleton — full width */}
+              <div className={`col-span-2 lg:col-span-4 p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex flex-col justify-center gap-3`}>
+                <div className="h-3 w-32 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse" />
+                <div className="h-10 w-48 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
+              </div>
+              {/* 4 equal metric skeletons */}
               {[...Array(4)].map((_, i) => (
-                <div key={i} className={`${i === 0 ? 'col-span-2 lg:col-span-1' : ''} p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 bg-white shadow-sm flex flex-col justify-center gap-3`}>
-                  <div className="h-3 w-24 bg-slate-100 rounded-full animate-pulse" />
-                  <div className="h-8 w-32 bg-slate-100 rounded-xl animate-pulse" />
+                <div key={i} className={`p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex flex-col justify-center gap-3`}>
+                  <div className="h-3 w-24 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse" />
+                  <div className="h-8 w-32 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
                 </div>
               ))}
             </>
           ) : (
             <>
-              <div className={`col-span-2 lg:col-span-1 p-5 sm:p-6 ${UI_THEME.radius.card} border-2 flex flex-col justify-center transition-all duration-500 ${networkTotals.net >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+              {/* ROI — full width on both mobile and desktop */}
+              <div className={`col-span-2 lg:col-span-4 p-5 sm:p-6 ${UI_THEME.radius.card} border-2 flex flex-col justify-center transition-all duration-500 ${networkTotals.net >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                 <p className={`text-xs font-semibold uppercase tracking-widest ${networkTotals.net >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>Consolidated ROI</p>
                 <p className={`font-bold tabular-nums tracking-tighter mt-2 whitespace-nowrap leading-none ${getFontSize(networkTotals.net)} ${networkTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   {networkTotals.net < 0 ? '−' : ''}₱{Math.abs(networkTotals.net).toLocaleString()}
                 </p>
               </div>
 
-              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+              {/* 4 equal metric cards — clean 2×2 on mobile, 1×4 on desktop */}
+              <div className={`bg-white dark:bg-slate-800 p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center`}>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Gross Yield</p>
-                <p className={`font-bold text-slate-900 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
+                <p className={`font-bold text-slate-900 dark:text-white mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.gross)}`}>₱{networkTotals.gross.toLocaleString()}</p>
               </div>
 
-              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+              <div className={`bg-white dark:bg-slate-800 p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center`}>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Payroll Total</p>
                 <p className={`font-bold text-amber-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.staffPay)}`}>₱{networkTotals.staffPay.toLocaleString()}</p>
               </div>
 
-              <div className={`bg-white p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 shadow-sm flex flex-col justify-center`}>
+              <div className={`bg-white dark:bg-slate-800 p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center`}>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Expenses</p>
+                <p className={`font-bold text-rose-500 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.operational)}`}>₱{networkTotals.operational.toLocaleString()}</p>
+              </div>
+
+              <div className={`bg-white dark:bg-slate-800 p-5 sm:p-6 ${UI_THEME.radius.card} border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center`}>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Rent & Bills</p>
                 <p className={`font-bold text-indigo-600 mt-2 tabular-nums tracking-tighter whitespace-nowrap leading-none ${getFontSize(networkTotals.vault)}`}>₱{networkTotals.vault.toLocaleString()}</p>
               </div>
@@ -858,13 +786,13 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {([
-                  { key: 'name',        label: 'Branch Node',  align: 'left',   px: 'px-8', w: 'w-[20%]' },
-                  { key: null,          label: 'Status',       align: 'center', px: 'px-4', w: 'w-[10%]' },
+                  { key: 'name',        label: 'Branch Node',  align: 'left',   px: 'px-8', w: 'w-[22%]' },
+                  ...(isToday ? [{ key: null, label: 'Status', align: 'center', px: 'px-4', w: 'w-[10%]' }] : []),
                   { key: 'sessions',    label: 'Units',        align: 'right',  px: 'px-4', w: 'w-[8%]'  },
-                  { key: 'gross',       label: 'Gross Yield',  align: 'right',  px: 'px-4', w: 'w-[12%]' },
-                  { key: 'staffPay',    label: 'Payroll',      align: 'right',  px: 'px-4', w: 'w-[12%]' },
-                  { key: 'operational', label: 'Expenses',     align: 'right',  px: 'px-4', w: 'w-[12%]' },
-                  { key: 'vault',       label: 'Rent & Bills', align: 'right',  px: 'px-4', w: 'w-[12%]' },
+                  { key: 'gross',       label: 'Gross Yield',  align: 'right',  px: 'px-4', w: 'w-[13%]' },
+                  { key: 'staffPay',    label: 'Payroll',      align: 'right',  px: 'px-4', w: 'w-[13%]' },
+                  { key: 'operational', label: 'Expenses',     align: 'right',  px: 'px-4', w: 'w-[13%]' },
+                  { key: 'vault',       label: 'Rent & Bills', align: 'right',  px: 'px-4', w: 'w-[13%]' },
                   { key: 'net',         label: 'Net ROI',      align: 'right',  px: 'px-8', w: 'w-[14%]' },
                 ] as { key: SortKey | null; label: string; align: string; px: string; w: string }[]).map(col => (
                   <th key={col.label} className={`${col.px} py-5 ${col.w} text-${col.align} ${UI_THEME.text.metadata} ${col.key ? 'cursor-pointer select-none hover:text-slate-700 group' : ''}`}
@@ -894,21 +822,18 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-8 py-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 animate-pulse shrink-0" />
-                        <div className="space-y-2">
-                          <div className="h-3.5 w-36 bg-slate-100 rounded-full animate-pulse" />
-                          <div className="h-2.5 w-24 bg-slate-100 rounded-full animate-pulse" />
-                        </div>
+                      <div className="space-y-2">
+                        <div className="h-3.5 w-36 bg-slate-100 rounded-full animate-pulse" />
+                        <div className="h-2.5 w-24 bg-slate-100 rounded-full animate-pulse" />
                       </div>
                     </td>
-                    <td className="px-4 py-6 text-center"><div className="h-6 w-16 bg-slate-100 rounded-full animate-pulse mx-auto" /></td>
+                    {isToday && <td className="px-4 py-6 text-center"><div className="h-6 w-16 bg-slate-100 rounded-full animate-pulse mx-auto" /></td>}
                     <td className="px-4 py-6 text-right"><div className="h-3.5 w-8 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
                     <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
                     <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
                     <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
                     <td className="px-4 py-6 text-right"><div className="h-3.5 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" /></td>
-                    <td className="px-8 py-6 text-right"><div className="h-8 w-24 bg-slate-100 rounded-xl animate-pulse ml-auto" /></td>
+                    <td className="pl-4 pr-10 py-6 text-right"><div className="h-8 w-24 bg-slate-100 rounded-xl animate-pulse ml-auto" /></td>
                   </tr>
                 ))
               ) : paginatedStats.length > 0 ? paginatedStats.map((b) => {
@@ -920,24 +845,19 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                         className={`border-b border-slate-100 last:border-b-0 transition-colors group cursor-pointer ${b.rawReport ? 'hover:bg-slate-50/80 dark:hover:bg-slate-700/40' : 'opacity-50 grayscale cursor-not-allowed'}`}
                     >
                       <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${b.isEnabled ? 'bg-slate-100 text-slate-500' : 'bg-rose-50 text-rose-300 grayscale'}`}>🏢</div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-bold text-slate-900 uppercase text-sm tracking-tight truncate group-hover:text-emerald-700 transition-colors">{b.name}</p>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">NODE: {b.id.slice(0, 8).toUpperCase()}</p>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 uppercase text-sm tracking-tight truncate group-hover:text-emerald-700 transition-colors">{b.name}</p>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">{b.id.toUpperCase()}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-6 text-center">
-                        {isToday ? (
+                      {isToday && (
+                        <td className="px-4 py-6 text-center">
                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-100 bg-white">
                             <div className={`w-1.5 h-1.5 rounded-full ${b.isLiveToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
                             <span className={`text-xs font-bold uppercase tracking-wider ${b.isLiveToday ? 'text-emerald-600' : 'text-slate-400'}`}>{b.isLiveToday ? 'Live' : 'Off'}</span>
                           </div>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">—</span>
-                        )}
-                      </td>
+                        </td>
+                      )}
                       <td className="px-4 py-6 text-right">
                         <span className="text-sm font-semibold text-slate-900 tabular-nums">{b.sessions}</span>
                       </td>
@@ -953,7 +873,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                       <td className="px-4 py-6 text-right">
                         <span className="text-sm font-semibold text-indigo-700 tabular-nums">₱{b.vault.toLocaleString()}</span>
                       </td>
-                      <td className="px-8 py-6 text-right">
+                      <td className="pl-4 pr-10 py-6 text-right">
                         <div
                             className={`inline-flex items-center px-4 py-2 rounded-xl border transition-all ${isPositive ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}
                         >
@@ -1010,14 +930,14 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 )}
               </div>
 
-              {/* Metric tiles */}
-              <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+              {/* Top 3 metric tiles */}
+              <div className="grid grid-cols-3 gap-1.5 px-3 pb-1.5">
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl px-2.5 py-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Gross</p>
                   <p className="text-xs font-black text-slate-900 dark:text-slate-100 tabular-nums mt-0.5 truncate">₱{b.gross.toLocaleString()}</p>
                 </div>
                 <div className="bg-amber-50 dark:bg-amber-900/30 rounded-xl px-2.5 py-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Payroll</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Salary</p>
                   <p className="text-xs font-black text-amber-600 dark:text-amber-300 tabular-nums mt-0.5 truncate">₱{b.staffPay.toLocaleString()}</p>
                 </div>
                 <div className="bg-rose-50 dark:bg-rose-900/30 rounded-xl px-2.5 py-2">
@@ -1026,12 +946,33 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 </div>
               </div>
 
-              {/* ROI footer */}
-              <div className={`mx-2 mb-2 rounded-xl flex items-center justify-between px-4 py-3 border ${b.net >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-800'}`}>
-                <span className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-400'}`}>Net ROI</span>
-                <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
-                  {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
-                </p>
+              {/* Bottom bento: vault deposit + net ROI */}
+              <div className={`mx-3 mb-3 rounded-xl flex items-center justify-between px-4 py-3 border ${
+                b.vault > 0
+                  ? 'bg-slate-50 border-slate-200 dark:bg-slate-700/50 dark:border-slate-600'
+                  : b.net >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-800'
+              }`}>
+                {b.vault > 0 ? (
+                  <>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-indigo-400 dark:text-indigo-400">Vault Deposit</p>
+                      <p className="text-sm font-black text-indigo-600 dark:text-indigo-300 tabular-nums mt-0.5">₱{b.vault.toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-400'}`}>Net ROI</p>
+                      <p className={`font-black tabular-nums leading-none mt-0.5 ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
+                        {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className={`text-xs font-medium uppercase tracking-wide ${b.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-400'}`}>Net ROI</span>
+                    <p className={`font-black tabular-nums leading-none ${getMobileFontSize(b.net)} ${b.net >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
+                      {b.net < 0 ? '−' : ''}₱{Math.abs(b.net).toLocaleString()}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -1044,9 +985,9 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
 
         </div>{/* end main content */}
 
-        {/* ── Late-to-open floating toggle (desktop only, only when there are late branches) ── */}
-        {lateToOpenBranches.length > 0 && (
-          <div className="hidden lg:block shrink-0 sticky top-24">
+        {/* ── Late-to-open floating toggle (fixed, desktop only) ── */}
+        {lateToOpenBranches.length > 0 && ReactDOM.createPortal(
+          <div className="hidden lg:block fixed top-24 right-6 z-50">
             <div className="relative">
               <button
                 onClick={() => { setShowLateOpenDropdown(p => !p); playSound('click'); }}
@@ -1090,7 +1031,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
       </div>

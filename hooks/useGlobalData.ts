@@ -124,6 +124,12 @@ export const useGlobalData = (auth: AuthState) => {
     // after the POS-critical data (transactions, expenses, attendance) has started loading,
     // so the POS tab is interactive before the Reports tab data arrives.
     const [historyEnabled, setHistoryEnabled] = useState(false);
+    // Non-critical background queries (audit logs, complaints) — fired 4s after deferred phase
+    // so they don't compete with POS-critical bandwidth at startup.
+    const [slowEnabled, setSlowEnabled] = useState(false);
+
+    // Guard against double-invoke of fetchSystemConfig (React StrictMode + refreshDatabase no-key path)
+    const configFetchInFlight = useRef(false);
 
     const isSyncingQueue = useRef(false);
 
@@ -340,7 +346,7 @@ export const useGlobalData = (auth: AuthState) => {
             return data.map(mapDbBranch);
         }),
         enabled: !!supabase && !!auth.user,
-        staleTime: 60 * 1000, // 1 min — branches change rarely; avoid refetch on every mount
+        staleTime: 5 * 60 * 1000, // 5 min — branches change rarely; realtime covers live updates
     });
 
     const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
@@ -361,29 +367,39 @@ export const useGlobalData = (auth: AuthState) => {
     // Guard: require branches.length > 0 to avoid a race where both loading flags are
     // briefly false before React Query actually starts the fetch (enabled just became true).
     useEffect(() => {
-        if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); return; }
+        if (!auth.user) { setDeferredEnabled(false); setHistoryEnabled(false); setSlowEnabled(false); return; }
         if (!branchesLoading && !employeesLoading && branches.length > 0) {
             setDeferredEnabled(true);
             // Delay sales reports (heaviest query) so POS-critical data gets bandwidth first
-            const t = setTimeout(() => setHistoryEnabled(true), 1500);
-            return () => clearTimeout(t);
+            const t1 = setTimeout(() => setHistoryEnabled(true), 1500);
+            // Audit logs + employee complaints are non-critical — fire last to avoid competing
+            const t2 = setTimeout(() => setSlowEnabled(true), 4000);
+            return () => { clearTimeout(t1); clearTimeout(t2); };
         }
     }, [auth.user, branchesLoading, employeesLoading, branches.length]);
 
+    const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
+
+    // Transactions are only fetched for branch managers — they power the POS tab,
+    // payroll calculations, and backfill requests, all scoped to a single branch.
+    // Superadmins do NOT receive global transactions: fetching all branches × 30 days
+    // is wasteful since no superadmin tab needs it at startup. PayrollHub fetches its
+    // own branch-scoped transactions on demand when the Payroll tab activates.
     const { data: transactions = [], isLoading: transactionsLoading, error: transactionsError } = useQuery({
         queryKey: ['transactions', auth.user?.branchId],
         queryFn: () => withOfflineCache(STORES.TRANSACTIONS, async () => {
-            if (!supabase) return [];
+            if (!supabase || !auth.user?.branchId) return [];
             const lookbackDate = getTrueDate();
-            const lookbackDays = auth.user?.role === UserRole.BRANCH_MANAGER ? 30 : 30;
-            lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
+            lookbackDate.setDate(lookbackDate.getDate() - 30);
             const lookbackIso = lookbackDate.toISOString();
 
-            let query = supabase.from(DB_TABLES.TRANSACTIONS).select(COLS.transactions).order(DB_COLUMNS.TIMESTAMP, { ascending: false }).gte(DB_COLUMNS.TIMESTAMP, lookbackIso).limit(2000);
-            if (auth.user?.role === UserRole.BRANCH_MANAGER && auth.user.branchId) {
-                query = query.eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-            }
-            const { data, error } = await query;
+            const { data, error } = await supabase
+                .from(DB_TABLES.TRANSACTIONS)
+                .select(COLS.transactions)
+                .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+                .gte(DB_COLUMNS.TIMESTAMP, lookbackIso)
+                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId)
+                .limit(2000);
             if (error) throw error;
             return data.map(t => ({
                 id: t[DB_COLUMNS.ID], branchId: t[DB_COLUMNS.BRANCH_ID], timestamp: t[DB_COLUMNS.TIMESTAMP],
@@ -399,7 +415,7 @@ export const useGlobalData = (auth: AuthState) => {
                 signatureUrl: undefined
             }));
         }),
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && deferredEnabled && isBranchManager,
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000, // polling fallback if realtime drops on mobile
     });
@@ -444,8 +460,6 @@ export const useGlobalData = (auth: AuthState) => {
 
     const toYmd = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-    const isBranchManager = auth.user?.role === UserRole.BRANCH_MANAGER;
 
     // HOT query — last 10 days (superadmin) or 90 days (branch manager).
     // This unblocks the UI: salesReportsLoading becomes false as soon as this resolves.
@@ -588,7 +602,7 @@ export const useGlobalData = (auth: AuthState) => {
                 description: au[DB_COLUMNS.DESCRIPTION], amount: Number(au[DB_COLUMNS.AMOUNT] || 0), performerName: au[DB_COLUMNS.PERFORMER_NAME]
             }));
         }),
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && slowEnabled,
         staleTime: 2 * 60 * 1000
     });
 
@@ -709,7 +723,7 @@ export const useGlobalData = (auth: AuthState) => {
                 reviewedAt: c[DB_COLUMNS.REVIEWED_AT] ?? undefined,
             }));
         }),
-        enabled: !!supabase && deferredEnabled,
+        enabled: !!supabase && slowEnabled,
         staleTime: 2 * 60 * 1000,
     });
 
@@ -755,9 +769,13 @@ export const useGlobalData = (auth: AuthState) => {
 
     const fetchSystemConfig = useCallback(async () => {
         if (!supabase) return;
+        // Prevent concurrent duplicate fetches (React StrictMode double-invoke, refreshDatabase no-key path)
+        if (configFetchInFlight.current) return;
+        configFetchInFlight.current = true;
 
         // Offline: restore system config from IndexedDB cache
         if (!navigator.onLine) {
+            configFetchInFlight.current = false;
             const cachedRows = await getAll<{ key: string; value: string }>(STORES.SYSTEM_CONFIG);
             if (cachedRows.length > 0) {
                 const find = (k: string) => cachedRows.find(c => c.key === k)?.value;
@@ -786,10 +804,18 @@ export const useGlobalData = (auth: AuthState) => {
         }
 
         // Fetch config rows and APK storage listing in parallel — they're independent
-        const [{ data: configData }, { data: apkFiles }] = await Promise.all([
-            supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*'),
-            supabase.storage.from('apk').list().catch(() => ({ data: null })),
-        ]);
+        let configData: any[] | null = null;
+        let apkFiles: any[] | null = null;
+        try {
+            const [configRes, apkRes] = await Promise.all([
+                supabase.from(DB_TABLES.SYSTEM_CONFIG).select('*'),
+                supabase.storage.from('apk').list().catch(() => ({ data: null })),
+            ]);
+            configData = configRes.data;
+            apkFiles = apkRes.data;
+        } finally {
+            configFetchInFlight.current = false;
+        }
         if (configData) {
             // Write-through: persist config rows to IDB for offline use
             putBatch(STORES.SYSTEM_CONFIG, configData.map((c: any) => ({ key: c[DB_COLUMNS.KEY], value: c.value }))).catch(console.warn);

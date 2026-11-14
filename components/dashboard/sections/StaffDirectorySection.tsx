@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Branch, Employee, Transaction, Attendance, EmployeeComplaint } from '../../../types';
+import { Branch, Employee, Attendance, EmployeeComplaint } from '../../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { UI_THEME } from '../../../constants/ui_designs';
 import { supabase } from '../../../lib/supabase';
@@ -30,7 +30,6 @@ interface StaffDirectorySectionProps {
   branches: Branch[];
   employees: Employee[];
   attendance: Attendance[];
-  transactions: Transaction[];
   isClosedMode?: boolean;
   onRefresh?: (quiet?: boolean) => void;
   isSetupRequired?: boolean;
@@ -48,7 +47,7 @@ interface Toast {
 
 const STANDARD_ROLES = new Set(['THERAPIST', 'BONESETTER', 'MANAGER', 'RELIEVER']);
 
-export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, transactions, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
+export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ branch, branches, employees, attendance, isClosedMode = false, onRefresh, isSetupRequired, onSyncStatusChange, isDelegate = false, isManagerView = false, onNavigateToComplaints, complaints = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
   const [filterActiveOnly, setFilterActiveOnly] = useState(true);

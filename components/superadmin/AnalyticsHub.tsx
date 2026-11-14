@@ -276,6 +276,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const top10MonthStr = `${top10Year}-${String(top10Month + 1).padStart(2, '0')}`;
   const { data: top10Reports = [], isFetching: fetchingReports } = useQuery<SalesReport[]>({
     queryKey: ['analytics_top10_reports', top10MonthStr],
+    enabled: mode === 'chart',
     queryFn: async () => {
       if (!supabase) return [];
       // Extend start 10 days back so early-month period starts are captured.
@@ -318,12 +319,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     gcTime: 10 * 60 * 1000,
   });
 
-  // All approved remittance submissions — no date filter to avoid NULL pitfalls
-  // (submitted_at can be null on older records; reviewed_at column may not exist on all
-  // deployments). The dataset is bounded (small rows, one per branch-period) and cached
-  // for the session. Month/year scoping is done in top10DataRemittance via parsePeriodStart.
+  // Approved remittance submissions scoped to selected year (± 1 for cross-year periods).
+  // Uses created_at (never null) instead of submitted_at to avoid NULL comparison pitfalls.
   const { data: remittanceSubmissions = [], isFetching: fetchingSubmissions } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string }[]>({
-    queryKey: ['analytics_remittances_all'],
+    queryKey: ['analytics_remittances', top10Year],
+    enabled: mode === 'chart' && rankingTab === 'adjusted',
     queryFn: async () => {
       const PAGE = 1000;
       const allRows: any[] = [];
@@ -333,6 +333,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
           .select('branch_id, period_label, submitted_at')
           .eq('status', 'approved')
+          .gte('created_at', `${top10Year - 1}-07-01`)
+          .lte('created_at', `${top10Year + 1}-01-31`)
           .range(from, from + PAGE - 1);
         if (error) throw error;
         if (data && data.length > 0) allRows.push(...data);
@@ -352,6 +354,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   // "EARLY REMIT" adjustments — presence of this adjustment on a period = branch remitted early
   const { data: earlyRemitAdjs = [] } = useQuery<{ branchId: string; periodLabel: string }[]>({
     queryKey: ['analytics_early_remit_adjs', top10Year],
+    enabled: mode === 'chart',
     queryFn: async () => {
       const { data } = await supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
@@ -371,6 +374,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   // All remittance adjustments for the year — used to compute actual adjusted ROI per period
   const { data: top10Adjustments = [], isFetching: fetchingAdjustments } = useQuery<{ branchId: string; periodLabel: string; amount: number }[]>({
     queryKey: ['analytics_remit_adjustments_v2', top10Year],
+    enabled: mode === 'chart' && rankingTab === 'adjusted',
     queryFn: async () => {
       const { data } = await supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)

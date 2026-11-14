@@ -119,6 +119,7 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
   const [adminComment, setAdminComment] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteRevealId, setDeleteRevealId] = useState<string | null>(null);
+  const [optimisticDeleted, setOptimisticDeleted] = useState<Set<string>>(new Set());
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startHold = useCallback((cardId: string) => {
@@ -160,12 +161,23 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     });
   }, [requests]);
 
+  // Clean up optimistic deletes once realtime confirms removal
+  useEffect(() => {
+    if (optimisticDeleted.size === 0) return;
+    setOptimisticDeleted(prev => {
+      const stillPresent = [...prev].filter(id => requests.some(r => r.id === id));
+      return stillPresent.length === prev.size ? prev : new Set(stillPresent);
+    });
+  }, [requests]);
+
   // Merge optimistic overrides so the card moves tabs instantly after action
-  const effectiveRequests = useMemo(() =>
-    Object.keys(optimisticStatus).length === 0
+  const effectiveRequests = useMemo(() => {
+    let list = Object.keys(optimisticStatus).length === 0
       ? requests
-      : requests.map(r => optimisticStatus[r.id] ? { ...r, status: optimisticStatus[r.id] } : r),
-  [requests, optimisticStatus]);
+      : requests.map(r => optimisticStatus[r.id] ? { ...r, status: optimisticStatus[r.id] } : r);
+    if (optimisticDeleted.size > 0) list = list.filter(r => !optimisticDeleted.has(r.id));
+    return list;
+  }, [requests, optimisticStatus, optimisticDeleted]);
 
   const typeFilteredRequests = useMemo(() =>
     allowedRequestTypes?.length
@@ -465,17 +477,18 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     if (!deleteConfirmId) return;
     const id = deleteConfirmId;
     setDeleteConfirmId(null);
-    setIsProcessing(id);
+    // Optimistically remove from list immediately
+    setOptimisticDeleted(prev => new Set([...prev, id]));
+    setDeleteRevealId(null);
     try {
       const { error } = await supabase.from(DB_TABLES.REQUESTS).delete().eq(DB_COLUMNS.ID, id);
       if (error) throw error;
       playSound('success');
-      // Realtime DELETE event handled by useGlobalData
     } catch (err) {
       console.error(err);
+      // Revert optimistic delete on failure
+      setOptimisticDeleted(prev => { const next = new Set(prev); next.delete(id); return next; });
       alert('Failed to delete request. Check connection.');
-    } finally {
-      setIsProcessing(null);
     }
   };
 

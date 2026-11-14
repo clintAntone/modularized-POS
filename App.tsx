@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
-import { UserRole, BranchVault } from './types';
+import { UserRole, BranchVault, Transaction } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
 import ProfileSetup from './components/PinChange';
@@ -9,7 +9,8 @@ import { GlobalLoadingOverlay } from './components/GlobalLoadingOverlay';
 import { UpdatePopup } from './components/UpdatePopup';
 import { supabase } from './lib/supabase';
 import { NetworkDiagnostic } from './components/NetworkDiagnostic';
-import { syncWithServerTime } from './lib/time';
+import { syncWithServerTime, getTrueDate } from './lib/time';
+import { DB_TABLES, DB_COLUMNS } from './constants/db_schema';
 import SplashScreen from './components/SplashScreen';
 import { GmailPromptModal } from './components/shared/GmailPromptModal';
 import { OfflineBanner } from './components/shared/OfflineBanner';
@@ -54,7 +55,46 @@ const App: React.FC = () => {
   const [isTimeSynced, setIsTimeSynced] = useState(false);
   const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
   const [previewBranchVault, setPreviewBranchVault] = useState<BranchVault | null>(null);
+  const [previewTransactions, setPreviewTransactions] = useState<Transaction[]>([]);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+
+  // Fetch transactions for the previewed branch (superadmins don't get global transactions)
+  useEffect(() => {
+    if (!previewBranchId || !supabase) { setPreviewTransactions([]); return; }
+    const lookback = getTrueDate();
+    lookback.setDate(lookback.getDate() - 30);
+    supabase
+      .from(DB_TABLES.TRANSACTIONS)
+      .select([
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.TIMESTAMP,
+        DB_COLUMNS.CLIENT_NAME, DB_COLUMNS.THERAPIST_NAME, DB_COLUMNS.THERAPIST_ID,
+        DB_COLUMNS.BONESETTER_NAME, DB_COLUMNS.BONESETTER_ID,
+        DB_COLUMNS.SERVICE_ID, DB_COLUMNS.SERVICE_NAME, DB_COLUMNS.BASE_PRICE,
+        DB_COLUMNS.DISCOUNT, DB_COLUMNS.VOUCHER_VALUE,
+        DB_COLUMNS.PRIMARY_COMMISSION, DB_COLUMNS.SECONDARY_COMMISSION,
+        DB_COLUMNS.TOTAL, DB_COLUMNS.PAYMENT_METHOD, DB_COLUMNS.PAYMENT_STATUS,
+        DB_COLUMNS.NOTE,
+      ].join(','))
+      .eq(DB_COLUMNS.BRANCH_ID, previewBranchId)
+      .gte(DB_COLUMNS.TIMESTAMP, lookback.toISOString())
+      .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+      .limit(2000)
+      .then(({ data }) => {
+        setPreviewTransactions((data || []).map((t: any) => ({
+          id: t[DB_COLUMNS.ID], branchId: t[DB_COLUMNS.BRANCH_ID], timestamp: t[DB_COLUMNS.TIMESTAMP],
+          clientName: t[DB_COLUMNS.CLIENT_NAME], therapistName: t[DB_COLUMNS.THERAPIST_NAME], therapistId: t[DB_COLUMNS.THERAPIST_ID],
+          bonesetterName: t[DB_COLUMNS.BONESETTER_NAME], bonesetterId: t[DB_COLUMNS.BONESETTER_ID],
+          serviceId: t[DB_COLUMNS.SERVICE_ID], serviceName: t[DB_COLUMNS.SERVICE_NAME],
+          basePrice: Number(t[DB_COLUMNS.BASE_PRICE] || 0), discount: Number(t[DB_COLUMNS.DISCOUNT] || 0),
+          voucherValue: Number(t[DB_COLUMNS.VOUCHER_VALUE] || 0),
+          primaryCommission: Number(t[DB_COLUMNS.PRIMARY_COMMISSION] || 0),
+          secondaryCommission: Number(t[DB_COLUMNS.SECONDARY_COMMISSION] || 0),
+          total: Number(t[DB_COLUMNS.TOTAL] || 0),
+          paymentMethod: t[DB_COLUMNS.PAYMENT_METHOD], paymentStatus: t[DB_COLUMNS.PAYMENT_STATUS],
+          note: t[DB_COLUMNS.NOTE], signatureUrl: undefined,
+        })));
+      });
+  }, [previewBranchId]);
 
   // Fetch vault data for the previewed branch so View As renders correctly
   useEffect(() => {
@@ -797,7 +837,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       </button>
                     </div>
                   </div>
-                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={transactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={previewTransactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (

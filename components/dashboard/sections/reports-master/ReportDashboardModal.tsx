@@ -57,8 +57,9 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   // Stale-while-revalidate: show prop data immediately, silently refresh in background.
   // isFetchingLatest is only used for a subtle indicator — never blocks rendering.
   useEffect(() => {
-    const isAggregateSyntheticId = reportProp.id.includes('-') && !reportProp.id.match(/^[0-9a-f-]{36}$/i);
-    if (isAggregateSyntheticId || !supabase) return;
+    // Skip fetch for aggregate (weekly/monthly) reports — they don't exist as single DB rows.
+    // Use constituentsProp.length as the reliable signal; ID string patterns are fragile.
+    if (constituentsProp.length > 0 || !supabase) return;
 
     let cancelled = false;
     (async () => {
