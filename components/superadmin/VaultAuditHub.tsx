@@ -48,6 +48,7 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches, performe
   const [orphanedAdjs, setOrphanedAdjs] = useState<OrphanedAdjustment[]>([]);
   const [repairingOrphanId, setRepairingOrphanId] = useState<string | null>(null);
   const [repairedOrphanIds, setRepairedOrphanIds] = useState<Set<string>>(new Set());
+  const [orphanRepairError, setOrphanRepairError] = useState<{ id: string; msg: string } | null>(null);
 
   const loadVaultAudit = useCallback(async () => {
     if (!supabase || vaultAuditLoaded) return;
@@ -195,6 +196,7 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches, performe
   const handleRepairOrphan = useCallback(async (orphan: OrphanedAdjustment) => {
     if (repairingOrphanId) return;
     setRepairingOrphanId(orphan.id);
+    setOrphanRepairError(null);
     try {
       const { error } = await supabase.rpc('record_vault_remittance_deposit', {
         p_branch_id: orphan.branchId,
@@ -213,8 +215,10 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches, performe
         amount: orphan.amount,
         performerName: performedBy ?? 'SuperAdmin',
       });
-    } catch (err) {
-      console.error('Repair failed:', err);
+    } catch (err: any) {
+      const msg = err?.message || err?.hint || err?.details || JSON.stringify(err);
+      console.error('Repair failed:', msg, err);
+      setOrphanRepairError({ id: orphan.id, msg });
     } finally {
       setRepairingOrphanId(null);
     }
@@ -580,19 +584,24 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches, performe
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             {!isFixed && (
-                              <button
-                                onClick={() => handleRepairOrphan(o)}
-                                disabled={isRepairing || !!repairingOrphanId}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
-                              >
-                                {isRepairing
-                                  ? <><svg className="w-2.5 h-2.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Fixing…</>
-                                  : <>
-                                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                      Fix
-                                    </>
-                                }
-                              </button>
+                              <div className="flex flex-col items-end gap-1">
+                                <button
+                                  onClick={() => handleRepairOrphan(o)}
+                                  disabled={isRepairing || !!repairingOrphanId}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+                                >
+                                  {isRepairing
+                                    ? <><svg className="w-2.5 h-2.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Fixing…</>
+                                    : <>
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        Fix
+                                      </>
+                                  }
+                                </button>
+                                {orphanRepairError?.id === o.id && (
+                                  <p className="text-[9px] text-red-500 font-medium max-w-[160px] text-right leading-tight">{orphanRepairError.msg}</p>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -622,16 +631,21 @@ export const VaultAuditHub: React.FC<VaultAuditHubProps> = ({ branches, performe
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <span className="text-sm font-black text-teal-700 tabular-nums">+₱{fmt(o.amount)}</span>
                         {!isFixed && (
-                          <button
-                            onClick={() => handleRepairOrphan(o)}
-                            disabled={isRepairing || !!repairingOrphanId}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
-                          >
-                            {isRepairing
-                              ? <><svg className="w-2.5 h-2.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Fixing…</>
-                              : 'Fix Now'
-                            }
-                          </button>
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              onClick={() => handleRepairOrphan(o)}
+                              disabled={isRepairing || !!repairingOrphanId}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+                            >
+                              {isRepairing
+                                ? <><svg className="w-2.5 h-2.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Fixing…</>
+                                : 'Fix Now'
+                              }
+                            </button>
+                            {orphanRepairError?.id === o.id && (
+                              <p className="text-[10px] text-red-500 font-medium text-right leading-tight">{orphanRepairError.msg}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

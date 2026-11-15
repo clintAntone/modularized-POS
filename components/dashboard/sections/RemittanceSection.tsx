@@ -9,7 +9,7 @@ import { DB_TABLES, DB_COLUMNS } from '../../../constants/db_schema';
 import { FileSpreadsheet, CheckCircle, Clock, Plus, Minus, Trash2, ChevronDown, Landmark, ArrowLeftRight } from 'lucide-react';
 import { logAudit } from '../../../lib/audit';
 
-type SubmissionStatus = 'submitted' | 'validated' | 'approved' | 'rejected' | null;
+type SubmissionStatus = 'submitted' | 'validated' | 'approved' | 'remitted' | 'rejected' | null;
 
 interface RemittanceSubmission {
   id: string;
@@ -150,19 +150,18 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   };
 
   useEffect(() => {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const adjCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     Promise.all([
       supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
         .select('*')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .gte(DB_COLUMNS.CREATED_AT, cutoff)
+        .gte(DB_COLUMNS.CREATED_AT, adjCutoff)
         .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
         .select('*')
-        .eq(DB_COLUMNS.BRANCH_ID, branch.id)
-        .gte(DB_COLUMNS.CREATED_AT, cutoff),
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id),
     ]).then(([adjResult, subResult]) => {
       const loaded = new Set<string>();
       if (adjResult.data) {
@@ -854,12 +853,12 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
       {/* Main card */}
       <div className={`bg-white rounded-2xl shadow-sm overflow-hidden border ${
-        submission?.status === 'approved' ? 'border-emerald-300' : 'border-slate-100'
+        (submission?.status === 'approved' || submission?.status === 'remitted') ? 'border-emerald-300' : 'border-slate-100'
       }`}>
 
         {/* Card header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${
-          submission?.status === 'approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'
+          (submission?.status === 'approved' || submission?.status === 'remitted') ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'
         }`}>
           <div>
             <p className="font-black text-slate-900 uppercase tracking-tight text-sm leading-none">{currentGroup.label}</p>
@@ -877,7 +876,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 <FileSpreadsheet className="w-4 h-4" />
               </button>
             )}
-            {submission?.status === 'approved' ? (
+            {(submission?.status === 'approved' || submission?.status === 'remitted') ? (
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Remitted</span>
@@ -895,7 +894,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                 </span>
               </div>
             )}
-            {submission?.status === 'approved' && (
+            {(submission?.status === 'approved' || submission?.status === 'remitted') && (
               <input
                 type="checkbox"
                 checked
@@ -1267,7 +1266,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
                   <p className="text-xs text-slate-400 dark:text-slate-600 py-3 italic">No adjustments yet. Use the buttons below to add one.</p>
                 );
 
-                const canDelete = submission?.status !== 'validated' && submission?.status !== 'approved';
+                const canDelete = submission?.status !== 'validated' && submission?.status !== 'approved' && submission?.status !== 'remitted';
                 const ownerNames = owners.map((o: any) => o.name as string);
                 const hasOwnerCols = ownerNames.length >= 2 && nonVaultAdj.some(a => !!a.targetOwner);
 
@@ -1360,7 +1359,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
             {/* Action buttons — order-3, always at bottom */}
             <div className="order-3">
-            {adjFormKey !== formKey && submission?.status !== 'approved' && (
+            {adjFormKey !== formKey && submission?.status !== 'approved' && submission?.status !== 'remitted' && (
               <div className="flex flex-col gap-2">
                 {adjNotYet ? (
                   <div className="flex items-center gap-1.5">

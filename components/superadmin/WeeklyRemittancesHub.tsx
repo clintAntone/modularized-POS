@@ -2235,7 +2235,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 </div>
                 {!isReadOnly && (
                   <button
-                    onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: group.label, branchName: report.branchName })}
+                    onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName })}
                     disabled={isReviewing}
                     className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
                   >

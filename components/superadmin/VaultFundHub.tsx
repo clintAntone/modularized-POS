@@ -303,6 +303,7 @@ const VaultSortDropdown = React.forwardRef<{ close: () => void }, {
 export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesReports, vaultTransactions = [], isReadOnly, onRefresh }) => {
   const [vaultRows, setVaultRows] = useState<Record<string, VaultRow>>({});
   const [loadingVaults, setLoadingVaults] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [chartModalBranchId, setChartModalBranchId] = useState<string | null>(null);
   const [chartExpanded, setChartExpanded] = useState(false);
@@ -451,6 +452,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           return next;
         });
       });
+  };
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    playSound('click');
+    fetchBalances();
+    onRefresh?.();
+    setTimeout(() => setIsSyncing(false), 1200);
   };
 
   // Initial full fetch (balance + target + startDate) — runs on every mount (tab switch remounts this component)
@@ -912,54 +922,73 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         ) : (
           <>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              {/* Balance */}
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide">Network Vault Balance</p>
-                <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
-                  ₱{networkSummary.totalBalance.toLocaleString()}
-                </p>
+              {/* Balance + sync */}
+              <div className="min-w-0 flex items-start justify-between sm:block gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide">Network Vault Balance</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
+                    ₱{networkSummary.totalBalance.toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  title="Sync vault data"
+                  className="mt-1 sm:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <svg className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {isSyncing ? 'Syncing…' : 'Sync'}
+                </button>
               </div>
 
-              {/* KPI pills */}
-              <div className="flex gap-2 w-full sm:w-auto">
-                {/* Vault On */}
-                <div className="flex-1 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 min-w-0">
-                  <div className="hidden sm:flex w-7 h-7 rounded-xl bg-emerald-100 items-center justify-center shrink-0">
-                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-base font-black text-emerald-700 tabular-nums leading-none">{networkSummary.enabledCount}</p>
-                    <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide leading-none mt-0.5">Active</p>
-                  </div>
+              {/* KPI pills + sync (desktop) */}
+              <div className="flex items-start gap-2 w-full sm:w-auto">
+                {/* Active */}
+                <div className="flex-1 rounded-2xl border px-3.5 py-3 min-w-0 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/60">
+                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums leading-none">{networkSummary.enabledCount}</p>
+                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mt-1 leading-none">Active</p>
+                  <p className="text-[10px] text-emerald-500/60 dark:text-emerald-700 mt-1 leading-none tabular-nums">
+                    {(networkSummary.enabledCount + networkSummary.disabledCount) > 0
+                      ? `${Math.round((networkSummary.enabledCount / (networkSummary.enabledCount + networkSummary.disabledCount)) * 100)}% of network`
+                      : '—'}
+                  </p>
                 </div>
 
-                {/* Vault Off */}
-                <div className="flex-1 flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 min-w-0">
-                  <div className="hidden sm:flex w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-700 items-center justify-center shrink-0">
-                    <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-base font-black text-slate-600 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-none mt-0.5">Inactive</p>
-                  </div>
+                {/* Inactive */}
+                <div className="flex-1 rounded-2xl border px-3.5 py-3 min-w-0 bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
+                  <p className="text-2xl font-black text-slate-500 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1 leading-none">Inactive</p>
+                  <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-1 leading-none">branches off</p>
                 </div>
 
-                {/* Full */}
-                <div className={`flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 border min-w-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-700'}`}>
-                  <div className={`hidden sm:flex w-7 h-7 rounded-xl items-center justify-center shrink-0 ${networkSummary.fullCount > 0 ? 'bg-emerald-100' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                    <svg className={`w-3.5 h-3.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`text-base font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-700' : 'text-slate-500 dark:text-slate-400'}`}>{networkSummary.fullCount}</p>
-                    <p className={`text-xs font-semibold uppercase tracking-wide leading-none mt-0.5 ${networkSummary.fullCount > 0 ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`}>At Target</p>
-                  </div>
+                {/* At Target */}
+                <div className={`flex-1 rounded-2xl border px-3.5 py-3 min-w-0 ${
+                  networkSummary.fullCount > 0
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/60'
+                    : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+                }`}>
+                  <p className={`text-2xl font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>{networkSummary.fullCount}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>At Target</p>
+                  <p className={`text-[10px] mt-1 leading-none tabular-nums ${networkSummary.fullCount > 0 ? 'text-emerald-500/60 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>
+                    {networkSummary.enabledCount > 0
+                      ? `${Math.round((networkSummary.fullCount / networkSummary.enabledCount) * 100)}% of active`
+                      : '—'}
+                  </p>
                 </div>
+
+                {/* Sync button (desktop) */}
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  title="Sync vault data"
+                  className="hidden sm:flex self-stretch items-center justify-center w-10 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <svg className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -1950,7 +1979,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                   const [y, m, d] = entry.date.split('-').map(Number);
                                   const dateObj = new Date(y, m - 1, d);
                                   const isAdmin = entry.category === 'ADMIN_DEPOSIT';
-                                  const isRemittance = entry.category === 'REMITTANCE_DEPOSIT';
+                                  const isRemittance = entry.category === 'REMITTANCE_DEPOSIT' || !!(entry.name?.startsWith('VAULT DEPOSIT (REMITTANCE'));
                                   const depositLabel = isAdmin ? 'Admin' : isRemittance ? 'Remittance' : 'Manager';
                                   const depositStyle = isAdmin
                                     ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-transparent dark:border-violet-700/50'
@@ -1958,6 +1987,9 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                     ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-transparent dark:border-amber-700/50'
                                     : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-700/50';
                                   const timePart = entry.timestamp.length > 10 ? entry.timestamp.slice(11, 16) : null;
+                                  const sourceText = isRemittance
+                                    ? (entry.name?.replace(/^VAULT DEPOSIT \(REMITTANCE\)\s*[—-]?\s*/i, '').trim() || null)
+                                    : (entry.performedBy || null);
                                   return (
                                     <div key={i} className="px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
                                       {/* Mobile layout */}
@@ -1971,8 +2003,8 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                               <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>
                                                 {depositLabel}
                                               </span>
-                                              {(entry.performedBy || entry.name) && (
-                                                <span className="text-xs font-medium text-slate-400 truncate">{entry.performedBy || entry.name}</span>
+                                              {sourceText && (
+                                                <span className="text-xs font-medium text-slate-400 truncate">{sourceText}</span>
                                               )}
                                             </div>
                                             {timePart && <span className="text-xs font-medium text-slate-400 tabular-nums mt-0.5 block">{timePart}</span>}
@@ -1988,7 +2020,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
                                         </div>
                                         <div className="flex items-center gap-2">
                                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide ${depositStyle}`}>{depositLabel}</span>
-                                          {(entry.performedBy || entry.name) && <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[130px]">{entry.performedBy || entry.name}</span>}
+                                          {sourceText && <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[130px]">{sourceText}</span>}
                                         </div>
                                         <p className="text-xs font-mono text-slate-400 truncate pr-4">{entry.id.slice(-14).toUpperCase()}</p>
                                         <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+₱{entry.amount.toLocaleString()}</span>

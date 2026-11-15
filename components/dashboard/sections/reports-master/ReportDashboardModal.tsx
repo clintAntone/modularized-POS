@@ -4,6 +4,7 @@ import { SalesReport, Expense, Branch, BranchVault } from '../../../../types';
 import { UI_THEME } from '../../../../constants/ui_designs';
 import { playSound } from '../../../../lib/audio';
 import { toDateStr, getWeekRange, parseDate } from '@/src/utils/reportUtils';
+import { getManilaTodayStr } from '../../../../lib/time';
 import { PerformanceRow } from './PerformanceRow';
 import { SalesKPIStrip } from '../sales-today/SalesKPIStrip';
 import { SessionLogs } from '../sales-today/SessionLogs';
@@ -55,63 +56,61 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   }, []);
 
   // Stale-while-revalidate: show prop data immediately, silently refresh in background.
-  // isFetchingLatest is only used for a subtle indicator — never blocks rendering.
+  // Also exposed as a manual trigger for today's live reports.
+  const refreshReport = React.useCallback(async () => {
+    if (constituentsProp.length > 0 || !supabase) return;
+    setIsFetchingLatest(true);
+    try {
+      const [{ data, error }, { data: vaultTxData }] = await Promise.all([
+        supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .select('*')
+          .eq(DB_COLUMNS.ID, reportProp.id)
+          .single(),
+        supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .select('id, amount, name, timestamp, performed_by')
+          .eq(DB_COLUMNS.BRANCH_ID, reportProp.branchId)
+          .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+          .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00+08:00`)
+          .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999+08:00`),
+      ]);
+      if (error || !data) return;
+
+      const liveVaultProvision = (vaultTxData || []).reduce(
+        (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
+      );
+      const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
+      const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
+      const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
+
+      setVaultDepositTxs(vaultTxData || []);
+      setReport({
+        id: data[DB_COLUMNS.ID],
+        branchId: data[DB_COLUMNS.BRANCH_ID],
+        reportDate: data[DB_COLUMNS.REPORT_DATE],
+        submittedAt: data[DB_COLUMNS.SUBMITTED_AT],
+        grossSales: Number(data[DB_COLUMNS.GROSS_SALES] ?? 0),
+        totalStaffPay: Number(data[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
+        totalExpenses: Number(data[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
+        totalVaultProvision: resolvedVaultProvision,
+        netRoi: resolvedNetRoi,
+        sessionData: data[DB_COLUMNS.SESSION_DATA] ?? [],
+        staffBreakdown: data[DB_COLUMNS.STAFF_BREAKDOWN] ?? [],
+        expenseData: data[DB_COLUMNS.EXPENSE_DATA] ?? [],
+        vaultData: data[DB_COLUMNS.VAULT_DATA] ?? [],
+        reportType: reportProp.reportType,
+        sortDate: reportProp.sortDate,
+        periodEnd: reportProp.periodEnd,
+      });
+    } catch { /* silent — prop data remains visible */ } finally {
+      setIsFetchingLatest(false);
+    }
+  }, [reportProp.id, reportProp.branchId, reportProp.reportDate, constituentsProp.length]);
+
   useEffect(() => {
     // Skip fetch for aggregate (weekly/monthly) reports — they don't exist as single DB rows.
-    // Use constituentsProp.length as the reliable signal; ID string patterns are fragile.
-    if (constituentsProp.length > 0 || !supabase) return;
-
-    let cancelled = false;
-    (async () => {
-      setIsFetchingLatest(true);
-      try {
-        const [{ data, error }, { data: vaultTxData }] = await Promise.all([
-          supabase
-            .from(DB_TABLES.SALES_REPORTS)
-            .select('*')
-            .eq(DB_COLUMNS.ID, reportProp.id)
-            .single(),
-          supabase
-            .from(DB_TABLES.VAULT_TRANSACTIONS)
-            .select('id, amount, name, timestamp, performed_by')
-            .eq(DB_COLUMNS.BRANCH_ID, reportProp.branchId)
-            .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
-            .gte(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T00:00:00+08:00`)
-            .lt(DB_COLUMNS.TIMESTAMP, `${reportProp.reportDate}T23:59:59.999+08:00`),
-        ]);
-        if (cancelled || error || !data) return;
-
-        const liveVaultProvision = (vaultTxData || []).reduce(
-          (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
-        );
-        const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
-        const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
-        const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
-
-        setVaultDepositTxs(vaultTxData || []);
-        setReport({
-          id: data[DB_COLUMNS.ID],
-          branchId: data[DB_COLUMNS.BRANCH_ID],
-          reportDate: data[DB_COLUMNS.REPORT_DATE],
-          submittedAt: data[DB_COLUMNS.SUBMITTED_AT],
-          grossSales: Number(data[DB_COLUMNS.GROSS_SALES] ?? 0),
-          totalStaffPay: Number(data[DB_COLUMNS.TOTAL_STAFF_PAY] ?? 0),
-          totalExpenses: Number(data[DB_COLUMNS.TOTAL_EXPENSES] ?? 0),
-          totalVaultProvision: resolvedVaultProvision,
-          netRoi: resolvedNetRoi,
-          sessionData: data[DB_COLUMNS.SESSION_DATA] ?? [],
-          staffBreakdown: data[DB_COLUMNS.STAFF_BREAKDOWN] ?? [],
-          expenseData: data[DB_COLUMNS.EXPENSE_DATA] ?? [],
-          vaultData: data[DB_COLUMNS.VAULT_DATA] ?? [],
-          reportType: reportProp.reportType,
-          sortDate: reportProp.sortDate,
-          periodEnd: reportProp.periodEnd,
-        });
-      } catch { /* silent — prop data remains visible */ } finally {
-        if (!cancelled) setIsFetchingLatest(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    refreshReport();
   }, [reportProp.id]);
 
   const isAggregate = constituents.length > 0;
@@ -128,6 +127,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
 
   const reportDateStr = report.reportDate?.slice(0, 10) ?? '';
   const isBackfill = report.id.includes('_BACKFILL_');
+  const isToday = !isAggregate && reportDateStr === getManilaTodayStr();
   const resolvedVaultStartDate = branchVaults.find(v => v.branchId === report.branchId)?.startDate ?? vaultStartDate ?? null;
   const reportBranchVaultEnabled = (branch ?? branches.find(b => b.id === report.branchId))?.vaultEnabled ?? false;
   // isLegacy: vault is not enabled, OR vault is enabled but start date is known and report predates it.
@@ -822,6 +822,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
             </div>
 
             <div className="flex items-center gap-2 shrink-0 no-print">
+              {isToday && (
+                <button
+                  onClick={() => { refreshReport(); playSound('click'); }}
+                  disabled={isFetchingLatest}
+                  title="Sync latest data"
+                  className="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  <svg className={`w-4 h-4 ${isFetchingLatest ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="hidden sm:inline">{isFetchingLatest ? 'Syncing…' : 'Sync'}</span>
+                </button>
+              )}
               <button
                 onClick={() => handleExportPDF()}
                 disabled={isExporting}

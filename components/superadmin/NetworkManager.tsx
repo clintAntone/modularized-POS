@@ -63,9 +63,16 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
+  const nonTestBranches = useMemo(() => branches.filter(b => !b.name.toUpperCase().startsWith('TEST')), [branches]);
+  const activeNonTestCount = useMemo(() => nonTestBranches.filter(b => b.isEnabled).length, [nonTestBranches]);
+  const totalForFilter = useMemo(() => {
+    if (statusFilter === 'inactive') return nonTestBranches.filter(b => !b.isEnabled).length;
+    return activeNonTestCount; // 'active' or 'all' — baseline is always active non-test
+  }, [nonTestBranches, statusFilter, activeNonTestCount]);
+
   const filteredBranches = useMemo(() => {
-    let res = [...branches];
-    
+    let res = [...nonTestBranches];
+
     if (debouncedSearch.trim()) {
       const term = debouncedSearch.toLowerCase().trim();
       res = res.filter(b =>
@@ -91,7 +98,7 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
     }
 
     return res;
-  }, [branches, debouncedSearch, statusFilter, liveFilter, managerFilter]);
+  }, [nonTestBranches, debouncedSearch, statusFilter, liveFilter, managerFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -231,9 +238,9 @@ export const NetworkManager: React.FC<NetworkManagerProps> = ({ branches, onAdd,
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Branch Network</h3>
               <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                <span className="text-emerald-400 font-black">{filteredBranches.length}</span>
-                {filteredBranches.length !== branches.length && <span className="text-slate-300 font-medium"> / {branches.length}</span>}
-                {' '}{statusFilter === 'active' ? 'Active' : statusFilter === 'inactive' ? 'Inactive' : 'Total'} Branches
+                <span className="text-emerald-400 font-black">{statusFilter === 'all' ? activeNonTestCount : filteredBranches.length}</span>
+                {statusFilter !== 'all' && filteredBranches.length !== totalForFilter && <span className="text-slate-300 font-medium"> / {totalForFilter}</span>}
+                {' '}{statusFilter === 'inactive' ? 'Inactive' : 'Active'} Branches
               </p>
             </div>
           </div>
