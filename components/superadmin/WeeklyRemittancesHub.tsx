@@ -403,31 +403,20 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
-    const fetchAllAdjustments = async (): Promise<any[]> => {
-      const PAGE = 1000;
-      const all: any[] = [];
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
-          .select('*')
-          .order(DB_COLUMNS.CREATED_AT, { ascending: true })
-          .range(from, from + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
-      return all;
-    };
+    const cutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
 
     Promise.all([
-      fetchAllAdjustments(),
+      supabase
+        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
+        .select('*')
+        .gte(DB_COLUMNS.CREATED_AT, cutoff)
+        .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
         .select('*')
         .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
-    ]).then(([adjData, subResult]) => {
+    ]).then(([adjResult, subResult]) => {
+      const adjData = adjResult.data || [];
       setAdjustments(adjData.map((r: any) => ({
         id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
         description: r.description, amount: Number(r.amount),
