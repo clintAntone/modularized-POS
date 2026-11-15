@@ -304,6 +304,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [submissions, setSubmissions] = useState<RemittanceSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const INITIAL_DAYS = 60;
+  const LOAD_MORE_DAYS = 60;
+  const [loadedCutoff, setLoadedCutoff] = useState<Date>(() => new Date(Date.now() - INITIAL_DAYS * 24 * 60 * 60 * 1000));
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreToLoad, setHasMoreToLoad] = useState(true);
   const [isReviewing, setIsReviewing] = useState(false);
   const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string } | null>(null);
   const [unmarkConfirm, setUnmarkConfirm] = useState<{ submissionId: string; branchName: string; periodLabel: string; hasVaultAdj: boolean } | null>(null);
@@ -403,7 +408,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
-    const cutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = loadedCutoff.toISOString();
 
     Promise.all([
       supabase
@@ -413,7 +418,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-        .select('*')
+        .select('id, branch_id, period_label, status, review_note, submitted_at')
+        .gte(DB_COLUMNS.SUBMITTED_AT, cutoff)
         .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
     ]).then(([adjResult, subResult]) => {
       const adjData = adjResult.data || [];
@@ -454,6 +460,45 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMoreToLoad) return;
+    setIsLoadingMore(true);
+    const newCutoff = new Date(loadedCutoff.getTime() - LOAD_MORE_DAYS * 24 * 60 * 60 * 1000);
+    const from = newCutoff.toISOString();
+    const to = loadedCutoff.toISOString();
+    try {
+      const [adjResult, subResult, notesResult] = await Promise.all([
+        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).select('*')
+          .gte(DB_COLUMNS.CREATED_AT, from).lt(DB_COLUMNS.CREATED_AT, to)
+          .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
+        supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+          .select('id, branch_id, period_label, status, review_note, submitted_at')
+          .gte(DB_COLUMNS.SUBMITTED_AT, from).lt(DB_COLUMNS.SUBMITTED_AT, to)
+          .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false }),
+        supabase.from('remittance_notes').select('branch_id, period_label, note'),
+      ]);
+      const newAdj = (adjResult.data || []).map((r: any) => ({
+        id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
+        description: r.description, amount: Number(r.amount),
+        targetOwner: r.target_owner || null, addedBy: r.added_by || null, createdAt: r.created_at,
+      }));
+      const newSubs = (subResult.data || []).map(mapSubmission);
+      if (notesResult.data) {
+        setBranchNotes(prev => {
+          const next = { ...prev };
+          notesResult.data!.forEach((r: any) => { next[`${r.branch_id}::${r.period_label}`] = r.note || ''; });
+          return next;
+        });
+      }
+      setAdjustments(prev => [...prev, ...newAdj]);
+      setSubmissions(prev => [...prev, ...newSubs]);
+      setLoadedCutoff(newCutoff);
+      if (newAdj.length === 0 && newSubs.length === 0) setHasMoreToLoad(false);
+    } catch { /* silent */ } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Persist filters across tab changes
   useEffect(() => { localStorage.setItem('rem_filter_periods', JSON.stringify(selectedPeriods)); }, [selectedPeriods]);
@@ -1530,6 +1575,34 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
 
   return (
     <div className={activeBranchId ? 'space-y-3' : 'space-y-3'}>
+
+      {/* ── Load older periods ── */}
+      {hasMoreToLoad && (
+        <div className="flex justify-center pt-1 pb-2">
+          <button
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="flex items-center gap-2 px-5 h-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {isLoadingMore ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                Load older periods
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* ── Single Remit Confirmation Modal ── */}
       {remitConfirm && createPortal(

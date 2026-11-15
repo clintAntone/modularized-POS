@@ -30,7 +30,7 @@ const COLS = {
         DB_COLUMNS.MIDDLE_NAME, DB_COLUMNS.LAST_NAME, DB_COLUMNS.USERNAME, DB_COLUMNS.LOGIN_PIN,
         DB_COLUMNS.REQUEST_RESET, DB_COLUMNS.ROLE, DB_COLUMNS.ALLOWANCE, DB_COLUMNS.IS_ACTIVE,
         DB_COLUMNS.PROFILE, DB_COLUMNS.BRANCH_ALLOWANCES, DB_COLUMNS.TIMESTAMP, DB_COLUMNS.CREATED_AT,
-        DB_COLUMNS.DETAILS, DB_COLUMNS.FACE_DESCRIPTORS,
+        DB_COLUMNS.DETAILS,
         DB_COLUMNS.ON_LEAVE, DB_COLUMNS.LEAVE_TYPE, DB_COLUMNS.LEAVE_START_DATE, DB_COLUMNS.LEAVE_END_DATE,
     ].join(','),
     transactions: [
@@ -318,7 +318,7 @@ export const useGlobalData = (auth: AuthState) => {
             profile: db[DB_COLUMNS.PROFILE],
             branchAllowances,
             details: db[DB_COLUMNS.DETAILS] || null,
-            faceDescriptors: db[DB_COLUMNS.FACE_DESCRIPTORS] || undefined,
+            faceDescriptors: undefined, // lazy-loaded in FaceTimeInModal on demand
             timestamp: db[DB_COLUMNS.TIMESTAMP] || db[DB_COLUMNS.CREATED_AT],
             ...(() => {
                 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(getTrueDate());
@@ -349,7 +349,7 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 5 * 60 * 1000, // 5 min — branches change rarely; realtime covers live updates
     });
 
-    const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
+    const { data: rawEmployees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
         queryKey: ['employees', auth.user?.branchId, auth.user?.employeeId],
         queryFn: () => withOfflineCache(STORES.EMPLOYEES, async () => {
             if (!supabase) return [];
@@ -540,6 +540,31 @@ export const useGlobalData = (auth: AuthState) => {
         enabled: !!supabase && historyEnabled && !isBranchManager,
         staleTime: 5 * 60 * 1000,
     });
+
+    // Face descriptors — branch manager only, scoped to their own branch's employees.
+    // Kept separate from the global employees fetch (which omits face_descriptors for speed).
+    // Only used by StaffCard to show Register Face vs Clock In button.
+    const { data: branchFaceData = [] } = useQuery({
+        queryKey: ['face_descriptors', auth.user?.branchId],
+        queryFn: async () => {
+            if (!supabase || !auth.user?.branchId) return [];
+            const { data } = await supabase
+                .from(DB_TABLES.EMPLOYEES)
+                .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
+                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
+            return (data || []) as { id: string; face_descriptors: number[][] | null }[];
+        },
+        enabled: !!supabase && !!auth.user?.branchId && isBranchManager,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const employees = useMemo(() => {
+        if (!isBranchManager || branchFaceData.length === 0) return rawEmployees;
+        const faceMap = new Map(branchFaceData.map(r => [r.id, r.face_descriptors as number[][] | null | undefined]));
+        return rawEmployees.map(emp =>
+            faceMap.has(emp.id) ? { ...emp, faceDescriptors: faceMap.get(emp.id) ?? undefined } : emp
+        );
+    }, [rawEmployees, branchFaceData, isBranchManager]);
 
     // Merge hot + warm, deduplicating by id
     const salesReports = useMemo(() => {
