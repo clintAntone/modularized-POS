@@ -542,40 +542,38 @@ export const useGlobalData = (auth: AuthState) => {
     });
 
     // Face descriptors — branch manager only.
-    // Fetches for own-branch employees + any relievers currently in rawEmployees
-    // who have branch_allowances for this branch (they may also be enrolled).
+    // Covers: own-branch employees, relievers (branchAllowances), and name-matched managers
+    // whose employee.branchId may differ from the current branch.
     // Kept separate from the global employees fetch (which omits face_descriptors for speed).
     // Only used by StaffCard to show Register Face vs Clock In button.
-    const relieverIds = useMemo(() => {
-        if (!auth.user?.branchId || !isBranchManager) return [];
+    const faceDescriptorIds = useMemo(() => {
+        if (!auth.user?.branchId || !isBranchManager || rawEmployees.length === 0) return [];
+        const branchId = auth.user.branchId;
+        const currentBranch = branches.find(b => b.id === branchId);
+        const managerName = currentBranch?.manager?.toUpperCase();
+        const tempManagerName = currentBranch?.tempManager?.toUpperCase();
         return rawEmployees
-            .filter(e => e.branchId !== auth.user!.branchId && e.branchAllowances?.[auth.user!.branchId!])
+            .filter(e => {
+                const isHomeBranch = e.branchId === branchId;
+                const isAuthorized = e.branchAllowances && typeof e.branchAllowances === 'object' && branchId in (e.branchAllowances as any);
+                const isDesignatedManager = !!managerName && e.name?.toUpperCase() === managerName;
+                const isTempManager = !!tempManagerName && e.name?.toUpperCase() === tempManagerName;
+                return isHomeBranch || isAuthorized || isDesignatedManager || isTempManager;
+            })
             .map(e => e.id);
-    }, [rawEmployees, auth.user?.branchId, isBranchManager]);
+    }, [rawEmployees, auth.user?.branchId, isBranchManager, branches]);
 
     const { data: branchFaceData = [] } = useQuery({
-        queryKey: ['face_descriptors', auth.user?.branchId, relieverIds],
+        queryKey: ['face_descriptors', auth.user?.branchId, faceDescriptorIds.join(',')],
         queryFn: async () => {
-            if (!supabase || !auth.user?.branchId) return [];
-            // Own-branch employees
-            const ownQuery = supabase
+            if (!supabase || faceDescriptorIds.length === 0) return [];
+            const { data } = await supabase
                 .from(DB_TABLES.EMPLOYEES)
                 .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
-                .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-            const results: { id: string; face_descriptors: number[][] | null }[] = [];
-            const { data: ownData } = await ownQuery;
-            if (ownData) results.push(...ownData as any);
-            // Relievers — small targeted fetch by ID list
-            if (relieverIds.length > 0) {
-                const { data: relData } = await supabase
-                    .from(DB_TABLES.EMPLOYEES)
-                    .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
-                    .in(DB_COLUMNS.ID, relieverIds);
-                if (relData) results.push(...relData as any);
-            }
-            return results;
+                .in(DB_COLUMNS.ID, faceDescriptorIds);
+            return (data || []) as { id: string; face_descriptors: number[][] | null }[];
         },
-        enabled: !!supabase && !!auth.user?.branchId && isBranchManager,
+        enabled: !!supabase && faceDescriptorIds.length > 0 && isBranchManager,
         staleTime: 5 * 60 * 1000,
     });
 
