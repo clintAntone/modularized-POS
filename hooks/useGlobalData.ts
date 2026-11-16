@@ -541,18 +541,39 @@ export const useGlobalData = (auth: AuthState) => {
         staleTime: 5 * 60 * 1000,
     });
 
-    // Face descriptors — branch manager only, scoped to their own branch's employees.
+    // Face descriptors — branch manager only.
+    // Fetches for own-branch employees + any relievers currently in rawEmployees
+    // who have branch_allowances for this branch (they may also be enrolled).
     // Kept separate from the global employees fetch (which omits face_descriptors for speed).
     // Only used by StaffCard to show Register Face vs Clock In button.
+    const relieverIds = useMemo(() => {
+        if (!auth.user?.branchId || !isBranchManager) return [];
+        return rawEmployees
+            .filter(e => e.branchId !== auth.user!.branchId && e.branchAllowances?.[auth.user!.branchId!])
+            .map(e => e.id);
+    }, [rawEmployees, auth.user?.branchId, isBranchManager]);
+
     const { data: branchFaceData = [] } = useQuery({
-        queryKey: ['face_descriptors', auth.user?.branchId],
+        queryKey: ['face_descriptors', auth.user?.branchId, relieverIds],
         queryFn: async () => {
             if (!supabase || !auth.user?.branchId) return [];
-            const { data } = await supabase
+            // Own-branch employees
+            const ownQuery = supabase
                 .from(DB_TABLES.EMPLOYEES)
                 .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
                 .eq(DB_COLUMNS.BRANCH_ID, auth.user.branchId);
-            return (data || []) as { id: string; face_descriptors: number[][] | null }[];
+            const results: { id: string; face_descriptors: number[][] | null }[] = [];
+            const { data: ownData } = await ownQuery;
+            if (ownData) results.push(...ownData as any);
+            // Relievers — small targeted fetch by ID list
+            if (relieverIds.length > 0) {
+                const { data: relData } = await supabase
+                    .from(DB_TABLES.EMPLOYEES)
+                    .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
+                    .in(DB_COLUMNS.ID, relieverIds);
+                if (relData) results.push(...relData as any);
+            }
+            return results;
         },
         enabled: !!supabase && !!auth.user?.branchId && isBranchManager,
         staleTime: 5 * 60 * 1000,

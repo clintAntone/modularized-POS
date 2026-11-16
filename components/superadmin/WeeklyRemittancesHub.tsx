@@ -1576,34 +1576,6 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   return (
     <div className={activeBranchId ? 'space-y-3' : 'space-y-3'}>
 
-      {/* ── Load older periods ── */}
-      {hasMoreToLoad && (
-        <div className="flex justify-center pt-1 pb-2">
-          <button
-            onClick={handleLoadMore}
-            disabled={isLoadingMore}
-            className="flex items-center gap-2 px-5 h-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isLoadingMore ? (
-              <>
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Loading…
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-                Load older periods
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
       {/* ── Single Remit Confirmation Modal ── */}
       {remitConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setRemitConfirm(null)}>
@@ -3207,6 +3179,34 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
           </div>
         </div>,
         document.body
+      )}
+
+      {/* ── Load older periods ── */}
+      {hasMoreToLoad && (
+        <div className="flex justify-center py-4">
+          <button
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="flex items-center gap-2 px-5 h-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {isLoadingMore ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                Load older periods
+              </>
+            )}
+          </button>
+        </div>
       )}
     </div>
   );
