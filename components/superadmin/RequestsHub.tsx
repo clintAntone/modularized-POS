@@ -415,6 +415,19 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             [DB_COLUMNS.IS_ACTIVE]: true,
           });
           if (error) throw error;
+          // Fire HR notification — non-blocking, failure doesn't affect approval
+          const homeBranch = branches.find(b => b.id === homeBranchId);
+          supabase.functions.invoke('notify-hr-new-employee', {
+            body: {
+              employeeName: d.name,
+              branchName: homeBranch?.name ?? homeBranchId,
+              role: d.role || '',
+              allowance: allowanceVal,
+              approvedBy: reviewerName,
+              approvedAt: getTrueISOString(),
+              reviewNote: adminComment.trim() || null,
+            },
+          });
         }
         // For BACKFILL_REPORT, snapshot the pre-approval values so the Approved tab can show Before/After
         const approvalDataPatch: Record<string, any> = {};
