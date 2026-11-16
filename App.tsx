@@ -223,9 +223,14 @@ const App: React.FC = () => {
   const employeesRef = React.useRef(employees);
   employeesRef.current = employees;
 
+  // Clear face data when exiting preview
+  useEffect(() => {
+    if (!previewBranchId) setPreviewFaceData([]);
+  }, [previewBranchId]);
+
   // Fetch face descriptors for the previewed branch so Face ID enrollment status is accurate in preview
   useEffect(() => {
-    if (!previewBranchId || !supabase) { setPreviewFaceData([]); return; }
+    if (!previewBranchId || !supabase) return;
     const previewBranch = branches.find(b => b.id === previewBranchId);
     const managerName = previewBranch?.manager?.toUpperCase();
     const tempManagerName = previewBranch?.tempManager?.toUpperCase();
@@ -238,7 +243,7 @@ const App: React.FC = () => {
         return isHomeBranch || isAuthorized || isDesignatedManager || isTempManager;
       })
       .map(e => e.id);
-    if (ids.length === 0) { setPreviewFaceData([]); return; }
+    if (ids.length === 0) return;
     supabase
       .from(DB_TABLES.EMPLOYEES)
       .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
