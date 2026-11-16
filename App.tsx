@@ -219,13 +219,17 @@ const App: React.FC = () => {
     systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig, excludedBranches
   } = useGlobalData(auth);
 
+  // Stable ref so the effect can read the latest employees without it being a reactive dependency
+  const employeesRef = React.useRef(employees);
+  employeesRef.current = employees;
+
   // Fetch face descriptors for the previewed branch so Face ID enrollment status is accurate in preview
   useEffect(() => {
     if (!previewBranchId || !supabase) { setPreviewFaceData([]); return; }
     const previewBranch = branches.find(b => b.id === previewBranchId);
     const managerName = previewBranch?.manager?.toUpperCase();
     const tempManagerName = previewBranch?.tempManager?.toUpperCase();
-    const ids = employees
+    const ids = employeesRef.current
       .filter(e => {
         const isHomeBranch = e.branchId === previewBranchId;
         const isAuthorized = e.branchAllowances && typeof e.branchAllowances === 'object' && previewBranchId in (e.branchAllowances as any);
@@ -240,7 +244,7 @@ const App: React.FC = () => {
       .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
       .in(DB_COLUMNS.ID, ids)
       .then(({ data }) => setPreviewFaceData((data || []) as { id: string; face_descriptors: number[][] | null }[]));
-  }, [previewBranchId, branches, employees]);
+  }, [previewBranchId, branches]);
 
   // Merge preview face descriptors into employees for the preview BranchManagerDashboard
   const previewEmployees = useMemo(() => {
