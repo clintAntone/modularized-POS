@@ -56,6 +56,7 @@ const App: React.FC = () => {
   const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
   const [previewBranchVault, setPreviewBranchVault] = useState<BranchVault | null>(null);
   const [previewTransactions, setPreviewTransactions] = useState<Transaction[]>([]);
+  const [previewFaceData, setPreviewFaceData] = useState<{ id: string; face_descriptors: number[][] | null }[]>([]);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
 
   // Fetch transactions for the previewed branch (superadmins don't get global transactions)
@@ -217,6 +218,38 @@ const App: React.FC = () => {
     attendance, employees, salesReports, salesReportsLoading, auditLogs, requests, branchVault, vaultTransactions, employeeComplaints,
     systemLogo, systemVersion, systemLatest, apkUrl, dynamicAppName, autoRefreshTime, fontFamily, isPaymongoEnabled, loading, error, globalSync, setGlobalSync, forceLogoutRegistry, refreshDatabase, fetchSystemConfig, excludedBranches
   } = useGlobalData(auth);
+
+  // Fetch face descriptors for the previewed branch so Face ID enrollment status is accurate in preview
+  useEffect(() => {
+    if (!previewBranchId || !supabase) { setPreviewFaceData([]); return; }
+    const previewBranch = branches.find(b => b.id === previewBranchId);
+    const managerName = previewBranch?.manager?.toUpperCase();
+    const tempManagerName = previewBranch?.tempManager?.toUpperCase();
+    const ids = employees
+      .filter(e => {
+        const isHomeBranch = e.branchId === previewBranchId;
+        const isAuthorized = e.branchAllowances && typeof e.branchAllowances === 'object' && previewBranchId in (e.branchAllowances as any);
+        const isDesignatedManager = !!managerName && e.name?.toUpperCase() === managerName;
+        const isTempManager = !!tempManagerName && e.name?.toUpperCase() === tempManagerName;
+        return isHomeBranch || isAuthorized || isDesignatedManager || isTempManager;
+      })
+      .map(e => e.id);
+    if (ids.length === 0) { setPreviewFaceData([]); return; }
+    supabase
+      .from(DB_TABLES.EMPLOYEES)
+      .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.FACE_DESCRIPTORS}`)
+      .in(DB_COLUMNS.ID, ids)
+      .then(({ data }) => setPreviewFaceData((data || []) as { id: string; face_descriptors: number[][] | null }[]));
+  }, [previewBranchId, branches, employees]);
+
+  // Merge preview face descriptors into employees for the preview BranchManagerDashboard
+  const previewEmployees = useMemo(() => {
+    if (!previewBranchId || previewFaceData.length === 0) return employees;
+    const faceMap = new Map(previewFaceData.map(r => [r.id, r.face_descriptors]));
+    return employees.map(emp =>
+      faceMap.has(emp.id) ? { ...emp, faceDescriptors: faceMap.get(emp.id) ?? undefined } : emp
+    );
+  }, [employees, previewFaceData, previewBranchId]);
 
 const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -837,7 +870,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       </button>
                     </div>
                   </div>
-                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={previewTransactions} expenses={expenses} attendance={attendance} employees={employees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={previewTransactions} expenses={expenses} attendance={attendance} employees={previewEmployees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
