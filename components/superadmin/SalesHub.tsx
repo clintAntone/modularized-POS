@@ -49,6 +49,8 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showLateOpenDropdown, setShowLateOpenDropdown] = useState(false);
+  const [showTopBranches, setShowTopBranches] = useState(false);
+  const [showTopBranchesModal, setShowTopBranchesModal] = useState(false);
   const [showMissingModal, setShowMissingModal] = useState(false);
   
   // Pagination State
@@ -234,6 +236,19 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
   }, [branchStats, currentPage]);
 
   const totalPages = Math.ceil(branchStats.length / itemsPerPage);
+
+  // Top 10 by sessions — always all branches for selected date, ignores search/live filters
+  const topBranches = useMemo(() => {
+    return branches
+      .map(branch => {
+        const report = reportIndex.get(`${branch.id}|${selectedDate}`);
+        const sessions = report ? (report.sessionCount ?? report.sessionData?.length ?? 0) : 0;
+        return { id: branch.id, name: branch.name, sessions };
+      })
+      .filter(b => b.sessions > 0)
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 10);
+  }, [branches, reportIndex, selectedDate]);
 
   const networkTotals = useMemo(() => {
     // Totals should always reflect the filtered view or the whole network if no filter
@@ -519,6 +534,35 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
           document.body
         )}
 
+        {showTopBranchesModal && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowTopBranchesModal(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">🏆 Top Branches</p>
+                  <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-tight">Most Clients · {formattedDisplayDate}</h3>
+                </div>
+                <button onClick={() => setShowTopBranchesModal(false)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {topBranches.map((b, i) => (
+                  <div key={b.id} className="flex items-center gap-4 px-6 py-3.5">
+                    <span className={`w-6 text-center text-xs font-black shrink-0 ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-400' : 'text-slate-300'}`}>{i + 1}</span>
+                    <p className="flex-1 text-xs font-black text-slate-800 uppercase tracking-tight truncate">{b.name}</p>
+                    <span className="text-sm font-black text-slate-900 tabular-nums shrink-0">{b.sessions} <span className="text-xs font-medium text-slate-400">clients</span></span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+                <button onClick={() => setShowTopBranchesModal(false)} className="h-10 px-6 rounded-2xl bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide hover:bg-slate-700 active:scale-95 transition-all">Close</button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {showDownloadConfirm && ReactDOM.createPortal(
           <div className="fixed inset-0 z-[9999] bg-slate-950/95 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowDownloadConfirm(false)}>
             <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-8 space-y-6 animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
@@ -665,68 +709,44 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         </div>
 
 
-        {/* ── Missing report alert ── */}
-        {isToday && missingReportBranches.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
-            <div className="w-7 h-7 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-              </svg>
+        {/* ── Top 10 + Missing report — inline row ── */}
+        {(topBranches.length > 0 || (isToday && missingReportBranches.length > 0)) && (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              {topBranches.length > 0 && (
+                <div className="flex-1 flex items-center gap-3 px-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl min-w-0">
+                  <span className="text-sm leading-none shrink-0">🏆</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white leading-none truncate">{topBranches[0].name}</p>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5 truncate">
+                      {topBranches.slice(1, 2).map(b => b.name).join(', ')}{topBranches.length > 2 ? ` +${topBranches.length - 2} more` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setShowTopBranchesModal(true); playSound('click'); }}
+                    className="shrink-0 h-8 px-3 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wide hover:bg-amber-600 active:scale-95 transition-all"
+                  >
+                    Show
+                  </button>
+                </div>
+              )}
+              {isToday && missingReportBranches.length > 0 && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl min-w-0">
+                  <span className="text-xs leading-none shrink-0">⚠️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white leading-none uppercase tracking-wide">{missingReportBranches.length} STILL CLOSED</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowMissingModal(true); playSound('click'); }}
+                    className="shrink-0 h-8 px-3 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wide hover:bg-amber-600 active:scale-95 transition-all"
+                  >
+                    Show
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-800 leading-none">
-                {missingReportBranches.length} {missingReportBranches.length === 1 ? 'branch has' : 'branches have'} not yet opened today
-              </p>
-              <p className="text-xs text-amber-600 font-semibold mt-0.5 truncate">
-                {missingReportBranches.slice(0, 5).map(b => b.name).join(', ')}{missingReportBranches.length > 5 ? ` +${missingReportBranches.length - 5} more` : ''}
-              </p>
-            </div>
-            <button
-              onClick={() => { setShowMissingModal(true); playSound('click'); }}
-              className="shrink-0 h-8 px-3 rounded-xl bg-amber-600 text-white text-xs font-semibold uppercase tracking-wide hover:bg-amber-700 active:scale-95 transition-all"
-            >
-              Show
-            </button>
           </div>
         )}
-
-        <div className="px-1 sm:px-2">
-          <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={branchStats.length}
-              itemsPerPage={itemsPerPage}
-              onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-              rightSlot={
-                <div className="relative shrink-0">
-                  <div className="flex h-8 rounded-xl overflow-hidden">
-                    <button onClick={() => { setShowExportMenu(false); setShowDownloadConfirm(true); }} className="flex items-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold uppercase tracking-wide transition-all active:scale-95">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      <span className="hidden sm:inline">Export</span>
-                    </button>
-                    <div className="w-px bg-emerald-700" />
-                    <button onClick={() => setShowExportMenu(v => !v)} className="px-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95">
-                      <svg className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                  </div>
-                  {showExportMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50">
-                      <button onMouseDown={e => e.stopPropagation()} onClick={() => { setShowExportMenu(false); setShowDownloadConfirm(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                        Export PDF
-                      </button>
-                      <div className="h-px bg-slate-100 dark:bg-slate-700" />
-                      <button onMouseDown={e => e.stopPropagation()} onClick={handleExportExcel} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        Export Excel
-                      </button>
-                    </div>
-                  )}
-                </div>
-              }
-          />
-        </div>
 
         {/* KPI HUB */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -777,6 +797,44 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
               </div>
             </>
           )}
+        </div>
+
+        <div className="px-1 sm:px-2">
+          <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={branchStats.length}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
+              rightSlot={
+                <div className="relative shrink-0">
+                  <div className="flex h-8 rounded-xl overflow-hidden">
+                    <button onClick={() => { setShowExportMenu(false); setShowDownloadConfirm(true); }} className="flex items-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold uppercase tracking-wide transition-all active:scale-95">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      <span className="hidden sm:inline">Export</span>
+                    </button>
+                    <div className="w-px bg-emerald-700" />
+                    <button onClick={() => setShowExportMenu(v => !v)} className="px-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95">
+                      <svg className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                  </div>
+                  {showExportMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50">
+                      <button onMouseDown={e => e.stopPropagation()} onClick={() => { setShowExportMenu(false); setShowDownloadConfirm(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        Export PDF
+                      </button>
+                      <div className="h-px bg-slate-100 dark:bg-slate-700" />
+                      <button onMouseDown={e => e.stopPropagation()} onClick={handleExportExcel} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Export Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              }
+          />
         </div>
 
         {/* DESKTOP TABLE VIEW - ENHANCED READABILITY */}
@@ -984,6 +1042,7 @@ export const SalesHub: React.FC<SalesHubProps> = ({ branches, salesReports, sale
         </div>
 
         </div>{/* end main content */}
+
 
         {/* ── Late-to-open floating toggle (fixed, desktop only) ── */}
         {lateToOpenBranches.length > 0 && ReactDOM.createPortal(
