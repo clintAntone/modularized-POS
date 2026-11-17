@@ -520,6 +520,18 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
         [DB_COLUMNS.REQUESTER_NAME]: operatorName || 'MANAGER',
       });
       if (error) throw error;
+      // Notify HR — fire and forget, never block or fail the submit
+      supabase.functions.invoke('notify-hr-new-employee', {
+        body: {
+          employeeName: fullName,
+          branchName: branch.name,
+          role: newEmpRole,
+          allowance,
+          approvedBy: 'PENDING',
+          approvedAt: new Date().toISOString(),
+          reviewNote: null,
+        },
+      }).catch(() => {/* silent — HR notification is best-effort */});
       playSound('success');
       showToast(`New staff request submitted for ${fullName}`);
       setShowNewEmpRequest(false);
