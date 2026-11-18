@@ -12,6 +12,9 @@ const MEDICAL_CONDITIONS = [
     'Asthma / Respiratory Condition',
     'Arthritis / Joint Pain',
     'Back or Neck Injury',
+    'Lower Back Pain',
+    'Sciatica',
+    'Frozen Shoulder',
     'Allergy to Oils or Lotions',
 ];
 

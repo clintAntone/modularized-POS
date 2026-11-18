@@ -29,6 +29,15 @@ interface POSRegistryFormProps {
     onDemandIds?: Set<string>;
 }
 
+    // Split a stored full name back into first / middle / last parts
+    const splitName = (full: string) => {
+        const parts = full.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return { first: '', middle: '', last: '' };
+        if (parts.length === 1) return { first: parts[0], middle: '', last: '' };
+        if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] };
+        return { first: parts[0], middle: parts.slice(1, -1).join(' '), last: parts[parts.length - 1] };
+    };
+
 export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     const [activeTab, setActiveTab] = useState<'STANDARD' | 'LOYALTY'>('STANDARD');
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -37,11 +46,32 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     const suggestionRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Split name state — initialised from formData (handles EDITING pre-fill)
+    const initSplit = splitName(props.formData.client_name || '');
+    const [firstName,  setFirstName]  = useState(initSplit.first);
+    const [middleName, setMiddleName] = useState(initSplit.middle);
+    const [lastName,   setLastName]   = useState(initSplit.last);
+
+    // Keep formData.client_name in sync whenever any part changes
+    useEffect(() => {
+        const combined = [firstName, middleName, lastName].filter(Boolean).join(' ').toUpperCase();
+        props.setFormData((prev: any) => ({ ...prev, client_name: combined }));
+    }, [firstName, middleName, lastName]);
+
+    const applySuggestion = (name: string) => {
+        const { first, middle, last } = splitName(name);
+        setFirstName(first);
+        setMiddleName(middle);
+        setLastName(last);
+        setShowSuggestions(false);
+    };
+
     const suggestions = useMemo(() => {
-        const query = props.formData.client_name.trim().toUpperCase();
+        const query = firstName.trim().toUpperCase();
+        const current = [firstName, middleName, lastName].filter(Boolean).join(' ').toUpperCase();
         if (!query || !props.clientNameHistory?.length) return [];
-        return props.clientNameHistory.filter(name => name.includes(query) && name !== query).slice(0, 6);
-    }, [props.formData.client_name, props.clientNameHistory]);
+        return props.clientNameHistory.filter(name => name.startsWith(query) && name !== current).slice(0, 6);
+    }, [firstName, middleName, lastName, props.clientNameHistory]);
 
     useEffect(() => {
         setHighlightedIndex(-1);
@@ -107,66 +137,65 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                         )}
                     </div>
 
-                    {/* Client name input + suggestions */}
-                    <div className="relative">
-                        <input
-                            ref={inputRef}
-                            value={props.formData.client_name}
-                            maxLength={50}
-                            onChange={e => {
-                                props.setFormData((prev: any) => ({ ...prev, client_name: e.target.value }));
-                                setShowSuggestions(true);
-                            }}
-                            onFocus={() => setShowSuggestions(true)}
-                            onBlur={() =>
-                                props.setFormData((prev: any) => ({
-                                    ...prev,
-                                    client_name: prev.client_name.toUpperCase()
-                                }))
-                            }
-                            onKeyDown={e => {
-                                if (!showSuggestions || suggestions.length === 0) return;
-                                if (e.key === 'ArrowDown') {
-                                    e.preventDefault();
-                                    setHighlightedIndex(i => Math.min(i + 1, suggestions.length - 1));
-                                } else if (e.key === 'ArrowUp') {
-                                    e.preventDefault();
-                                    setHighlightedIndex(i => Math.max(i - 1, 0));
-                                } else if (e.key === 'Enter' && highlightedIndex >= 0) {
-                                    e.preventDefault();
-                                    props.setFormData((prev: any) => ({ ...prev, client_name: suggestions[highlightedIndex] }));
-                                    setShowSuggestions(false);
-                                } else if (e.key === 'Escape') {
-                                    setShowSuggestions(false);
-                                }
-                            }}
-                            placeholder="Client name"
-                            className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                        />
-                        {showSuggestions && suggestions.length > 0 && (
-                            <div
-                                ref={suggestionRef}
-                                className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
-                            >
-                                {suggestions.map((name, i) => (
-                                    <button
-                                        key={name}
-                                        type="button"
-                                        onMouseDown={e => {
-                                            e.preventDefault();
-                                            props.setFormData((prev: any) => ({ ...prev, client_name: name }));
-                                            setShowSuggestions(false);
-                                            playSound('click');
-                                        }}
-                                        onMouseEnter={() => setHighlightedIndex(i)}
-                                        className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors flex items-center gap-3 ${i === highlightedIndex ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                    {/* Client name — first / last row, middle below */}
+                    <div className="space-y-2">
+                        {/* First name + Last name */}
+                        <div className="flex gap-2">
+                            {/* First name with autocomplete */}
+                            <div className="relative flex-1">
+                                <input
+                                    ref={inputRef}
+                                    value={firstName}
+                                    maxLength={30}
+                                    onChange={e => { setFirstName(e.target.value.toUpperCase()); setShowSuggestions(true); }}
+                                    onFocus={() => setShowSuggestions(true)}
+                                    onKeyDown={e => {
+                                        if (!showSuggestions || suggestions.length === 0) return;
+                                        if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightedIndex(i => Math.min(i + 1, suggestions.length - 1)); }
+                                        else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightedIndex(i => Math.max(i - 1, 0)); }
+                                        else if (e.key === 'Enter' && highlightedIndex >= 0) { e.preventDefault(); applySuggestion(suggestions[highlightedIndex]); playSound('click'); }
+                                        else if (e.key === 'Escape') setShowSuggestions(false);
+                                    }}
+                                    placeholder="First name"
+                                    className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                />
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div
+                                        ref={suggestionRef}
+                                        className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
                                     >
-                                        <svg className="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        {name}
-                                    </button>
-                                ))}
+                                        {suggestions.map((name, i) => (
+                                            <button
+                                                key={name}
+                                                type="button"
+                                                onMouseDown={e => { e.preventDefault(); applySuggestion(name); playSound('click'); }}
+                                                onMouseEnter={() => setHighlightedIndex(i)}
+                                                className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors flex items-center gap-3 ${i === highlightedIndex ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                                            >
+                                                <svg className="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                {name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                            {/* Last name */}
+                            <input
+                                value={lastName}
+                                maxLength={30}
+                                onChange={e => setLastName(e.target.value.toUpperCase())}
+                                placeholder="Last name"
+                                className="flex-1 min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            />
+                        </div>
+                        {/* Middle name */}
+                        <input
+                            value={middleName}
+                            maxLength={30}
+                            onChange={e => setMiddleName(e.target.value.toUpperCase())}
+                            placeholder="Middle name (optional)"
+                            className="w-full min-h-[44px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                        />
                     </div>
 
                     {/* Medical history */}

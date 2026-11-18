@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Transaction } from '../../../../types';
-import { X, Clock, Tag, Banknote, TrendingUp, PenLine, User, Stethoscope, FileText } from 'lucide-react';
+import { X, Clock, Tag, Banknote, TrendingUp, PenLine, User, Stethoscope, FileText, Download } from 'lucide-react';
 
 interface SessionDetailModalProps {
     transaction: Transaction;
@@ -28,6 +28,216 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
     const deduction = t.discount + (t.voucherValue || 0);
     const staffPay = (t.primaryCommission || 0) + (t.secondaryCommission || 0);
     const branchRoi = t.total - staffPay;
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const loadBase64 = async (url: string): Promise<{ data: string; format: string } | null> => {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const format = blob.type.includes('jpeg') || blob.type.includes('jpg') ? 'JPEG' : 'PNG';
+            const data = await new Promise<string>(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            });
+            return { data, format };
+        } catch { return null; }
+    };
+
+    const downloadWaiverPDF = async () => {
+        setIsDownloading(true);
+        try {
+            const { default: jsPDF } = await import('jspdf');
+
+            // A4 landscape: 297 × 210 mm — left col: session info, right col: waiver + sig
+            const W = 297; const H = 210; const M = 14;
+            const HH = 44;  // header height
+            const CY = HH + 8; // content y start
+            const LX = M; const LW = 128;        // left col
+            const RX = LX + LW + 10;             // right col x
+            const RW = W - M - RX;               // right col width (~131mm)
+
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            // Load assets
+            const logoUrl = localStorage.getItem('hilot_cached_logo');
+            const [logoResult, sigResult] = await Promise.all([
+                logoUrl ? loadBase64(logoUrl) : Promise.resolve(null),
+                signatureUrl ? loadBase64(signatureUrl) : Promise.resolve(null),
+            ]);
+
+            // Signature natural aspect ratio
+            let sigNaturalAR = 4;
+            if (sigResult) {
+                try {
+                    const img = new Image(); img.src = sigResult.data;
+                    await new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); });
+                    if (img.naturalWidth && img.naturalHeight) sigNaturalAR = img.naturalWidth / img.naturalHeight;
+                } catch {}
+            }
+
+            // ── Full-width header ─────────────────────────────────────────
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, W, HH, 'F');
+            doc.setFillColor(16, 60, 50);
+            doc.circle(W + 3, -3, 30, 'F');
+
+            let logoX = M + 1;
+            if (logoResult) {
+                try { doc.addImage(logoResult.data, logoResult.format, M, 5, 12, 12); logoX = M + 15; } catch {}
+            }
+            doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(16, 185, 129);
+            doc.text('HILOT CENTER', logoX, 10);
+            doc.setFont(undefined as any, 'normal');
+            doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+            doc.text('SERVICE CONSENT & WAIVER', logoX, 16);
+
+            doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+            doc.text(time, W - M, 10, { align: 'right' });
+            doc.text(`SESSION ID: ${t.id.slice(-8).toUpperCase()}`, W - M, 16, { align: 'right' });
+
+            doc.setFontSize(22); doc.setFont(undefined as any, 'bold'); doc.setTextColor(255, 255, 255);
+            doc.text((t.clientName || 'WALK-IN').toUpperCase(), M, 32);
+            doc.setFont(undefined as any, 'normal');
+            doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+            const serviceLabel = t.serviceName.length > 70 ? t.serviceName.slice(0, 68) + '…' : t.serviceName;
+            doc.text(serviceLabel.toUpperCase(), M, 40);
+            const payLabel = t.paymentMethod === 'GCASH' ? 'GCash' : 'Cash';
+            doc.text(payLabel.toUpperCase(), W - M, 40, { align: 'right' });
+
+            // ── LEFT COLUMN ───────────────────────────────────────────────
+            let ly = CY;
+
+            if (t.therapistName || t.bonesetterName) {
+                doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(100, 116, 139);
+                doc.text('STAFF', LX, ly);
+                doc.setFont(undefined as any, 'normal'); ly += 5;
+                if (t.therapistName) {
+                    doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+                    doc.text('THERAPIST', LX, ly);
+                    doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(30, 41, 59);
+                    doc.text(t.therapistName.toUpperCase(), LX, ly + 5);
+                    doc.setFont(undefined as any, 'normal'); ly += 12;
+                }
+                if (t.bonesetterName) {
+                    doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+                    doc.text('BONESETTER', LX, ly);
+                    doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(30, 41, 59);
+                    doc.text(t.bonesetterName.toUpperCase(), LX, ly + 5);
+                    doc.setFont(undefined as any, 'normal'); ly += 12;
+                }
+                ly += 3;
+            }
+
+            doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+            doc.line(LX, ly, LX + LW, ly); ly += 6;
+            doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(100, 116, 139);
+            doc.text('FINANCIALS', LX, ly);
+            doc.setFont(undefined as any, 'normal'); ly += 6;
+
+            const finRows: [string, string, boolean][] = [
+                ['Base',       `P${t.basePrice.toLocaleString()}`, false],
+                ...(deduction > 0 ? [['Deducted', `-P${deduction.toLocaleString()}`, false] as [string, string, boolean]] : []),
+                ...(staffPay > 0  ? [['Staff Pay', `-P${staffPay.toLocaleString()}`, false] as [string, string, boolean]] : []),
+                ['Total Paid', `P${t.total.toLocaleString()}`,      true ],
+            ];
+            for (const [label, value, isBold] of finRows) {
+                doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+                doc.text(label, LX, ly);
+                doc.setFont(undefined as any, isBold ? 'bold' : 'normal');
+                doc.setTextColor(isBold ? 15 : 100, isBold ? 23 : 116, isBold ? 42 : 139);
+                doc.text(value, LX + LW, ly, { align: 'right' });
+                doc.setFont(undefined as any, 'normal'); ly += 6;
+            }
+
+            if (t.note) {
+                ly += 2;
+                doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+                doc.line(LX, ly, LX + LW, ly); ly += 6;
+                doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(100, 116, 139);
+                doc.text('MEDICAL HISTORY / NOTES', LX, ly);
+                doc.setFont(undefined as any, 'italic'); ly += 5;
+                doc.setFontSize(10); doc.setTextColor(71, 85, 105);
+                const nLines = doc.splitTextToSize(`"${t.note}"`, LW) as string[];
+                doc.text(nLines, LX, ly);
+                doc.setFont(undefined as any, 'normal');
+            }
+
+            // ── RIGHT COLUMN — fixed zones ──
+            const wBoxY     = CY + 7;
+            const wBoxH_f   = 67;
+            const sigLabelY = wBoxY + wBoxH_f + 5;
+            const sigBoxY   = sigLabelY + 7;
+            const sigBoxH_f = 55;
+            const sigLineY2 = sigBoxY + sigBoxH_f + 3;
+
+            // Waiver label
+            doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(100, 116, 139);
+            doc.text('SERVICE CONSENT & WAIVER', RX, CY);
+            doc.setFont(undefined as any, 'normal');
+
+            // Waiver box
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+            doc.roundedRect(RX, wBoxY, RW, wBoxH_f, 2, 2, 'FD');
+
+            const waiverParagraphs = [
+                `I, ${t.clientName || 'the undersigned client'}, voluntarily consent to receive the service "${t.serviceName}" provided by Hilot Center. I confirm that I have disclosed any relevant medical conditions, injuries, or contraindications prior to the session.`,
+                'I understand that hilot and related therapeutic services are not substitutes for professional medical treatment. I release Hilot Center, its staff, and affiliates from any liability for adverse reactions, injuries, or conditions arising from this session, provided services were rendered in good faith and with reasonable care.',
+                'By affixing my signature below, I acknowledge that I have read, understood, and agreed to this consent and waiver in accordance with applicable Philippine laws.',
+            ];
+            const wTextW = RW - 8;
+            doc.setFontSize(10);
+            const wLines = waiverParagraphs.flatMap((p, i) => [
+                ...(doc.splitTextToSize(p, wTextW) as string[]),
+                ...(i < waiverParagraphs.length - 1 ? [''] : []),
+            ]);
+            doc.setTextColor(71, 85, 105);
+            let ty2 = wBoxY + 7;
+            const wLH = 5.5; // line height for 10pt
+            for (const line of wLines) {
+                if (ty2 > wBoxY + wBoxH_f - 5) break;
+                if (line === '') { ty2 += 2.5; continue; }
+                doc.text(line, RX + 6, ty2); ty2 += wLH;
+            }
+
+            // Signature label
+            doc.setFontSize(10); doc.setFont(undefined as any, 'bold'); doc.setTextColor(100, 116, 139);
+            doc.text('CLIENT SIGNATURE', RX, sigLabelY);
+            doc.setFont(undefined as any, 'normal');
+
+            // Signature box
+            doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5);
+            doc.roundedRect(RX, sigBoxY, RW, sigBoxH_f, 2, 2, 'S');
+
+            if (sigResult) {
+                try {
+                    const aW = RW - 4; const aH = sigBoxH_f - 4;
+                    let dW = aW; let dH = dW / sigNaturalAR;
+                    if (dH > aH) { dH = aH; dW = dH * sigNaturalAR; }
+                    doc.addImage(sigResult.data, sigResult.format,
+                        RX + 6 + (aW - dW) / 2, sigBoxY + 3 + (aH - dH) / 2, dW, dH);
+                } catch {}
+            } else {
+                doc.setFontSize(10); doc.setTextColor(203, 213, 225);
+                doc.text('No signature on file', RX + RW / 2, sigBoxY + sigBoxH_f / 2 + 1, { align: 'center' });
+            }
+
+            // Signature line
+            doc.setDrawColor(180, 190, 200); doc.setLineWidth(0.3);
+            doc.line(RX, sigLineY2, RX + RW, sigLineY2);
+            doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+            doc.text('Client Signature', RX + RW / 2, sigLineY2 + 5, { align: 'center' });
+
+            const filename = `waiver-${(t.clientName || 'walkin').replace(/\s+/g, '-').toLowerCase()}-${t.id.slice(-8).toUpperCase()}.pdf`;
+            doc.save(filename);
+        } catch (err) {
+            console.error('Waiver PDF generation failed:', err);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -219,10 +429,22 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 pb-5 pt-3 shrink-0 border-t border-slate-100">
+                <div className="px-5 pb-5 pt-3 shrink-0 border-t border-slate-100 flex gap-3">
+                    <button
+                        onClick={downloadWaiverPDF}
+                        disabled={isDownloading}
+                        className="flex items-center justify-center gap-2 py-4 px-5 bg-emerald-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                    >
+                        {isDownloading ? (
+                            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4" />
+                        )}
+                        <span className="hidden sm:inline">Download Waiver</span>
+                    </button>
                     <button
                         onClick={onClose}
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-all"
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-all"
                     >
                         Close
                     </button>
