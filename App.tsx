@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
-import { UserRole, BranchVault, Transaction } from './types';
+import { UserRole, BranchVault, Transaction, Attendance } from './types';
 import { UI_THEME } from './constants/ui_designs';
 import Login from './components/Login';
 import ProfileSetup from './components/PinChange';
@@ -56,6 +56,7 @@ const App: React.FC = () => {
   const [previewBranchId, setPreviewBranchId] = useState<string | null>(null);
   const [previewBranchVault, setPreviewBranchVault] = useState<BranchVault | null>(null);
   const [previewTransactions, setPreviewTransactions] = useState<Transaction[]>([]);
+  const [previewAttendance, setPreviewAttendance] = useState<Attendance[]>([]);
   const [previewFaceData, setPreviewFaceData] = useState<{ id: string; face_descriptors: number[][] | null }[]>([]);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
 
@@ -93,6 +94,36 @@ const App: React.FC = () => {
           total: Number(t[DB_COLUMNS.TOTAL] || 0),
           paymentMethod: t[DB_COLUMNS.PAYMENT_METHOD], paymentStatus: t[DB_COLUMNS.PAYMENT_STATUS],
           note: t[DB_COLUMNS.NOTE], signatureUrl: undefined,
+        })));
+      });
+  }, [previewBranchId]);
+
+  // Fetch attendance for the previewed branch (superadmins have no branchId so global attendance is empty)
+  useEffect(() => {
+    if (!previewBranchId || !supabase) { setPreviewAttendance([]); return; }
+    const lookback = getTrueDate();
+    lookback.setDate(lookback.getDate() - 30);
+    supabase
+      .from(DB_TABLES.ATTENDANCE)
+      .select([
+        DB_COLUMNS.ID, DB_COLUMNS.BRANCH_ID, DB_COLUMNS.EMPLOYEE_ID, DB_COLUMNS.STAFF_NAME,
+        DB_COLUMNS.DATE, DB_COLUMNS.CLOCK_IN, DB_COLUMNS.CLOCK_OUT, DB_COLUMNS.CLOCK_IN_METHOD,
+        DB_COLUMNS.CLOCK_IN_PHOTO_URL, DB_COLUMNS.STATUS, DB_COLUMNS.LATE_DEDUCTION,
+        DB_COLUMNS.OT_PAY, DB_COLUMNS.CASH_ADVANCE, DB_COLUMNS.IS_HALF_DAY,
+      ].join(','))
+      .eq(DB_COLUMNS.BRANCH_ID, previewBranchId)
+      .gte(DB_COLUMNS.CLOCK_IN, lookback.toISOString())
+      .order(DB_COLUMNS.CLOCK_IN, { ascending: false })
+      .limit(1000)
+      .then(({ data }) => {
+        setPreviewAttendance((data || []).map((a: any) => ({
+          id: a[DB_COLUMNS.ID], branchId: a[DB_COLUMNS.BRANCH_ID], employeeId: a[DB_COLUMNS.EMPLOYEE_ID],
+          staffName: a[DB_COLUMNS.STAFF_NAME], date: a[DB_COLUMNS.DATE], clockIn: a[DB_COLUMNS.CLOCK_IN],
+          clockOut: a[DB_COLUMNS.CLOCK_OUT] ?? undefined, clockInMethod: a[DB_COLUMNS.CLOCK_IN_METHOD] ?? undefined,
+          clockInPhotoUrl: a[DB_COLUMNS.CLOCK_IN_PHOTO_URL] ?? undefined,
+          status: a[DB_COLUMNS.STATUS], lateDeduction: Number(a[DB_COLUMNS.LATE_DEDUCTION] || 0),
+          otPay: Number(a[DB_COLUMNS.OT_PAY] || 0), cashAdvance: Number(a[DB_COLUMNS.CASH_ADVANCE] || 0),
+          isHalfDay: Boolean(a[DB_COLUMNS.IS_HALF_DAY]),
         })));
       });
   }, [previewBranchId]);
@@ -879,7 +910,7 @@ const [gmailPromptDismissed, setGmailPromptDismissed] = useState(false);
                       </button>
                     </div>
                   </div>
-                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={previewTransactions} expenses={expenses} attendance={attendance} employees={previewEmployees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
+                  <BranchManagerDashboard key={previewBranchId} user={previewUser as any} branch={previewBranch} isRelief={false} branches={branches} transactions={previewTransactions} expenses={expenses} attendance={previewAttendance} employees={previewEmployees} salesReports={salesReports} salesReportsLoading={salesReportsLoading} vaultTransactions={vaultTransactions} auditLogs={auditLogs} autoRefreshTime={autoRefreshTime} isPaymongoEnabled={isPaymongoEnabled} branchVault={previewBranchVault} requests={requests} complaints={employeeComplaints} onRefresh={refreshDatabase} onSyncStatusChange={setGlobalSync} loading={loading} isPreview={true} excludedBranches={excludedBranches} />
                 </>
               );
             })() : (auth.user?.role === UserRole.SUPERADMIN || auth.user?.role === UserRole.PORTAL_USER) ? (
