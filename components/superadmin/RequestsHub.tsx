@@ -238,6 +238,9 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
     setConfirmState({ request, action, hasConflict, duplicateEmployee });
   };
 
+  const withTimeout = <T,>(promise: Promise<T>, ms = 30000): Promise<T> =>
+    Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
   const handleAction = async (request: Request, action: 'APPROVE' | 'REJECT') => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -435,13 +438,13 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
             };
           }
         }
-        await supabase.from(DB_TABLES.REQUESTS).update({
+        await withTimeout(supabase.from(DB_TABLES.REQUESTS).update({
           [DB_COLUMNS.STATUS]: 'APPROVED',
           [DB_COLUMNS.REVIEWED_BY]: reviewerName,
           [DB_COLUMNS.UPDATED_AT]: getTrueISOString(),
           [DB_COLUMNS.REVIEW_NOTE]: adminComment.trim() || null,
           ...approvalDataPatch,
-        }).eq(DB_COLUMNS.ID, request.id);
+        }).eq(DB_COLUMNS.ID, request.id));
         setOptimisticStatus(prev => ({ ...prev, [request.id]: 'APPROVED' }));
         setActionSuccess('Request approved.');
         setTimeout(() => setActionSuccess(null), 1000);
@@ -466,9 +469,12 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
       // Force a fresh fetch so the real DB status replaces the optimistic immediately
       await queryClient.invalidateQueries({ queryKey: ['requests'] });
       // useGlobalData's Realtime channel handles targeted refreshes for requests/employees/salesReports
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Action failed. Check connection.');
+      const msg = err?.message?.includes('timeout')
+        ? 'Request timed out. Check your connection and try again.'
+        : 'Action failed. Check connection and try again.';
+      alert(msg);
     } finally {
       isProcessingRef.current = false;
       setIsProcessing(null);
@@ -639,13 +645,26 @@ export const RequestsHub: React.FC<RequestsHubProps> = ({ requests, employees, b
 
       {/* Header */}
       <div className="space-y-3">
-        <div>
-          <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
-            Approval Workflows
-          </h2>
-          <p className="text-xs sm:text-xs font-medium text-slate-500 mt-1">
-            Manage pending backfill and security requests
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">
+              Approval Workflows
+            </h2>
+            <p className="text-xs sm:text-xs font-medium text-slate-500 mt-1">
+              Manage pending backfill and security requests
+            </p>
+          </div>
+          {onRefresh && (
+            <button
+              onClick={() => onRefresh()}
+              title="Refresh requests"
+              className="mt-1 flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-90"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2.5">
