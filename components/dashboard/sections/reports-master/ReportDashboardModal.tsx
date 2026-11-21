@@ -44,6 +44,7 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   const [viewingTx, setViewingTx] = useState<any | null>(null);
   const [viewSignatureUrl, setViewSignatureUrl] = useState<string | null>(null);
   const [isLoadingViewSignature, setIsLoadingViewSignature] = useState(false);
+  const [isTogglingLock, setIsTogglingLock] = useState(false);
   const [mounted, setMounted] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -112,6 +113,24 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     // Skip fetch for aggregate (weekly/monthly) reports — they don't exist as single DB rows.
     refreshReport();
   }, [reportProp.id]);
+
+  const handleToggleLock = async () => {
+    if (!supabase || isTogglingLock || !isSuperAdmin) return;
+    setIsTogglingLock(true);
+    try {
+      const newBackfilled = !report.backfilled;
+      const { error } = await supabase
+        .from(DB_TABLES.SALES_REPORTS)
+        .update({ [DB_COLUMNS.BACKFILLED]: newBackfilled })
+        .eq(DB_COLUMNS.ID, report.id);
+      if (error) throw error;
+      setReport(r => ({ ...r, backfilled: newBackfilled }));
+    } catch (err: any) {
+      alert(`Failed to ${report.backfilled ? 'unlock' : 'lock'} report: ${err?.message ?? 'Unknown error'}`);
+    } finally {
+      setIsTogglingLock(false);
+    }
+  };
 
   const isAggregate = constituents.length > 0;
 
@@ -848,6 +867,32 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
               </button>
 
+
+              {isSuperAdmin && !isAggregate && (
+                <button
+                  onClick={handleToggleLock}
+                  disabled={isTogglingLock}
+                  title={report.backfilled ? 'Unlock report' : 'Lock report'}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border text-xs font-semibold uppercase tracking-wide rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 ${
+                    report.backfilled
+                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  {isTogglingLock ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : report.backfilled ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline">{report.backfilled ? 'Locked' : 'Lock'}</span>
+                </button>
+              )}
 
               <button onClick={onClose} className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 shadow-sm">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>

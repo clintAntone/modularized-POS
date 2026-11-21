@@ -221,6 +221,7 @@ export interface SalesReport {
   netRoi: number;
   sortDate?: string;
   backfilled?: boolean;
+  locked?: boolean;
   periodEnd?: string;
   sessionData: any[];
   sessionCount?: number;

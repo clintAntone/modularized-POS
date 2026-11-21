@@ -380,10 +380,17 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   // Build a per-Manila-date map of actual vault DEPOSIT totals for this branch.
   // Uses live vault_transactions so provision is accurate even when reports were
   // saved before the deposit was made (or before vault was enabled).
+  // REMITTANCE deposits are excluded — they carry a different timestamp (the day
+  // the remittance was processed, not the daily report date) and their deduction
+  // is already captured in remittance_adjustments for the correct period.
   const vaultDepositByDate = useMemo(() => {
     const map: Record<string, number> = {};
     vaultTransactions
-      .filter(t => t.branchId === branch.id && t.type === 'DEPOSIT')
+      .filter(t =>
+        t.branchId === branch.id &&
+        t.type === 'DEPOSIT' &&
+        !(t.name ?? '').startsWith('VAULT DEPOSIT (REMITTANCE')
+      )
       .forEach(t => {
         const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(t.timestamp));
         map[dateKey] = (map[dateKey] || 0) + (Number(t.amount) || 0);

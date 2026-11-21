@@ -158,6 +158,7 @@ export const DB_COLUMNS = {
   EXPENSE_DATA: 'expense_data',
   VAULT_DATA: 'vault_data',
   BACKFILLED: 'backfilled',
+  LOCKED: 'locked',
 
   // System Config
   KEY: 'key',

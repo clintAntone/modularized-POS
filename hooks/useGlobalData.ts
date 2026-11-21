@@ -456,6 +456,7 @@ export const useGlobalData = (auth: AuthState) => {
         totalExpenses: Number(r[DB_COLUMNS.TOTAL_EXPENSES] ?? 0), totalVaultProvision: Number(r[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0),
         netRoi: Number(r[DB_COLUMNS.NET_ROI] ?? 0),
         backfilled: r[DB_COLUMNS.BACKFILLED] === true,
+        locked: r[DB_COLUMNS.LOCKED] === true,
         sessionData: [], // not fetched in global load — use drill-down fetch when needed
         sessionCount: Number(r[DB_COLUMNS.SESSION_COUNT] ?? 0),
         staffBreakdown: [], // lazy — use useReportStaffBreakdown() (ReportAuditHub)
