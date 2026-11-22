@@ -70,10 +70,24 @@ function EnrollSilhouette({ stepId, stroke }: { stepId: StepId; stroke: string }
     return null;
 }
 
+function waitForFirstFrame(video: HTMLVideoElement): Promise<void> {
+    return new Promise(resolve => {
+        if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); return; }
+        const onFrame = () => {
+            if (video.readyState >= 2 && video.videoWidth > 0) { resolve(); }
+            else { requestAnimationFrame(onFrame); }
+        };
+        requestAnimationFrame(onFrame);
+    });
+}
+
 async function captureFromVideo(video: HTMLVideoElement): Promise<File> {
+    if (video.readyState < 2 || video.videoWidth === 0) {
+        throw new Error('Camera not ready — try again');
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     canvas.getContext('2d')!.drawImage(video, 0, 0);
     return new Promise((resolve, reject) => {
         canvas.toBlob(blob => {
@@ -118,6 +132,12 @@ export const FaceEnrollment: React.FC<FaceEnrollmentProps> = ({ currentDescripto
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
+                // Wait for the camera to deliver its first real frame before enabling capture.
+                // Without this, tapping Capture immediately after the camera opens produces a black image.
+                await Promise.race([
+                    waitForFirstFrame(videoRef.current),
+                    new Promise<void>(r => setTimeout(r, 2000)),
+                ]);
             }
             setCameraReady(true);
         } catch {

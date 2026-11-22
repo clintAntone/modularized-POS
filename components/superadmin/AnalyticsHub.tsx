@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import jsPDF from 'jspdf';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branch, SalesReport, BranchBill } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -163,6 +164,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const [top10PickerOpen, setTop10PickerOpen] = useState(false);
   const [rankingTab, setRankingTab] = useState<'standard' | 'adjusted'>('adjusted');
   const [selectedRankBranch, setSelectedRankBranch] = useState<string | null>(null); // shortName or group label
+  const [isExporting, setIsExporting] = useState(false);
   const top10PickerRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!top10PickerOpen) return;
@@ -471,8 +473,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
       const { label, weekStart } = getWeekRange(parseReportDate(report.reportDate), branch);
 
-      // Only periods whose week START falls in the selected month
-      if (weekStart.getFullYear() !== top10Year || weekStart.getMonth() !== top10Month) return;
+      // A period belongs to the month in which it ENDS (the remittance submission month).
+      // Parse the actual end date from the label — weekStart+6 is unreliable for partial periods.
+      const periodEnd = parsePeriodEnd(label, top10Year);
+      if (!periodEnd || periodEnd.getFullYear() !== top10Year || periodEnd.getMonth() !== top10Month) return;
 
       const sub = subMap.get(`${report.branchId}::${label}`);
       if (!sub) return;
@@ -598,7 +602,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       if (!branch) return;
 
       const { label, weekStart } = getWeekRange(parseReportDate(report.reportDate), branch);
-      if (weekStart.getFullYear() !== top10Year || weekStart.getMonth() !== top10Month) return;
+      const periodEnd = parsePeriodEnd(label, top10Year);
+      if (!periodEnd || periodEnd.getFullYear() !== top10Year || periodEnd.getMonth() !== top10Month) return;
 
       const sub = subMap.get(`${report.branchId}::${label}`);
       if (!sub) return;
@@ -656,6 +661,156 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     salesReports.forEach(r => s.add(new Date(r.reportDate).getFullYear()));
     return Array.from(s).sort((a, b) => b - a);
   }, [salesReports]);
+
+  // Top-20 list at component level so the print panel can access it
+  const top10DisplayList = useMemo(() => {
+    const listData = rankingTab === 'adjusted' ? top10DataRemittance : top10Data;
+    return listData.slice(0, 20);
+  }, [rankingTab, top10DataRemittance, top10Data]);
+
+  const exportRankingPdf = useCallback(async () => {
+    if (isExporting || top10DisplayList.length === 0) return;
+    setIsExporting(true);
+    try {
+      // Load Lexend from Google Fonts. Falls back to Arial if unavailable.
+      let F = `Arial, sans-serif`;
+      try {
+        if (!document.fonts.check('700 16px Lexend')) {
+          let link = document.getElementById('__lexend_export') as HTMLLinkElement | null;
+          if (!link) {
+            link = document.createElement('link');
+            link.id   = '__lexend_export';
+            link.rel  = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700&display=swap';
+            document.head.appendChild(link);
+          }
+          await Promise.race([
+            document.fonts.ready,
+            new Promise<void>(r => setTimeout(r, 3000)),
+          ]);
+        }
+        if (document.fonts.check('700 16px Lexend')) F = `'Lexend', Arial, sans-serif`;
+      } catch { /* fallback */ }
+
+      const SCALE  = 2;
+      const W      = 900;
+      const CX     = W / 2;
+      const PAD    = 48;
+      const ROW_H  = 62;
+      const LOGO_S = 140;
+
+      // Header: logo(140) + gap(16) + subtitle(18) + gap(8) + "OF"(18) + gap(4) + "HILOT CENTER"(56)
+      const HEADER_H = LOGO_S + 16 + 18 + 8 + 18 + 4 + 56 + 32;
+      const H = PAD + HEADER_H + 14 + 20 + 6 + (top10DisplayList.length * ROW_H) + PAD;
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = W * SCALE;
+      canvas.height = H * SCALE;
+      const ctx = canvas.getContext('2d')!;
+      ctx.scale(SCALE, SCALE);
+
+      // Background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+
+      // Load logo
+      let logoSrc = '/icon.png';
+      try {
+        const { data: cfgRow } = await supabase
+          .from('system_config').select('value').eq('key', 'logo').single();
+        if (cfgRow?.value) logoSrc = cfgRow.value;
+      } catch { /* fallback */ }
+      const logo = new Image();
+      logo.crossOrigin = 'anonymous';
+      await new Promise<void>(res => {
+        logo.onload = () => res(); logo.onerror = () => res();
+        logo.src = logoSrc; setTimeout(res, 3000);
+      });
+
+      let y = PAD;
+
+      // ── Header: logo centered, title centered below ──────────
+      if (logo.naturalWidth > 0) {
+        const r = LOGO_S / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(CX, y + r, r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(logo, CX - r, y, LOGO_S, LOGO_S);
+        ctx.restore();
+      }
+      y += LOGO_S + 20;
+
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle    = '#9ca3af'; // gray-400 — supporting text, light
+      ctx.font         = `300 17px ${F}`;
+      ctx.fillText('TOP PERFORMING BRANCHES', CX, y);
+      y += 22;
+
+      ctx.font      = `300 14px ${F}`;
+      ctx.fillText('OF', CX, y);
+      y += 20;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font      = `700 52px ${F}`;
+      ctx.fillText('HILOT CENTER', CX, y);
+      y += 100;
+
+      // ── Column headers ───────────────────────────────────────
+      ctx.fillStyle    = '#f59e0b';
+      ctx.font         = `400 12px ${F}`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign    = 'left';
+      ctx.fillText('RANK', PAD, y);
+      ctx.textAlign = 'center';
+      ctx.fillText('BRANCH', W / 2 + 40, y);
+      y += 10;
+
+      // ── Divider ──────────────────────────────────────────────
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+      y += 16;
+
+      // ── Rows ─────────────────────────────────────────────────
+      const RANK_W = 100;
+      top10DisplayList.forEach((d, i) => {
+        const baseY = y + ROW_H * 0.66;
+
+        // Row separator
+        if (i > 0) {
+          ctx.strokeStyle = '#181818';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+        }
+
+        // Rank number
+        ctx.fillStyle    = '#ffffff';
+        ctx.font         = `700 30px ${F}`;
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(`${i + 1}`, PAD, baseY);
+
+        // Branch name — regular weight
+        ctx.font      = `400 24px ${F}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(d.shortName.toUpperCase(), PAD + RANK_W + (W - PAD - RANK_W - PAD) / 2, baseY);
+
+        y += ROW_H;
+      });
+
+      // ── Export as PDF ────────────────────────────────────────
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [W, H] });
+      pdf.addImage(imgData, 'PNG', 0, 0, W, H);
+      pdf.save(`top-branches-${MONTHS[top10Month]}-${top10Year}.pdf`);
+    } catch (e) {
+      console.error('[exportRankingPng]', e);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting, top10DisplayList, rankingTab, top10Month, top10Year]);
 
   // ── Heatmap ──────────────────────────────────────────────
   const dailyStats = useMemo(() => {
@@ -879,8 +1034,9 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
               }
             </p>
 
-            {/* Ranking tabs */}
-            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 w-fit">
+            {/* Ranking tabs + export */}
+            <div className="flex items-center gap-3 mb-4">
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
               <button
                 onClick={() => { setRankingTab('standard'); playSound('click'); }}
                 className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${rankingTab === 'standard' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
@@ -894,6 +1050,20 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                 Adjusted
               </button>
             </div>
+            {/* Export PNG button */}
+            <button
+              onClick={exportRankingPdf}
+              disabled={isExporting || top10DisplayList.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              )}
+              Export PDF
+            </button>
+            </div>{/* end tabs + export row */}
 
             {(() => {
               const listData = rankingTab === 'adjusted' ? top10DataRemittance : top10Data;
@@ -937,24 +1107,15 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                     const medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
                     const displayScore = d.score;
                     const pct = topScore > 0 ? (displayScore / topScore) * 100 : 0;
-                    const rowBg = !isTop10 ? 'bg-white border-slate-100'
-                                : rank === 1 ? 'bg-amber-50 border-amber-200'
-                                : rank === 2 ? 'bg-indigo-50 border-indigo-200'
-                                : rank === 3 ? 'bg-orange-50 border-orange-200'
-                                : rank === 4 ? 'bg-emerald-50 border-emerald-200'
-                                : rank === 5 ? 'bg-sky-50 border-sky-200'
-                                : rank === 6 ? 'bg-violet-50 border-violet-200'
-                                : rank === 7 ? 'bg-rose-50 border-rose-200'
-                                :              'bg-teal-50 border-teal-200';
-                    const barColor = !isTop10 ? 'bg-slate-200'
-                                   : rank === 1 ? 'bg-amber-400'
-                                   : rank === 2 ? 'bg-indigo-400'
-                                   : rank === 3 ? 'bg-orange-400'
-                                   : rank === 4 ? 'bg-emerald-400'
-                                   : rank === 5 ? 'bg-sky-400'
-                                   : rank === 6 ? 'bg-violet-400'
-                                   : rank === 7 ? 'bg-rose-400'
-                                   :              'bg-teal-400';
+                    const rowBg = rank === 1 ? 'bg-slate-900 border-slate-800'
+                                : rank <= 3  ? 'bg-slate-800 border-slate-700'
+                                : isTop10    ? 'bg-slate-50 border-slate-200'
+                                :              'bg-white border-slate-100';
+                    const barTrack = rank <= 3 ? 'bg-slate-700' : 'bg-slate-100';
+                    const barColor = rank === 1 ? 'bg-amber-400'
+                                   : rank <= 3  ? 'bg-slate-300'
+                                   : rank <= 7  ? 'bg-slate-500'
+                                   :              'bg-slate-300';
                     return (
                       <React.Fragment key={d.shortName}>
                         {rank === 11 && (
@@ -979,14 +1140,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           <div className="w-8 shrink-0 flex items-center justify-center">
                             {medal
                               ? <span className="text-xl leading-none">{medal}</span>
-                              : <span className={`text-xs font-black ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>#{rank}</span>}
+                              : <span className={`text-xs font-black ${isTop10 ? 'text-slate-400' : isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>#{rank}</span>}
                           </div>
 
                           {/* Branch + breakdown */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="flex flex-col gap-0.5 min-w-0">
-                                <p className={`font-black uppercase leading-tight ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
+                                <p className={`font-black uppercase leading-tight ${rank <= 3 ? 'text-sm text-white' : isTop20 ? 'text-xs text-slate-700' : 'text-xs text-slate-400'}`}>
                                   {d.shortName}
                                 </p>
                                 <div className="flex items-center gap-1 flex-wrap">
@@ -997,11 +1158,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                                   )}
                                 </div>
                               </div>
-                              <p className={`font-black tabular-nums shrink-0 ${isTop3 ? 'text-sm text-slate-900' : isTop20 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
+                              <p className={`font-black tabular-nums shrink-0 ${rank <= 3 ? 'text-sm text-white' : isTop20 ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}`}>
                                 ₱{Math.round(displayScore).toLocaleString()}
                               </p>
                             </div>
-                            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-1">
+                            <div className={`h-1 rounded-full overflow-hidden mb-1 ${barTrack}`}>
                               <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
                             </div>
                             {rankingTab === 'adjusted' ? (() => {
@@ -1015,30 +1176,30 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                               return (
                                 <div className="space-y-0.5">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{gross.toLocaleString()}</span>
-                                    <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>+</span>
-                                    <span className={`text-[10px] font-bold ${isTop20 ? 'text-indigo-500' : 'text-slate-300'}`}>
+                                    <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-300' : isTop20 ? 'text-slate-500' : 'text-slate-300'}`}>Gross ₱{gross.toLocaleString()}</span>
+                                    <span className={`text-[10px] font-semibold ${rank <= 3 ? 'text-slate-500' : 'text-slate-300'}`}>+</span>
+                                    <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-300' : isTop20 ? 'text-slate-500' : 'text-slate-300'}`}>
                                       Net ROI ₱{netRoi.toLocaleString()}
                                       {adjTotal !== 0 && (
-                                        <span className={`font-bold ${adjTotal >= 0 ? (isTop20 ? 'text-emerald-600' : 'text-slate-300') : (isTop20 ? 'text-rose-500' : 'text-slate-300')}`}> {adjSign} adj ₱{Math.abs(adjTotal).toLocaleString()} = ₱{adjRoi.toLocaleString()}</span>
+                                        <span className={`font-bold ${rank <= 3 ? 'text-slate-400' : adjTotal >= 0 ? (isTop20 ? 'text-slate-500' : 'text-slate-300') : (isTop20 ? 'text-slate-500' : 'text-slate-300')}`}> {adjSign} adj ₱{Math.abs(adjTotal).toLocaleString()} = ₱{adjRoi.toLocaleString()}</span>
                                       )}
                                     </span>
-                                    <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>÷ 2</span>
+                                    <span className={`text-[10px] font-semibold ${rank <= 3 ? 'text-slate-500' : 'text-slate-300'}`}>÷ 2</span>
                                     {d.rankingBoost ? (
-                                      <span className="text-[10px] font-bold text-rose-500">× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
+                                      <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-400' : 'text-slate-400'}`}>× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
                                     ) : null}
                                   </div>
-                                  <span className={`text-[10px] font-semibold ${isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>{periods} period{periods !== 1 ? 's' : ''}</span>
+                                  <span className={`text-[10px] font-semibold ${rank <= 3 ? 'text-slate-500' : isTop20 ? 'text-slate-400' : 'text-slate-300'}`}>{periods} period{periods !== 1 ? 's' : ''}</span>
                                 </div>
                               );
                             })() : (
                               <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-emerald-600' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
-                                <span className="text-[10px] text-slate-300">+</span>
-                                <span className={`text-[10px] font-bold ${isTop20 ? 'text-indigo-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
-                                <span className="text-[10px] text-slate-300">÷ 2</span>
+                                <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-300' : isTop20 ? 'text-slate-500' : 'text-slate-300'}`}>Gross ₱{d.gross.toLocaleString()}</span>
+                                <span className={`text-[10px] ${rank <= 3 ? 'text-slate-500' : 'text-slate-300'}`}>+</span>
+                                <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-300' : isTop20 ? 'text-slate-500' : 'text-slate-300'}`}>Perf. ROI ₱{d.roi.toLocaleString()}</span>
+                                <span className={`text-[10px] ${rank <= 3 ? 'text-slate-500' : 'text-slate-300'}`}>÷ 2</span>
                                 {d.rankingBoost ? (
-                                  <span className="text-[10px] font-bold text-rose-500">× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
+                                  <span className={`text-[10px] font-bold ${rank <= 3 ? 'text-slate-400' : 'text-slate-400'}`}>× {(1 + d.rankingBoost / 100).toFixed(2)}</span>
                                 ) : null}
                               </div>
                             )}
@@ -1720,6 +1881,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
           )}
         </div>
       )}
+
     </div>
   );
 };
