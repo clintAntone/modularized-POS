@@ -192,6 +192,11 @@ export const DB_COLUMNS = {
   PERIOD_LABEL: 'period_label',
   SUBMITTED_BY: 'submitted_by',
   TARGET_OWNER: 'target_owner',
+  ADJUSTED_ROI: 'adjusted_roi',
+  SALARY: 'salary',
+  EXPENSES: 'expenses',
+  NOTES: 'notes',
+  ADJUSTMENTS: 'adjustments',
 
   // Portal Users
   DISPLAY_NAME: 'display_name',

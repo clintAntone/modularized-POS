@@ -25,6 +25,7 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [hasSigned, setHasSigned] = useState(false);
+    const [waiverExpanded, setWaiverExpanded] = useState(false);
     const lastPos = useRef<{ x: number; y: number } | null>(null);
 
     useEffect(() => {
@@ -186,6 +187,38 @@ export const ClientApprovalModal: React.FC<ClientApprovalModalProps> = ({
                             <div className="flex-1 border-t border-dashed border-slate-200" />
                             <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Client Signature</span>
                             <div className="flex-1 border-t border-dashed border-slate-200" />
+                        </div>
+                    </div>
+
+                    {/* Service Consent & Waiver — collapsible */}
+                    <div className="px-5 pb-3">
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setWaiverExpanded(v => !v)}
+                                className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left"
+                            >
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service Consent & Waiver</p>
+                                <svg
+                                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${waiverExpanded ? 'rotate-180' : ''}`}
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {waiverExpanded && (
+                                <div className="px-4 pb-3 space-y-2 border-t border-slate-200">
+                                    <p className="text-[10px] text-slate-500 leading-relaxed pt-2">
+                                        I, <span className="font-semibold text-slate-600">{clientName || 'the undersigned client'}</span>, voluntarily consent to receive the service <span className="font-semibold text-slate-600">"{serviceName}"</span> provided by Hilot Center. I confirm that I have disclosed any relevant medical conditions, injuries, or contraindications prior to the session.
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                                        I understand that hilot and related therapeutic services are not substitutes for professional medical treatment. I release Hilot Center, its staff, and affiliates from any liability for adverse reactions, injuries, or conditions arising from this session, provided services were rendered in good faith and with reasonable care.
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                                        By affixing my signature below, I acknowledge that I have read, understood, and agreed to this consent and waiver in accordance with applicable Philippine laws.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 

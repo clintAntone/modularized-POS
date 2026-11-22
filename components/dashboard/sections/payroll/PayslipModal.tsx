@@ -134,13 +134,14 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
   // ── Monthly data ──────────────────────────────────────────────────────────
   const monthlyData = useMemo(() => {
-    if (!employee || !salesReports || !branch) return null;
+    const empId = employee?.id ?? data.employeeId;
+    if (!empId || !salesReports || !branch) return null;
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const days: DayRecord[] = [];
     let sessions = 0;
     for (const report of salesReports) {
       if (report.branchId !== branch.id || !report.reportDate.startsWith(prefix)) continue;
-      const rec = (report.staffBreakdown ?? []).find((s: any) => s.employeeId === employee.id);
+      const rec = (report.staffBreakdown ?? []).find((s: any) => s.employeeId === empId);
       if (!rec) continue;
       const att = rec.attendance ?? {};
       const ot      = Number(att.otPay       ?? att.ot_pay       ?? 0);
@@ -165,7 +166,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
       grossPay, netPay, hasData: days.length > 0,
       weekGroups: buildWeekGroups(days, year, month, branch?.cycleStartDate),
     };
-  }, [employee, salesReports, branch, month, year]);
+  }, [employee?.id, data.employeeId, salesReports, branch, month, year]);
 
   const isFutureMonth = () => {
     const n = new Date();
@@ -340,7 +341,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
       doc.setFontSize(13); doc.setTextColor(255, 255, 255);
       doc.setFont(undefined as any, 'bold');
-      doc.text(employee.name.toUpperCase(), M + 2, 26);
+      doc.text((employee?.name ?? data.name).toUpperCase(), M + 2, 26);
       doc.setFont(undefined as any, 'normal');
       doc.setFontSize(8); doc.setTextColor(100, 116, 139);
       doc.text(branch.name.toUpperCase(), M + 2, 34);
@@ -457,7 +458,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
       doc.setFontSize(7); doc.setTextColor(200, 210, 220);
       doc.text('*** FOR OFFICIAL USE / LOAN APPLICATION ***', W / 2, 288, { align: 'center' });
 
-      doc.save(`${employee.name}_Payslip_${MONTHS[month]}_${year}.pdf`);
+      doc.save(`${(employee?.name ?? data.name)}_Payslip_${MONTHS[month]}_${year}.pdf`);
       playSound('success');
     } catch (err) {
       console.error('Monthly PDF export failed:', err);

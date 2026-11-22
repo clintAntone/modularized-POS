@@ -162,7 +162,9 @@ export const SalesTodaySection: React.FC<SalesTodayProps> = ({
     vaultTransactions.filter(t =>
       t.branchId === branch.id &&
       t.type === 'DEPOSIT' &&
-      t.name !== 'VAULT DEPOSIT (REMITTANCE)' &&
+      // Exclude any remittance-originated deposits (old name or new name) so they
+      // don't double-count — remittance deposits are already tracked as adjustments.
+      !/remittance/i.test(t.name ?? '') &&
       toManilaDateStr(t.timestamp) === todayStr
     ).map(t => ({ id: t.id, name: t.name ?? 'VAULT DEPOSIT', amount: t.amount, category: 'VAULT_DEPOSIT', timestamp: t.timestamp })),
   [vaultTransactions, branch.id, todayStr]);

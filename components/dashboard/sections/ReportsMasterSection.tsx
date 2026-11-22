@@ -86,20 +86,25 @@ export const ReportsMasterSection: React.FC<ReportsMasterProps> = ({ branch, sal
         [DB_COLUMNS.TOTAL_VAULT_PROVISION]:0,
         [DB_COLUMNS.NET_ROI]:              0,
         [DB_COLUMNS.SESSION_DATA]:         [],
+        [DB_COLUMNS.STAFF_BREAKDOWN]:      [],
+        [DB_COLUMNS.EXPENSE_DATA]:         [],
+        [DB_COLUMNS.VAULT_DATA]:           [],
         [DB_COLUMNS.BACKFILLED]:           true,
-        notes:                             'IGNORED',
       });
       if (error) throw error;
       await logAudit({
-        activityType: 'REPORT_IGNORED',
+        activityType: 'CREATE',
         entityType:   'SALES_REPORT',
+        entityId:     id,
         description:  `Missing report for ${branchName} on ${date} marked as ignored (zero-value entry created)`,
         branchId,
+        performerName: 'SUPERADMIN',
       });
       playSound('success');
       setIgnorePendingKey(null);
       onDeleted?.();
-    } catch {
+    } catch (err: any) {
+      console.error('handleIgnoreMissing failed:', err);
       playSound('warning');
     } finally {
       setIgnoringKey(null);

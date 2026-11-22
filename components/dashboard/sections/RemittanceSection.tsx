@@ -150,7 +150,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   };
 
   useEffect(() => {
-    const adjCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const adjCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
     Promise.all([
       supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)

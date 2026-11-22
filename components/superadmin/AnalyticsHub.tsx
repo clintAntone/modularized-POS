@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branch, SalesReport, BranchBill } from '../../types';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
 import { supabase } from '../../lib/supabase';
 import { playSound, resumeAudioContext } from '../../lib/audio';
 import { getTrueDate, getManilaYear, getManilaMonth } from '../../lib/time';
+import { getWeekRange, parseDate as parseReportDate } from '../../src/utils/reportUtils';
 
 // ─── Types ────────────────────────────────────────────────
 type Metric = 'gross' | 'roi' | 'expenses' | 'salary' | 'bills';
@@ -52,6 +53,13 @@ function parsePeriodStart(label: string, periodEnd: Date): Date | null {
   }
   return null;
 }
+
+// Format a Date as YYYY-MM-DD in Manila timezone (avoids UTC offset shifting the date)
+const toManilaYMD = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
+
+// Normalize dash characters in period labels so em-dash (—) and en-dash (–) stored
+// in remittance_adjustments don't fail to match against remittance_submissions keys
+const normalizeLabel = (l: string) => l.replace(/[—–]/g, '-').trim();
 
 // ─── Week helpers ─────────────────────────────────────────
 function getWeekBounds(anchor: Date) {
@@ -141,6 +149,8 @@ interface AnalyticsHubProps {
 }
 
 export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesReports }) => {
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [mode, setMode]           = useState<HubMode>('chart');
 
   // Bar chart
@@ -221,6 +231,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
   const { data: weekReports = [] } = useQuery<SalesReport[]>({
     queryKey: ['analytics_week_reports', week.start, week.end],
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!supabase) return [];
       const cols = [
@@ -277,6 +288,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   const { data: top10Reports = [], isFetching: fetchingReports } = useQuery<SalesReport[]>({
     queryKey: ['analytics_top10_reports', top10MonthStr],
     enabled: mode === 'chart',
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!supabase) return [];
       // Extend start 10 days back so early-month period starts are captured.
@@ -320,10 +332,13 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
   });
 
   // Approved remittance submissions scoped to selected year (± 1 for cross-year periods).
-  // Uses created_at (never null) instead of submitted_at to avoid NULL comparison pitfalls.
-  const { data: remittanceSubmissions = [], isFetching: fetchingSubmissions } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string }[]>({
-    queryKey: ['analytics_remittances', top10Year],
+  // Includes snapshot columns stamped at approval time — used directly in Adjusted ranking.
+  // Submissions approved before snapshot migration have gross_sales=0; those fall back to
+  // the report+adjustments join path so old data still renders correctly.
+  const { data: remittanceSubmissions = [], isFetching: fetchingSubmissions } = useQuery<{ branchId: string; periodLabel: string; submittedAt: string; grossSales: number; salary: number; expenses: number; adjustedRoi: number }[]>({
+    queryKey: ['analytics_remittances_v2', top10Year],
     enabled: mode === 'chart' && rankingTab === 'adjusted',
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const PAGE = 1000;
       const allRows: any[] = [];
@@ -331,10 +346,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       while (true) {
         const { data, error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .select('branch_id, period_label, submitted_at')
+          .select('branch_id, period_label, submitted_at, gross_sales, salary, expenses, adjusted_roi')
           .eq('status', 'approved')
-          .gte('created_at', `${top10Year - 1}-07-01`)
-          .lte('created_at', `${top10Year + 1}-01-31`)
+          .gte('submitted_at', `${top10Year - 1}-07-01`)
+          .lte('submitted_at', `${top10Year + 1}-01-31`)
           .range(from, from + PAGE - 1);
         if (error) throw error;
         if (data && data.length > 0) allRows.push(...data);
@@ -345,84 +360,42 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         branchId: r.branch_id,
         periodLabel: r.period_label,
         submittedAt: r.submitted_at ?? '',
+        grossSales: Number(r.gross_sales ?? 0),
+        salary: Number(r.salary ?? 0),
+        expenses: Number(r.expenses ?? 0),
+        adjustedRoi: Number(r.adjusted_roi ?? 0),
       }));
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
     gcTime: 30 * 60 * 1000,
-  });
-
-  // "EARLY REMIT" adjustments — presence of this adjustment on a period = branch remitted early
-  const { data: earlyRemitAdjs = [] } = useQuery<{ branchId: string; periodLabel: string }[]>({
-    queryKey: ['analytics_early_remit_adjs', top10Year],
-    enabled: mode === 'chart',
-    queryFn: async () => {
-      const { data } = await supabase
-        .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
-        .select('branch_id, period_label')
-        .ilike('description', '%EARLY REMIT%')
-        .gte('created_at', `${top10Year}-01-01`)
-        .lte('created_at', `${top10Year + 1}-01-15`);
-      return (data || []).map((r: any) => ({
-        branchId: r.branch_id,
-        periodLabel: r.period_label,
-      }));
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
   });
 
   // All remittance adjustments for the year — used to compute actual adjusted ROI per period
   const { data: top10Adjustments = [], isFetching: fetchingAdjustments } = useQuery<{ branchId: string; periodLabel: string; amount: number }[]>({
     queryKey: ['analytics_remit_adjustments_v2', top10Year],
     enabled: mode === 'chart' && rankingTab === 'adjusted',
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data } = await supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
         .select('branch_id, period_label, amount, target_owner, description')
         .gte(DB_COLUMNS.CREATED_AT, `${top10Year}-01-01`)
         .lte(DB_COLUMNS.CREATED_AT, `${top10Year + 1}-01-15`);
-      // Only include global (non-owner) adjustments that aren't vault deposits.
-      // Owner transfer pairs cancel each other out and shouldn't affect branch score.
+      // Exclude vault deposits and owner-transfer records (description contains → or ←).
+      // Owner transfers are pairs that net to zero; excluding them avoids noise.
+      // Branch-level adjustments with a target_owner (e.g. "RENT AND BILLS" assigned to
+      // a specific owner) ARE included — they represent real branch costs.
       return (data || [])
-        .filter((r: any) => !r.target_owner && r.description !== 'VAULT DEPOSIT')
+        .filter((r: any) => r.description !== 'VAULT DEPOSIT' && !/[→←]/.test(r.description))
         .map((r: any) => ({
           branchId: r.branch_id,
           periodLabel: r.period_label,
           amount: Number(r.amount ?? 0),
         }));
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     gcTime: 10 * 60 * 1000,
   });
-
-  // Per-branch early remittance rate for the selected month
-  // earlyRate = periods with an "EARLY REMIT" adjustment ÷ total approved periods ending in month
-  const earlyRemitRateMap = useMemo(() => {
-    // Set of "branchId::periodLabel" that have an EARLY REMIT adjustment
-    const earlyPeriodKeys = new Set(earlyRemitAdjs.map(a => `${a.branchId}::${a.periodLabel}`));
-
-    const map = new Map<string, { early: number; total: number }>();
-    remittanceSubmissions.forEach(sub => {
-      // Use the year of submitted_at to resolve the period end date
-      const refYear = new Date(sub.submittedAt).getFullYear();
-      const periodEnd = parsePeriodEnd(sub.periodLabel, refYear);
-      // If parsing fails, try with top10Year as fallback
-      const resolvedEnd = periodEnd ?? parsePeriodEnd(sub.periodLabel, top10Year);
-      if (!resolvedEnd) return;
-      if (resolvedEnd.getFullYear() !== top10Year || resolvedEnd.getMonth() !== top10Month) return;
-      const isEarly = earlyPeriodKeys.has(`${sub.branchId}::${sub.periodLabel}`);
-      const cur = map.get(sub.branchId) || { early: 0, total: 0 };
-      map.set(sub.branchId, { early: cur.early + (isEarly ? 1 : 0), total: cur.total + 1 });
-    });
-    return map;
-  }, [earlyRemitAdjs, remittanceSubmissions, top10Year, top10Month]);
-
-  // Derived: simple set for badge display on the standard tab
-  const earlyRemitSet = useMemo(() => {
-    const s = new Set<string>();
-    earlyRemitRateMap.forEach((v, k) => { if (v.early > 0) s.add(k); });
-    return s;
-  }, [earlyRemitRateMap]);
 
   const top10Data = useMemo(() => {
     // Performance ROI = grossSales - totalStaffPay - totalExpenses
@@ -443,7 +416,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       { keyword: /TANDANG\s*SORA/i, label: 'TANDANG SORA' },
     ];
 
-    const merged: { shortName: string; gross: number; roi: number; score: number; rankingBoost?: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
+    const merged: { shortName: string; gross: number; roi: number; score: number; rankingBoost?: number; isMerged?: boolean; branchIds: string[] }[] = [];
     const mergeAccum: Record<string, { gross: number; roi: number; label: string; branchIds: string[] }> = {};
 
     activeBranches
@@ -460,88 +433,107 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
           const { gross, perfRoi } = map[b.id];
           const baseScore = (gross + perfRoi) / 2;
           const boost = b.rankingBoost ? (1 + b.rankingBoost / 100) : 1;
-          merged.push({ shortName, gross, roi: perfRoi, score: baseScore * boost, rankingBoost: b.rankingBoost ?? undefined, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
+          merged.push({ shortName, gross, roi: perfRoi, score: baseScore * boost, rankingBoost: b.rankingBoost ?? undefined, branchIds: [b.id] });
         }
       });
 
     Object.values(mergeAccum).forEach(g => {
-      const isEarlyRemit = g.branchIds.some(id => earlyRemitSet.has(id));
-      merged.push({ shortName: g.label, gross: g.gross, roi: g.roi, score: (g.gross + g.roi) / 2, isMerged: true, isEarlyRemit, branchIds: g.branchIds });
+      merged.push({ shortName: g.label, gross: g.gross, roi: g.roi, score: (g.gross + g.roi) / 2, isMerged: true, branchIds: g.branchIds });
     });
 
-    return merged.sort((a, b) => b.score - a.score || (b.isEarlyRemit ? 1 : 0) - (a.isEarlyRemit ? 1 : 0));
-  }, [activeBranches, top10Reports, earlyRemitSet, top10MonthStr]);
+    return merged.sort((a, b) => b.score - a.score);
+  }, [activeBranches, top10Reports, top10MonthStr]);
 
-  // Option A: score × (1 + earlyRate × 0.10) — max 10% bonus for perfect remittance
-  const EARLY_REMIT_BONUS_CAP = 0.10;
-  const top10DataEarlyRemit = useMemo(() => {
-    const getRate = (branchIds: string[]) => {
-      let early = 0, total = 0;
-      branchIds.forEach(id => {
-        const r = earlyRemitRateMap.get(id);
-        if (r) { early += r.early; total += r.total; }
-      });
-      return total > 0 ? early / total : 0;
-    };
-    return top10Data
-      .map(d => {
-        const earlyRate = getRate(d.branchIds);
-        const adjustedScore = d.score * (1 + earlyRate * EARLY_REMIT_BONUS_CAP);
-        return { ...d, earlyRate, adjustedScore };
-      })
-      .sort((a, b) => b.adjustedScore - a.adjustedScore);
-  }, [top10Data, earlyRemitRateMap]);
-
-  // Remittance tab: Score = sum of approved adjusted ROI (netRoi + adjustments) for periods ending in the month.
-  // Only branches that actually remitted appear — this is what truly went to owners.
+  // Remittance-based ranking: mirrors WeeklyRemittancesHub exactly.
+  // Uses snapshot columns (gross_sales, salary, expenses, adjusted_roi) when available
+  // (grossSales > 0); falls back to report+adjustments join for older submissions.
   const top10DataRemittance = useMemo(() => {
+    // Build submission map: branchId::periodLabel → submission (with snapshot columns)
+    const subMap = new Map(remittanceSubmissions.map(s => [`${s.branchId}::${s.periodLabel}`, s]));
+
+    // Fallback adjustment map — used when submission has no snapshot (grossSales=0)
     const adjMap = new Map<string, number>();
-    top10Adjustments.forEach(adj => {
-      const key = `${adj.branchId}::${adj.periodLabel}`;
-      adjMap.set(key, (adjMap.get(key) ?? 0) + adj.amount);
+    top10Adjustments.forEach(a => {
+      const key = `${a.branchId}::${a.periodLabel}`;
+      adjMap.set(key, (adjMap.get(key) ?? 0) + a.amount);
     });
 
-    const branchData = new Map<string, { adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number }>();
-    remittanceSubmissions.forEach(sub => {
-      // submittedAt may be empty/null — always fall back to top10Year for period parsing
-      const submittedYear = sub.submittedAt ? new Date(sub.submittedAt).getFullYear() : top10Year;
-      const periodEnd = parsePeriodEnd(sub.periodLabel, submittedYear) ?? parsePeriodEnd(sub.periodLabel, top10Year);
-      if (!periodEnd) return;
-      const periodStart = parsePeriodStart(sub.periodLabel, periodEnd);
-      if (!periodStart) return;
-      // Assign the period to the month in which it STARTS (not ends).
-      // This captures cross-month periods like "Oct 31 — Nov 8" under October.
-      if (periodStart.getFullYear() !== top10Year || periodStart.getMonth() !== top10Month) return;
+    const branchById = new Map<string, Branch>(activeBranches.map(b => [b.id, b]));
 
-      const startYMD = periodStart.toISOString().slice(0, 10);
-      const endYMD   = periodEnd.toISOString().slice(0, 10);
+    // Snapshot path: branchId → periodLabel → snapshot values (recorded once per period)
+    const branchSnap = new Map<string, Map<string, { gross: number; salary: number; expenses: number; adjustedRoi: number }>>();
+    // Fallback path: branchId → accumulated report totals
+    const branchFallback = new Map<string, { gross: number; netRoi: number; periodLabels: Set<string> }>();
 
-      const periodReports = top10Reports.filter(r => r.branchId === sub.branchId && r.reportDate >= startYMD && r.reportDate <= endYMD);
-      // Compute the same way as Standard tab: gross - staff - expenses (excludes vault provisions).
-      const periodNetRoi = periodReports.reduce((s, r) => s + r.grossSales - r.totalStaffPay - r.totalExpenses, 0);
-      const periodGross  = periodReports.reduce((s, r) => s + r.grossSales, 0);
-      const periodAdj = adjMap.get(`${sub.branchId}::${sub.periodLabel}`) ?? 0;
+    top10Reports.forEach(report => {
+      const branch = branchById.get(report.branchId);
+      if (!branch) return;
 
-      const cur = branchData.get(sub.branchId) ?? { adjustedRoi: 0, netRoi: 0, adjTotal: 0, gross: 0, periods: 0 };
-      branchData.set(sub.branchId, {
-        adjustedRoi: cur.adjustedRoi + periodNetRoi + periodAdj,
-        netRoi:      cur.netRoi + periodNetRoi,
-        adjTotal:    cur.adjTotal + periodAdj,
-        gross:       cur.gross + periodGross,
-        periods:     cur.periods + 1,
+      const { label, weekStart } = getWeekRange(parseReportDate(report.reportDate), branch);
+
+      // Only periods whose week START falls in the selected month
+      if (weekStart.getFullYear() !== top10Year || weekStart.getMonth() !== top10Month) return;
+
+      const sub = subMap.get(`${report.branchId}::${label}`);
+      if (!sub) return;
+
+      if (sub.grossSales > 0) {
+        // Snapshot available — record each period once (multiple reports share same label)
+        if (!branchSnap.has(report.branchId)) branchSnap.set(report.branchId, new Map());
+        const periods = branchSnap.get(report.branchId)!;
+        if (!periods.has(label)) {
+          periods.set(label, { gross: sub.grossSales, salary: sub.salary, expenses: sub.expenses, adjustedRoi: sub.adjustedRoi });
+        }
+      } else {
+        // Fallback — accumulate from individual reports
+        if (!branchFallback.has(report.branchId)) branchFallback.set(report.branchId, { gross: 0, netRoi: 0, periodLabels: new Set() });
+        const d = branchFallback.get(report.branchId)!;
+        d.gross   += report.grossSales;
+        d.netRoi  += report.grossSales - report.totalStaffPay - report.totalExpenses;
+        d.periodLabels.add(label);
+      }
+    });
+
+    // Combine snapshot + fallback into final per-branch totals
+    const allBranchIds = new Set([...branchSnap.keys(), ...branchFallback.keys()]);
+    const branchFinal = new Map<string, { gross: number; netRoi: number; adjTotal: number; adjustedRoi: number; periods: number }>();
+
+    allBranchIds.forEach(branchId => {
+      let snapGross = 0, snapNetRoi = 0, snapAdjRoi = 0, snapPeriodCount = 0;
+      branchSnap.get(branchId)?.forEach(p => {
+        snapGross     += p.gross;
+        snapNetRoi    += p.gross - p.salary - p.expenses;
+        snapAdjRoi    += p.adjustedRoi;
+        snapPeriodCount++;
       });
+
+      let fallGross = 0, fallNetRoi = 0, fallAdjTotal = 0, fallPeriodCount = 0;
+      const fb = branchFallback.get(branchId);
+      if (fb) {
+        fallGross  = fb.gross;
+        fallNetRoi = fb.netRoi;
+        fb.periodLabels.forEach(label => { fallAdjTotal += adjMap.get(`${branchId}::${label}`) ?? 0; });
+        fallPeriodCount = fb.periodLabels.size;
+      }
+
+      const gross       = snapGross + fallGross;
+      const netRoi      = snapNetRoi + fallNetRoi;
+      const adjTotal    = (snapAdjRoi - snapNetRoi) + fallAdjTotal;
+      const adjustedRoi = snapAdjRoi + fallNetRoi + fallAdjTotal;
+
+      branchFinal.set(branchId, { gross, netRoi, adjTotal, adjustedRoi, periods: snapPeriodCount + fallPeriodCount });
     });
 
     const MERGE_GROUPS: { keyword: RegExp; label: string }[] = [
       { keyword: /TANDANG\s*SORA/i, label: 'TANDANG SORA' },
     ];
-    const merged: { shortName: string; adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number; score: number; rankingBoost?: number; isMerged?: boolean; isEarlyRemit?: boolean; branchIds: string[] }[] = [];
+    const merged: { shortName: string; adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number; score: number; rankingBoost?: number; isMerged?: boolean; branchIds: string[] }[] = [];
     const mergeAccum: Record<string, { adjustedRoi: number; netRoi: number; adjTotal: number; gross: number; periods: number; label: string; branchIds: string[] }> = {};
 
     activeBranches
-      .filter(b => branchData.has(b.id))
+      .filter(b => branchFinal.has(b.id))
       .forEach(b => {
-        const d = branchData.get(b.id)!;
+        const d = branchFinal.get(b.id)!;
         const group = MERGE_GROUPS.find(g => g.keyword.test(b.name));
         if (group) {
           if (!mergeAccum[group.label]) mergeAccum[group.label] = { adjustedRoi: 0, netRoi: 0, adjTotal: 0, gross: 0, periods: 0, label: group.label, branchIds: [] };
@@ -554,15 +546,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
         } else {
           const shortName = b.name.replace(/BRANCH\s*-\s*/i, '').trim();
           const boost = b.rankingBoost ? (1 + b.rankingBoost / 100) : 1;
-          merged.push({ shortName, ...d, score: ((d.gross + d.adjustedRoi) / 2) * boost, rankingBoost: b.rankingBoost ?? undefined, isEarlyRemit: earlyRemitSet.has(b.id), branchIds: [b.id] });
+          merged.push({ shortName, ...d, score: ((d.gross + d.adjustedRoi) / 2) * boost, rankingBoost: b.rankingBoost ?? undefined, branchIds: [b.id] });
         }
       });
     Object.values(mergeAccum).forEach(g => {
-      const isEarlyRemit = g.branchIds.some(id => earlyRemitSet.has(id));
-      merged.push({ shortName: g.label, ...g, score: (g.gross + g.adjustedRoi) / 2, isMerged: true, isEarlyRemit, branchIds: g.branchIds });
+      merged.push({ shortName: g.label, ...g, score: (g.gross + g.adjustedRoi) / 2, isMerged: true, branchIds: g.branchIds });
     });
     return merged.sort((a, b) => b.score - a.score);
-  }, [activeBranches, top10Reports, top10Adjustments, remittanceSubmissions, top10Year, top10Month, earlyRemitSet]);
+  }, [activeBranches, top10Reports, top10Adjustments, remittanceSubmissions, top10Year, top10Month]);
 
   // Per-period detail for the clicked branch in the ranking list
   const selectedRankDetail = useMemo(() => {
@@ -584,41 +575,73 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
       return { totalGross, totalStaff, totalExp, totalNet, adjTotal: 0, periods: [] as { label: string; gross: number; staff: number; exp: number; net: number; adj: number }[] };
     }
 
-    // Adjusted tab — reconstruct per-period breakdown
+    // Adjusted tab — snapshot when grossSales > 0, fallback for older submissions
+    const subMap = new Map(remittanceSubmissions.map(s => [`${s.branchId}::${s.periodLabel}`, s]));
     const adjMap = new Map<string, number>();
-    top10Adjustments.forEach(adj => {
-      const key = `${adj.branchId}::${adj.periodLabel}`;
-      adjMap.set(key, (adjMap.get(key) ?? 0) + adj.amount);
+    top10Adjustments.forEach(a => {
+      const key = `${a.branchId}::${a.periodLabel}`;
+      adjMap.set(key, (adjMap.get(key) ?? 0) + a.amount);
+    });
+    const branchById = new Map<string, Branch>(activeBranches.map(b => [b.id, b]));
+
+    type PeriodAccum = {
+      label: string; weekStart: Date;
+      snapGross: number; snapSalary: number; snapExp: number; snapAdjRoi: number; snapBranchIds: Set<string>;
+      fallGross: number; fallStaff: number; fallExp: number; fallNet: number;
+    };
+    const periodMap = new Map<string, PeriodAccum>();
+    const snapTracker = new Set<string>(); // "branchId::label" to avoid double-counting snapshot
+
+    top10Reports.forEach(report => {
+      if (!entry.branchIds.includes(report.branchId)) return;
+      const branch = branchById.get(report.branchId);
+      if (!branch) return;
+
+      const { label, weekStart } = getWeekRange(parseReportDate(report.reportDate), branch);
+      if (weekStart.getFullYear() !== top10Year || weekStart.getMonth() !== top10Month) return;
+
+      const sub = subMap.get(`${report.branchId}::${label}`);
+      if (!sub) return;
+
+      if (!periodMap.has(label)) {
+        periodMap.set(label, { label, weekStart, snapGross: 0, snapSalary: 0, snapExp: 0, snapAdjRoi: 0, snapBranchIds: new Set(), fallGross: 0, fallStaff: 0, fallExp: 0, fallNet: 0 });
+      }
+      const p = periodMap.get(label)!;
+
+      if (sub.grossSales > 0) {
+        const snapKey = `${report.branchId}::${label}`;
+        if (!snapTracker.has(snapKey)) {
+          snapTracker.add(snapKey);
+          p.snapGross   += sub.grossSales;
+          p.snapSalary  += sub.salary;
+          p.snapExp     += sub.expenses;
+          p.snapAdjRoi  += sub.adjustedRoi;
+          p.snapBranchIds.add(report.branchId);
+        }
+      } else {
+        p.fallGross += report.grossSales;
+        p.fallStaff += report.totalStaffPay;
+        p.fallExp   += report.totalExpenses;
+        p.fallNet   += report.grossSales - report.totalStaffPay - report.totalExpenses;
+      }
     });
 
-    const periods: { label: string; gross: number; staff: number; exp: number; net: number; adj: number }[] = [];
-    remittanceSubmissions.forEach(sub => {
-      if (!entry.branchIds.includes(sub.branchId)) return;
-      const submittedYear = sub.submittedAt ? new Date(sub.submittedAt).getFullYear() : top10Year;
-      const periodEnd = parsePeriodEnd(sub.periodLabel, submittedYear) ?? parsePeriodEnd(sub.periodLabel, top10Year);
-      if (!periodEnd) return;
-      const periodStart = parsePeriodStart(sub.periodLabel, periodEnd);
-      if (!periodStart) return;
-      if (periodStart.getFullYear() !== top10Year || periodStart.getMonth() !== top10Month) return;
-      const startYMD = periodStart.toISOString().slice(0, 10);
-      const endYMD   = periodEnd.toISOString().slice(0, 10);
-      const reps = top10Reports.filter(r => entry.branchIds.includes(r.branchId) && r.reportDate >= startYMD && r.reportDate <= endYMD);
-      const gross = reps.reduce((s, r) => s + r.grossSales, 0);
-      const staff = reps.reduce((s, r) => s + r.totalStaffPay, 0);
-      const exp   = reps.reduce((s, r) => s + r.totalExpenses, 0);
-      const net   = gross - staff - exp;
-      const adj   = entry.branchIds.reduce((s, id) => s + (adjMap.get(`${id}::${sub.periodLabel}`) ?? 0), 0);
-      periods.push({ label: sub.periodLabel, gross, staff, exp, net, adj });
-    });
-    periods.sort((a, b) => {
-      const getStart = (label: string) => {
-        const end = parsePeriodEnd(label, top10Year) ?? parsePeriodEnd(label, top10Year - 1);
-        if (!end) return 0;
-        const start = parsePeriodStart(label, end);
-        return start ? start.getTime() : 0;
-      };
-      return getStart(a.label) - getStart(b.label);
-    });
+    const periods = Array.from(periodMap.values())
+      .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+      .map(p => {
+        const snapNet = p.snapGross - p.snapSalary - p.snapExp;
+        const snapAdj = p.snapAdjRoi - snapNet;
+        const fallAdj = entry.branchIds.reduce((s, id) => {
+          if (p.snapBranchIds.has(id)) return s; // snapshot branch — adj already in snapAdjRoi
+          return s + (adjMap.get(`${id}::${p.label}`) ?? 0);
+        }, 0);
+        const gross = p.snapGross + p.fallGross;
+        const staff = p.snapSalary + p.fallStaff;
+        const exp   = p.snapExp   + p.fallExp;
+        const net   = snapNet     + p.fallNet;
+        const adj   = snapAdj     + fallAdj;
+        return { label: p.label, gross, staff, exp, net, adj };
+      });
 
     const totalGross = periods.reduce((s, p) => s + p.gross, 0);
     const totalStaff = periods.reduce((s, p) => s + p.staff, 0);
@@ -626,7 +649,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
     const totalNet   = periods.reduce((s, p) => s + p.net, 0);
     const adjTotal   = periods.reduce((s, p) => s + p.adj, 0);
     return { totalGross, totalStaff, totalExp, totalNet, adjTotal, periods };
-  }, [selectedRankBranch, rankingTab, top10Data, top10DataRemittance, top10Reports, top10Adjustments, remittanceSubmissions, top10Year, top10Month, top10MonthStr]);
+  }, [selectedRankBranch, rankingTab, top10Data, top10DataRemittance, top10Reports, top10Adjustments, remittanceSubmissions, activeBranches, top10Year, top10Month, top10MonthStr]);
 
   const availableYears = useMemo(() => {
     const s = new Set<number>([getManilaYear()]);
@@ -694,7 +717,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
 
   const branchHeatRows = useMemo(() =>
     activeBranches.map(b => {
-      const dayMap = branchDailyMap[b.id] ?? {};
+      const dayMap: Record<number, number> = branchDailyMap[b.id] ?? {};
       const days: (number | null)[] = Array.from({ length: daysInMonth }, (_, i) => dayMap[i + 1] ?? null);
       const total = Object.values(dayMap).reduce((s, v) => s + v, 0);
       return { id: b.id, name: b.name.replace(/BRANCH\s*-\s*/i, ''), days, total };
@@ -768,7 +791,29 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   <span className="text-lg">🏆</span>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Monthly Top 20</h3>
                 </div>
-              {/* Custom month/year picker */}
+              {/* Refresh + month/year picker */}
+              <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={async () => {
+                  if (isRefreshing) return;
+                  setIsRefreshing(true);
+                  playSound('click');
+                  await queryClient.invalidateQueries({ queryKey: ['analytics_top10_reports', top10MonthStr] });
+                  await queryClient.invalidateQueries({ queryKey: ['analytics_remittances', top10Year] });
+                  await queryClient.invalidateQueries({ queryKey: ['analytics_remit_adjustments_v2', top10Year] });
+                  await queryClient.invalidateQueries({ queryKey: ['analytics_week_reports', week.start, week.end] });
+                  setIsRefreshing(false);
+                  playSound('success');
+                }}
+                disabled={isRefreshing}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-sm transition-all disabled:opacity-50"
+                title="Refresh analytics data"
+              >
+                <svg className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span className="text-xs font-black uppercase tracking-wide text-slate-500">{isRefreshing ? 'Refreshing…' : 'Refresh'}</span>
+              </button>
               <div className="relative shrink-0" ref={top10PickerRef}>
                 <button
                   onClick={() => setTop10PickerOpen(v => !v)}
@@ -823,13 +868,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                   </div>
                 )}
               </div>
+              </div>{/* end refresh + picker wrapper */}
               </div>{/* end flex justify-between row */}
             </div>
-            {/* Formula — full width row, never squeezed by picker */}
+            {/* Formula */}
             <p className="ml-7 mt-1 mb-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               {rankingTab === 'standard'
                 ? <>(Gross + Perf. ROI) ÷ 2 · <span className="text-amber-500">excl. vault &amp; bills</span></>
-                : <span className="text-emerald-600">(Gross + Remittance Net ROI) ÷ 2</span>
+                : <span className="text-emerald-600">(Gross + Adjusted ROI) ÷ 2 · remittance periods only</span>
               }
             </p>
 
@@ -1030,19 +1076,16 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                               {rankingTab === 'adjusted' && det.periods.length > 0 && (
                                 <div className="divide-y divide-slate-100">
                                   {det.periods.map(p => (
-                                    <div key={p.label} className="px-4 py-2 flex items-start justify-between gap-4">
+                                    <div key={p.label} className="px-4 py-2 flex items-center justify-between gap-4">
                                       <span className="font-semibold text-slate-500 shrink-0">{p.label}</span>
-                                      <div className="flex items-center gap-3 flex-wrap justify-end">
+                                      <div className="flex items-center gap-4 flex-wrap justify-end">
                                         <span className="text-emerald-600 font-semibold tabular-nums">{fmt(p.gross)}</span>
-                                        <span className="text-slate-300">−</span>
-                                        <span className="text-slate-500 tabular-nums">{fmt(p.staff + p.exp)}</span>
-                                        <span className="text-slate-300">=</span>
-                                        <span className={`font-black tabular-nums ${p.net >= 0 ? 'text-indigo-600' : 'text-rose-500'}`}>{fmt(p.net)}</span>
                                         {p.adj !== 0 && (
                                           <span className={`font-bold tabular-nums ${p.adj < 0 ? 'text-rose-400' : 'text-emerald-500'}`}>
                                             {p.adj >= 0 ? '+' : '−'}{fmt(Math.abs(p.adj))} adj
                                           </span>
                                         )}
+                                        <span className={`font-black tabular-nums ${(p.net + p.adj) >= 0 ? 'text-indigo-400' : 'text-rose-500'}`}>{fmt(p.net + p.adj)}</span>
                                       </div>
                                     </div>
                                   ))}

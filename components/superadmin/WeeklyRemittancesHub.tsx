@@ -304,13 +304,10 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const [adjustments, setAdjustments] = useState<RemittanceAdjustment[]>([]);
   const [submissions, setSubmissions] = useState<RemittanceSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const INITIAL_DAYS = 60;
-  const LOAD_MORE_DAYS = 60;
-  const [loadedCutoff, setLoadedCutoff] = useState<Date>(() => new Date(Date.now() - INITIAL_DAYS * 24 * 60 * 60 * 1000));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreToLoad, setHasMoreToLoad] = useState(true);
   const [isReviewing, setIsReviewing] = useState(false);
-  const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string } | null>(null);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
+  const [remitConfirm, setRemitConfirm] = useState<{ submissionId: string | null; branchId: string; periodLabel: string; branchName: string; grossSales: number; salary: number; expenses: number; snapshotAdjustedRoi: number } | null>(null);
   const [unmarkConfirm, setUnmarkConfirm] = useState<{ submissionId: string; branchName: string; periodLabel: string; hasVaultAdj: boolean } | null>(null);
   const [markAllConfirm, setMarkAllConfirm] = useState(false);
   const [openGrossBreakdown, setOpenGrossBreakdown] = useState<string | null>(null);
@@ -345,6 +342,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   const handleBranchCardClick = useCallback((branchId: string) => {
     setActiveBranchId(branchId);
     setBranchSearch('');
+    setBackfillProgress(null);
     playSound('click');
   }, []);
 
@@ -408,19 +406,19 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   }, []);
 
   useEffect(() => {
-    const cutoff = loadedCutoff.toISOString();
-
+    const adjCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
     Promise.all([
       supabase
         .from(DB_TABLES.REMITTANCE_ADJUSTMENTS)
         .select('*')
-        .gte(DB_COLUMNS.CREATED_AT, cutoff)
-        .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
+        .gte(DB_COLUMNS.CREATED_AT, adjCutoff)
+        .order(DB_COLUMNS.CREATED_AT, { ascending: false })
+        .limit(5000),
       supabase
         .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
         .select('id, branch_id, period_label, status, review_note, submitted_at')
-        .gte(DB_COLUMNS.SUBMITTED_AT, cutoff)
         .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false })
+        .limit(5000)
     ]).then(([adjResult, subResult]) => {
       const adjData = adjResult.data || [];
       setAdjustments(adjData.map((r: any) => ({
@@ -461,44 +459,6 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const handleLoadMore = async () => {
-    if (isLoadingMore || !hasMoreToLoad) return;
-    setIsLoadingMore(true);
-    const newCutoff = new Date(loadedCutoff.getTime() - LOAD_MORE_DAYS * 24 * 60 * 60 * 1000);
-    const from = newCutoff.toISOString();
-    const to = loadedCutoff.toISOString();
-    try {
-      const [adjResult, subResult, notesResult] = await Promise.all([
-        supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).select('*')
-          .gte(DB_COLUMNS.CREATED_AT, from).lt(DB_COLUMNS.CREATED_AT, to)
-          .order(DB_COLUMNS.CREATED_AT, { ascending: true }),
-        supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .select('id, branch_id, period_label, status, review_note, submitted_at')
-          .gte(DB_COLUMNS.SUBMITTED_AT, from).lt(DB_COLUMNS.SUBMITTED_AT, to)
-          .order(DB_COLUMNS.SUBMITTED_AT, { ascending: false }),
-        supabase.from('remittance_notes').select('branch_id, period_label, note'),
-      ]);
-      const newAdj = (adjResult.data || []).map((r: any) => ({
-        id: r.id, branchId: r.branch_id, periodLabel: r.period_label,
-        description: r.description, amount: Number(r.amount),
-        targetOwner: r.target_owner || null, addedBy: r.added_by || null, createdAt: r.created_at,
-      }));
-      const newSubs = (subResult.data || []).map(mapSubmission);
-      if (notesResult.data) {
-        setBranchNotes(prev => {
-          const next = { ...prev };
-          notesResult.data!.forEach((r: any) => { next[`${r.branch_id}::${r.period_label}`] = r.note || ''; });
-          return next;
-        });
-      }
-      setAdjustments(prev => [...prev, ...newAdj]);
-      setSubmissions(prev => [...prev, ...newSubs]);
-      setLoadedCutoff(newCutoff);
-      if (newAdj.length === 0 && newSubs.length === 0) setHasMoreToLoad(false);
-    } catch { /* silent */ } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   // Persist filters across tab changes
   useEffect(() => { localStorage.setItem('rem_filter_periods', JSON.stringify(selectedPeriods)); }, [selectedPeriods]);
@@ -519,14 +479,27 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleReview = async (submissionId: string | null, branchId: string, periodLabel: string, status: 'approved' | 'rejected' | 'for_verification', note?: string) => {
+  const handleReview = async (submissionId: string | null, branchId: string, periodLabel: string, status: 'approved' | 'rejected' | 'for_verification', note?: string, grossSales = 0, snapshotAdjustedRoi = 0, salary = 0, expenses = 0) => {
     setIsReviewing(true);
     try {
       const now = getTrueISOString();
+      let snapshot: Record<string, any> = {};
+      if (status === 'approved') {
+        const periodAdjs = adjustments.filter(a => a.branchId === branchId && a.periodLabel === periodLabel);
+        const adjSnapshot = periodAdjs.map(a => ({ description: a.description, amount: a.amount, target_owner: a.targetOwner ?? null }));
+        snapshot = {
+          gross_sales: grossSales,
+          [DB_COLUMNS.ADJUSTED_ROI]: snapshotAdjustedRoi,
+          [DB_COLUMNS.SALARY]: salary,
+          [DB_COLUMNS.EXPENSES]: expenses,
+          [DB_COLUMNS.NOTES]: branchNotes[`${branchId}::${periodLabel}`] ?? null,
+          [DB_COLUMNS.ADJUSTMENTS]: adjSnapshot,
+        };
+      }
       if (submissionId) {
         const { error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .update({ status, review_note: note || null, reviewed_at: now })
+          .update({ status, review_note: note || null, reviewed_at: now, ...snapshot })
           .eq(DB_COLUMNS.ID, submissionId);
         if (error) throw error;
         setSubmissions(prev => prev.map(s =>
@@ -535,7 +508,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
       } else {
         const { data, error } = await supabase
           .from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-          .upsert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now }, { onConflict: 'branch_id,period_label' })
+          .upsert({ branch_id: branchId, period_label: periodLabel, status, review_note: note || null, submitted_at: now, reviewed_at: now, ...snapshot }, { onConflict: 'branch_id,period_label' })
           .select().single();
         if (error) throw error;
         setSubmissions(prev => [mapSubmission(data), ...prev]);
@@ -569,10 +542,36 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
   };
 
   const handleDeleteAdjustment = async (id: string) => {
+    const toDelete = adjustments.find(a => a.id === id);
     try {
       await supabase.from(DB_TABLES.REMITTANCE_ADJUSTMENTS).delete().eq(DB_COLUMNS.ID, id);
       setAdjustments(prev => prev.filter(a => a.id !== id));
       playSound('click');
+      // Sync snapshot columns on the submission if it's already approved
+      if (toDelete) {
+        const sub = subLookup[`${toDelete.branchId}::${toDelete.periodLabel}`];
+        if (sub?.status === 'approved') {
+          let agg: any = null;
+          for (const group of allGroupedReports) {
+            const r = group.reports.find((r: any) => r.branchId === toDelete.branchId && (r.branchLabel || group.label) === toDelete.periodLabel);
+            if (r) { agg = r; break; }
+          }
+          if (agg) {
+            const remainingAdjs = adjustments.filter(a =>
+              a.id !== id && a.branchId === toDelete.branchId && a.periodLabel === toDelete.periodLabel &&
+              a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description)
+            );
+            const remainingAllAdjs = adjustments.filter(a => a.id !== id && a.branchId === toDelete.branchId && a.periodLabel === toDelete.periodLabel);
+            const adjSnapshot = remainingAllAdjs.map(a => ({ description: a.description, amount: a.amount, target_owner: a.targetOwner ?? null }));
+            await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+              .update({
+                [DB_COLUMNS.ADJUSTED_ROI]: agg.netRoi + remainingAdjs.reduce((s, a) => s + a.amount, 0),
+                [DB_COLUMNS.ADJUSTMENTS]: adjSnapshot,
+              })
+              .eq(DB_COLUMNS.ID, sub.id);
+          }
+        }
+      }
     } catch (err) {
       console.error(err);
       playSound('warning');
@@ -620,14 +619,29 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     try {
       const now = getTrueISOString();
       for (const { report, group, sub } of quickProcessItems) {
+        const periodLabel = report.branchLabel || group.label;
+        const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === periodLabel);
+        const snapshotAdj = rowAdj
+          .filter(a => a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description))
+          .reduce((s, a) => s + a.amount, 0);
+        const adjSnapshot = rowAdj.map(a => ({ description: a.description, amount: a.amount, target_owner: a.targetOwner ?? null }));
+        const noteKey = `${report.branchId}::${periodLabel}`;
+        const snapshot = {
+          gross_sales: report.grossSales,
+          [DB_COLUMNS.ADJUSTED_ROI]: report.netRoi + snapshotAdj,
+          [DB_COLUMNS.SALARY]: report.totalStaffPay,
+          [DB_COLUMNS.EXPENSES]: report.totalExpenses,
+          [DB_COLUMNS.NOTES]: branchNotes[noteKey] ?? null,
+          [DB_COLUMNS.ADJUSTMENTS]: adjSnapshot,
+        };
         if (sub?.id) {
           await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-            .update({ status: 'approved', reviewed_at: now })
+            .update({ status: 'approved', reviewed_at: now, ...snapshot })
             .eq(DB_COLUMNS.ID, sub.id);
           setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, status: 'approved' } : s));
         } else {
           const { data } = await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
-            .insert({ branch_id: report.branchId, period_label: group.label, status: 'approved', submitted_at: now, reviewed_at: now })
+            .insert({ branch_id: report.branchId, period_label: periodLabel, status: 'approved', submitted_at: now, reviewed_at: now, ...snapshot })
             .select().single();
           if (data) setSubmissions(prev => [mapSubmission(data), ...prev]);
         }
@@ -650,8 +664,67 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         { onConflict: 'branch_id,period_label' }
       );
       setBranchNotes(prev => ({ ...prev, [key]: note.trim() }));
+      // Sync notes snapshot on the submission if it's already approved
+      const sub = subLookup[key];
+      if (sub?.status === 'approved') {
+        await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+          .update({ [DB_COLUMNS.NOTES]: note.trim() || null })
+          .eq(DB_COLUMNS.ID, sub.id);
+      }
     } catch (e) { console.error('Note save error', e); playSound('warning'); }
     finally { setSavingNoteKey(null); }
+  };
+
+  // Backfill gross_sales + adjusted_roi on approved submissions visible in the current
+  // loaded window. Pass a branchId to scope to a single branch, or omit for all branches.
+  // Run once per branch (or globally) after deploying the snapshot columns migration.
+  const handleBackfillSnapshots = async (branchId?: string) => {
+    if (isBackfilling) return;
+    setIsBackfilling(true);
+    setBackfillProgress(null);
+    playSound('click');
+    const toUpdate: { subId: string; grossSales: number; salary: number; expenses: number; adjustedRoi: number; notes: string | null; adjSnapshot: any[] }[] = [];
+    allGroupedReports.forEach(group => {
+      group.reports.forEach((report: any) => {
+        if (branchId && report.branchId !== branchId) return;
+        const effLabel = report.branchLabel || group.label;
+        const sub = subLookup[`${report.branchId}::${effLabel}`];
+        if (!sub || sub.status !== 'approved') return;
+        const rowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === effLabel);
+        const snapshotAdj = rowAdj
+          .filter(a => a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description))
+          .reduce((s, a) => s + a.amount, 0);
+        const adjSnapshot = rowAdj.map(a => ({ description: a.description, amount: a.amount, target_owner: a.targetOwner ?? null }));
+        const noteKey = `${report.branchId}::${effLabel}`;
+        toUpdate.push({
+          subId: sub.id,
+          grossSales: report.grossSales,
+          salary: report.totalStaffPay,
+          expenses: report.totalExpenses,
+          adjustedRoi: report.netRoi + snapshotAdj,
+          notes: branchNotes[noteKey] ?? null,
+          adjSnapshot,
+        });
+      });
+    });
+    setBackfillProgress({ done: 0, total: toUpdate.length });
+    let done = 0;
+    for (const item of toUpdate) {
+      await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+        .update({
+          gross_sales: item.grossSales,
+          [DB_COLUMNS.ADJUSTED_ROI]: item.adjustedRoi,
+          [DB_COLUMNS.SALARY]: item.salary,
+          [DB_COLUMNS.EXPENSES]: item.expenses,
+          [DB_COLUMNS.NOTES]: item.notes,
+          [DB_COLUMNS.ADJUSTMENTS]: item.adjSnapshot,
+        })
+        .eq(DB_COLUMNS.ID, item.subId);
+      done++;
+      setBackfillProgress({ done, total: toUpdate.length });
+    }
+    setIsBackfilling(false);
+    playSound('success');
   };
 
   const handleAddAdjustment = async (branchId: string, periodLabel: string, adjustedRoi: number) => {
@@ -682,6 +755,34 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         createdAt: data.created_at,
       }]);
 
+      // Sync snapshot columns on the submission if it's already approved
+      const sub = subLookup[`${branchId}::${periodLabel}`];
+      if (sub?.status === 'approved') {
+        let agg: any = null;
+        for (const group of allGroupedReports) {
+          const r = group.reports.find((r: any) => r.branchId === branchId && (r.branchLabel || group.label) === periodLabel);
+          if (r) { agg = r; break; }
+        }
+        if (agg) {
+          const prevAdjTotal = adjustments
+            .filter(a => a.branchId === branchId && a.periodLabel === periodLabel && a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description))
+            .reduce((s, a) => s + a.amount, 0);
+          const newContrib = (data.description !== 'VAULT DEPOSIT' && !/[→←]/.test(data.description)) ? amt : 0;
+          // Build new adjustments snapshot — include the newly inserted entry
+          const allPeriodAdjs = [
+            ...adjustments.filter(a => a.branchId === branchId && a.periodLabel === periodLabel),
+            { description: data.description, amount: Number(data.amount), targetOwner: data.target_owner ?? null },
+          ];
+          const adjSnapshot = allPeriodAdjs.map(a => ({ description: a.description, amount: a.amount, target_owner: 'targetOwner' in a ? (a as any).targetOwner : null }));
+          await supabase.from(DB_TABLES.REMITTANCE_SUBMISSIONS)
+            .update({
+              [DB_COLUMNS.ADJUSTED_ROI]: agg.netRoi + prevAdjTotal + newContrib,
+              [DB_COLUMNS.ADJUSTMENTS]: adjSnapshot,
+            })
+            .eq(DB_COLUMNS.ID, sub.id);
+        }
+      }
+
       // If this is a vault deposit, also write to vault_transactions + update vault_balance
       if (isVaultDeposit) {
         const depositAmt = Math.abs(raw);
@@ -698,7 +799,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             [DB_COLUMNS.BRANCH_ID]: branchId,
             [DB_COLUMNS.TYPE]: 'ADMIN_DEPOSIT',
             [DB_COLUMNS.AMOUNT]: depositAmt,
-            [DB_COLUMNS.NAME]: 'Vault Deposit via Remittances',
+            [DB_COLUMNS.NAME]: 'VAULT DEPOSIT (REMITTANCE)',
             [DB_COLUMNS.TIMESTAMP]: timestamp,
             [DB_COLUMNS.PERFORMED_BY]: addedBy ?? 'SUPERADMIN',
           }, { onConflict: DB_COLUMNS.ID }),
@@ -1111,29 +1212,38 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
     });
     if (!allReportIds.length || !supabase) return;
     setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.add(k)); return next; });
-    supabase
-      .from(DB_TABLES.SALES_REPORTS)
-      .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
-      .in(DB_COLUMNS.ID, allReportIds)
-      .then(({ data }) => {
-        if (!data) return;
-        const totals: Record<string, { cash: number; gcash: number }> = {};
-        data.forEach(row => {
-          const key = idToPeriodKey[row[DB_COLUMNS.ID]];
-          if (!key) return;
-          if (!totals[key]) totals[key] = { cash: 0, gcash: 0 };
-          const sessions: any[] = typeof row[DB_COLUMNS.SESSION_DATA] === 'string'
-            ? JSON.parse(row[DB_COLUMNS.SESSION_DATA])
-            : (row[DB_COLUMNS.SESSION_DATA] || []);
-          sessions.forEach(t => {
-            const total = Number(t.total || 0);
-            if (t.paymentMethod === 'GCASH') totals[key].gcash += total;
-            else totals[key].cash += total;
-          });
+    // Batch into chunks of 100 to avoid URL length limit (CORS error on oversized GET requests)
+    const CHUNK = 100;
+    const chunks: string[][] = [];
+    for (let i = 0; i < allReportIds.length; i += CHUNK) chunks.push(allReportIds.slice(i, i + CHUNK));
+    Promise.all(chunks.map(chunk =>
+      supabase
+        .from(DB_TABLES.SALES_REPORTS)
+        .select(`${DB_COLUMNS.ID}, ${DB_COLUMNS.SESSION_DATA}`)
+        .in(DB_COLUMNS.ID, chunk)
+        .then(({ data }) => data || [])
+    )).then(results => {
+      // Always clear loading keys — even on failure — so skeleton doesn't persist
+      setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.delete(k)); return next; });
+      const allRows = results.flat();
+      const totals: Record<string, { cash: number; gcash: number }> = {};
+      allRows.forEach(row => {
+        const key = idToPeriodKey[row[DB_COLUMNS.ID]];
+        if (!key) return;
+        if (!totals[key]) totals[key] = { cash: 0, gcash: 0 };
+        const sessions: any[] = typeof row[DB_COLUMNS.SESSION_DATA] === 'string'
+          ? JSON.parse(row[DB_COLUMNS.SESSION_DATA])
+          : (row[DB_COLUMNS.SESSION_DATA] || []);
+        sessions.forEach(t => {
+          const total = Number(t.total || 0);
+          if (t.paymentMethod === 'GCASH') totals[key].gcash += total;
+          else totals[key].cash += total;
         });
-        setPaymentTotalsCache(prev => ({ ...prev, ...totals }));
-        setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.delete(k)); return next; });
       });
+      setPaymentTotalsCache(prev => ({ ...prev, ...totals }));
+    }).catch(() => {
+      setLoadingPaymentKeys(prev => { const next = new Set(prev); newKeys.forEach(k => next.delete(k)); return next; });
+    });
   }, [activeBranchId, displayGroups.length]);
 
   // Pending branches for the quick-process strip (respects period + branch filter, ignores status filter)
@@ -1595,7 +1705,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 Cancel
               </button>
               <button
-                onClick={() => { handleReview(remitConfirm.submissionId, remitConfirm.branchId, remitConfirm.periodLabel, 'approved'); setRemitConfirm(null); }}
+                onClick={() => { handleReview(remitConfirm.submissionId, remitConfirm.branchId, remitConfirm.periodLabel, 'approved', undefined, remitConfirm.grossSales, remitConfirm.snapshotAdjustedRoi, remitConfirm.salary, remitConfirm.expenses); setRemitConfirm(null); }}
                 disabled={isReviewing}
                 className="px-7 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
@@ -2134,69 +2244,6 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             onBranchClick={handleBranchCardClick}
           />
 
-          {/* ── Early Remitter Rankings — hidden for portal/read-only users ── */}
-          {!isReadOnly && <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Early Remitter Rankings</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {selectedPeriods.length > 0 ? 'Filtered by selected cutoff period' : 'All cutoff periods'} · ranked by days to submit for most recent period
-                </p>
-              </div>
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Lower = Earlier</span>
-            </div>
-            {branchRankings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No approved submissions</p>
-                <p className="text-xs text-slate-400 mt-1">Rankings appear once branches have approved remittances for the selected period.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {branchRankings.map(item => {
-                  const medalSymbols = ['🥇', '🥈', '🥉'];
-                  const fmtDays = (d: number) => {
-                    if (d < 0) return `${Math.abs(Math.round(d))}d early`;
-                    if (d === 0) return 'same day';
-                    return `+${Math.round(d)}d`;
-                  };
-                  const avgD = item.avgDaysLate;
-                  const tier = avgD <= 0
-                    ? { label: 'Early', bg: 'bg-emerald-500', text: 'text-white' }
-                    : avgD <= 3
-                      ? { label: 'On Time', bg: 'bg-amber-500', text: 'text-white' }
-                      : { label: 'Late', bg: 'bg-rose-500', text: 'text-white' };
-                  const isMedal = item.rank <= 3;
-                  return (
-                    <div key={item.branchId} className={`flex items-center gap-3 px-5 py-3 ${item.rank === 1 ? 'bg-amber-50/50' : ''}`}>
-                      <div className="w-8 shrink-0 text-center">
-                        {isMedal
-                          ? <span className="text-lg leading-none">{medalSymbols[item.rank - 1]}</span>
-                          : <span className="text-sm font-black text-slate-400">#{item.rank}</span>
-                        }
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-800 uppercase truncate leading-tight">
-                          {item.branchName.replace(/\s*BRANCH\s*/i, '').trim()}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide">
-                          {item.periodLabel}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-black text-slate-800 tabular-nums">{fmtDays(item.avgDaysLate)}</p>
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">days</p>
-                      </div>
-                      <div className="shrink-0">
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide ${tier.bg} ${tier.text}`}>
-                          {tier.label}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>}
         </div>
         );
       })()}
@@ -2221,14 +2268,33 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mt-0.5">Weekly Remittances</p>
           </div>
           {!isReadOnly && (
-            <button
-              onClick={handleExportPDF}
-              className="flex items-center justify-center gap-2 h-9 px-3 sm:px-4 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
-              title="Export PDF"
-            >
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-              <span className="hidden sm:inline">Export PDF</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleBackfillSnapshots(activeBranchId ?? undefined)}
+                disabled={isBackfilling}
+                className="flex items-center gap-1.5 px-3 h-9 bg-slate-100 text-slate-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+                title="Backfill snapshot columns for this branch"
+              >
+                <svg className={`w-3 h-3 shrink-0 ${isBackfilling ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+                <span className="hidden sm:inline">
+                  {isBackfilling && backfillProgress
+                    ? `${backfillProgress.done}/${backfillProgress.total}`
+                    : backfillProgress && !isBackfilling
+                      ? `Done (${backfillProgress.total})`
+                      : 'Backfill'}
+                </span>
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center justify-center gap-2 h-9 px-3 sm:px-4 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
+                title="Export PDF"
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                <span className="hidden sm:inline">Export PDF</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -2253,13 +2319,20 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
             )}
           </div>
           <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-            {quickProcessItems.map(({ report, group, sub, adjustedRoi: itemRoi }) => (
+            {quickProcessItems.map(({ report, group, sub, adjustedRoi: itemRoi }) => {
+              const qpLabel = report.branchLabel || group.label;
+              const qpRowAdj = adjustments.filter(a => a.branchId === report.branchId && a.periodLabel === qpLabel);
+              const qpSnapshotAdj = qpRowAdj
+                .filter(a => a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description))
+                .reduce((s, a) => s + a.amount, 0);
+              const qpSnapshotAdjustedRoi = report.netRoi + qpSnapshotAdj;
+              return (
               <div key={`${report.branchId}::${group.label}`} className="flex items-center gap-4 px-6 py-3 hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">
                     {report.branchName.replace('BRANCH - ', '')}
                   </p>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{report.branchLabel || group.label}</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{qpLabel}</p>
                 </div>
                 <div className="shrink-0 text-right w-28">
                   {itemRoi <= 0
@@ -2269,7 +2342,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                 </div>
                 {!isReadOnly && (
                   <button
-                    onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName })}
+                    onClick={() => setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: qpLabel, branchName: report.branchName, grossSales: report.grossSales, salary: report.totalStaffPay, expenses: report.totalExpenses, snapshotAdjustedRoi: qpSnapshotAdjustedRoi })}
                     disabled={isReviewing}
                     className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-40 shrink-0"
                   >
@@ -2277,7 +2350,8 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -2305,6 +2379,11 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
                   const pureNetRoi = report.netRoi;
                   const adjustedRoi = pureNetRoi + totalGlobalAdj;
+                  // Analytics-compatible snapshot: excludes vault deposits, includes all branch-level costs
+                  const snapshotAdjTotal = rowAdj
+                    .filter(a => a.description !== 'VAULT DEPOSIT' && !/[→←]/.test(a.description))
+                    .reduce((s, a) => s + a.amount, 0);
+                  const snapshotAdjustedRoi = pureNetRoi + snapshotAdjTotal;
                   // Vault deposits via remittance — rolled into Vault/Bills display line
                   const remittanceVaultDepositTotal = rowAdj
                     .filter(a => a.description === 'VAULT DEPOSIT')
@@ -2463,7 +2542,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                                 checked={false}
                                 disabled={isReviewing}
                                 onChange={() => {
-                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName });
+                                  setRemitConfirm({ submissionId: sub?.id ?? null, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName, grossSales: report.grossSales, salary: report.totalStaffPay, expenses: report.totalExpenses, snapshotAdjustedRoi });
                                 }}
                                 className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-40"
                                 title="Mark Remitted"
@@ -2480,7 +2559,7 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
                       {sub?.status === 'for_verification' && !isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5 px-6 py-2 bg-amber-50 border-b border-amber-200">
                           <button onClick={() => handleReview(sub.id, report.branchId, effLabel, 'rejected')} disabled={isReviewing} className="h-9 px-4 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-rose-50">Reject</button>
-                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => setRemitConfirm({ submissionId: sub.id, branchId: report.branchId, periodLabel: effLabel, branchName: report.branchName, grossSales: report.grossSales, salary: report.totalStaffPay, expenses: report.totalExpenses, snapshotAdjustedRoi })} disabled={isReviewing} className="flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 hover:bg-emerald-700"><CheckCircle className="w-3 h-3" /> Approve</button>
                         </div>
                       )}
 
@@ -3181,33 +3260,6 @@ export const WeeklyRemittancesHub: React.FC<WeeklyRemittancesHubProps> = ({ bran
         document.body
       )}
 
-      {/* ── Load older periods ── */}
-      {hasMoreToLoad && (
-        <div className="flex justify-center py-4">
-          <button
-            onClick={handleLoadMore}
-            disabled={isLoadingMore}
-            className="flex items-center gap-2 px-5 h-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isLoadingMore ? (
-              <>
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Loading…
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-                Load older periods
-              </>
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 };
