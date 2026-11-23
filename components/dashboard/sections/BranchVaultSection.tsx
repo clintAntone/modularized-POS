@@ -405,6 +405,7 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
         .select('id, amount')
         .eq(DB_COLUMNS.BRANCH_ID, branch.id)
         .eq(DB_COLUMNS.TYPE, 'DEPOSIT')
+        .not(DB_COLUMNS.NAME, 'ilike', 'VAULT DEPOSIT (REMITTANCE%')
         .gte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T00:00:00+08:00`)
         .lte(DB_COLUMNS.TIMESTAMP, `${depositSelectedDate}T23:59:59+08:00`)
         .limit(1);

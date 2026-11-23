@@ -140,7 +140,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       setIsRemittingToVault(false);
       setVaultRemitInput('');
       playSound('success');
-      queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      queryClient.invalidateQueries({ queryKey: ['vaultTransactions', branch.id] });
       onRefresh?.();
     } catch {
       playSound('warning');
@@ -274,7 +274,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
 
         setAdjustments(prev => [...prev, { id: adjData.id, branchId: adjData.branch_id, periodLabel: adjData.period_label, description: adjData.description, amount: Number(adjData.amount), targetOwner: entryId, createdAt: adjData.created_at }]);
         setVaultBalance(Number((rpcData2 as any)?.new_balance ?? (vaultBalance ?? 0) + depositAmt));
-        queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+        queryClient.invalidateQueries({ queryKey: ['vaultTransactions', branch.id] });
         onRefresh?.();
       } else {
         const { data, error } = await supabase
@@ -317,7 +317,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
             .eq(DB_COLUMNS.BRANCH_ID, branch.id),
         ]);
         setVaultBalance(newBalance);
-        queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+        queryClient.invalidateQueries({ queryKey: ['vaultTransactions', branch.id] });
         onRefresh?.();
       }
 
@@ -357,7 +357,7 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
       });
       if (rpcErr) throw rpcErr;
       setVaultBalance(Number((rpcData as any)?.new_balance ?? (vaultBalance ?? 0) + depositAmt));
-      queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
+      queryClient.invalidateQueries({ queryKey: ['vaultTransactions', branch.id] });
       onRefresh?.();
       await logAudit({
         branchId: branch.id,
