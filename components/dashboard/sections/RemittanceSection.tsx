@@ -683,14 +683,16 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
   const ownerAdj = rowAdj.filter(a => !!a.targetOwner && a.description !== 'VAULT DEPOSIT');
   const totalGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
   const adjustedRoi = agg.netRoi + totalGlobalAdj;
-  // Vault deposits made via remittance — rolled up into Vault/Bills display line
+  // Vault deposits made via remittance are reflected in adjustedRoi (via totalGlobalAdj)
+  // only — they do NOT deduct from individual sales_report net_roi values, so the receipt
+  // shows the reports-based numbers as-is. The global deduction already handles this.
   const remittanceVaultDepositTotal = rowAdj
     .filter(a => a.description === 'VAULT DEPOSIT')
     .reduce((s, a) => s + Math.abs(a.amount), 0);
-  // Displayed Vault/Bills = daily provision + remittance-level vault deposits
-  const displayedVaultBills = agg.totalVaultProvision + remittanceVaultDepositTotal;
-  // Displayed NET ROI shifts vault deposit up into Vault/Bills (final Adjusted ROI unchanged)
-  const displayedNetRoi = agg.netRoi - remittanceVaultDepositTotal;
+  // Vault/Bills = daily provision only (BranchVaultSection deposits that updated report.net_roi)
+  const displayedVaultBills = agg.totalVaultProvision;
+  // Net ROI = reports-based value, unmodified by remittance-level vault deposits
+  const displayedNetRoi = agg.netRoi;
   const levyCut = levy ? Math.max(0, adjustedRoi) * (levy.percentage / 100) : 0;
   const distributableRoi = adjustedRoi - levyCut;
   const hasAdj = rowAdj.length > 0;
@@ -1005,9 +1007,9 @@ export const RemittanceSection: React.FC<RemittanceSectionProps> = ({ branch, sa
               <span className={`font-black text-lg tabular-nums ${displayedNetRoi < 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{displayedNetRoi < 0 ? '−' : ''}{fmt(Math.abs(displayedNetRoi))}</span>
             </div>
 
-            {/* Non-vault global adjustments shown explicitly below NET ROI */}
+            {/* Global adjustments (including vault deposits) shown explicitly below NET ROI */}
             {!loadingAdj && (() => {
-              const nonVaultGlobalAdj = globalAdj.filter(a => a.description !== 'VAULT DEPOSIT').reduce((s, a) => s + a.amount, 0);
+              const nonVaultGlobalAdj = globalAdj.reduce((s, a) => s + a.amount, 0);
               if (nonVaultGlobalAdj === 0) return null;
               return (
                 <div className="flex justify-between py-1.5">

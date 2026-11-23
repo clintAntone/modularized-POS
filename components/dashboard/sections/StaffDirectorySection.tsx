@@ -1420,6 +1420,8 @@ export const StaffDirectorySection: React.FC<StaffDirectorySectionProps> = ({ br
                   }
                   onFaceTimeIn={(() => {
                     if (isClosedMode || branch.faceIdEnabled === false || getShiftState(emp.id) !== 'NOT_STARTED') return undefined;
+                    // Relievers skip facial ID — they clock in manually
+                    if (isReliever) return undefined;
                     // Custom-role-only staff skip facial ID — they clock in manually
                     const empRoles = (getEmployeeRole(emp, branch.id) || '').split(',').map(r => r.trim()).filter(Boolean);
                     const isCustomRoleOnly = empRoles.length > 0 && empRoles.every(r => customRoles.includes(r) && !STANDARD_ROLES.has(r));
