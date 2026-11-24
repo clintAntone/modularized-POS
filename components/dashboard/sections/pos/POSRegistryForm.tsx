@@ -42,6 +42,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
     const [activeTab, setActiveTab] = useState<'STANDARD' | 'LOYALTY'>('STANDARD');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [showOtherWarning, setShowOtherWarning] = useState(false);
+    const [showNameWarning, setShowNameWarning] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const suggestionRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +148,7 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                     ref={inputRef}
                                     value={firstName}
                                     maxLength={30}
-                                    onChange={e => { setFirstName(e.target.value.toUpperCase()); setShowSuggestions(true); }}
+                                    onChange={e => { setFirstName(e.target.value.toUpperCase()); setShowSuggestions(true); setShowNameWarning(false); }}
                                     onFocus={() => setShowSuggestions(true)}
                                     onKeyDown={e => {
                                         if (!showSuggestions || suggestions.length === 0) return;
@@ -156,8 +157,8 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                                         else if (e.key === 'Enter' && highlightedIndex >= 0) { e.preventDefault(); applySuggestion(suggestions[highlightedIndex]); playSound('click'); }
                                         else if (e.key === 'Escape') setShowSuggestions(false);
                                     }}
-                                    placeholder="First name"
-                                    className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                    placeholder="First name *"
+                                    className={`w-full min-h-[48px] px-4 py-3 bg-slate-50 border-2 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all ${showNameWarning && !firstName.trim() ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
                                 />
                                 {showSuggestions && suggestions.length > 0 && (
                                     <div
@@ -183,9 +184,9 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                             <input
                                 value={lastName}
                                 maxLength={30}
-                                onChange={e => setLastName(e.target.value.toUpperCase())}
-                                placeholder="Last name"
-                                className="flex-1 min-h-[48px] px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                onChange={e => { setLastName(e.target.value.toUpperCase()); setShowNameWarning(false); }}
+                                placeholder="Last name *"
+                                className={`flex-1 min-h-[48px] px-4 py-3 bg-slate-50 border-2 rounded-xl font-semibold text-sm uppercase outline-none focus:border-emerald-500 focus:bg-white transition-all ${showNameWarning && !lastName.trim() ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
                             />
                         </div>
                         {/* Middle name */}
@@ -281,6 +282,10 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                     isDualProviderRequired={isDualProviderRequired}
                     isProcessing={props.isProcessing}
                     onFinalize={() => {
+                        if (!firstName.trim() || !lastName.trim()) {
+                            setShowNameWarning(true);
+                            return;
+                        }
                         const hasBlankOther = (props.formData.medical_history as string[])
                             .some((s: string) => s.startsWith('Other: ') && s.slice(7).trim() === '');
                         if (hasBlankOther) {
@@ -294,6 +299,33 @@ export const POSRegistryForm: React.FC<POSRegistryFormProps> = (props) => {
                     isPaymongoEnabled={props.isPaymongoEnabled}
                 />
             </div>
+
+            {showNameWarning && ReactDOM.createPortal(
+                <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs animate-in zoom-in-95 duration-150 overflow-hidden">
+                        <div className="bg-slate-900 px-6 pt-6 pb-5 flex items-center gap-3">
+                            <div className="w-9 h-9 bg-rose-400/20 rounded-2xl flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                            </div>
+                            <h3 className="text-white font-bold text-sm uppercase tracking-tight">Required Fields</h3>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                <span className="font-semibold text-slate-800">First name</span> and <span className="font-semibold text-slate-800">last name</span> are required before proceeding.
+                            </p>
+                        </div>
+                        <div className="px-6 pb-6">
+                            <button
+                                onClick={() => setShowNameWarning(false)}
+                                className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-all"
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {showOtherWarning && ReactDOM.createPortal(
                 <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6 animate-in fade-in duration-150">
