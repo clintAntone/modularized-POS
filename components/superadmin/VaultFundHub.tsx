@@ -394,11 +394,9 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
 
   const handleExportBranchCSV = (branchId: string, branchName: string, type: 'deposits' | 'withdrawals') => {
     // Use detailTxns (full per-branch fetch, no row cap) instead of the prop-derived capped history maps
-    const startDate = vaultRows[branchId]?.startDate ?? null;
     const txList = type === 'deposits'
       ? detailTxns
           .filter(t => t.type === 'DEPOSIT' || t.type === 'ADMIN_DEPOSIT' || t.type === 'REMITTANCE_DEPOSIT')
-          .filter(t => !startDate || (t.timestamp ?? '').slice(0, 10) >= startDate)
           .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
       : detailTxns
           .filter(t => t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL')
@@ -419,14 +417,13 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
         t.type === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
         t.type === 'WITHDRAWAL' ? 'Withdrawal' :
         t.type === 'VAULT_WITHDRAWAL' ? 'Vault Withdrawal' : t.type;
-      const sign = (t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL') ? '-' : '+';
       rows.push([
         branchName,
         t.timestamp.slice(0, 10),
         t.timestamp.length > 10 ? t.timestamp.slice(11, 16) : '',
         typeLabel,
         t.name ?? '',
-        sign + t.amount.toString(),
+        (t.type === 'WITHDRAWAL' || t.type === 'VAULT_WITHDRAWAL' ? -t.amount : t.amount).toString(),
         t.performedBy ?? '',
         t.id,
       ]);
@@ -523,31 +520,41 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
   }, [branches]);
 
 
-  // Fetch full transaction history for the detail modal branch (bypasses global 1000-row cap)
+  // Fetch full transaction history for the detail modal branch (paginated — no row cap)
   useEffect(() => {
     if (!detailBranchId || !supabase) { setDetailTxns([]); return; }
     setDetailTxnsLoading(true);
-    supabase
-      .from(DB_TABLES.VAULT_TRANSACTIONS)
-      .select('id,branch_id,report_id,type,amount,name,timestamp,performed_by,receipt_image')
-      .eq(DB_COLUMNS.BRANCH_ID, detailBranchId)
-      .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
-      .limit(500)
-      .then(({ data }) => {
-        setDetailTxns((data || []).map((r: any) => ({
-          id: r[DB_COLUMNS.ID],
-          branchId: r[DB_COLUMNS.BRANCH_ID],
-          reportId: r[DB_COLUMNS.REPORT_ID] ?? null,
-          type: r[DB_COLUMNS.TYPE],
-          amount: Number(r[DB_COLUMNS.AMOUNT] ?? 0),
-          name: r[DB_COLUMNS.NAME] ?? null,
-          timestamp: r[DB_COLUMNS.TIMESTAMP] ?? '',
-          performedBy: r[DB_COLUMNS.PERFORMED_BY] ?? null,
-          receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
-          createdAt: r[DB_COLUMNS.CREATED_AT],
-        })));
-        setDetailTxnsLoading(false);
-      });
+    const PAGE = 1000;
+    const all: any[] = [];
+    const fetchPage = (from: number) => {
+      supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select('id,branch_id,report_id,type,amount,name,timestamp,performed_by,receipt_image')
+        .eq(DB_COLUMNS.BRANCH_ID, detailBranchId)
+        .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+        .range(from, from + PAGE - 1)
+        .then(({ data }) => {
+          if (data && data.length > 0) all.push(...data);
+          if (data && data.length === PAGE) {
+            fetchPage(from + PAGE);
+          } else {
+            setDetailTxns(all.map((r: any) => ({
+              id: r[DB_COLUMNS.ID],
+              branchId: r[DB_COLUMNS.BRANCH_ID],
+              reportId: r[DB_COLUMNS.REPORT_ID] ?? null,
+              type: r[DB_COLUMNS.TYPE],
+              amount: Number(r[DB_COLUMNS.AMOUNT] ?? 0),
+              name: r[DB_COLUMNS.NAME] ?? null,
+              timestamp: r[DB_COLUMNS.TIMESTAMP] ?? '',
+              performedBy: r[DB_COLUMNS.PERFORMED_BY] ?? null,
+              receiptImage: r[DB_COLUMNS.RECEIPT_IMAGE] ?? null,
+              createdAt: r[DB_COLUMNS.CREATED_AT],
+            })));
+            setDetailTxnsLoading(false);
+          }
+        });
+    };
+    fetchPage(0);
   }, [detailBranchId]);
 
   // Reset tab and pagination when detail modal opens

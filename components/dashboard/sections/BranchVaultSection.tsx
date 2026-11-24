@@ -169,6 +169,31 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
 
   const transactions = useMemo(() => txPages?.pages.flat() ?? [], [txPages]);
 
+  // ── Aggregate sums — separate lightweight query so KPI totals are always
+  // fresh and not affected by the paginated infinite-scroll cache going stale.
+  // (The infinite query can lag when other components delete vault transactions
+  // without invalidating this component's specific cache key.)
+  const { data: txSums, refetch: refetchSums } = useQuery<{ depositTotal: number; depositCount: number; withdrawalTotal: number; withdrawalCount: number }>({
+    queryKey: ['vault_tx_sums', branch.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(DB_TABLES.VAULT_TRANSACTIONS)
+        .select(`${DB_COLUMNS.TYPE}, ${DB_COLUMNS.AMOUNT}`)
+        .eq(DB_COLUMNS.BRANCH_ID, branch.id);
+      if (error) throw error;
+      let depositTotal = 0, depositCount = 0, withdrawalTotal = 0, withdrawalCount = 0;
+      for (const r of (data || [])) {
+        const isWithdrawal = ['WITHDRAWAL', 'VAULT_WITHDRAWAL'].includes((r[DB_COLUMNS.TYPE] || '').toUpperCase());
+        const amt = Number(r[DB_COLUMNS.AMOUNT] ?? 0);
+        if (isWithdrawal) { withdrawalTotal += amt; withdrawalCount++; }
+        else { depositTotal += amt; depositCount++; }
+      }
+      return { depositTotal, depositCount, withdrawalTotal, withdrawalCount };
+    },
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
   // ── Bill form state ───────────────────────────────────────────────────────
   type BillForm = { id?: string; name: string; amount: string; dueDay: string; dueNextMonth: boolean; notes: string };
   const emptyBillForm: BillForm = { name: '', amount: '', dueDay: '', dueNextMonth: false, notes: '' };
@@ -336,9 +361,10 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     }
   };
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
-  const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
+  // ── Derived stats — use fresh aggregate sums; fall back to cache totals
+  // only while the sums query is loading on first mount.
+  const totalDeposits = txSums?.depositTotal ?? transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
+  const totalWithdrawals = txSums?.withdrawalTotal ?? transactions.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
 
   // ── Recent reports (last 7 days from today, Manila time) ──────────────────
   const currentWeekReports = useMemo((): SalesReport[] => {
@@ -442,7 +468,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       await queryClient.invalidateQueries({ queryKey: ['salesReports'] });
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
       await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['vault_tx_sums', branch.id] });
       refetch();
+      refetchSums();
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Deposit failed', 'error');
@@ -558,7 +586,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setWithdrawFile(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
       await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['vault_tx_sums', branch.id] });
       refetch();
+      refetchSums();
       onRefresh?.();
     } catch (err: any) {
       const isNetworkErr = err?.message?.toLowerCase().includes('fetch') || err?.message?.toLowerCase().includes('network') || !navigator.onLine;
@@ -652,7 +682,9 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
       setVaultBillToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['vault_transactions', branch.id] });
       await queryClient.invalidateQueries({ queryKey: ['branchVault', branch.id] });
+      await queryClient.invalidateQueries({ queryKey: ['vault_tx_sums', branch.id] });
       refetch();
+      refetchSums();
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Reversal failed', 'error');
@@ -677,8 +709,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     return list;
   }, [transactions, filter, historySearch]);
 
-  const depositCount = transactions.filter(t => t.type === 'deposit').length;
-  const withdrawalCount = transactions.filter(t => t.type === 'withdrawal').length;
+  const depositCount = txSums?.depositCount ?? transactions.filter(t => t.type === 'deposit').length;
+  const withdrawalCount = txSums?.withdrawalCount ?? transactions.filter(t => t.type === 'withdrawal').length;
 
   const downloadCSV = (rows: string[][], filename: string) => {
     const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -689,27 +721,64 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportCSV = () => {
-    if (filtered.length === 0) return;
-    const safeName = branch.name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').toLowerCase();
-    const rows: string[][] = [['Date', 'Time', 'Type', 'Description', 'Amount', 'Performed By', 'Transaction ID']];
-    filtered.forEach(tx => {
-      const typeLabel =
-        tx.category === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
-        tx.category === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
-        tx.type === 'deposit' ? 'Manager Deposit' : 'Withdrawal';
-      rows.push([
-        toManilaDate(tx.timestamp),
-        formatTime(tx.timestamp),
-        typeLabel,
-        tx.name.startsWith('VAULT: ') ? tx.name.slice(7) : tx.name,
-        (tx.type === 'withdrawal' ? '-' : '+') + tx.amount.toString(),
-        tx.performedBy ?? '',
-        tx.id,
-      ]);
-    });
-    downloadCSV(rows, `vault-${filter}-${safeName}-${getManilaTodayStr()}.csv`);
-    playSound('success');
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
+
+  const handleExportCSV = async () => {
+    setIsExportingCSV(true);
+    try {
+      const safeName = branch.name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').toLowerCase();
+      const isDeposits = filter === 'deposits';
+
+      // Fetch ALL transactions of this type from DB (not just the loaded scroll pages)
+      const PAGE = 1000;
+      const allTx: VaultTransaction[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(DB_TABLES.VAULT_TRANSACTIONS)
+          .select('id,timestamp,amount,name,type,receipt_image,performed_by')
+          .eq(DB_COLUMNS.BRANCH_ID, branch.id)
+          .order(DB_COLUMNS.TIMESTAMP, { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allTx.push(...data.map(mapTx));
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+
+      const exportList = allTx.filter(t => isDeposits ? t.type === 'deposit' : t.type === 'withdrawal');
+      const q = historySearch.trim().toLowerCase();
+      const finalList = q
+        ? exportList.filter(t =>
+            (t.name || '').toLowerCase().includes(q) ||
+            (t.performedBy || '').toLowerCase().includes(q) ||
+            String(t.amount).includes(q)
+          )
+        : exportList;
+
+      if (finalList.length === 0) return;
+
+      const rows: string[][] = [['Date', 'Time', 'Type', 'Description', 'Amount', 'Performed By', 'Transaction ID']];
+      finalList.forEach(tx => {
+        const typeLabel =
+          tx.category === 'ADMIN_DEPOSIT' ? 'Admin Deposit' :
+          tx.category === 'REMITTANCE_DEPOSIT' ? 'Remittance Deposit' :
+          tx.type === 'deposit' ? 'Manager Deposit' : 'Withdrawal';
+        rows.push([
+          toManilaDate(tx.timestamp),
+          formatTime(tx.timestamp),
+          typeLabel,
+          tx.name.startsWith('VAULT: ') ? tx.name.slice(7) : tx.name,
+          (tx.type === 'withdrawal' ? -tx.amount : tx.amount).toString(),
+          tx.performedBy ?? '',
+          tx.id,
+        ]);
+      });
+      downloadCSV(rows, `vault-${filter}-${safeName}-${getManilaTodayStr()}.csv`);
+      playSound('success');
+    } finally {
+      setIsExportingCSV(false);
+    }
   };
 
   return (
@@ -931,8 +1000,8 @@ export const BranchVaultSection: React.FC<BranchVaultSectionProps> = ({
             {/* Export button */}
             <button
               onClick={handleExportCSV}
-              disabled={filtered.length === 0}
-              title={`Export ${filter} as CSV`}
+              disabled={isExportingCSV}
+              title={`Export all ${filter} as CSV`}
               className="mb-1 self-center h-8 w-8 sm:w-auto sm:px-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-semibold uppercase tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
             >
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
