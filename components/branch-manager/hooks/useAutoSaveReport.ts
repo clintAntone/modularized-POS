@@ -159,13 +159,31 @@ export function useAutoSaveReport({
             settlement: t.paymentMethod?.toLowerCase() || 'cash',
           })),
           [DB_COLUMNS.STAFF_BREAKDOWN]: Object.values(staffSummary).map(({ txs, ...rest }: any) => rest),
-          [DB_COLUMNS.EXPENSE_DATA]: [
-            // OPERATIONAL expenses (ROI-funded)
-            ...todayExps.filter(e => e.category === 'OPERATIONAL'),
-            // VAULT_WITHDRAWAL expenses (vault-funded) — kept so the report can
-            // compute ROI-only operational = total_expenses + vault_covered separately
-            ...todayExps.filter(e => e.category === 'VAULT_WITHDRAWAL'),
-          ],
+          [DB_COLUMNS.EXPENSE_DATA]: (() => {
+            // Build a map of correct reliever payout amounts from staffSummary to avoid a
+            // race condition where syncRelieverPayouts (unawaited) hasn't yet updated the
+            // expenses table when the snapshot is taken — causing stale amounts in expense_data.
+            const relieverCorrections: Record<string, number> = {};
+            Object.values(staffSummary).forEach((data: any) => {
+              if (data.isReliever) {
+                const name = (data.name || '').trim().toUpperCase();
+                const late = Number(data.attendance?.lateDeduction || 0);
+                const ot = Number(data.attendance?.otPay || 0);
+                const pay = (Number(data.commission) || 0) + (Number(data.allowance) || 0) + ot - late;
+                if (pay > 0) relieverCorrections[`RELIEVER PAYOUT: ${name}`] = pay;
+              }
+            });
+            return [
+              // OPERATIONAL expenses (ROI-funded) — override reliever payout amounts from staffSummary
+              ...todayExps.filter(e => e.category === 'OPERATIONAL').map(e => {
+                const key = (e.name || '').trim().toUpperCase();
+                const override = relieverCorrections[key];
+                return override !== undefined ? { ...e, amount: override } : e;
+              }),
+              // VAULT_WITHDRAWAL expenses (vault-funded)
+              ...todayExps.filter(e => e.category === 'VAULT_WITHDRAWAL'),
+            ];
+          })(),
         };
 
         const payload = isVaultBranch

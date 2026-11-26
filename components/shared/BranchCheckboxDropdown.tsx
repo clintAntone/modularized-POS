@@ -62,11 +62,11 @@ export const BranchCheckboxDropdown: React.FC<BranchCheckboxDropdownProps> = ({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(o => !o)}
-        className={`h-11 w-full flex items-center justify-between gap-2 px-4 rounded-2xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
+        className={`h-9 w-full flex items-center justify-between gap-2 px-3 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all outline-none ${
           isOpen
-            ? 'bg-white border-emerald-500 ring-4 ring-emerald-500/10 text-slate-900'
-            : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'
-        } ${selectedIds.length > 0 ? 'text-slate-900' : ''}`}
+            ? 'bg-white dark:bg-slate-700 border-emerald-500 ring-2 ring-emerald-500/10 text-slate-900 dark:text-slate-100'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-300'
+        } ${selectedIds.length > 0 ? 'text-slate-900 dark:text-slate-100' : ''}`}
       >
         <span className="truncate">{label}</span>
         <svg

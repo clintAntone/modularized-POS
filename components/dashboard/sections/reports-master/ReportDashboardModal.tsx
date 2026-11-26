@@ -757,8 +757,8 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
   if (!mounted) return null;
 
   return createPortal(
-      <div className="fixed inset-0 z-[5000] backdrop-blur-sm flex items-end md:items-center justify-center px-3 pb-3 pt-0 md:p-4 animate-in fade-in duration-300 print:static print:bg-white print:p-0">
-        <div className={`bg-slate-50 dark:bg-slate-900 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:bg-white print:overflow-visible print:block`}>
+      <div className="fixed inset-0 z-[5000] backdrop-blur-sm flex items-end md:items-center justify-center px-6 pb-4 pt-0 md:p-8 animate-in fade-in duration-300 print:static print:bg-white print:p-0" onClick={onClose}>
+        <div className={`bg-slate-50 dark:bg-slate-900 w-full max-w-7xl h-[95vh] md:max-h-[92vh] ${UI_THEME.radius.modal} border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in duration-300 print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:bg-white print:overflow-visible print:block`} style={{ fontSize: '95%' }} onClick={e => e.stopPropagation()}>
 
           {viewingExpense && (
               <ExpenseDetailModal expense={viewingExpense} onClose={() => setViewingExpense(null)} />
@@ -820,9 +820,6 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
           {/* HEADER BAR */}
           <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0 gap-3 no-print">
             <div className="flex items-center gap-3 md:gap-5 min-w-0">
-              <div className={`w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg shrink-0`}>
-                {isAggregate ? '📊' : '📂'}
-              </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <h3 className="text-sm sm:text-lg md:text-xl font-bold uppercase tracking-tighter text-slate-900 leading-tight truncate">{displayDate}</h3>
@@ -840,53 +837,54 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 no-print">
+            <div className="flex items-center gap-1.5 shrink-0 no-print">
               {isToday && (
                 <button
                   onClick={() => { refreshReport(); playSound('click'); }}
                   disabled={isFetchingLatest}
                   title="Sync latest data"
-                  className="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <svg className={`w-4 h-4 ${isFetchingLatest ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <svg className={`w-3.5 h-3.5 shrink-0 ${isFetchingLatest ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                   <span className="hidden sm:inline">{isFetchingLatest ? 'Syncing…' : 'Sync'}</span>
                 </button>
               )}
+
               <button
                 onClick={() => handleExportPDF()}
                 disabled={isExporting}
-                className="flex items-center gap-2 px-3 md:px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                title="Export PDF"
+                className="flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold uppercase tracking-wide rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isExporting ? (
-                  <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin"></div>
+                  <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin shrink-0" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 )}
                 <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export PDF'}</span>
               </button>
-
 
               {isSuperAdmin && !isAggregate && (
                 <button
                   onClick={handleToggleLock}
                   disabled={isTogglingLock}
                   title={report.backfilled ? 'Unlock report' : 'Lock report'}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 border text-xs font-semibold uppercase tracking-wide rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 ${
+                  className={`flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3 border text-xs font-semibold uppercase tracking-wide rounded-xl transition-all active:scale-95 disabled:opacity-50 ${
                     report.backfilled
-                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                      ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                 >
                   {isTogglingLock ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
                   ) : report.backfilled ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                     </svg>
                   )}
@@ -894,8 +892,12 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
                 </button>
               )}
 
-              <button onClick={onClose} className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 shadow-sm">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              <button
+                onClick={onClose}
+                title="Close"
+                className="flex items-center justify-center h-9 w-9 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>

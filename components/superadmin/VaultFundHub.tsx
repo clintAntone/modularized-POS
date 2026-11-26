@@ -928,74 +928,40 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           </>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              {/* Balance + sync */}
-              <div className="min-w-0 flex items-start justify-between sm:block gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide">Network Vault Balance</p>
-                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
-                    ₱{networkSummary.totalBalance.toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  title="Sync vault data"
-                  className="mt-1 sm:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95 disabled:opacity-50 shrink-0"
-                >
-                  <svg className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {isSyncing ? 'Syncing…' : 'Sync'}
-                </button>
+            {/* Balance row */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Network Vault Balance</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-1">
+                  ₱{networkSummary.totalBalance.toLocaleString()}
+                </p>
               </div>
+              <button
+                onClick={handleSync}
+                disabled={isSyncing}
+                title="Sync vault data"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95 disabled:opacity-50 shrink-0"
+              >
+                <svg className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="hidden sm:inline">{isSyncing ? 'Syncing…' : 'Sync'}</span>
+              </button>
+            </div>
 
-              {/* KPI pills + sync (desktop) */}
-              <div className="flex items-start gap-2 w-full sm:w-auto">
-                {/* Active */}
-                <div className="flex-1 rounded-2xl border px-3.5 py-3 min-w-0 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/60">
-                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums leading-none">{networkSummary.enabledCount}</p>
-                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mt-1 leading-none">Active</p>
-                  <p className="text-[10px] text-emerald-500/60 dark:text-emerald-700 mt-1 leading-none tabular-nums">
-                    {(networkSummary.enabledCount + networkSummary.disabledCount) > 0
-                      ? `${Math.round((networkSummary.enabledCount / (networkSummary.enabledCount + networkSummary.disabledCount)) * 100)}% of network`
-                      : '—'}
-                  </p>
-                </div>
-
-                {/* Inactive */}
-                <div className="flex-1 rounded-2xl border px-3.5 py-3 min-w-0 bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-                  <p className="text-2xl font-black text-slate-500 dark:text-slate-300 tabular-nums leading-none">{networkSummary.disabledCount}</p>
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1 leading-none">Inactive</p>
-                  <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-1 leading-none">branches off</p>
-                </div>
-
-                {/* At Target */}
-                <div className={`flex-1 rounded-2xl border px-3.5 py-3 min-w-0 ${
-                  networkSummary.fullCount > 0
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/60'
-                    : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
-                }`}>
-                  <p className={`text-2xl font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>{networkSummary.fullCount}</p>
-                  <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>At Target</p>
-                  <p className={`text-[10px] mt-1 leading-none tabular-nums ${networkSummary.fullCount > 0 ? 'text-emerald-500/60 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>
-                    {networkSummary.enabledCount > 0
-                      ? `${Math.round((networkSummary.fullCount / networkSummary.enabledCount) * 100)}% of active`
-                      : '—'}
-                  </p>
-                </div>
-
-                {/* Sync button (desktop) */}
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  title="Sync vault data"
-                  className="hidden sm:flex self-stretch items-center justify-center w-10 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all active:scale-95 disabled:opacity-50 shrink-0"
-                >
-                  <svg className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
+            {/* KPI stats row */}
+            <div className="flex items-center gap-0 divide-x divide-slate-100 dark:divide-slate-700/60">
+              <div className="pr-4">
+                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">{networkSummary.enabledCount}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Active</p>
+              </div>
+              <div className="px-4">
+                <p className="text-xl font-black text-slate-400 dark:text-slate-500 tabular-nums leading-none">{networkSummary.disabledCount}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Inactive</p>
+              </div>
+              <div className="pl-4">
+                <p className={`text-xl font-black tabular-nums leading-none ${networkSummary.fullCount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>{networkSummary.fullCount}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">At Target</p>
               </div>
             </div>
 
@@ -1020,28 +986,28 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
       </div>
 
       {/* Search + Branch selector + Filter + Sort */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search: name, balance, target, deposit */}
-        <div className="relative flex-1 min-w-[160px] group">
+      <div className="flex items-center gap-2">
+        {/* Search */}
+        <div className="relative flex-1 min-w-0 group">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-500 transition-colors pointer-events-none">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
           <input
             type="text"
-            placeholder="SEARCH NAME, BALANCE, TARGET…"
+            placeholder="Search branches…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value.toUpperCase())}
-            className="w-full h-10 pl-9 pr-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 uppercase placeholder:text-slate-300 placeholder:font-medium placeholder:normal-case focus:bg-white dark:focus:bg-slate-800 focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 transition-all outline-none"
+            className="w-full h-9 pl-8 pr-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase placeholder:text-slate-300 placeholder:font-normal placeholder:normal-case focus:border-slate-400 focus:ring-2 focus:ring-slate-400/10 transition-all outline-none"
           />
           {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           )}
         </div>
 
         {/* Branch multi-select */}
-        <div className="shrink-0 w-44">
+        <div className="shrink-0 hidden sm:block">
           <BranchCheckboxDropdown
             branches={branches}
             selectedIds={selectedBranchIds}
@@ -1050,7 +1016,7 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           />
         </div>
 
-        {/* Vault status filter dropdown — isolated component; open/close state does not touch parent */}
+        {/* Vault status filter */}
         <VaultFilterDropdown
           ref={filterDropdownRef}
           value={vaultFilter}
@@ -1059,25 +1025,15 @@ export const VaultFundHub: React.FC<VaultFundHubProps> = ({ branches, salesRepor
           playSound={playSound}
         />
 
-        {/* Sort dropdown — isolated component */}
-        <VaultSortDropdown
-          ref={sortDropdownRef}
-          value={sortMode}
-          onChange={setSortMode}
-          onCloseOther={() => filterDropdownRef.current?.close()}
-          playSound={playSound}
-        />
-
-        {/* Export CSV button */}
+        {/* Export CSV */}
         <button
           onClick={handleExportAllCSV}
           title="Export all vault transactions as CSV"
-          className="h-10 flex items-center gap-2 px-3.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold uppercase tracking-wide transition-all outline-none shrink-0 active:scale-95"
+          className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all active:scale-95"
         >
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
           </svg>
-          <span className="hidden sm:inline">Export All</span>
         </button>
       </div>
 

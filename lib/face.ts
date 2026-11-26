@@ -105,7 +105,7 @@ export async function extractDescriptors(source: HTMLImageElement | HTMLVideoEle
             .withFaceLandmarks()
             .withFaceDescriptors(),
         new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Detection timed out')), 8_000)
+            setTimeout(() => reject(new Error('Detection timed out')), 15_000)
         ),
     ]);
     if (!detections || detections.length === 0) return null;
@@ -136,7 +136,7 @@ export interface FaceMatch {
     distance: number;
 }
 
-const MATCH_THRESHOLD = parseFloat(import.meta.env.VITE_FACE_MATCH_THRESHOLD ?? '0.4');
+const MATCH_THRESHOLD = parseFloat(import.meta.env.VITE_FACE_MATCH_THRESHOLD ?? '0.6');
 
 /** Match a live descriptor against stored employee descriptors. */
 export async function matchFace(

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Flag, AlertTriangle, CheckCircle2, Clock, Users, Plus } from 'lucide-react';
+import { Flag, AlertTriangle, CheckCircle2, Clock, Users, Plus, Download, ChevronDown } from 'lucide-react';
 import { EmployeeComplaint, Employee, Branch } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { DB_TABLES, DB_COLUMNS } from '../../constants/db_schema';
@@ -128,6 +128,8 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
   complaints, employees, branches, onRefresh, isReadOnly, reviewerName = 'SUPERADMIN',
 }) => {
   const [filter, setFilter] = useState<FilterStatus>('PENDING');
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [reviewState, setReviewState] = useState<ReviewState | null>(null);
   const [reviewAction, setReviewAction] = useState<EmployeeComplaint['actionTaken']>('NONE');
   const [judgment, setJudgment] = useState('');
@@ -252,11 +254,30 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
     return Array.from(map.values());
   }, [filtered]);
 
+  const visibleGroups = groupedByEmployee.slice(0, visibleGroupCount);
+  const hasMore = visibleGroupCount < groupedByEmployee.length;
+
   // Reset visible count when filter or search changes
   useEffect(() => { setVisibleGroupCount(15); }, [filter, debouncedSearch]);
 
-  // Infinite scroll — load more groups when sentinel enters viewport
+  // Close filter dropdown on outside click
   useEffect(() => {
+    if (!filterDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setFilterDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [filterDropdownOpen]);
+
+  // Infinite scroll — load more groups when sentinel enters viewport.
+  // hasMore is a dependency so the observer is re-created when new data arrives,
+  // which re-fires immediately if the sentinel is already in the viewport
+  // (avoids the stuck spinner when complaints load asynchronously).
+  useEffect(() => {
+    if (!hasMore) return;
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -269,12 +290,44 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  const visibleGroups = groupedByEmployee.slice(0, visibleGroupCount);
-  const hasMore = visibleGroupCount < groupedByEmployee.length;
+  }, [hasMore]);
 
   const pendingCount = useMemo(() => complaints.filter(c => c.status === 'PENDING').length, [complaints]);
+
+  const handleExportCSV = () => {
+    const rows: string[][] = [
+      ['Employee', 'Branch', 'Report Type', 'Incident Date', 'Filed At', 'Filed By', 'Status', 'Action Taken', 'Judgment', 'Resolution', 'Reviewed By', 'Complaint ID'],
+    ];
+    [...filtered]
+      .sort((a, b) => b.filedAt.localeCompare(a.filedAt))
+      .forEach(c => {
+        const branchName = branches.find(b => b.id === c.branchId)?.name ?? c.branchId;
+        rows.push([
+          c.employeeName,
+          branchName,
+          REPORT_LABEL[c.reportType] ?? c.reportType,
+          c.incidentDate,
+          c.filedAt ? new Date(c.filedAt).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) : '',
+          c.filedByName,
+          c.status,
+          ACTION_LABEL_MAP[c.actionTaken] || c.actionTaken,
+          c.judgment ?? '',
+          c.resolution ?? '',
+          c.reviewedBy ?? '',
+          c.id,
+        ]);
+      });
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filterLabel = filter === 'ALL' ? 'all' : filter.toLowerCase();
+    a.download = `complaints-${filterLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    playSound('success');
+  };
 
   const handleDelete = async (id: string) => {
     setDeleteConfirmId(null);
@@ -475,6 +528,14 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
                 <span className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{pendingCount} pending</span>
               </div>
             )}
+            <button
+              onClick={handleExportCSV}
+              title="Export to CSV"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl border border-emerald-500/40 dark:border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/10 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wide transition-all active:scale-95"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
             {!isReadOnly && (
               <button
                 onClick={() => { setShowFileModal(true); playSound('click'); }}
@@ -542,22 +603,34 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
         {/* Divider — desktop only */}
         <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-        {/* Filter tabs — fully independent scrollable strip on mobile */}
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/50 rounded-2xl p-1 sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:rounded-none sm:dark:border-0 sm:p-0 sm:gap-1">
-          {FILTER_TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => { setFilter(tab.id); playSound('click'); }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all whitespace-nowrap shrink-0 ${
-                filter === tab.id
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Filter dropdown */}
+        <div ref={filterDropdownRef} className="relative shrink-0">
+          <button
+            onClick={() => { setFilterDropdownOpen(o => !o); playSound('click'); }}
+            className="flex items-center gap-2 h-9 px-3 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-500 transition-all whitespace-nowrap shadow-sm"
+          >
+            {FILTER_TABS.find(t => t.id === filter)?.label ?? filter}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${filterDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {filterDropdownOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden min-w-[140px] animate-in zoom-in-95 duration-150">
+              {FILTER_TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setFilter(tab.id); setFilterDropdownOpen(false); playSound('click'); }}
+                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                    filter === tab.id
+                      ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
       </div>
 
       {/* List — grouped by employee */}
@@ -677,12 +750,16 @@ export const ComplaintsHub: React.FC<ComplaintsHubProps> = ({
 
           {/* Infinite scroll sentinel */}
           <div ref={sentinelRef} className="h-1" />
-          {hasMore && (
+          {hasMore ? (
             <div className="py-4 flex justify-center">
               <div className="flex items-center gap-2 text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">
                 <div className="w-3.5 h-3.5 border-2 border-slate-300 dark:border-slate-600 border-t-slate-500 dark:border-t-slate-400 rounded-full animate-spin" />
                 Loading more...
               </div>
+            </div>
+          ) : (
+            <div className="py-6 flex justify-center">
+              <p className="text-xs font-semibold text-slate-300 dark:text-slate-600 uppercase tracking-widest">— End of list —</p>
             </div>
           )}
         </div>
