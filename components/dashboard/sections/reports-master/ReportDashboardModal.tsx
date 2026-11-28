@@ -124,11 +124,18 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
     setIsTogglingLock(true);
     try {
       const newBackfilled = !report.backfilled;
-      const { error } = await supabase
-        .from(DB_TABLES.SALES_REPORTS)
-        .update({ [DB_COLUMNS.BACKFILLED]: newBackfilled })
-        .eq(DB_COLUMNS.ID, report.id);
-      if (error) throw error;
+      if (newBackfilled) {
+        // Locking — trigger allows this (row is not yet locked)
+        const { error } = await supabase
+          .from(DB_TABLES.SALES_REPORTS)
+          .update({ [DB_COLUMNS.BACKFILLED]: true })
+          .eq(DB_COLUMNS.ID, report.id);
+        if (error) throw error;
+      } else {
+        // Unlocking — trigger blocks a plain UPDATE on a locked row, so use RPC
+        const { error } = await supabase.rpc('unlock_sales_report', { report_id: report.id });
+        if (error) throw error;
+      }
       setReport(r => ({ ...r, backfilled: newBackfilled }));
     } catch (err: any) {
       alert(`Failed to ${report.backfilled ? 'unlock' : 'lock'} report: ${err?.message ?? 'Unknown error'}`);

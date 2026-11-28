@@ -1133,7 +1133,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({ branches, salesRepor
                           </div>
                         )}
                         <div
-                          className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${rowBg} ${!isTop20 ? 'opacity-30' : !isTop10 ? 'opacity-60' : ''}`}
+                          className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${rowBg} ${!isTop20 ? 'opacity-30' : ''}`}
                           onClick={() => { setSelectedRankBranch(prev => prev === d.shortName ? null : d.shortName); playSound('click'); }}
                         >
                           {/* Rank */}
