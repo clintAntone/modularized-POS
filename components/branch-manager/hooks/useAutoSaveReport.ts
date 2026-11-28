@@ -122,7 +122,7 @@ export function useAutoSaveReport({
           // By the time this fires (3s debounce), todayVaultTxs has been refreshed via
           // realtime subscription or onRefresh(), so the latest deposit is already reflected.
           savedVaultProvision = todayVaultTxs
-            .filter(t => t.type === 'DEPOSIT')
+            .filter(t => t.type === 'DEPOSIT' && !(t.name ?? '').startsWith('VAULT DEPOSIT (REMITTANCE'))
             .reduce((s, t) => s + t.amount, 0);
         }
 

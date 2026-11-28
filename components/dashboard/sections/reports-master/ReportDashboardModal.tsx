@@ -78,14 +78,19 @@ export const ReportDashboardModal: React.FC<ReportDashboardModalProps> = ({ repo
       ]);
       if (error || !data) return;
 
-      const liveVaultProvision = (vaultTxData || []).reduce(
+      // Exclude REMITTANCE deposits — they are processed on a later date and should
+      // not count as daily vault provision (same exclusion used in RemittanceSection).
+      const nonRemittanceTxs = (vaultTxData || []).filter(
+        (t: any) => !(t.name ?? '').startsWith('VAULT DEPOSIT (REMITTANCE')
+      );
+      const liveVaultProvision = nonRemittanceTxs.reduce(
         (s: number, t: any) => s + Number(t[DB_COLUMNS.AMOUNT] ?? 0), 0
       );
       const dbVaultProvision = Number(data[DB_COLUMNS.TOTAL_VAULT_PROVISION] ?? 0);
       const resolvedVaultProvision = Math.max(liveVaultProvision, dbVaultProvision);
       const resolvedNetRoi = Number(data[DB_COLUMNS.NET_ROI] ?? 0);
 
-      setVaultDepositTxs(vaultTxData || []);
+      setVaultDepositTxs(nonRemittanceTxs);
       setReport({
         id: data[DB_COLUMNS.ID],
         branchId: data[DB_COLUMNS.BRANCH_ID],
